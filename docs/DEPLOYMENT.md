@@ -18,10 +18,11 @@
 1. Connect GitHub repo (e.g. `ak2hay/cullinos`).
 2. **Root Directory** must be the **repo root** (leave blank) — not `apps/api`.
 3. Builder: **Railpack** — see [`railpack.json`](railpack.json), [`railway.toml`](railway.toml), [`railway.json`](railway.json).
-4. If prepare still fails with “No start command detected”, set env `RAILPACK_START_CMD=node index.js` and redeploy (clear build cache).
-5. Set variables from `secrets-export.txt` (or your password manager).
-4. Add custom domain `api.cullinos.com`.
-5. Set `API_PORT` = `${{PORT}}` if not using default PORT binding (API uses `PORT` or `API_PORT`).
+4. **Build command** must be `npm run build:api` (not `npm run build` — that builds all 18 apps and fails without Prisma client).
+5. If prepare still fails with “No start command detected”, set env `RAILPACK_START_CMD=node index.js` and redeploy (clear build cache).
+6. Set variables from `secrets-export.txt` (or your password manager).
+7. Add custom domain `api.cullinos.com`.
+8. Set `API_PORT` = `${{PORT}}` if not using default PORT binding (API uses `PORT` or `API_PORT`).
 
 ## Vercel (frontends)
 

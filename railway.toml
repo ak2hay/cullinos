@@ -1,5 +1,6 @@
 [build]
 builder = "RAILPACK"
+buildCommand = "npm run build:api"
 
 [deploy]
 startCommand = "node index.js"

@@ -3,11 +3,8 @@
   "provider": "node",
   "steps": {
     "build": {
-      "commands": [
-        "...",
-        "npm run db:generate",
-        "npx turbo run build --filter=@cullinos/api --no-cache"
-      ]
+      "inputs": [{ "step": "install" }],
+      "commands": ["npm run build:api"]
     }
   },
   "deploy": {
