@@ -23,7 +23,9 @@
     "pos:dev": "turbo run dev --filter=@cullinos/pos",
     "kds:dev": "turbo run dev --filter=@cullinos/kds",
     "waiter:dev": "turbo run dev --filter=@cullinos/waiter",
-    "customer:dev": "turbo run dev --filter=@cullinos/customer"
+    "customer:dev": "turbo run dev --filter=@cullinos/customer",
+    "build:api": "npm run db:generate && npx turbo run build --filter=@cullinos/api",
+    "start": "node apps/api/dist/main.js"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

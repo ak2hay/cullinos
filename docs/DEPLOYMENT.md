@@ -16,7 +16,7 @@
 ## Railway (API)
 
 1. Connect GitHub repo `Rkyves/CULLINOS`.
-2. Railway reads [`railway.toml`](railway.toml) at repo root.
+2. Railway uses **Railpack** — see [`railpack.json`](railpack.json) and [`railway.toml`](railway.toml) at repo root.
 3. Set variables from `secrets-export.txt` (or your password manager).
 4. Add custom domain `api.cullinos.com`.
 5. Set `API_PORT` = `${{PORT}}` if not using default PORT binding (API uses `PORT` or `API_PORT`).
