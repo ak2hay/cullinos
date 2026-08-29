@@ -1,6 +1,5 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm ci && npm run db:generate && npx turbo run build --filter=@cullinos/api"
 
 [deploy]
 startCommand = "node apps/api/dist/main.js"
