@@ -15,6 +15,7 @@ cullinos/
 │   ├── customer/      QR + online ordering storefront
 │   ├── management/    Enterprise multi-outlet console
 │   ├── super-admin/   Rkyves platform admin
+│   ├── web/           Marketing website (cullinos.com)
 │   └── gateway/       Electron Local Gateway + offline sync
 ├── packages/
 │   ├── database/      Prisma schema (~80 models), migrations, seed
@@ -86,6 +87,7 @@ npm run db:seed
 | KDS | `npm run kds:dev` | http://localhost:5175 |
 | Waiter | `npm run waiter:dev` | http://localhost:5176 |
 | Customer | `npm run customer:dev` | http://localhost:5177 |
+| Web | `npm run web:dev` | http://localhost:5180 |
 
 Or start everything: `npm run dev`
 

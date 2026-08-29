@@ -25,6 +25,7 @@
     "kds:dev": "turbo run dev --filter=@cullinos/kds",
     "waiter:dev": "turbo run dev --filter=@cullinos/waiter",
     "customer:dev": "turbo run dev --filter=@cullinos/customer",
+    "web:dev": "turbo run dev --filter=@cullinos/web",
     "build:api": "npm run db:generate && npx turbo run build --filter=@cullinos/api",
     "start": "node index.js"
   },

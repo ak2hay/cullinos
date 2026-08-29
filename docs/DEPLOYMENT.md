@@ -12,6 +12,7 @@
 | Super Admin | Vercel | `platform.cullinos.com` |
 | Customer | Vercel | `order.cullinos.com` |
 | Waiter | Vercel | `waiter.cullinos.com` |
+| Marketing | Vercel | `cullinos.com` |
 
 ## Railway (API)
 
@@ -40,6 +41,18 @@ VITE_API_URL=https://api.cullinos.com/api/v1
 VITE_WS_URL=https://api.cullinos.com
 ```
 
+**Marketing site (`apps/web`) only:**
+```
+NEXT_PUBLIC_SITE_URL=https://cullinos.com
+NEXT_PUBLIC_ADMIN_URL=https://admin.cullinos.com
+NEXT_PUBLIC_REGISTER_URL=https://admin.cullinos.com/register
+RESEND_API_KEY=<optional — enables contact form email>
+CONTACT_TO_EMAIL=hello@rkyves.com
+CONTACT_FROM_EMAIL=onboarding@resend.dev
+```
+
+Add custom domains `cullinos.com` and `www.cullinos.com` (redirect www → apex).
+
 ## Database
 
 From repo root with `.env` pointing at Neon:
@@ -55,3 +68,4 @@ npm run db:seed
 - `GET https://api.cullinos.com/api/v1/health/db`
 - `https://api.cullinos.com/docs` — Swagger
 - Register at `https://admin.cullinos.com/register`
+- Marketing site at `https://cullinos.com`
