@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd ../.. && npm ci && npx turbo run build --filter=@cullinos/management",
+  "outputDirectory": "dist",
+  "installCommand": "cd ../.. && npm ci",
+  "framework": "vite",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}

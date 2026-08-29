@@ -15,3 +15,5 @@ coverage
 out
 electron-dist
 release
+secrets-export.txt
+local-secrets.txt
