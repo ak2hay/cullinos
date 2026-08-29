@@ -24,10 +24,9 @@ export function MarketingImage({
   sizes,
 }: MarketingImageProps) {
   const src = getMarketingImage(imageKey);
-
-  const mockupClassName = className?.includes('object-cover')
+  const containClass = className?.includes('object-cover')
     ? className.replace('object-cover', 'object-contain p-3')
-    : className;
+    : className ?? 'object-contain p-3';
 
   if (isRemoteImage(src)) {
     return (
@@ -44,29 +43,28 @@ export function MarketingImage({
     );
   }
 
+  // Bundled SVGs: use native img to avoid Next Image SVG edge cases on Vercel
   if (fill) {
     return (
-      <Image
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
         src={src}
         alt={alt}
-        className={mockupClassName ?? 'object-contain p-3'}
-        fill
-        sizes={sizes}
-        priority={priority}
-        unoptimized
+        className={`absolute inset-0 h-full w-full ${containClass}`}
+        loading={priority ? 'eager' : 'lazy'}
       />
     );
   }
 
   return (
-    <Image
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={src}
       alt={alt}
-      className={mockupClassName ?? className}
+      className={containClass}
       width={width ?? 400}
       height={height ?? 280}
-      priority={priority}
-      unoptimized
+      loading={priority ? 'eager' : 'lazy'}
     />
   );
 }

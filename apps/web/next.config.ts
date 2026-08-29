@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com', pathname: '/**' },
     ],
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   webpack: (config) => {
     config.resolve.alias = {
@@ -14,6 +17,12 @@ const nextConfig: NextConfig = {
       '@cullinos/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
       '@cullinos/ui': path.resolve(__dirname, '../../packages/ui/src/index.ts'),
     };
+
+    config.module.rules.push({
+      test: /\.svg$/i,
+      type: 'asset/resource',
+    });
+
     return config;
   },
 };
