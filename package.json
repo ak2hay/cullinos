@@ -2,6 +2,7 @@
   "name": "cullinos",
   "version": "0.1.0",
   "private": true,
+  "main": "index.js",
   "description": "Cullinos — Restaurant Operating System by Rkyves",
   "workspaces": [
     "apps/*",
@@ -25,7 +26,7 @@
     "waiter:dev": "turbo run dev --filter=@cullinos/waiter",
     "customer:dev": "turbo run dev --filter=@cullinos/customer",
     "build:api": "npm run db:generate && npx turbo run build --filter=@cullinos/api",
-    "start": "node apps/api/dist/main.js"
+    "start": "node index.js"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.railpack.com",
+  "provider": "node",
   "steps": {
     "build": {
-      "inputs": [{ "step": "install" }],
       "commands": [
         "...",
         "npm run db:generate",
@@ -11,7 +11,6 @@
     }
   },
   "deploy": {
-    "inputs": [{ "step": "build" }],
-    "startCommand": "node apps/api/dist/main.js"
+    "startCommand": "node index.js"
   }
 }
