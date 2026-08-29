@@ -1,0 +1,17 @@
+node_modules
+dist
+build
+.turbo
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+coverage
+.idea
+.vscode
+*.tsbuildinfo
+.next
+out
+electron-dist
+release

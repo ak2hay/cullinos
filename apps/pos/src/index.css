@@ -1,0 +1,41 @@
+@import 'tailwindcss';
+@config '../tailwind.config.js';
+
+@theme {
+  --color-brand-primary: #d4a017;
+  --color-brand-primary-dark: #b8860b;
+  --color-brand-secondary: #1a1a2e;
+  --color-brand-accent: #f5a623;
+  --color-bg-primary: #0f0f1a;
+  --color-bg-secondary: #1a1a2e;
+  --color-bg-card: #16213e;
+  --color-bg-elevated: #1f2937;
+  --color-text-primary: #f9fafb;
+  --color-text-secondary: #9ca3af;
+  --color-text-muted: #6b7280;
+  --color-status-success: #10b981;
+  --color-status-warning: #f59e0b;
+  --color-status-error: #ef4444;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+input,
+textarea {
+  user-select: text;
+}

@@ -1,0 +1,46 @@
+{
+  "name": "@cullinos/gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cullinos Local Gateway — Electron offline sync hub",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsc && node -e \"require('fs').copyFileSync('src/preload.js','dist/preload.js')\" && electron .",
+    "build": "tsc && node -e \"require('fs').copyFileSync('src/preload.js','dist/preload.js')\"",
+    "start": "electron .",
+    "lint": "echo 'lint ok'",
+    "test": "echo 'test ok'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "http-proxy-middleware": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.7.2"
+  },
+  "build": {
+    "appId": "com.rkyves.cullinos.gateway",
+    "productName": "Cullinos Local Gateway",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

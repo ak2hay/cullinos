@@ -1,0 +1,38 @@
+{
+  "name": "cullinos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cullinos — Restaurant Operating System by Rkyves",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "db:generate": "turbo run db:generate --filter=@cullinos/database",
+    "db:push": "turbo run db:push --filter=@cullinos/database",
+    "db:migrate": "turbo run db:migrate --filter=@cullinos/database",
+    "db:seed": "turbo run db:seed --filter=@cullinos/database",
+    "api:dev": "turbo run dev --filter=@cullinos/api",
+    "admin:dev": "turbo run dev --filter=@cullinos/admin",
+    "pos:dev": "turbo run dev --filter=@cullinos/pos",
+    "kds:dev": "turbo run dev --filter=@cullinos/kds",
+    "waiter:dev": "turbo run dev --filter=@cullinos/waiter",
+    "customer:dev": "turbo run dev --filter=@cullinos/customer"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "packageManager": "npm@10.9.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
