@@ -1,7 +1,20 @@
 import { Injectable } from "@nestjs/common";
-import { calculateGst } from "@cullinos/tax-engine";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WebsocketGateway } from "../../websocket/websocket.gateway";
+
+type TaxLineResult = { name: string; rate: number; amount: number; type?: string };
+
+function calculateOrderTax(subtotal: number): { taxTotal: number; total: number; taxLines: TaxLineResult[] } {
+  const rate = 5;
+  const cgst = subtotal * (rate / 200);
+  const sgst = subtotal * (rate / 200);
+  const taxLines: TaxLineResult[] = [
+    { name: "CGST", rate: rate / 2, amount: cgst, type: "CGST" },
+    { name: "SGST", rate: rate / 2, amount: sgst, type: "SGST" },
+  ];
+  const taxTotal = cgst + sgst;
+  return { taxTotal, total: subtotal + taxTotal, taxLines };
+}
 
 type CreateOrderDto = {
   outletId: string;
@@ -47,11 +60,7 @@ export class OrdersService {
     const orderNumber = String(count + 1);
 
     const subtotal = dto.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-    const taxResult = calculateGst(
-      dto.items.map((i) => ({ amount: i.unitPrice * i.quantity })),
-      [{ name: "GST", rate: 5, type: "CGST" }],
-      false
-    );
+    const taxResult = calculateOrderTax(subtotal);
 
     const order = await this.prisma.order.create({
       data: {

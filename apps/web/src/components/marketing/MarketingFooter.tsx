@@ -30,9 +30,9 @@ const columns = [
 ];
 
 const socialLinks = [
-  { label: 'LinkedIn', href: '#' },
-  { label: 'Twitter', href: '#' },
-  { label: 'Instagram', href: '#' },
+  { label: 'LinkedIn', href: '#', icon: 'in' },
+  { label: 'Twitter', href: '#', icon: 'X' },
+  { label: 'Instagram', href: '#', icon: 'ig' },
 ];
 
 export function MarketingFooter() {
@@ -48,9 +48,10 @@ export function MarketingFooter() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-text-secondary transition hover:text-text-primary"
+                      className="group relative inline-block text-sm text-text-secondary transition hover:text-text-primary"
                     >
                       {link.label}
+                      <span className="absolute -bottom-0.5 left-0 h-px w-0 bg-brand-gold transition-all duration-300 group-hover:w-full" />
                     </Link>
                   </li>
                 ))}
@@ -76,9 +77,9 @@ export function MarketingFooter() {
                 key={social.label}
                 href={social.href}
                 aria-label={social.label}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-bg-dark text-xs text-text-inverse transition hover:bg-brand-gold"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-border-light bg-bg-card text-[10px] font-semibold uppercase text-text-secondary transition hover:border-brand-gold hover:bg-brand-gold hover:text-white"
               >
-                {social.label[0]}
+                {social.icon}
               </a>
             ))}
           </div>
@@ -87,10 +88,10 @@ export function MarketingFooter() {
               © {new Date().getFullYear()} {CULLINOS_BRAND.name}. {CULLINOS_BRAND.poweredBy}
             </p>
             <div className="mt-2 flex gap-4 text-xs text-text-muted">
-              <Link href="/privacy" className="hover:text-text-primary">
+              <Link href="/privacy" className="transition hover:text-text-primary">
                 Privacy
               </Link>
-              <Link href="/terms" className="hover:text-text-primary">
+              <Link href="/terms" className="transition hover:text-text-primary">
                 Terms
               </Link>
             </div>

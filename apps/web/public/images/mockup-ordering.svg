@@ -1,18 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" fill="none">
-  <rect width="400" height="280" rx="12" fill="#FAF7F2"/>
-  <rect x="12" y="12" width="376" height="48" rx="8" fill="#FFFFFF" stroke="#EBE4D8"/>
-  <text x="28" y="42" fill="#2C2416" font-family="system-ui,sans-serif" font-size="14" font-weight="600">Your Restaurant Menu</text>
-  <rect x="12" y="72" width="180" height="100" rx="8" fill="#FFFFFF" stroke="#EBE4D8"/>
-  <rect x="24" y="84" width="156" height="60" rx="6" fill="#EDE6D6"/>
-  <text x="24" y="162" fill="#2C2416" font-family="system-ui,sans-serif" font-size="12" font-weight="600">Paneer Tikka</text>
-  <text x="140" y="162" fill="#B8956B" font-family="system-ui,sans-serif" font-size="12">¹280</text>
-  <rect x="204" y="72" width="180" height="100" rx="8" fill="#FFFFFF" stroke="#EBE4D8"/>
-  <rect x="216" y="84" width="156" height="60" rx="6" fill="#EDE6D6"/>
-  <text x="204" y="162" fill="#2C2416" font-family="system-ui,sans-serif" font-size="12" font-weight="600">Chicken Biryani</text>
-  <text x="332" y="162" fill="#B8956B" font-family="system-ui,sans-serif" font-size="12">¹350</text>
-  <rect x="12" y="188" width="376" height="80" rx="8" fill="#0F0F1A"/>
-  <text x="28" y="218" fill="#9CA3AF" font-family="system-ui,sans-serif" font-size="11">Cart · 2 items</text>
-  <text x="28" y="244" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="18" font-weight="600">¹630</text>
-  <rect x="280" y="212" width="96" height="36" rx="18" fill="#D4A017"/>
-  <text x="298" y="235" fill="#0F0F1A" font-family="system-ui,sans-serif" font-size="12" font-weight="600">Checkout</text>
+  <defs>
+    <linearGradient id="order-bg" x1="0" y1="0" x2="400" y2="280" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#faf7f2"/>
+      <stop offset="1" stop-color="#f5f0e8"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="280" rx="16" fill="url(#order-bg)"/>
+  <rect x="16" y="16" width="368" height="248" rx="12" fill="#ffffff" stroke="#ebe4d8"/>
+  <rect x="28" y="28" width="344" height="40" rx="8" fill="#f5f0e8"/>
+  <text x="44" y="54" fill="#2c2416" font-family="Georgia,serif" font-size="14" font-weight="600">Order Online</text>
+  <rect x="28" y="80" width="100" height="72" rx="8" fill="#faf7f2" stroke="#ebe4d8"/>
+  <rect x="36" y="88" width="84" height="48" rx="6" fill="#ede6d6"/>
+  <text x="44" y="152" fill="#2c2416" font-family="system-ui,sans-serif" font-size="10">Butter Chicken</text>
+  <rect x="140" y="80" width="100" height="72" rx="8" fill="#faf7f2" stroke="#ebe4d8"/>
+  <rect x="148" y="88" width="84" height="48" rx="6" fill="#ede6d6"/>
+  <text x="156" y="152" fill="#2c2416" font-family="system-ui,sans-serif" font-size="10">Paneer Tikka</text>
+  <rect x="252" y="80" width="100" height="72" rx="8" fill="#faf7f2" stroke="#c4a052" stroke-width="2"/>
+  <rect x="260" y="88" width="84" height="48" rx="6" fill="#ede6d6"/>
+  <text x="268" y="152" fill="#2c2416" font-family="system-ui,sans-serif" font-size="10">Biryani</text>
+  <rect x="28" y="168" width="220" height="80" rx="8" fill="#faf7f2" stroke="#ebe4d8"/>
+  <text x="44" y="192" fill="#9a8b78" font-family="system-ui,sans-serif" font-size="10">Cart · 3 items</text>
+  <text x="44" y="220" fill="#2c2416" font-family="Georgia,serif" font-size="20" font-weight="600">?840</text>
+  <rect x="260" y="188" width="112" height="44" rx="22" fill="#c4a052"/>
+  <text x="284" y="215" fill="#ffffff" font-family="system-ui,sans-serif" font-size="11" font-weight="600">Checkout</text>
 </svg>

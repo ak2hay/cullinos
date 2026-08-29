@@ -3,6 +3,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { Inter, JetBrains_Mono, Playfair_Display } from 'next/font/google';
 import { MarketingNav } from '@/components/marketing/MarketingNav';
 import { MarketingFooter } from '@/components/marketing/MarketingFooter';
+import { MarketingProviders } from '@/components/marketing/MarketingProviders';
 import { OrganizationJsonLd } from '@/components/marketing/JsonLd';
 import { createMetadata } from '@/lib/metadata';
 import './globals.css';
@@ -31,10 +32,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <OrganizationJsonLd />
       </head>
-      <body className="bg-bg-primary text-text-primary">
-        <MarketingNav />
-        <main>{children}</main>
-        <MarketingFooter />
+      <body className="bg-bg-primary text-text-primary antialiased">
+        <MarketingProviders>
+          <MarketingNav />
+          <main>{children}</main>
+          <MarketingFooter />
+        </MarketingProviders>
         <Analytics />
       </body>
     </html>

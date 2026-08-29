@@ -7,7 +7,6 @@ export class CouponsService {
   list(orgId: string) {
     return this.prisma.coupon.findMany({
       where: { organizationId: orgId },
-      orderBy: { createdAt: "desc" },
       take: 200,
     });
   }

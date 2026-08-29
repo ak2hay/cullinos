@@ -16,5 +16,5 @@
     "esModuleInterop": true
   },
   "include": ["src/**/*"],
-  "exclude": ["src/**/dto/**", "src/modules/health/**", "src/modules/hospitality/**", "src/common/guards/**"]
+  "exclude": ["src/**/dto/**", "src/modules/health/**", "src/modules/hospitality/**", "src/common/guards/**", "src/events/**"]
 }

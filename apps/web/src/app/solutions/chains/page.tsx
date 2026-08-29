@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ComingSoonCard } from '@/components/marketing/ComingSoonCard';
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
@@ -64,13 +65,7 @@ export default function ChainsSolutionPage() {
         </p>
       </Section>
       <Section title="Customer stories">
-        <div className="rounded-xl border border-dashed border-border bg-bg-elevated p-8 text-center text-text-secondary">
-          Franchise case studies coming soon.{' '}
-          <Link href="/contact" className="text-brand-gold hover:underline">
-            Talk to our team
-          </Link>{' '}
-          about multi-outlet rollout.
-        </div>
+        <ComingSoonCard message="Franchise case studies coming soon. Talk to our team about multi-outlet rollout." />
       </Section>
       <CTABanner
         primaryLabel="Contact sales"

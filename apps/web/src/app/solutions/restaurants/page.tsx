@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ComingSoonCard } from '@/components/marketing/ComingSoonCard';
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
@@ -77,13 +78,7 @@ export default function RestaurantsSolutionPage() {
         </p>
       </Section>
       <Section title="Customer stories">
-        <div className="rounded-xl border border-dashed border-border bg-bg-elevated p-8 text-center text-text-secondary">
-          Case studies coming soon. Be among our first restaurant partners —{' '}
-          <Link href="/contact" className="text-brand-gold hover:underline">
-            get in touch
-          </Link>
-          .
-        </div>
+        <ComingSoonCard message="Case studies coming soon. Be among our first restaurant partners and share your story with us." />
       </Section>
       <CTABanner />
     </>

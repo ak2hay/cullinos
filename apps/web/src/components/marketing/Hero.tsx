@@ -1,5 +1,9 @@
+'use client';
+
 import Link from 'next/link';
+import { motion, useReducedMotion } from 'framer-motion';
 import { getRegisterUrl } from '@/lib/urls';
+import { easeOut } from '@/components/marketing/motion/motionVariants';
 
 interface HeroProps {
   eyebrow?: string;
@@ -16,9 +20,16 @@ export function Hero({
   primaryCta = { label: 'Start free trial', href: getRegisterUrl() },
   secondaryCta = { label: 'Book a demo', href: '/contact' },
 }: HeroProps) {
+  const prefersReducedMotion = useReducedMotion();
+
   return (
     <section className="border-b border-border-light bg-bg-elevated">
-      <div className="mx-auto max-w-7xl px-6 py-16 md:py-24 lg:px-10">
+      <motion.div
+        className="mx-auto max-w-7xl px-6 py-16 md:py-24 lg:px-10"
+        initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: prefersReducedMotion ? 0.01 : 0.6, ease: easeOut }}
+      >
         {eyebrow && (
           <p className="mb-4 text-xs font-medium tracking-[0.2em] uppercase text-brand-gold">
             {eyebrow}
@@ -38,7 +49,7 @@ export function Hero({
             </Link>
           )}
         </div>
-      </div>
+      </motion.div>
     </section>
   );
 }

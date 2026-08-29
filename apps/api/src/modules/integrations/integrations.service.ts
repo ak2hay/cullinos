@@ -7,7 +7,6 @@ export class IntegrationsService {
   list(orgId: string) {
     return this.prisma.integration.findMany({
       where: { organizationId: orgId },
-      orderBy: { createdAt: "desc" },
       take: 200,
     });
   }

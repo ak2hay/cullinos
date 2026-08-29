@@ -7,7 +7,6 @@ export class PosService {
   list(orgId: string) {
     return this.prisma.order.findMany({
       where: { organizationId: orgId },
-      orderBy: { createdAt: "desc" },
       take: 200,
     });
   }

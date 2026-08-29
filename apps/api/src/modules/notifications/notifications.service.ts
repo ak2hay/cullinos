@@ -7,7 +7,6 @@ export class NotificationsService {
   list(orgId: string) {
     return this.prisma.notification.findMany({
       where: { organizationId: orgId },
-      orderBy: { createdAt: "desc" },
       take: 200,
     });
   }

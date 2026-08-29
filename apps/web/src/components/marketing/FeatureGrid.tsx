@@ -1,14 +1,10 @@
+'use client';
+
 import { FEATURE_CATEGORY_IDS, FEATURE_CATEGORY_IMAGES, type MarketingImageKey } from '@cullinos/shared';
 import { MarketingImage } from '@/components/marketing/MarketingImage';
-
-const icons: Record<string, string> = {
-  pos: '₹',
-  kds: '◫',
-  waiter: '☰',
-  ordering: '⎘',
-  admin: '▦',
-  enterprise: '◎',
-};
+import { Reveal } from '@/components/marketing/motion/Reveal';
+import { Stagger, StaggerItem } from '@/components/marketing/motion/Stagger';
+import { MarketingCard } from '@/components/marketing/MarketingCard';
 
 interface ProductModule {
   title: string;
@@ -18,20 +14,19 @@ interface ProductModule {
 
 export function FeatureGrid({ items }: { items: readonly ProductModule[] }) {
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <Stagger className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((item) => (
-        <article
-          key={item.title}
-          className="rounded-2xl border border-border-light bg-bg-card p-6 shadow-card transition hover:shadow-soft"
-        >
-          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-bg-secondary font-serif text-lg text-brand-gold">
-            {icons[item.icon] ?? '•'}
-          </div>
-          <h3 className="font-serif text-lg font-medium">{item.title}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-text-secondary">{item.description}</p>
-        </article>
+        <StaggerItem key={item.title}>
+          <MarketingCard className="p-6">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-bg-secondary font-serif text-lg text-brand-gold">
+              {item.title.charAt(0)}
+            </div>
+            <h3 className="font-serif text-lg font-medium">{item.title}</h3>
+            <p className="mt-2 text-sm leading-relaxed text-text-secondary">{item.description}</p>
+          </MarketingCard>
+        </StaggerItem>
       ))}
-    </div>
+    </Stagger>
   );
 }
 
@@ -54,43 +49,44 @@ export function FeatureSections({ sections }: { sections: readonly FeatureSectio
         const imageKey = (FEATURE_CATEGORY_IMAGES[section.title] ?? 'mockupAdmin') as MarketingImageKey;
 
         return (
-          <div key={section.title} id={sectionId} className="scroll-mt-24">
-            <div className="mb-8 grid gap-6 lg:grid-cols-[1fr_1.2fr] lg:items-center">
-              <div>
-                <h3 className="font-serif text-2xl font-medium capitalize text-brand-gold">{section.title}</h3>
-                <p className="mt-2 text-sm text-text-secondary">
-                  {section.items[0]?.description}
-                </p>
+          <Reveal key={section.title} as="section">
+            <div id={sectionId} className="scroll-mt-24">
+              <div className="mb-8 grid gap-6 lg:grid-cols-[1fr_1.2fr] lg:items-center">
+                <div>
+                  <h3 className="font-serif text-2xl font-medium capitalize text-brand-gold">{section.title}</h3>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    {section.items[0]?.description}
+                  </p>
+                </div>
+                <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-border-light bg-bg-elevated shadow-card">
+                  <MarketingImage
+                    imageKey={imageKey}
+                    alt={`${section.title} module`}
+                    fill
+                    className="object-contain p-3"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                  />
+                </div>
               </div>
-              <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-border-light bg-bg-dark shadow-card">
-                <MarketingImage
-                  imageKey={imageKey}
-                  alt={`${section.title} module`}
-                  fill
-                  className="object-cover object-top"
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                />
-              </div>
+              <Stagger className="grid gap-4 sm:grid-cols-2">
+                {section.items.map((item) => (
+                  <StaggerItem key={item.name}>
+                    <MarketingCard className="p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <h4 className="font-medium">{item.name}</h4>
+                        {item.status === 'coming_soon' && (
+                          <span className="shrink-0 rounded-full bg-bg-secondary px-2 py-0.5 text-xs text-brand-gold">
+                            Coming soon
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm leading-relaxed text-text-secondary">{item.description}</p>
+                    </MarketingCard>
+                  </StaggerItem>
+                ))}
+              </Stagger>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {section.items.map((item) => (
-                <article
-                  key={item.name}
-                  className="rounded-2xl border border-border-light bg-bg-card p-5 shadow-card"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <h4 className="font-medium">{item.name}</h4>
-                    {item.status === 'coming_soon' && (
-                      <span className="shrink-0 rounded-full bg-bg-secondary px-2 py-0.5 text-xs text-brand-gold">
-                        Coming soon
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-2 text-sm leading-relaxed text-text-secondary">{item.description}</p>
-                </article>
-              ))}
-            </div>
-          </div>
+          </Reveal>
         );
       })}
     </div>

@@ -7,7 +7,6 @@ export class InventoryService {
   list(orgId: string) {
     return this.prisma.inventoryItem.findMany({
       where: { organizationId: orgId },
-      orderBy: { createdAt: "desc" },
       take: 200,
     });
   }

@@ -1,22 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" fill="none">
-  <rect width="400" height="280" rx="12" fill="#0F0F1A"/>
-  <rect x="12" y="12" width="120" height="256" rx="8" fill="#1A1A2E"/>
-  <text x="28" y="40" fill="#D4A017" font-family="system-ui,sans-serif" font-size="12" font-weight="600">Admin</text>
-  <rect x="24" y="56" width="96" height="28" rx="6" fill="#16213E"/>
-  <text x="36" y="75" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="10">Dashboard</text>
-  <rect x="24" y="92" width="96" height="28" rx="6" fill="#D4A017"/>
-  <text x="36" y="111" fill="#0F0F1A" font-family="system-ui,sans-serif" font-size="10">Menu</text>
-  <rect x="24" y="128" width="96" height="28" rx="6" fill="#16213E"/>
-  <text x="36" y="147" fill="#9CA3AF" font-family="system-ui,sans-serif" font-size="10">Inventory</text>
-  <rect x="24" y="164" width="96" height="28" rx="6" fill="#16213E"/>
-  <text x="36" y="183" fill="#9CA3AF" font-family="system-ui,sans-serif" font-size="10">Reports</text>
-  <rect x="144" y="12" width="244" height="120" rx="8" fill="#16213E"/>
-  <text x="160" y="40" fill="#9CA3AF" font-family="system-ui,sans-serif" font-size="11">Today's sales</text>
-  <text x="160" y="72" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="28" font-weight="600">¹48,250</text>
-  <text x="160" y="96" fill="#10B981" font-family="system-ui,sans-serif" font-size="11">+12% vs yesterday</text>
-  <rect x="144" y="144" width="244" height="124" rx="8" fill="#16213E"/>
-  <text x="160" y="172" fill="#9CA3AF" font-family="system-ui,sans-serif" font-size="11">Recent orders</text>
-  <text x="160" y="196" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="11">#1042 · Dine-in · ¹1,240</text>
-  <text x="160" y="216" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="11">#1041 · Online · ¹680</text>
-  <text x="160" y="236" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="11">#1040 · Takeaway · ¹420</text>
+  <defs>
+    <linearGradient id="admin-bg" x1="0" y1="0" x2="400" y2="280" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f5f0e8"/>
+      <stop offset="1" stop-color="#ede6d6"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="280" rx="16" fill="url(#admin-bg)"/>
+  <rect x="16" y="16" width="80" height="248" rx="10" fill="#ffffff" stroke="#ebe4d8"/>
+  <rect x="28" y="28" width="56" height="8" rx="4" fill="#c4a052"/>
+  <rect x="28" y="48" width="56" height="6" rx="3" fill="#ebe4d8"/>
+  <rect x="28" y="62" width="56" height="6" rx="3" fill="#ebe4d8"/>
+  <rect x="28" y="76" width="56" height="6" rx="3" fill="#ebe4d8"/>
+  <rect x="28" y="90" width="56" height="6" rx="3" fill="#f5f0e8"/>
+  <rect x="108" y="16" width="276" height="248" rx="10" fill="#ffffff" stroke="#ebe4d8"/>
+  <text x="124" y="44" fill="#2c2416" font-family="Georgia,serif" font-size="14" font-weight="600">Admin Dashboard</text>
+  <rect x="124" y="60" width="72" height="56" rx="8" fill="#faf7f2" stroke="#ebe4d8"/>
+  <text x="136" y="82" fill="#9a8b78" font-family="system-ui,sans-serif" font-size="8">Today sales</text>
+  <text x="136" y="104" fill="#c4a052" font-family="Georgia,serif" font-size="16" font-weight="600">?42K</text>
+  <rect x="208" y="60" width="72" height="56" rx="8" fill="#faf7f2" stroke="#ebe4d8"/>
+  <text x="220" y="82" fill="#9a8b78" font-family="system-ui,sans-serif" font-size="8">Orders</text>
+  <text x="220" y="104" fill="#2c2416" font-family="Georgia,serif" font-size="16" font-weight="600">186</text>
+  <rect x="292" y="60" width="72" height="56" rx="8" fill="#faf7f2" stroke="#ebe4d8"/>
+  <text x="304" y="82" fill="#9a8b78" font-family="system-ui,sans-serif" font-size="8">Tables</text>
+  <text x="304" y="104" fill="#2c2416" font-family="Georgia,serif" font-size="16" font-weight="600">24/30</text>
+  <rect x="124" y="132" width="240" height="116" rx="8" fill="#faf7f2" stroke="#ebe4d8"/>
+  <polyline points="140,220 168,190 196,200 224,170 252,180 280,150 308,160 336,140" fill="none" stroke="#c4a052" stroke-width="2" stroke-linecap="round"/>
+  <text x="124" y="148" fill="#9a8b78" font-family="system-ui,sans-serif" font-size="9">Weekly revenue</text>
 </svg>

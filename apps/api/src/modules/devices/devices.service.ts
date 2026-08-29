@@ -7,7 +7,6 @@ export class DevicesService {
   list(orgId: string) {
     return this.prisma.device.findMany({
       where: { organizationId: orgId },
-      orderBy: { createdAt: "desc" },
       take: 200,
     });
   }

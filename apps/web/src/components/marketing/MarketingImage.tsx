@@ -25,6 +25,10 @@ export function MarketingImage({
 }: MarketingImageProps) {
   const src = getMarketingImage(imageKey);
 
+  const mockupClassName = className?.includes('object-cover')
+    ? className.replace('object-cover', 'object-contain p-3')
+    : className;
+
   if (isRemoteImage(src)) {
     return (
       <Image
@@ -41,17 +45,28 @@ export function MarketingImage({
   }
 
   if (fill) {
-    return <Image src={src} alt={alt} className={className} fill sizes={sizes} priority={priority} />;
+    return (
+      <Image
+        src={src}
+        alt={alt}
+        className={mockupClassName ?? 'object-contain p-3'}
+        fill
+        sizes={sizes}
+        priority={priority}
+        unoptimized
+      />
+    );
   }
 
   return (
     <Image
       src={src}
       alt={alt}
-      className={className}
+      className={mockupClassName ?? className}
       width={width ?? 400}
       height={height ?? 280}
       priority={priority}
+      unoptimized
     />
   );
 }

@@ -17,6 +17,8 @@ export const cullinosTheme = {
   },
 };
 
+export { colors } from './theme';
+
 export const poweredByRkyves = "Powered by Rkyves";
 
 export function formatOrderNumber(num: string | number): string {

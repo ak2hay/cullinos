@@ -7,7 +7,6 @@ export class BanquetsService {
   list(orgId: string) {
     return this.prisma.banquet.findMany({
       where: { organizationId: orgId },
-      orderBy: { createdAt: "desc" },
       take: 200,
     });
   }

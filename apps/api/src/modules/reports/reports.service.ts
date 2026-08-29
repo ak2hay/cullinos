@@ -7,7 +7,6 @@ export class ReportsService {
   list(orgId: string) {
     return this.prisma.analyticsSnapshot.findMany({
       where: { organizationId: orgId },
-      orderBy: { createdAt: "desc" },
       take: 200,
     });
   }

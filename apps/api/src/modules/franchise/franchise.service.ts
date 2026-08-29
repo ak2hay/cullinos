@@ -7,7 +7,6 @@ export class FranchiseService {
   list(orgId: string) {
     return this.prisma.franchiseAgreement.findMany({
       where: { organizationId: orgId },
-      orderBy: { createdAt: "desc" },
       take: 200,
     });
   }

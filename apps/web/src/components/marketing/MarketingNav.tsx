@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 import { getRegisterUrl } from '@/lib/urls';
 import { Logo } from './Logo';
 
@@ -16,27 +17,46 @@ const navItems = [
 
 export function MarketingNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
 
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
-    <header className="sticky top-0 z-50 bg-bg-primary/95 backdrop-blur-sm">
+    <header
+      className={`sticky top-0 z-50 transition-all duration-300 ${
+        scrolled ? 'border-b border-border-light/60 bg-bg-primary/80 shadow-soft backdrop-blur-md' : 'bg-bg-primary/95 backdrop-blur-sm'
+      }`}
+    >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-10">
         <Logo variant="icon" />
 
         <nav className="hidden items-center gap-8 lg:flex">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`text-xs font-medium tracking-[0.15em] uppercase transition ${
-                pathname === item.href
-                  ? 'text-text-primary'
-                  : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const active = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`relative text-xs font-medium tracking-[0.15em] uppercase transition ${
+                  active ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                {item.label}
+                {active && (
+                  <motion.span
+                    layoutId="nav-underline"
+                    className="absolute -bottom-1 left-0 h-px w-full bg-brand-gold"
+                  />
+                )}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="hidden lg:block">
@@ -50,6 +70,7 @@ export function MarketingNav() {
           className="rounded-md p-2 text-text-secondary lg:hidden"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label="Toggle menu"
+          aria-expanded={mobileOpen}
         >
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             {mobileOpen ? (
@@ -61,29 +82,48 @@ export function MarketingNav() {
         </button>
       </div>
 
-      {mobileOpen && (
-        <div className="border-t border-border-light px-6 py-4 lg:hidden">
-          <nav className="flex flex-col gap-4">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="text-xs font-medium tracking-[0.15em] uppercase text-text-secondary"
-                onClick={() => setMobileOpen(false)}
-              >
-                {item.label}
-              </Link>
-            ))}
-            <Link
-              href={getRegisterUrl()}
-              className="btn-pill mt-2 text-center"
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 top-[72px] z-40 bg-bg-dark/20 backdrop-blur-sm lg:hidden"
               onClick={() => setMobileOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="relative z-50 border-t border-border-light bg-bg-primary px-6 py-4 lg:hidden"
             >
-              Start free trial
-            </Link>
-          </nav>
-        </div>
-      )}
+              <nav className="flex flex-col gap-4">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`text-xs font-medium tracking-[0.15em] uppercase ${
+                      pathname === item.href ? 'text-brand-gold' : 'text-text-secondary'
+                    }`}
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+                <Link
+                  href={getRegisterUrl()}
+                  className="btn-pill mt-2 text-center"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Start free trial
+                </Link>
+              </nav>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

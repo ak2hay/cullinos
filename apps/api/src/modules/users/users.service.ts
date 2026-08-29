@@ -7,7 +7,6 @@ export class UsersService {
   list(orgId: string) {
     return this.prisma.user.findMany({
       where: { organizationId: orgId },
-      orderBy: { createdAt: "desc" },
       take: 200,
     });
   }
