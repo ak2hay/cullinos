@@ -49,10 +49,10 @@ export function ProductionPage() {
       </div>
 
       <div className="grid gap-3 rounded-xl border border-white/5 bg-bg-card p-4 sm:grid-cols-2">
-        <Input placeholder="Batch name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <Input placeholder="Planned qty" value={form.plannedQty} onChange={(e) => setForm({ ...form, plannedQty: e.target.value })} />
-        <Input type="datetime-local" value={form.scheduledFor} onChange={(e) => setForm({ ...form, scheduledFor: e.target.value })} />
-        <Input placeholder="Batch number" value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} />
+        <Input label="Batch name" placeholder="Morning sourdough" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <Input label="Planned qty" placeholder="24" value={form.plannedQty} onChange={(e) => setForm({ ...form, plannedQty: e.target.value })} />
+        <Input label="Scheduled for" type="datetime-local" value={form.scheduledFor} onChange={(e) => setForm({ ...form, scheduledFor: e.target.value })} />
+        <Input label="Batch number" placeholder="BATCH-001" value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} />
         <Button onClick={() => createMutation.mutate()} disabled={!form.name || !form.scheduledFor}>
           Schedule batch
         </Button>

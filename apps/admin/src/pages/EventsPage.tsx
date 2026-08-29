@@ -53,12 +53,12 @@ export function EventsPage() {
       </select>
 
       <div className="grid gap-3 rounded-xl border border-white/5 bg-bg-card p-4 sm:grid-cols-2">
-        <Input placeholder="Event name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <Input placeholder="Location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
-        <Input type="date" value={form.eventDate} onChange={(e) => setForm({ ...form, eventDate: e.target.value })} />
+        <Input label="Event name" placeholder="Weekend market" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <Input label="Location" placeholder="BKC, Mumbai" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+        <Input label="Event date" type="date" value={form.eventDate} onChange={(e) => setForm({ ...form, eventDate: e.target.value })} />
         <div className="flex gap-2">
-          <Input value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
-          <Input value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
+          <Input label="Start time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
+          <Input label="End time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
         </div>
         <Button onClick={() => createMutation.mutate()} disabled={!form.name || !form.eventDate}>
           Add event
