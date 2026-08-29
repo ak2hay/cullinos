@@ -36,7 +36,13 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
-  const port = Number(process.env.API_PORT || process.env.PORT || 3000);
+  const parsePort = (value: string | undefined, fallback: number): number => {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 && n < 65536 ? n : fallback;
+  };
+
+  // Railway sets PORT; local dev can use API_PORT in .env
+  const port = parsePort(process.env.PORT ?? process.env.API_PORT, 3000);
   await app.listen(port, '0.0.0.0');
   console.log(`Cullinos API running on port ${port}`);
 }

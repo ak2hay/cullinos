@@ -22,7 +22,7 @@
 5. If prepare still fails with “No start command detected”, set env `RAILPACK_START_CMD=node index.js` and redeploy (clear build cache).
 6. Set variables from `secrets-export.txt` (or your password manager).
 7. Add custom domain `api.cullinos.com`.
-8. Set `API_PORT` = `${{PORT}}` if not using default PORT binding (API uses `PORT` or `API_PORT`).
+8. Do **not** set `API_PORT` on Railway — Railway injects `PORT` automatically. Use `API_PORT=3000` only in local `.env`.
 
 ## Vercel (frontends)
 
