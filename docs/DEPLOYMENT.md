@@ -53,6 +53,29 @@ CONTACT_FROM_EMAIL=onboarding@resend.dev
 
 Add custom domains `cullinos.com` and `www.cullinos.com` (redirect www → apex).
 
+### Marketing site Vercel settings (`apps/web`)
+
+The Next.js marketing app is **not** a Vite SPA. Do **not** copy settings from `apps/admin`.
+
+| Setting | Value |
+|---------|--------|
+| Root Directory | `apps/web` |
+| Framework Preset | Next.js |
+| Build Command | *(from `vercel.json` — leave default or use)* `cd ../.. && npx turbo run build --filter=@cullinos/web` |
+| Install Command | `cd ../.. && npm ci` |
+| **Output Directory** | **Leave empty** — do not set `dist` |
+| Include files outside Root Directory | Enabled (monorepo) |
+
+If Output Directory is set to `dist`, the build compiles but deploy fails with:
+`The Next.js output directory "dist" was not found`. Clear that field and redeploy.
+
+### Vite frontends (`apps/admin`, etc.)
+
+| Setting | Value |
+|---------|--------|
+| Output Directory | `dist` |
+| Framework Preset | Vite |
+
 ## Database
 
 From repo root with `.env` pointing at Neon:
