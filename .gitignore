@@ -4,6 +4,8 @@ build
 .turbo
 .env
 .env.local
+e2e/.env.local
+e2e/.runtime-env.json
 *.log
 .DS_Store
 coverage
@@ -11,3 +13,6 @@ coverage
 out
 electron-dist
 gateway-queue/
+playwright-report/
+test-results/
+e2e-results.json

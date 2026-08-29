@@ -47,11 +47,13 @@ Order Online storefront: `http://localhost:5176/demo-restaurant/main-outlet`
 
 ## Smoke test checklist
 
+Manual checks (automated alternative: `npm run test:e2e` — see [`e2e/README.md`](e2e/README.md)):
+
 - **Waiter** — login, select outlet, open table, add item, confirm order (KOT on KDS)
 - **Management** — dashboard KPIs, outlet comparison, stock transfer, franchise list
 - **Order Online** — browse menu at `/{orgSlug}/{outletSlug}`, cart, checkout
 - **Super Admin** — list tenants, suspend/activate, update subscription plan
-- **API** — `GET http://localhost:3000/api/health`
+- **API** — `GET http://localhost:3000/api/v1/health`
 
 ## Brand
 

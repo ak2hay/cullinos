@@ -1,4 +1,4 @@
-export const DEFAULT_API_BASE = 'http://localhost:3000/api';
+export const DEFAULT_API_BASE = 'http://localhost:3000/api/v1';
 
 export interface ApiStaffLoginResponse {
   token: string;

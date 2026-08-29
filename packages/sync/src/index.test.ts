@@ -1,22 +1,51 @@
 import { describe, it, expect } from 'vitest';
-import { createSyncEvent, validateChecksum, computeChecksum } from './index';
+import { SyncQueue, createIdempotencyKey } from './index';
 
 describe('sync', () => {
-  it('creates sync event with valid checksum', () => {
-    const event = createSyncEvent('uuid-1', 'device-1', 'OrderCreated', { orderId: 'o1' });
-    expect(event.id).toBe('uuid-1');
-    expect(validateChecksum(event)).toBe(true);
+  it('creates unique idempotency keys', () => {
+    const a = createIdempotencyKey('order');
+    const b = createIdempotencyKey('order');
+    expect(a).not.toBe(b);
+    expect(a.startsWith('order_')).toBe(true);
   });
 
-  it('detects invalid checksum', () => {
-    const event = createSyncEvent('uuid-2', 'device-1', 'OrderCreated', { orderId: 'o2' });
-    event.checksum = 'invalid';
-    expect(validateChecksum(event)).toBe(false);
+  it('deduplicates queued events by idempotency key', () => {
+    const queue = new SyncQueue();
+    const key = createIdempotencyKey('order');
+    const event = {
+      type: 'OrderCreated',
+      idempotencyKey: key,
+      organizationId: 'org-1',
+      data: { orderId: 'o1' },
+      createdAt: new Date().toISOString(),
+    };
+
+    queue.enqueue(event);
+    queue.enqueue(event);
+    expect(queue.size()).toBe(1);
   });
 
-  it('checksum is deterministic', () => {
-    const a = computeChecksum({ b: 2, a: 1 });
-    const b = computeChecksum({ a: 1, b: 2 });
-    expect(a).toBe(b);
+  it('dequeues events in FIFO order', () => {
+    const queue = new SyncQueue();
+    const first = {
+      type: 'A',
+      idempotencyKey: 'a',
+      organizationId: 'org-1',
+      data: {},
+      createdAt: new Date().toISOString(),
+    };
+    const second = {
+      type: 'B',
+      idempotencyKey: 'b',
+      organizationId: 'org-1',
+      data: {},
+      createdAt: new Date().toISOString(),
+    };
+
+    queue.enqueue(first);
+    queue.enqueue(second);
+    expect(queue.dequeue()?.type).toBe('A');
+    expect(queue.dequeue()?.type).toBe('B');
+    expect(queue.size()).toBe(0);
   });
 });

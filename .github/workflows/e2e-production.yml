@@ -1,0 +1,60 @@
+name: E2E Production
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Run production E2E
+        env:
+          E2E_API_URL: ${{ secrets.E2E_API_URL }}
+          E2E_WEB_URL: ${{ secrets.E2E_WEB_URL }}
+          E2E_ADMIN_URL: ${{ secrets.E2E_ADMIN_URL }}
+          E2E_MANAGEMENT_URL: ${{ secrets.E2E_MANAGEMENT_URL }}
+          E2E_SUPER_ADMIN_URL: ${{ secrets.E2E_SUPER_ADMIN_URL }}
+          E2E_CUSTOMER_URL: ${{ secrets.E2E_CUSTOMER_URL }}
+          E2E_WAITER_URL: ${{ secrets.E2E_WAITER_URL }}
+          E2E_POS_URL: ${{ secrets.E2E_POS_URL }}
+          E2E_KDS_URL: ${{ secrets.E2E_KDS_URL }}
+          E2E_ORG_SLUG: ${{ secrets.E2E_ORG_SLUG }}
+          E2E_OUTLET_SLUG: ${{ secrets.E2E_OUTLET_SLUG }}
+          E2E_OUTLET_ID: ${{ secrets.E2E_OUTLET_ID }}
+          E2E_OWNER_EMAIL: ${{ secrets.E2E_OWNER_EMAIL }}
+          E2E_OWNER_PASSWORD: ${{ secrets.E2E_OWNER_PASSWORD }}
+          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
+          E2E_SUPER_ADMIN_PASSWORD: ${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}
+          E2E_WAITER_EMAIL: ${{ secrets.E2E_WAITER_EMAIL }}
+          E2E_WAITER_PASSWORD: ${{ secrets.E2E_WAITER_PASSWORD }}
+          E2E_CASHIER_EMAIL: ${{ secrets.E2E_CASHIER_EMAIL }}
+          E2E_AUTO_PROVISION: ${{ secrets.E2E_AUTO_PROVISION }}
+          E2E_SKIP_POS: 'true'
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            e2e-results.json
+            test-results/
+          retention-days: 14

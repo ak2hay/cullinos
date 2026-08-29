@@ -1,27 +1,34 @@
 import { describe, it, expect } from 'vitest';
-import { createSyncEvent, validateChecksum } from '@cullinos/sync';
-import { calculateTax, createGstTaxGroup } from '@cullinos/tax-engine';
-import { hasPermission } from '@cullinos/auth';
-import { PERMISSIONS } from '@cullinos/shared';
+import { SyncQueue, createIdempotencyKey } from '@cullinos/sync';
+import { calculateGst } from '@cullinos/tax-engine';
+import { DEFAULT_ROLE_PERMISSIONS, PERMISSIONS } from '@cullinos/shared';
 
 describe('Cullinos critical paths', () => {
-  it('sync events are idempotent by checksum', () => {
-    const event = createSyncEvent('id-1', 'device-1', 'OrderCreated', { orderId: 'o1' });
-    expect(validateChecksum(event)).toBe(true);
-    event.checksum = 'tampered';
-    expect(validateChecksum(event)).toBe(false);
+  it('sync queue deduplicates by idempotency key', () => {
+    const queue = new SyncQueue();
+    const key = createIdempotencyKey('order');
+    const event = {
+      type: 'OrderCreated',
+      idempotencyKey: key,
+      organizationId: 'org-1',
+      data: { orderId: 'o1' },
+      createdAt: new Date().toISOString(),
+    };
+
+    queue.enqueue(event);
+    queue.enqueue(event);
+    expect(queue.size()).toBe(1);
   });
 
   it('GST tax calculation for India', () => {
-    const group = createGstTaxGroup('g1', 'GST 18%', 18, false);
-    const result = calculateTax({ amount: 10000, taxGroup: group });
-    expect(result.taxAmount).toBe(1800);
+    const result = calculateGst([{ amount: 10000 }], [{ name: 'GST', rate: 18 }], false);
+    expect(result.taxTotal).toBe(1800);
     expect(result.total).toBe(11800);
   });
 
-  it('RBAC permission check', () => {
-    const perms = [PERMISSIONS.ORDER_CREATE, PERMISSIONS.POS_ACCESS];
-    expect(hasPermission(perms, PERMISSIONS.ORDER_CREATE)).toBe(true);
-    expect(hasPermission(perms, PERMISSIONS.ORDER_REFUND)).toBe(false);
+  it('RBAC default waiter permissions', () => {
+    const waiterPerms = DEFAULT_ROLE_PERMISSIONS.WAITER;
+    expect(waiterPerms).toContain(PERMISSIONS.ORDER_CREATE);
+    expect(waiterPerms).not.toContain(PERMISSIONS.ORDER_REFUND);
   });
 });
