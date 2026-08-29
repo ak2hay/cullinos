@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" fill="none">
+  <rect width="400" height="280" rx="12" fill="#0F0F1A"/>
+  <rect x="12" y="12" width="376" height="40" rx="8" fill="#1A1A2E"/>
+  <text x="28" y="38" fill="#D4A017" font-family="system-ui,sans-serif" font-size="14" font-weight="600">Enterprise Console</text>
+  <text x="300" y="38" fill="#9CA3AF" font-family="system-ui,sans-serif" font-size="11">12 outlets</text>
+  <rect x="12" y="64" width="118" height="80" rx="8" fill="#16213E"/>
+  <text x="24" y="88" fill="#9CA3AF" font-family="system-ui,sans-serif" font-size="10">Network sales</text>
+  <text x="24" y="116" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="18" font-weight="600">¹8.4L</text>
+  <rect x="142" y="64" width="118" height="80" rx="8" fill="#16213E"/>
+  <text x="154" y="88" fill="#9CA3AF" font-family="system-ui,sans-serif" font-size="10">Top outlet</text>
+  <text x="154" y="116" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="14" font-weight="600">Indiranagar</text>
+  <rect x="272" y="64" width="116" height="80" rx="8" fill="#16213E"/>
+  <text x="284" y="88" fill="#9CA3AF" font-family="system-ui,sans-serif" font-size="10">Active staff</text>
+  <text x="284" y="116" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="18" font-weight="600">186</text>
+  <rect x="12" y="156" width="376" height="108" rx="8" fill="#16213E"/>
+  <text x="24" y="180" fill="#9CA3AF" font-family="system-ui,sans-serif" font-size="10">Outlet comparison</text>
+  <rect x="24" y="192" width="280" height="8" rx="4" fill="#1A1A2E"/>
+  <rect x="24" y="192" width="220" height="8" rx="4" fill="#D4A017"/>
+  <text x="24" y="218" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="10">Koramangala · ¹1.2L</text>
+  <rect x="24" y="228" width="200" height="8" rx="4" fill="#1A1A2E"/>
+  <rect x="24" y="228" width="160" height="8" rx="4" fill="#D4A017"/>
+  <text x="24" y="254" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="10">Whitefield · ¹98K</text>
+</svg>

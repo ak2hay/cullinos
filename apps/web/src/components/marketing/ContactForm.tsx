@@ -4,6 +4,9 @@ import { useState } from 'react';
 
 const planOptions = ['Starter', 'Professional', 'Enterprise', 'Hospitality', 'Not sure'];
 
+const inputClass =
+  'w-full rounded-xl border border-border bg-bg-card px-4 py-2.5 text-sm outline-none transition focus:border-brand-gold focus:ring-1 focus:ring-brand-gold/30';
+
 export function ContactForm() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
@@ -38,15 +41,15 @@ export function ContactForm() {
 
   if (status === 'success') {
     return (
-      <div className="rounded-xl border border-status-success/30 bg-status-success/10 p-8 text-center">
-        <h3 className="text-lg font-semibold text-status-success">Message sent</h3>
+      <div className="rounded-2xl border border-status-success/30 bg-bg-card p-8 text-center shadow-card">
+        <h3 className="font-serif text-lg font-medium text-status-success">Message sent</h3>
         <p className="mt-2 text-sm text-text-secondary">
           Thanks for reaching out. Our team will get back to you shortly.
         </p>
         <button
           type="button"
           onClick={() => setStatus('idle')}
-          className="mt-4 text-sm text-brand-primary hover:underline"
+          className="mt-4 text-sm text-brand-gold hover:underline"
         >
           Send another message
         </button>
@@ -55,7 +58,7 @@ export function ContactForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-border-light bg-bg-card p-8 shadow-card">
       <input type="text" name="website" className="hidden" tabIndex={-1} autoComplete="off" />
 
       <div className="grid gap-5 sm:grid-cols-2">
@@ -71,11 +74,7 @@ export function ContactForm() {
         <label htmlFor="plan" className="mb-1.5 block text-sm font-medium">
           Plan interest
         </label>
-        <select
-          id="plan"
-          name="plan"
-          className="w-full rounded-lg border border-white/10 bg-bg-secondary px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
-        >
+        <select id="plan" name="plan" className={inputClass}>
           {planOptions.map((plan) => (
             <option key={plan} value={plan}>
               {plan}
@@ -88,22 +87,12 @@ export function ContactForm() {
         <label htmlFor="message" className="mb-1.5 block text-sm font-medium">
           Message
         </label>
-        <textarea
-          id="message"
-          name="message"
-          rows={5}
-          required
-          className="w-full rounded-lg border border-white/10 bg-bg-secondary px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
-        />
+        <textarea id="message" name="message" rows={5} required className={inputClass} />
       </div>
 
       {status === 'error' && <p className="text-sm text-status-error">{error}</p>}
 
-      <button
-        type="submit"
-        disabled={status === 'loading'}
-        className="rounded-lg bg-brand-primary px-6 py-3 text-sm font-medium text-bg-primary transition hover:bg-brand-primary-dark disabled:opacity-60"
-      >
+      <button type="submit" disabled={status === 'loading'} className="btn-pill-filled btn-pill disabled:opacity-60">
         {status === 'loading' ? 'Sending…' : 'Send message'}
       </button>
     </form>
@@ -134,7 +123,7 @@ function Field({
         type={type}
         required={required}
         min={min}
-        className="w-full rounded-lg border border-white/10 bg-bg-secondary px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
+        className={inputClass}
       />
     </div>
   );

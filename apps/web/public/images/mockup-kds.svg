@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" fill="none">
+  <rect width="400" height="280" rx="12" fill="#0F0F1A"/>
+  <rect x="12" y="12" width="376" height="40" rx="8" fill="#1A1A2E"/>
+  <text x="28" y="38" fill="#D4A017" font-family="system-ui,sans-serif" font-size="14" font-weight="600">Kitchen Display</text>
+  <rect x="12" y="64" width="118" height="200" rx="8" fill="#16213E"/>
+  <rect x="12" y="64" width="118" height="28" rx="8" fill="#8B5CF6"/>
+  <text x="24" y="83" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="11" font-weight="600">NEW · T12</text>
+  <text x="24" y="110" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="11">2x Butter Chicken</text>
+  <text x="24" y="128" fill="#9CA3AF" font-family="system-ui,sans-serif" font-size="10">1x Dal Makhani</text>
+  <rect x="142" y="64" width="118" height="200" rx="8" fill="#16213E"/>
+  <rect x="142" y="64" width="118" height="28" rx="8" fill="#F59E0B"/>
+  <text x="154" y="83" fill="#0F0F1A" font-family="system-ui,sans-serif" font-size="11" font-weight="600">PREPARING</text>
+  <text x="154" y="110" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="11">3x Masala Dosa</text>
+  <rect x="272" y="64" width="116" height="200" rx="8" fill="#16213E"/>
+  <rect x="272" y="64" width="116" height="28" rx="8" fill="#10B981"/>
+  <text x="284" y="83" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="11" font-weight="600">READY</text>
+  <text x="284" y="110" fill="#F9FAFB" font-family="system-ui,sans-serif" font-size="11">1x Biryani</text>
+</svg>

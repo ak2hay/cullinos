@@ -1,49 +1,54 @@
 import Link from 'next/link';
 import { CULLINOS_BRAND } from '@cullinos/shared';
-import { Logo } from './Logo';
 
-const footerLinks = {
-  Product: [
-    { href: '/features', label: 'Features' },
-    { href: '/pricing', label: 'Pricing' },
-    { href: '/integrations', label: 'Integrations' },
-    { href: '/blog', label: 'Blog' },
-  ],
-  Solutions: [
-    { href: '/solutions/restaurants', label: 'Restaurants' },
-    { href: '/solutions/chains', label: 'Chains & Franchise' },
-    { href: '/solutions/hospitality', label: 'Hotels & Resorts' },
-  ],
-  Company: [
-    { href: '/about', label: 'About' },
-    { href: '/contact', label: 'Contact' },
-    { href: '/privacy', label: 'Privacy' },
-    { href: '/terms', label: 'Terms' },
-  ],
-};
+const columns = [
+  {
+    title: 'Product',
+    links: [
+      { href: '/features', label: 'Features' },
+      { href: '/pricing', label: 'Pricing' },
+      { href: '/integrations', label: 'Integrations' },
+      { href: '/blog', label: 'Blog' },
+    ],
+  },
+  {
+    title: 'Solutions',
+    links: [
+      { href: '/solutions/restaurants', label: 'Restaurants' },
+      { href: '/solutions/chains', label: 'Chains' },
+      { href: '/solutions/hospitality', label: 'Hotels' },
+    ],
+  },
+  {
+    title: 'Contact',
+    links: [
+      { href: '/contact', label: 'Get in touch' },
+      { href: '/about', label: 'About us' },
+      { href: 'mailto:hello@rkyves.com', label: 'hello@rkyves.com' },
+    ],
+  },
+];
+
+const socialLinks = [
+  { label: 'LinkedIn', href: '#' },
+  { label: 'Twitter', href: '#' },
+  { label: 'Instagram', href: '#' },
+];
 
 export function MarketingFooter() {
   return (
-    <footer className="border-t border-white/5 bg-bg-secondary">
-      <div className="mx-auto max-w-6xl px-6 py-12">
-        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
-          <div className="lg:col-span-2">
-            <Logo showTagline />
-            <p className="mt-4 max-w-sm text-sm text-text-secondary">
-              {CULLINOS_BRAND.tagline} by {CULLINOS_BRAND.parent}. Unified restaurant operations for
-              India and beyond.
-            </p>
-          </div>
-
-          {Object.entries(footerLinks).map(([title, links]) => (
-            <div key={title}>
-              <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
-              <ul className="mt-4 space-y-2">
-                {links.map((link) => (
+    <footer className="border-t border-border-light bg-bg-secondary">
+      <div className="mx-auto max-w-7xl px-6 py-14 lg:px-10">
+        <div className="grid gap-10 lg:grid-cols-[1fr_1fr_1fr_1.2fr]">
+          {columns.map((col) => (
+            <div key={col.title}>
+              <h3 className="font-serif text-lg font-medium">{col.title}</h3>
+              <ul className="mt-4 space-y-2.5">
+                {col.links.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-text-secondary transition hover:text-brand-primary"
+                      className="text-sm text-text-secondary transition hover:text-text-primary"
                     >
                       {link.label}
                     </Link>
@@ -52,13 +57,44 @@ export function MarketingFooter() {
               </ul>
             </div>
           ))}
+
+          <div className="overflow-hidden rounded-2xl border border-border bg-bg-card shadow-card">
+            <iframe
+              title="Cullinos office location"
+              src="https://maps.google.com/maps?q=Mumbai%2C%20India&z=12&output=embed"
+              className="h-44 w-full border-0"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-8 sm:flex-row">
-          <p className="text-sm text-text-muted">
-            © {new Date().getFullYear()} {CULLINOS_BRAND.name}. All rights reserved.
-          </p>
-          <p className="text-sm text-text-muted">{CULLINOS_BRAND.poweredBy}</p>
+        <div className="mt-12 flex flex-col items-start justify-between gap-6 border-t border-border-light pt-8 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3">
+            {socialLinks.map((social) => (
+              <a
+                key={social.label}
+                href={social.href}
+                aria-label={social.label}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-bg-dark text-xs text-text-inverse transition hover:bg-brand-gold"
+              >
+                {social.label[0]}
+              </a>
+            ))}
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-text-muted">
+              © {new Date().getFullYear()} {CULLINOS_BRAND.name}. {CULLINOS_BRAND.poweredBy}
+            </p>
+            <div className="mt-2 flex gap-4 text-xs text-text-muted">
+              <Link href="/privacy" className="hover:text-text-primary">
+                Privacy
+              </Link>
+              <Link href="/terms" className="hover:text-text-primary">
+                Terms
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </footer>

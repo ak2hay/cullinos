@@ -19,21 +19,15 @@ export function CTABanner({
   secondaryHref = '/contact',
 }: CTABannerProps) {
   return (
-    <section className="border-y border-white/5 bg-bg-secondary">
-      <div className="mx-auto max-w-6xl px-6 py-16 text-center">
-        <h2 className="text-3xl font-semibold md:text-4xl">{title}</h2>
+    <section className="border-y border-border-light bg-bg-secondary">
+      <div className="mx-auto max-w-7xl px-6 py-16 text-center lg:px-10">
+        <h2 className="font-serif text-3xl font-medium md:text-4xl">{title}</h2>
         <p className="mx-auto mt-4 max-w-2xl text-text-secondary">{description}</p>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
-          <Link
-            href={primaryHref}
-            className="rounded-lg bg-brand-primary px-6 py-3 text-sm font-medium text-bg-primary transition hover:bg-brand-primary-dark"
-          >
+          <Link href={primaryHref} className="btn-pill-filled btn-pill">
             {primaryLabel}
           </Link>
-          <Link
-            href={secondaryHref}
-            className="rounded-lg border border-white/10 px-6 py-3 text-sm font-medium text-text-primary transition hover:border-brand-primary/50"
-          >
+          <Link href={secondaryHref} className="btn-pill">
             {secondaryLabel}
           </Link>
         </div>

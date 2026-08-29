@@ -21,7 +21,10 @@ export default function PricingPage() {
         primaryCta={{ label: 'Start free trial', href: 'https://admin.cullinos.com/register' }}
         secondaryCta={{ label: 'Contact sales', href: '/contact' }}
       />
-      <Section title="Choose your plan">
+      <Section
+        title="Choose your plan"
+        description="Every plan includes cloud hosting, software updates, and support. Pick Starter or Professional to begin — contact us for Enterprise and Hospitality."
+      >
         <PricingTable />
       </Section>
       <CTABanner

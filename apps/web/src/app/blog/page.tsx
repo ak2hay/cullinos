@@ -30,18 +30,18 @@ export default function BlogPage() {
             {posts.map((post) => (
               <article
                 key={post.slug}
-                className="rounded-xl border border-white/5 bg-bg-secondary p-6 transition hover:border-brand-primary/30"
+                className="rounded-2xl border border-border-light bg-bg-card p-6 shadow-card transition hover:border-brand-gold/40"
               >
                 <time className="text-xs text-text-muted">{post.date}</time>
                 <h3 className="mt-2 text-lg font-semibold">
-                  <Link href={`/blog/${post.slug}`} className="hover:text-brand-primary">
+                  <Link href={`/blog/${post.slug}`} className="hover:text-brand-gold">
                     {post.title}
                   </Link>
                 </h3>
                 <p className="mt-2 text-sm text-text-secondary">{post.excerpt}</p>
                 <Link
                   href={`/blog/${post.slug}`}
-                  className="mt-4 inline-block text-sm font-medium text-brand-primary hover:underline"
+                  className="mt-4 inline-block text-sm font-medium text-brand-gold hover:underline"
                 >
                   Read more →
                 </Link>

@@ -1,21 +1,37 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { SyncPullQueryDto, SyncPushDto } from './dto/sync.dto';
-import { SyncService } from './sync.service';
+import { Body, Controller, Post, Headers } from "@nestjs/common";
+import { Public } from "../../common/decorators";
+import { PrismaService } from "../../prisma/prisma.service";
 
-@Controller('sync')
-@UseGuards(JwtAuthGuard)
+@Controller("sync")
 export class SyncController {
-  constructor(private syncService: SyncService) {}
+  constructor(private prisma: PrismaService) {}
 
-  @Post('push')
-  push(@CurrentUser('organizationId') orgId: string, @Body() dto: SyncPushDto) {
-    return this.syncService.push(orgId, dto);
-  }
+  @Public()
+  @Post()
+  async receive(
+    @Headers("x-idempotency-key") headerKey: string,
+    @Body() body: Record<string, unknown>
+  ) {
+    const key = String(body.idempotencyKey || headerKey || "");
+    if (!key) return { status: "failed", error: "Missing idempotency key" };
 
-  @Get('pull')
-  pull(@CurrentUser('organizationId') orgId: string, @Query() query: SyncPullQueryDto) {
-    return this.syncService.pull(orgId, query);
+    const existing = await this.prisma.syncEvent.findUnique({ where: { idempotencyKey: key } });
+    if (existing?.status === "synced") {
+      return { idempotencyKey: key, status: "synced", serverId: existing.id };
+    }
+
+    const event = await this.prisma.syncEvent.create({
+      data: {
+        organizationId: String(body.organizationId || ""),
+        deviceId: body.deviceId ? String(body.deviceId) : undefined,
+        eventType: String(body.type || "sync"),
+        payload: (body.data as object) ?? {},
+        idempotencyKey: key,
+        status: "synced",
+        syncedAt: new Date(),
+      },
+    });
+
+    return { idempotencyKey: key, status: "synced", serverId: event.id };
   }
 }

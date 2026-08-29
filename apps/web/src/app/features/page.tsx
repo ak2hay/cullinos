@@ -1,6 +1,7 @@
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
+import { FeatureGlanceNav } from '@/components/marketing/FeatureGlanceNav';
 import { FeatureSections } from '@/components/marketing/FeatureGrid';
 import { FEATURE_SECTIONS } from '@cullinos/shared';
 import { createMetadata } from '@/lib/metadata';
@@ -17,12 +18,13 @@ export default function FeaturesPage() {
     <>
       <Hero
         eyebrow="Features"
-        title="Every module your restaurant needs"
-        subtitle="From the cashier to the kitchen, from QR ordering to multi-outlet analytics — Cullinos covers the full stack."
+        title="Every tool to run your restaurant"
+        subtitle="Cullinos includes POS, kitchen display, waiter app, online ordering, inventory, CRM, and enterprise management — all connected on one platform."
         primaryCta={{ label: 'Start free trial', href: 'https://admin.cullinos.com/register' }}
         secondaryCta={{ label: 'View pricing', href: '/pricing' }}
       />
-      <Section title="Product modules">
+      <Section title="All features at a glance">
+        <FeatureGlanceNav />
         <FeatureSections sections={FEATURE_SECTIONS} />
       </Section>
       <CTABanner />

@@ -3,6 +3,11 @@ import path from 'path';
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@cullinos/shared', '@cullinos/ui'],
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'images.unsplash.com', pathname: '/**' },
+    ],
+  },
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,

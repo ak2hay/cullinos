@@ -1,10 +1,10 @@
-import { Module } from '@nestjs/common';
-import { OrdersController } from './orders.controller';
-import { OrdersService } from './orders.service';
-import { KotModule } from '../kot/kot.module';
+import { Module } from "@nestjs/common";
+import { OrdersController } from "./orders.controller";
+import { OrdersService } from "./orders.service";
+import { WebsocketModule } from "../../websocket/websocket.module";
 
 @Module({
-  imports: [KotModule],
+  imports: [WebsocketModule],
   controllers: [OrdersController],
   providers: [OrdersService],
   exports: [OrdersService],

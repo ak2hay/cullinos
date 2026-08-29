@@ -345,3 +345,138 @@ export const ALL_COMPARISON_FEATURES: FeatureKey[] = [
   FEATURES.BANQUET,
   FEATURES.HOSPITALITY_INTEGRATIONS,
 ];
+
+export const MARKETING_IMAGES = {
+  heroRestaurant:
+    'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1400&q=80',
+  heroKitchen:
+    'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1400&q=80',
+  heroTeam:
+    'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1400&q=80',
+  aboutKitchen:
+    'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=800&q=80',
+  mockupPos: '/images/mockup-pos.svg',
+  mockupKds: '/images/mockup-kds.svg',
+  mockupWaiter: '/images/mockup-waiter.svg',
+  mockupOrdering: '/images/mockup-ordering.svg',
+  mockupAdmin: '/images/mockup-admin.svg',
+  mockupEnterprise: '/images/mockup-enterprise.svg',
+  flowCloud: '/images/flow-cloud.svg',
+} as const;
+
+export type MarketingImageKey = keyof typeof MARKETING_IMAGES;
+
+export const CULLINOS_ELEVATOR_PITCH = {
+  headline: "Cullinos is your restaurant's operating system.",
+  subline:
+    'One login runs your cashier, kitchen, waiter app, online orders, inventory, and reports — with GST billing and offline mode built in.',
+  bullets: [
+    {
+      title: 'One platform',
+      description: 'Replace separate POS, kitchen printers, and spreadsheets with a single system.',
+      icon: 'platform',
+    },
+    {
+      title: 'Every order channel',
+      description: 'Cashier, waiter, QR menu, and online orders all reach your kitchen instantly.',
+      icon: 'channels',
+    },
+    {
+      title: 'Built for India',
+      description: 'GST billing, offline POS, and plans from one outlet to hotel chains.',
+      icon: 'india',
+    },
+  ],
+} as const;
+
+export const HOW_IT_WORKS_STEPS = [
+  {
+    step: 1,
+    title: 'Set up your outlet',
+    description: 'Add your menu, tables, staff, and GST settings in the admin dashboard.',
+    icon: 'setup',
+  },
+  {
+    step: 2,
+    title: 'Take orders anywhere',
+    description: 'Use POS, waiter app, QR codes, or your online storefront — all connected.',
+    icon: 'orders',
+  },
+  {
+    step: 3,
+    title: 'Kitchen stays in sync',
+    description: 'Orders appear on KDS instantly. Works offline when the internet drops.',
+    icon: 'kitchen',
+  },
+  {
+    step: 4,
+    title: 'Track and grow',
+    description: 'See sales, inventory, and reports. Scale to more outlets when you are ready.',
+    icon: 'grow',
+  },
+] as const;
+
+export const FEATURE_CATEGORY_IDS: Record<string, string> = {
+  'Front of house': 'front-of-house',
+  'Customer channels': 'customer-channels',
+  'Back office': 'back-office',
+  Growth: 'growth',
+  Enterprise: 'enterprise',
+  Hospitality: 'hospitality',
+};
+
+export const FEATURE_CATEGORY_IMAGES: Record<string, MarketingImageKey> = {
+  'Front of house': 'mockupPos',
+  'Customer channels': 'mockupOrdering',
+  'Back office': 'mockupAdmin',
+  Growth: 'mockupAdmin',
+  Enterprise: 'mockupEnterprise',
+  Hospitality: 'mockupEnterprise',
+};
+
+export const APP_SHOWCASE_ITEMS = [
+  {
+    title: 'Point of Sale',
+    benefit: 'Bill faster with touch checkout and GST-compliant receipts.',
+    imageKey: 'mockupPos' as MarketingImageKey,
+    href: '/features#front-of-house',
+  },
+  {
+    title: 'Kitchen Display',
+    benefit: 'See every order on screen — no lost paper tickets.',
+    imageKey: 'mockupKds' as MarketingImageKey,
+    href: '/features#front-of-house',
+  },
+  {
+    title: 'Waiter App',
+    benefit: 'Take table orders from a phone — sent straight to the kitchen.',
+    imageKey: 'mockupWaiter' as MarketingImageKey,
+    href: '/features#front-of-house',
+  },
+  {
+    title: 'Customer Ordering',
+    benefit: 'Let guests order via QR at the table or your online menu.',
+    imageKey: 'mockupOrdering' as MarketingImageKey,
+    href: '/features#customer-channels',
+  },
+  {
+    title: 'Admin Dashboard',
+    benefit: 'Manage menu, stock, staff, and daily reports in one place.',
+    imageKey: 'mockupAdmin' as MarketingImageKey,
+    href: '/features#back-office',
+  },
+  {
+    title: 'Enterprise Console',
+    benefit: 'Compare outlets and manage franchises from one screen.',
+    imageKey: 'mockupEnterprise' as MarketingImageKey,
+    href: '/features#enterprise',
+  },
+] as const;
+
+export const FEATURE_CATEGORIES = FEATURE_SECTIONS.map((section) => ({
+  id: FEATURE_CATEGORY_IDS[section.title] ?? section.title.toLowerCase().replace(/\s+/g, '-'),
+  title: section.title,
+  imageKey: FEATURE_CATEGORY_IMAGES[section.title] ?? ('mockupAdmin' as MarketingImageKey),
+  benefit: section.items[0]?.description ?? '',
+  features: section.items.map((item) => item.name),
+}));

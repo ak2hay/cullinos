@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
+import { MarketingImage } from '@/components/marketing/MarketingImage';
+import { CULLINOS_ELEVATOR_PITCH } from '@cullinos/shared';
 import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
@@ -27,6 +29,17 @@ export default function RestaurantsSolutionPage() {
         title="Built for full-service restaurants"
         subtitle="Replace disconnected POS, kitchen printers, and spreadsheets with one platform designed for Indian restaurants."
       />
+      <Section title="Built for your daily operations">
+        <div className="grid items-center gap-8 lg:grid-cols-2">
+          <p className="text-sm leading-relaxed text-text-secondary">
+            {CULLINOS_ELEVATOR_PITCH.subline} Run your cashier, kitchen, waiter app, and online orders from one
+            platform — designed for Indian restaurants.
+          </p>
+          <div className="relative aspect-video overflow-hidden rounded-2xl border border-border-light bg-bg-dark shadow-card">
+            <MarketingImage imageKey="mockupPos" alt="Cullinos POS for restaurants" fill className="object-cover object-top" sizes="50vw" />
+          </div>
+        </div>
+      </Section>
       <Section title="Pain points we solve">
         <div className="grid gap-6 md:grid-cols-2">
           <PainPoint
@@ -51,22 +64,22 @@ export default function RestaurantsSolutionPage() {
         <ul className="grid gap-3 sm:grid-cols-2">
           {modules.map((item) => (
             <li key={item} className="flex items-start gap-2 text-sm text-text-secondary">
-              <span className="text-brand-primary">✓</span>
+              <span className="text-brand-gold">✓</span>
               {item}
             </li>
           ))}
         </ul>
         <p className="mt-8 text-sm text-text-muted">
           Best fit: <strong className="text-text-primary">Professional</strong> plan.{' '}
-          <Link href="/pricing" className="text-brand-primary hover:underline">
+          <Link href="/pricing" className="text-brand-gold hover:underline">
             View pricing
           </Link>
         </p>
       </Section>
       <Section title="Customer stories">
-        <div className="rounded-xl border border-dashed border-white/10 bg-bg-card p-8 text-center text-text-secondary">
+        <div className="rounded-xl border border-dashed border-border bg-bg-elevated p-8 text-center text-text-secondary">
           Case studies coming soon. Be among our first restaurant partners —{' '}
-          <Link href="/contact" className="text-brand-primary hover:underline">
+          <Link href="/contact" className="text-brand-gold hover:underline">
             get in touch
           </Link>
           .
@@ -79,7 +92,7 @@ export default function RestaurantsSolutionPage() {
 
 function PainPoint({ title, description }: { title: string; description: string }) {
   return (
-    <article className="rounded-xl border border-white/5 bg-bg-secondary p-6">
+    <article className="rounded-xl border border-border-light bg-bg-card shadow-card p-6">
       <h3 className="font-semibold">{title}</h3>
       <p className="mt-2 text-sm text-text-secondary">{description}</p>
     </article>

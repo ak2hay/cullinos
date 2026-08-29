@@ -1,110 +1,56 @@
-export interface TaxRate {
+export const GST_TYPES = ["CGST", "SGST", "IGST"] as const;
+export type GstType = typeof GST_TYPES[number];
+
+export type TaxLineInput = {
   name: string;
   rate: number;
-  type: 'CGST' | 'SGST' | 'IGST' | 'GST' | 'VAT' | 'OTHER';
-}
+  type?: GstType;
+};
 
-export interface TaxGroup {
-  id: string;
-  name: string;
-  isInclusive: boolean;
-  rates: TaxRate[];
-}
+export type TaxableItem = {
+  amount: number;
+  taxGroupId?: string;
+  isInclusive?: boolean;
+};
 
-export interface TaxLineItem {
+export type TaxLineResult = {
   name: string;
-  type: string;
   rate: number;
   amount: number;
-}
+  type?: GstType;
+};
 
-export interface TaxCalculationInput {
-  amount: number;
-  taxGroup: TaxGroup;
-  isInterState?: boolean;
-}
-
-export interface TaxCalculationResult {
+export type TaxCalculationResult = {
   subtotal: number;
-  taxAmount: number;
+  taxLines: TaxLineResult[];
+  taxTotal: number;
   total: number;
-  taxBreakdown: TaxLineItem[];
-  isInclusive: boolean;
-}
+};
 
-export function calculateTax(input: TaxCalculationInput): TaxCalculationResult {
-  const { amount, taxGroup, isInterState = false } = input;
-  const taxBreakdown: TaxLineItem[] = [];
+export function calculateGst(
+  items: TaxableItem[],
+  rates: TaxLineInput[],
+  isInterState = false
+): TaxCalculationResult {
+  const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
+  const taxLines: TaxLineResult[] = [];
 
-  if (taxGroup.rates.length === 0) {
-    return {
-      subtotal: amount,
-      taxAmount: 0,
-      total: amount,
-      taxBreakdown: [],
-      isInclusive: taxGroup.isInclusive,
-    };
-  }
-
-  let subtotal: number;
-  let taxAmount: number;
-  let total: number;
-
-  if (taxGroup.isInclusive) {
-    const totalRate = taxGroup.rates.reduce((sum, r) => sum + r.rate, 0);
-    subtotal = Math.round(amount / (1 + totalRate / 100));
-    taxAmount = amount - subtotal;
-    total = amount;
+  if (isInterState) {
+    const igstRate = rates.find((r) => r.type === "IGST")?.rate ?? rates[0]?.rate ?? 0;
+    const taxAmount = subtotal * (igstRate / 100);
+    taxLines.push({ name: "IGST", rate: igstRate, amount: taxAmount, type: "IGST" });
   } else {
-    subtotal = amount;
-    taxAmount = 0;
-    for (const rate of taxGroup.rates) {
-      if (isInterState && (rate.type === 'CGST' || rate.type === 'SGST')) continue;
-      if (!isInterState && rate.type === 'IGST') continue;
-      const lineAmount = Math.round(subtotal * (rate.rate / 100));
-      taxAmount += lineAmount;
-      taxBreakdown.push({
-        name: rate.name,
-        type: rate.type,
-        rate: rate.rate,
-        amount: lineAmount,
-      });
-    }
-    total = subtotal + taxAmount;
+    const halfRate = (rates.find((r) => r.type === "CGST")?.rate ?? rates[0]?.rate ?? 0) / 2;
+    const cgst = subtotal * (halfRate / 100);
+    const sgst = subtotal * (halfRate / 100);
+    taxLines.push({ name: "CGST", rate: halfRate, amount: cgst, type: "CGST" });
+    taxLines.push({ name: "SGST", rate: halfRate, amount: sgst, type: "SGST" });
   }
 
-  if (taxGroup.isInclusive && taxBreakdown.length === 0) {
-    for (const rate of taxGroup.rates) {
-      if (isInterState && (rate.type === 'CGST' || rate.type === 'SGST')) continue;
-      if (!isInterState && rate.type === 'IGST') continue;
-      const lineAmount = Math.round(subtotal * (rate.rate / 100));
-      taxBreakdown.push({
-        name: rate.name,
-        type: rate.type,
-        rate: rate.rate,
-        amount: lineAmount,
-      });
-    }
-  }
-
-  return { subtotal, taxAmount, total, taxBreakdown, isInclusive: taxGroup.isInclusive };
+  const taxTotal = taxLines.reduce((sum, line) => sum + line.amount, 0);
+  return { subtotal, taxLines, taxTotal, total: subtotal + taxTotal };
 }
 
-export function createGstTaxGroup(
-  id: string,
-  name: string,
-  gstRate: number,
-  isInclusive = false,
-): TaxGroup {
-  const halfRate = gstRate / 2;
-  return {
-    id,
-    name,
-    isInclusive,
-    rates: [
-      { name: 'CGST', rate: halfRate, type: 'CGST' },
-      { name: 'SGST', rate: halfRate, type: 'SGST' },
-      { name: 'IGST', rate: gstRate, type: 'IGST' },
-    ],
-  };
+export function splitGstRate(totalRate: number): { cgst: number; sgst: number } {
+  return { cgst: totalRate / 2, sgst: totalRate / 2 };
 }

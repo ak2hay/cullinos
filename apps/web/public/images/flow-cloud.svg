@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 200" fill="none">
+  <rect width="600" height="200" rx="12" fill="#FAF7F2" stroke="#EBE4D8"/>
+  <rect x="40" y="70" width="100" height="60" rx="8" fill="#0F0F1A"/>
+  <text x="60" y="105" fill="#D4A017" font-family="system-ui,sans-serif" font-size="11" font-weight="600">Setup</text>
+  <path d="M150 100 H190" stroke="#B8956B" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="200" y="70" width="100" height="60" rx="8" fill="#0F0F1A"/>
+  <text x="215" y="105" fill="#D4A017" font-family="system-ui,sans-serif" font-size="11" font-weight="600">Orders</text>
+  <path d="M310 100 H350" stroke="#B8956B" stroke-width="2"/>
+  <rect x="360" y="70" width="100" height="60" rx="8" fill="#0F0F1A"/>
+  <text x="375" y="105" fill="#D4A017" font-family="system-ui,sans-serif" font-size="11" font-weight="600">Kitchen</text>
+  <path d="M470 100 H510" stroke="#B8956B" stroke-width="2"/>
+  <rect x="520" y="70" width="60" height="60" rx="8" fill="#D4A017"/>
+  <text x="532" y="105" fill="#0F0F1A" font-family="system-ui,sans-serif" font-size="11" font-weight="600">Grow</text>
+  <text x="200" y="40" fill="#6B5E4F" font-family="system-ui,sans-serif" font-size="12">Cloud API connects every app · Local Gateway for offline</text>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6" fill="#B8956B"/>
+    </marker>
+  </defs>
+</svg>

@@ -1,7 +1,7 @@
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
-import { CULLINOS_BRAND } from '@cullinos/shared';
+import { CULLINOS_BRAND, CULLINOS_ELEVATOR_PITCH } from '@cullinos/shared';
 import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
@@ -20,6 +20,8 @@ export default function AboutPage() {
       />
       <Section title="Our mission">
         <div className="max-w-3xl space-y-4 text-text-secondary">
+          <p className="text-lg text-text-primary">{CULLINOS_ELEVATOR_PITCH.headline}</p>
+          <p>{CULLINOS_ELEVATOR_PITCH.subline}</p>
           <p>
             Restaurants run on dozens of disconnected tools: a POS here, a kitchen printer there, spreadsheets
             for inventory, and separate apps for online ordering. {CULLINOS_BRAND.name} replaces that patchwork
@@ -59,7 +61,7 @@ export default function AboutPage() {
 
 function ValueCard({ title, description }: { title: string; description: string }) {
   return (
-    <article className="rounded-xl border border-white/5 bg-bg-card p-6">
+    <article className="rounded-2xl border border-border-light bg-bg-card p-6 shadow-card">
       <h3 className="font-semibold">{title}</h3>
       <p className="mt-2 text-sm text-text-secondary">{description}</p>
     </article>

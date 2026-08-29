@@ -1,22 +1,31 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-brand-primary: #d4a017;
-  --color-brand-primary-dark: #b8860b;
-  --color-brand-secondary: #1a1a2e;
-  --color-brand-accent: #f5a623;
-  --color-bg-primary: #0f0f1a;
-  --color-bg-secondary: #1a1a2e;
-  --color-bg-card: #16213e;
-  --color-bg-elevated: #1f2937;
-  --color-text-primary: #f9fafb;
-  --color-text-secondary: #9ca3af;
-  --color-text-muted: #6b7280;
-  --color-status-success: #10b981;
-  --color-status-warning: #f59e0b;
-  --color-status-error: #ef4444;
+  --color-brand-primary: #b8956b;
+  --color-brand-primary-dark: #9a7a52;
+  --color-brand-gold: #c4a052;
+  --color-brand-secondary: #2c2416;
+  --color-brand-accent: #d4a853;
+  --color-bg-primary: #f5f0e8;
+  --color-bg-secondary: #ede6d6;
+  --color-bg-card: #ffffff;
+  --color-bg-elevated: #faf7f2;
+  --color-bg-dark: #1a1612;
+  --color-text-primary: #2c2416;
+  --color-text-secondary: #6b5e4f;
+  --color-text-muted: #9a8b78;
+  --color-text-inverse: #faf7f2;
+  --color-border: #ddd4c4;
+  --color-border-light: #ebe4d8;
+  --color-status-success: #4a7c59;
+  --color-status-warning: #b8860b;
+  --color-status-error: #b54a4a;
   --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
   --font-mono: 'JetBrains Mono', monospace;
+  --shadow-soft: 0 8px 32px rgba(44, 36, 22, 0.08);
+  --shadow-shelf: 0 12px 40px rgba(44, 36, 22, 0.12);
+  --shadow-card: 0 4px 24px rgba(44, 36, 22, 0.06);
 }
 
 body {
@@ -28,6 +37,57 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+.btn-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid var(--color-text-primary);
+  padding: 0.625rem 1.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+}
+
+.btn-pill:hover {
+  background: var(--color-text-primary);
+  color: var(--color-text-inverse);
+}
+
+.btn-pill-filled {
+  border-color: var(--color-text-primary);
+  background: var(--color-text-primary);
+  color: var(--color-text-inverse);
+}
+
+.btn-pill-filled:hover {
+  background: var(--color-brand-secondary);
+  border-color: var(--color-brand-secondary);
+}
+
+.btn-pill-gold {
+  border-color: var(--color-brand-gold);
+  background: var(--color-brand-gold);
+  color: white;
+}
+
+.btn-pill-gold:hover {
+  background: var(--color-brand-primary-dark);
+  border-color: var(--color-brand-primary-dark);
+}
+
+.shelf-platform {
+  background: linear-gradient(180deg, #ffffff 0%, #f8f4ee 100%);
+  box-shadow: var(--shadow-shelf);
+  border-radius: 0.5rem;
+}
+
 .prose-marketing {
   color: var(--color-text-secondary);
   line-height: 1.75;
@@ -36,16 +96,18 @@ body {
 .prose-marketing h2 {
   margin-top: 2rem;
   margin-bottom: 0.75rem;
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  font-weight: 500;
   color: var(--color-text-primary);
 }
 
 .prose-marketing h3 {
   margin-top: 1.5rem;
   margin-bottom: 0.5rem;
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-weight: 500;
   color: var(--color-text-primary);
 }
 
@@ -64,9 +126,9 @@ body {
 }
 
 .prose-marketing a {
-  color: var(--color-brand-primary);
+  color: var(--color-brand-primary-dark);
 }
 
 .prose-marketing a:hover {
-  color: var(--color-brand-primary-dark);
+  color: var(--color-brand-gold);
 }

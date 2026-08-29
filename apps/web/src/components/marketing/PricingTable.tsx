@@ -20,14 +20,18 @@ export function PricingTable() {
         <button
           type="button"
           onClick={() => setYearly(false)}
-          className={`rounded-lg px-4 py-2 text-sm ${!yearly ? 'bg-brand-primary text-bg-primary' : 'text-text-secondary'}`}
+          className={`rounded-full px-5 py-2 text-sm transition ${
+            !yearly ? 'bg-bg-dark text-white' : 'text-text-secondary hover:text-text-primary'
+          }`}
         >
           Monthly
         </button>
         <button
           type="button"
           onClick={() => setYearly(true)}
-          className={`rounded-lg px-4 py-2 text-sm ${yearly ? 'bg-brand-primary text-bg-primary' : 'text-text-secondary'}`}
+          className={`rounded-full px-5 py-2 text-sm transition ${
+            yearly ? 'bg-bg-dark text-white' : 'text-text-secondary hover:text-text-primary'
+          }`}
         >
           Yearly
         </button>
@@ -39,13 +43,13 @@ export function PricingTable() {
         ))}
       </div>
 
-      <div className="mt-12 overflow-x-auto rounded-xl border border-white/5">
+      <div className="mt-12 overflow-x-auto rounded-2xl border border-border-light bg-bg-card shadow-card">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead>
-            <tr className="border-b border-white/5 bg-bg-secondary">
+            <tr className="border-b border-border-light bg-bg-elevated">
               <th className="px-4 py-3 font-medium text-text-secondary">Feature</th>
               {MARKETING_PLANS.map((plan) => (
-                <th key={plan.key} className="px-4 py-3 font-medium">
+                <th key={plan.key} className="px-4 py-3 font-serif font-medium">
                   {plan.name}
                 </th>
               ))}
@@ -53,7 +57,7 @@ export function PricingTable() {
           </thead>
           <tbody>
             {ALL_COMPARISON_FEATURES.map((feature) => (
-              <tr key={feature} className="border-b border-white/5">
+              <tr key={feature} className="border-b border-border-light">
                 <td className="px-4 py-3 text-text-secondary">{FEATURE_LABELS[feature]}</td>
                 {MARKETING_PLANS.map((plan) => (
                   <td key={plan.key} className="px-4 py-3">
@@ -80,16 +84,20 @@ function PricingCard({ plan, yearly }: { plan: MarketingPlan; yearly: boolean })
 
   return (
     <article
-      className={`rounded-xl border p-6 ${plan.highlighted ? 'border-brand-primary bg-bg-card' : 'border-white/5 bg-bg-secondary'}`}
+      className={`rounded-2xl border p-6 shadow-card ${
+        plan.highlighted
+          ? 'border-brand-gold bg-bg-card ring-1 ring-brand-gold/30'
+          : 'border-border-light bg-bg-card'
+      }`}
     >
       {plan.highlighted && (
-        <span className="mb-3 inline-block rounded-full bg-brand-primary/10 px-2 py-0.5 text-xs text-brand-primary">
+        <span className="mb-3 inline-block rounded-full bg-bg-secondary px-2 py-0.5 text-xs text-brand-gold">
           Most popular
         </span>
       )}
-      <h3 className="text-lg font-semibold">{plan.name}</h3>
+      <h3 className="font-serif text-lg font-medium">{plan.name}</h3>
       <p className="mt-1 text-sm text-text-secondary">{plan.description}</p>
-      <p className="mt-4 text-3xl font-semibold">
+      <p className="mt-4 font-serif text-3xl font-medium">
         {formatInr(price)}
         <span className="text-sm font-normal text-text-muted">{period}</span>
       </p>
@@ -100,11 +108,7 @@ function PricingCard({ plan, yearly }: { plan: MarketingPlan; yearly: boolean })
       </ul>
       <Link
         href={ctaHref}
-        className={`mt-6 block rounded-lg px-4 py-2 text-center text-sm font-medium transition ${
-          plan.highlighted
-            ? 'bg-brand-primary text-bg-primary hover:bg-brand-primary-dark'
-            : 'border border-white/10 hover:border-brand-primary/50'
-        }`}
+        className={`mt-6 block text-center ${plan.highlighted ? 'btn-pill-filled btn-pill' : 'btn-pill'}`}
       >
         {plan.cta === 'register' ? 'Start free trial' : 'Contact sales'}
       </Link>
@@ -116,9 +120,9 @@ export function PricingTeaser() {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {MARKETING_PLANS.map((plan) => (
-        <div key={plan.key} className="rounded-xl border border-white/5 bg-bg-card p-5">
-          <h3 className="font-semibold">{plan.name}</h3>
-          <p className="mt-2 text-2xl font-semibold text-brand-primary">
+        <div key={plan.key} className="rounded-2xl border border-border-light bg-bg-card p-5 shadow-card">
+          <h3 className="font-serif font-medium">{plan.name}</h3>
+          <p className="mt-2 font-serif text-2xl font-medium text-brand-gold">
             {formatInr(plan.priceMonthly)}
             <span className="text-sm font-normal text-text-muted">/mo</span>
           </p>

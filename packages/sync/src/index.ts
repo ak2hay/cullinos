@@ -1,61 +1,44 @@
-import { createHash } from 'crypto';
+export type SyncEventPayload = {
+  type: string;
+  idempotencyKey: string;
+  organizationId: string;
+  deviceId?: string;
+  data: Record<string, unknown>;
+  createdAt: string;
+};
 
-export type SyncEventStatus = 'PENDING' | 'SYNCED' | 'FAILED' | 'CONFLICT';
+export type SyncResult = {
+  idempotencyKey: string;
+  status: "synced" | "failed" | "conflict";
+  serverId?: string;
+  error?: string;
+};
 
-export interface SyncEventPayload {
-  id: string;
-  deviceId: string;
-  eventType: string;
-  payload: Record<string, unknown>;
-  timestamp: string;
-  checksum: string;
+export class SyncQueue {
+  private queue: SyncEventPayload[] = [];
+
+  enqueue(event: SyncEventPayload): void {
+    const exists = this.queue.some((e) => e.idempotencyKey === event.idempotencyKey);
+    if (!exists) this.queue.push(event);
+  }
+
+  dequeue(): SyncEventPayload | undefined {
+    return this.queue.shift();
+  }
+
+  peek(): SyncEventPayload[] {
+    return [...this.queue];
+  }
+
+  clear(): void {
+    this.queue = [];
+  }
+
+  size(): number {
+    return this.queue.length;
+  }
 }
 
-export interface SyncPushRequest {
-  deviceId: string;
-  events: SyncEventPayload[];
+export function createIdempotencyKey(prefix = "sync"): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
-
-export interface SyncPushResponse {
-  acknowledged: string[];
-  conflicts: Array<{ eventId: string; reason: string }>;
-  serverEvents: SyncEventPayload[];
-}
-
-export interface SyncPullResponse {
-  events: SyncEventPayload[];
-  menuVersion: string;
-  lastSyncAt: string;
-}
-
-export function computeChecksum(payload: Record<string, unknown>): string {
-  const str = JSON.stringify(payload, Object.keys(payload).sort());
-  return createHash('sha256').update(str).digest('hex');
-}
-
-export function createSyncEvent(
-  id: string,
-  deviceId: string,
-  eventType: string,
-  payload: Record<string, unknown>,
-): SyncEventPayload {
-  return {
-    id,
-    deviceId,
-    eventType,
-    payload,
-    timestamp: new Date().toISOString(),
-    checksum: computeChecksum(payload),
-  };
-}
-
-export function validateChecksum(event: SyncEventPayload): boolean {
-  return event.checksum === computeChecksum(event.payload);
-}
-
-export const SYNC_CONFLICT_RULES = {
-  ORDER: 'server_merge_by_sequence',
-  PAYMENT: 'server_merge_by_sequence',
-  INVENTORY: 'server_authoritative',
-  MENU: 'cloud_authoritative',
-} as const;

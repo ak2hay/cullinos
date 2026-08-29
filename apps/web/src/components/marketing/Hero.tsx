@@ -17,28 +17,23 @@ export function Hero({
   secondaryCta = { label: 'Book a demo', href: '/contact' },
 }: HeroProps) {
   return (
-    <section className="relative overflow-hidden border-b border-white/5">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(212,160,23,0.12),_transparent_55%)]" />
-      <div className="relative mx-auto max-w-6xl px-6 py-20 md:py-28">
+    <section className="border-b border-border-light bg-bg-elevated">
+      <div className="mx-auto max-w-7xl px-6 py-16 md:py-24 lg:px-10">
         {eyebrow && (
-          <p className="mb-4 text-sm font-medium uppercase tracking-wider text-brand-primary">
+          <p className="mb-4 text-xs font-medium tracking-[0.2em] uppercase text-brand-gold">
             {eyebrow}
           </p>
         )}
-        <h1 className="max-w-3xl text-4xl font-semibold leading-tight md:text-5xl">{title}</h1>
-        <p className="mt-6 max-w-2xl text-lg text-text-secondary">{subtitle}</p>
+        <h1 className="max-w-3xl font-serif text-4xl font-medium leading-tight md:text-5xl lg:text-6xl">
+          {title}
+        </h1>
+        <p className="mt-6 max-w-2xl text-base leading-relaxed text-text-secondary">{subtitle}</p>
         <div className="mt-8 flex flex-wrap gap-4">
-          <Link
-            href={primaryCta.href}
-            className="rounded-lg bg-brand-primary px-6 py-3 text-sm font-medium text-bg-primary transition hover:bg-brand-primary-dark"
-          >
+          <Link href={primaryCta.href} className="btn-pill-filled btn-pill">
             {primaryCta.label}
           </Link>
           {secondaryCta && (
-            <Link
-              href={secondaryCta.href}
-              className="rounded-lg border border-white/10 px-6 py-3 text-sm font-medium text-text-primary transition hover:border-brand-primary/50 hover:text-brand-primary"
-            >
+            <Link href={secondaryCta.href} className="btn-pill">
               {secondaryCta.label}
             </Link>
           )}

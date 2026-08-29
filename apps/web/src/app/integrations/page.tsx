@@ -24,7 +24,7 @@ export default function IntegrationsPage() {
           {INTEGRATION_CATEGORIES.map((category) => (
             <article
               key={category.title}
-              className="rounded-xl border border-white/5 bg-bg-secondary p-6"
+              className="rounded-xl border border-border-light bg-bg-card shadow-card p-6"
             >
               <div className="flex items-start justify-between gap-3">
                 <h3 className="text-lg font-semibold">{category.title}</h3>
@@ -34,7 +34,7 @@ export default function IntegrationsPage() {
               <ul className="mt-4 space-y-2">
                 {category.items.map((item) => (
                   <li key={item} className="flex items-center gap-2 text-sm text-text-secondary">
-                    <span className="text-brand-primary">•</span>
+                    <span className="text-brand-gold">•</span>
                     {item}
                   </li>
                 ))}

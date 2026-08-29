@@ -1,0 +1,1610 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum OrgStatus {
+  active
+  trial
+  suspended
+  cancelled
+}
+
+enum OutletStatus {
+  active
+  inactive
+  maintenance
+}
+
+enum UserStatus {
+  active
+  inactive
+  invited
+}
+
+enum SubscriptionStatus {
+  trial
+  active
+  past_due
+  suspended
+  cancelled
+}
+
+enum OrderStatus {
+  draft
+  confirmed
+  preparing
+  ready
+  served
+  completed
+  cancelled
+  voided
+}
+
+enum OrderType {
+  dine_in
+  takeaway
+  delivery
+  qr
+  online
+  room_service
+  banquet
+}
+
+enum OrderSource {
+  pos
+  waiter
+  customer
+  delivery
+  api
+  gateway
+}
+
+enum KOTStatus {
+  pending
+  preparing
+  ready
+  served
+  cancelled
+}
+
+enum PaymentStatus {
+  pending
+  completed
+  failed
+  refunded
+  partial_refund
+}
+
+enum InvoiceStatus {
+  draft
+  issued
+  paid
+  partially_paid
+  voided
+  credit_note
+}
+
+enum ShiftStatus {
+  open
+  closed
+}
+
+enum StockMovementType {
+  purchase
+  sale
+  adjustment
+  wastage
+  transfer
+  return
+}
+
+enum POStatus {
+  draft
+  sent
+  partial
+  received
+  cancelled
+}
+
+enum GRNStatus {
+  draft
+  confirmed
+  cancelled
+}
+
+enum DeliveryStatus {
+  pending
+  assigned
+  picked_up
+  in_transit
+  delivered
+  failed
+  cancelled
+}
+
+enum RoomStatus {
+  available
+  occupied
+  maintenance
+  blocked
+}
+
+enum BanquetStatus {
+  inquiry
+  confirmed
+  in_progress
+  completed
+  cancelled
+}
+
+enum AttendanceStatus {
+  present
+  absent
+  late
+  half_day
+  leave
+}
+
+enum DeviceType {
+  pos
+  kds
+  printer
+  gateway
+  scanner
+  other
+}
+
+enum SyncEventStatus {
+  pending
+  synced
+  failed
+  conflict
+}
+
+enum NotificationChannel {
+  in_app
+  email
+  sms
+  push
+}
+
+// ─── Multi-tenant core ───────────────────────────────────────────────────────
+
+model Organization {
+  id              String    @id @default(cuid())
+  name            String
+  slug            String    @unique
+  rkyvesClientId  String?   @unique @map("rkyves_client_id")
+  status          OrgStatus @default(trial)
+  gstin           String?
+  pan             String?
+  email           String?
+  phone           String?
+  address         String?
+  city            String?
+  state           String?
+  country         String    @default("IN")
+  timezone        String    @default("Asia/Kolkata")
+  currency        String    @default("INR")
+  logoUrl         String?   @map("logo_url")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  brands              Brand[]
+  outlets             Outlet[]
+  users               User[]
+  roles               Role[]
+  auditLogs           AuditLog[]
+  subscriptions       Subscription[]
+  settings            OrganizationSettings?
+  menuCategories      MenuCategory[]
+  menuItems           MenuItem[]
+  orders              Order[]
+  customers           Customer[]
+  inventoryItems      InventoryItem[]
+  suppliers           Supplier[]
+  employees           Employee[]
+  notifications       Notification[]
+  integrations        Integration[]
+  devices             Device[]
+  syncEvents          SyncEvent[]
+  taxGroups           TaxGroup[]
+  deliveryZones       DeliveryZone[]
+  guests              Guest[]
+  franchiseAgreements FranchiseAgreement[]
+  analyticsSnapshots  AnalyticsSnapshot[]
+
+  @@map("organizations")
+}
+
+model OrganizationSettings {
+  id             String  @id @default(cuid())
+  organizationId String  @unique @map("organization_id")
+  settings       Json    @default("{}")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_settings")
+}
+
+model Brand {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  slug           String
+  logoUrl        String?  @map("logo_url")
+  isDefault      Boolean  @default(false) @map("is_default")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlets      Outlet[]
+  settings     BrandSettings?
+
+  @@unique([organizationId, slug])
+  @@map("brands")
+}
+
+model BrandSettings {
+  id      String @id @default(cuid())
+  brandId String @unique @map("brand_id")
+  settings Json  @default("{}")
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@map("brand_settings")
+}
+
+model Outlet {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  brandId        String       @map("brand_id")
+  name           String
+  slug           String
+  code           String?
+  status         OutletStatus @default(active)
+  address        String?
+  city           String?
+  state          String?
+  pincode        String?
+  phone          String?
+  email          String?
+  gstin          String?
+  isDefault      Boolean      @default(false) @map("is_default")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  brand           Brand            @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  settings        OutletSettings?
+  floors          Floor[]
+  orders          Order[]
+  menuPrices      OutletMenuPrice[]
+  kitchenStations KitchenStation[]
+  cashierShifts   CashierShift[]
+  inventoryItems  InventoryItem[]
+  employees       Employee[]
+  devices         Device[]
+  deliveryZones   DeliveryZone[]
+  rooms           Room[]
+  franchiseOutlets FranchiseOutlet[]
+  outletUsers      OutletUser[]
+
+  @@unique([organizationId, slug])
+  @@map("outlets")
+}
+
+model OutletSettings {
+  id       String @id @default(cuid())
+  outletId String @unique @map("outlet_id")
+  settings Json   @default("{}")
+  outlet   Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@map("outlet_settings")
+}
+
+model User {
+  id             String     @id @default(cuid())
+  organizationId String     @map("organization_id")
+  email          String
+  passwordHash   String     @map("password_hash")
+  name           String
+  phone          String?
+  status         UserStatus @default(active)
+  isSuperAdmin   Boolean    @default(false) @map("is_super_admin")
+  lastLoginAt    DateTime?  @map("last_login_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userRoles    UserRole[]
+  outletUsers  OutletUser[]
+  sessions     Session[]
+  auditLogs    AuditLog[]
+  orders       Order[]      @relation("OrderCreatedBy")
+  cashierShifts CashierShift[]
+
+  @@unique([organizationId, email])
+  @@map("users")
+}
+
+model Role {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  slug           String
+  description    String?
+  isSystem       Boolean  @default(false) @map("is_system")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@unique([organizationId, slug])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  module      String
+  action      String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+
+  @@unique([module, action])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  roleId String @map("role_id")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model OutletUser {
+  id       String @id @default(cuid())
+  userId   String @map("user_id")
+  outletId String @map("outlet_id")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, outletId])
+  @@map("outlet_users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model ApiKey {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  name           String
+  keyHash        String    @map("key_hash")
+  scopes         String[]
+  lastUsedAt     DateTime? @map("last_used_at")
+  expiresAt      DateTime? @map("expires_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@map("api_keys")
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  userId         String?  @map("user_id")
+  action         String
+  entityType     String   @map("entity_type")
+  entityId       String?  @map("entity_id")
+  metadata       Json?
+  ipAddress      String?  @map("ip_address")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@map("audit_logs")
+}
+
+// ─── Subscriptions ───────────────────────────────────────────────────────────
+
+model Plan {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  description  String?
+  priceMonthly Decimal  @default(0) @map("price_monthly") @db.Decimal(12, 2)
+  priceYearly  Decimal  @default(0) @map("price_yearly") @db.Decimal(12, 2)
+  maxOutlets   Int      @default(1) @map("max_outlets")
+  maxTerminals Int      @default(2) @map("max_terminals")
+  isActive     Boolean  @default(true) @map("is_active")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  features      PlanFeature[]
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model PlanFeature {
+  id        String  @id @default(cuid())
+  planId    String  @map("plan_id")
+  module    String
+  enabled   Boolean @default(true)
+  limits    Json?
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, module])
+  @@map("plan_features")
+}
+
+model Subscription {
+  id             String             @id @default(cuid())
+  organizationId String             @map("organization_id")
+  planId         String             @map("plan_id")
+  status         SubscriptionStatus @default(trial)
+  trialEndsAt    DateTime?          @map("trial_ends_at")
+  currentPeriodStart DateTime?      @map("current_period_start")
+  currentPeriodEnd   DateTime?      @map("current_period_end")
+  graceUntil     DateTime?          @map("grace_until")
+  razorpaySubId  String?            @map("razorpay_sub_id")
+  cancelledAt    DateTime?          @map("cancelled_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  organization  Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan          Plan                      @relation(fields: [planId], references: [id])
+  entitlements  SubscriptionEntitlement[]
+  usageRecords  UsageRecord[]
+
+  @@map("subscriptions")
+}
+
+model SubscriptionEntitlement {
+  id             String  @id @default(cuid())
+  subscriptionId String  @map("subscription_id")
+  module         String
+  enabled        Boolean @default(true)
+  limits         Json?
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, module])
+  @@map("subscription_entitlements")
+}
+
+model UsageRecord {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  subscriptionId String?  @map("subscription_id")
+  metric         String
+  value          Decimal  @db.Decimal(12, 2)
+  periodStart    DateTime @map("period_start")
+  periodEnd      DateTime @map("period_end")
+  recordedAt     DateTime @default(now()) @map("recorded_at")
+
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([organizationId, metric, periodStart])
+  @@map("usage_records")
+}
+
+model FeatureFlag {
+  id        String  @id @default(cuid())
+  key       String  @unique
+  enabled   Boolean @default(false)
+  metadata  Json?
+
+  @@map("feature_flags")
+}
+
+// ─── Menu engine ─────────────────────────────────────────────────────────────
+
+model MenuCategory {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  slug           String
+  description    String?
+  imageUrl       String?  @map("image_url")
+  sortOrder      Int      @default(0) @map("sort_order")
+  isActive       Boolean  @default(true) @map("is_active")
+  parentId       String?  @map("parent_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       MenuCategory? @relation("CategoryTree", fields: [parentId], references: [id])
+  children     MenuCategory[] @relation("CategoryTree")
+  menuItems    MenuItem[]
+
+  @@unique([organizationId, slug])
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  categoryId     String   @map("category_id")
+  name           String
+  slug           String
+  description    String?
+  imageUrl       String?  @map("image_url")
+  basePrice      Decimal  @default(0) @map("base_price") @db.Decimal(12, 2)
+  taxGroupId     String?  @map("tax_group_id")
+  isActive       Boolean  @default(true) @map("is_active")
+  isVeg          Boolean  @default(false) @map("is_veg")
+  sortOrder      Int      @default(0) @map("sort_order")
+  sku            String?
+  hsnCode        String?  @map("hsn_code")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category       MenuCategory            @relation(fields: [categoryId], references: [id])
+  taxGroup       TaxGroup?               @relation(fields: [taxGroupId], references: [id])
+  variants       MenuItemVariant[]
+  modifierGroups MenuItemModifierGroup[]
+  comboItems     ComboItem[]
+  outletPrices   OutletMenuPrice[]
+  orderItems     OrderItem[]
+  recipe         Recipe?
+
+  @@unique([organizationId, slug])
+  @@map("menu_items")
+}
+
+model MenuItemVariant {
+  id         String  @id @default(cuid())
+  menuItemId String  @map("menu_item_id")
+  name       String
+  price      Decimal @db.Decimal(12, 2)
+  sku        String?
+  isDefault  Boolean @default(false) @map("is_default")
+  sortOrder  Int     @default(0) @map("sort_order")
+
+  menuItem   MenuItem    @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@map("menu_item_variants")
+}
+
+model ModifierGroup {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  name           String
+  minSelect      Int     @default(0) @map("min_select")
+  maxSelect      Int     @default(1) @map("max_select")
+  isRequired     Boolean @default(false) @map("is_required")
+
+  modifiers    Modifier[]
+  menuItems    MenuItemModifierGroup[]
+
+  @@map("modifier_groups")
+}
+
+model Modifier {
+  id              String  @id @default(cuid())
+  modifierGroupId String  @map("modifier_group_id")
+  name            String
+  price           Decimal @default(0) @db.Decimal(12, 2)
+  isDefault       Boolean @default(false) @map("is_default")
+  sortOrder       Int     @default(0) @map("sort_order")
+
+  modifierGroup ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@map("modifiers")
+}
+
+model MenuItemModifierGroup {
+  id              String @id @default(cuid())
+  menuItemId      String @map("menu_item_id")
+  modifierGroupId String @map("modifier_group_id")
+
+  menuItem      MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  modifierGroup ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, modifierGroupId])
+  @@map("menu_item_modifier_groups")
+}
+
+model Combo {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  name           String
+  price          Decimal @db.Decimal(12, 2)
+  isActive       Boolean @default(true) @map("is_active")
+
+  items ComboItem[]
+
+  @@map("combos")
+}
+
+model ComboItem {
+  id         String @id @default(cuid())
+  comboId    String @map("combo_id")
+  menuItemId String @map("menu_item_id")
+  quantity   Int    @default(1)
+
+  combo    Combo    @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@map("combo_items")
+}
+
+model MenuSchedule {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  daysOfWeek     Int[]    @map("days_of_week")
+  startTime      String   @map("start_time")
+  endTime        String   @map("end_time")
+  categoryIds    String[] @map("category_ids")
+
+  @@map("menu_schedules")
+}
+
+model OutletMenuPrice {
+  id         String  @id @default(cuid())
+  outletId   String  @map("outlet_id")
+  menuItemId String  @map("menu_item_id")
+  price      Decimal @db.Decimal(12, 2)
+  isAvailable Boolean @default(true) @map("is_available")
+
+  outlet   Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([outletId, menuItemId])
+  @@map("outlet_menu_prices")
+}
+
+model KitchenStation {
+  id       String @id @default(cuid())
+  outletId String @map("outlet_id")
+  name     String
+  code     String
+  sortOrder Int   @default(0) @map("sort_order")
+
+  outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  kots   KOT[]
+
+  @@unique([outletId, code])
+  @@map("kitchen_stations")
+}
+
+// ─── Floor plan ──────────────────────────────────────────────────────────────
+
+model Floor {
+  id       String @id @default(cuid())
+  outletId String @map("outlet_id")
+  name     String
+  sortOrder Int   @default(0) @map("sort_order")
+
+  outlet   Outlet    @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  sections Section[]
+
+  @@map("floors")
+}
+
+model Section {
+  id      String @id @default(cuid())
+  floorId String @map("floor_id")
+  name    String
+  sortOrder Int  @default(0) @map("sort_order")
+
+  floor  Floor   @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  tables Table[]
+
+  @@map("sections")
+}
+
+model Table {
+  id        String @id @default(cuid())
+  sectionId String @map("section_id")
+  name      String
+  capacity  Int    @default(4)
+  sortOrder Int    @default(0) @map("sort_order")
+  qrCode    String? @map("qr_code")
+
+  section      Section        @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  tableSessions TableSession[]
+  orders       Order[]
+
+  @@map("tables")
+}
+
+model TableSession {
+  id        String    @id @default(cuid())
+  tableId   String    @map("table_id")
+  startedAt DateTime  @default(now()) @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+  guestCount Int?     @map("guest_count")
+
+  table Table @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@map("table_sessions")
+}
+
+// ─── Order engine ────────────────────────────────────────────────────────────
+
+model Order {
+  id             String      @id @default(cuid())
+  organizationId String      @map("organization_id")
+  outletId       String      @map("outlet_id")
+  orderNumber    String      @map("order_number")
+  type           OrderType   @default(dine_in)
+  source         OrderSource @default(pos)
+  status         OrderStatus @default(draft)
+  tableId        String?     @map("table_id")
+  customerId     String?     @map("customer_id")
+  createdById    String?     @map("created_by_id")
+  guestCount     Int?        @map("guest_count")
+  notes          String?
+  subtotal       Decimal     @default(0) @db.Decimal(12, 2)
+  taxTotal       Decimal     @default(0) @map("tax_total") @db.Decimal(12, 2)
+  discountTotal  Decimal     @default(0) @map("discount_total") @db.Decimal(12, 2)
+  total          Decimal     @default(0) @db.Decimal(12, 2)
+  idempotencyKey String?     @unique @map("idempotency_key")
+  metadata       Json?
+  completedAt    DateTime?   @map("completed_at")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet          @relation(fields: [outletId], references: [id])
+  table        Table?          @relation(fields: [tableId], references: [id])
+  customer     Customer?       @relation(fields: [customerId], references: [id])
+  createdBy    User?           @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  items        OrderItem[]
+  timeline     OrderTimeline[]
+  discounts    OrderDiscount[]
+  taxLines     OrderTaxLine[]
+  kots         KOT[]
+  payments     Payment[]
+  invoices     Invoice[]
+  deliveryOrder DeliveryOrder?
+
+  @@unique([outletId, orderNumber])
+  @@index([organizationId, status, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String  @map("order_id")
+  menuItemId String? @map("menu_item_id")
+  variantId String? @map("variant_id")
+  name      String
+  quantity  Int     @default(1)
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  total     Decimal @db.Decimal(12, 2)
+  notes     String?
+  modifiers Json?
+  status    String  @default("pending")
+
+  order    Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem?        @relation(fields: [menuItemId], references: [id])
+  variant  MenuItemVariant? @relation(fields: [variantId], references: [id])
+  kotItems KOTItem[]
+
+  @@map("order_items")
+}
+
+model OrderTimeline {
+  id        String   @id @default(cuid())
+  orderId   String   @map("order_id")
+  event     String
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_timeline")
+}
+
+model OrderIdempotencyKey {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  orderId   String?  @map("order_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("order_idempotency_keys")
+}
+
+model OrderDiscount {
+  id       String  @id @default(cuid())
+  orderId  String  @map("order_id")
+  type     String
+  value    Decimal @db.Decimal(12, 2)
+  amount   Decimal @db.Decimal(12, 2)
+  couponId String? @map("coupon_id")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_discounts")
+}
+
+model OrderTaxLine {
+  id      String  @id @default(cuid())
+  orderId String  @map("order_id")
+  taxName String  @map("tax_name")
+  rate    Decimal @db.Decimal(5, 2)
+  amount  Decimal @db.Decimal(12, 2)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_tax_lines")
+}
+
+model KOT {
+  id               String    @id @default(cuid())
+  orderId          String    @map("order_id")
+  kitchenStationId String?   @map("kitchen_station_id")
+  kotNumber        String    @map("kot_number")
+  status           KOTStatus @default(pending)
+  printedAt        DateTime? @map("printed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kitchenStation KitchenStation? @relation(fields: [kitchenStationId], references: [id])
+  items          KOTItem[]
+
+  @@map("kots")
+}
+
+model KOTItem {
+  id          String @id @default(cuid())
+  kotId       String @map("kot_id")
+  orderItemId String @map("order_item_id")
+  status      String @default("pending")
+
+  kot       KOT       @relation(fields: [kotId], references: [id], onDelete: Cascade)
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@map("kot_items")
+}
+
+// ─── Money ───────────────────────────────────────────────────────────────────
+
+model PaymentMethod {
+  id   String @id @default(cuid())
+  name String
+  code String @unique
+  isActive Boolean @default(true) @map("is_active")
+
+  payments Payment[]
+
+  @@map("payment_methods")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  orderId         String        @map("order_id")
+  paymentMethodId String?       @map("payment_method_id")
+  amount          Decimal       @db.Decimal(12, 2)
+  status          PaymentStatus @default(pending)
+  reference       String?
+  metadata        Json?
+  processedAt     DateTime?     @map("processed_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  order         Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+
+  @@map("payments")
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  orderId       String?       @map("order_id")
+  invoiceNumber String        @map("invoice_number")
+  status        InvoiceStatus @default(draft)
+  subtotal      Decimal       @default(0) @db.Decimal(12, 2)
+  taxTotal      Decimal       @default(0) @map("tax_total") @db.Decimal(12, 2)
+  total         Decimal       @default(0) @db.Decimal(12, 2)
+  issuedAt      DateTime?     @map("issued_at")
+  dueAt         DateTime?     @map("due_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  order      Order?           @relation(fields: [orderId], references: [id])
+  items      InvoiceItem[]
+  taxLines   InvoiceTaxLine[]
+  creditNotes CreditNote[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id       String  @id @default(cuid())
+  invoiceId String @map("invoice_id")
+  name     String
+  quantity Int     @default(1)
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  total    Decimal @db.Decimal(12, 2)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_items")
+}
+
+model InvoiceTaxLine {
+  id       String  @id @default(cuid())
+  invoiceId String @map("invoice_id")
+  taxName  String  @map("tax_name")
+  rate     Decimal @db.Decimal(5, 2)
+  amount   Decimal @db.Decimal(12, 2)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_tax_lines")
+}
+
+model CreditNote {
+  id        String  @id @default(cuid())
+  invoiceId String  @map("invoice_id")
+  amount    Decimal @db.Decimal(12, 2)
+  reason    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@map("credit_notes")
+}
+
+model CashierShift {
+  id          String      @id @default(cuid())
+  outletId    String      @map("outlet_id")
+  userId      String      @map("user_id")
+  status      ShiftStatus @default(open)
+  openingCash Decimal     @default(0) @map("opening_cash") @db.Decimal(12, 2)
+  closingCash Decimal?    @map("closing_cash") @db.Decimal(12, 2)
+  openedAt    DateTime    @default(now()) @map("opened_at")
+  closedAt    DateTime?   @map("closed_at")
+
+  outlet        Outlet         @relation(fields: [outletId], references: [id])
+  user          User           @relation(fields: [userId], references: [id])
+  cashMovements CashMovement[]
+
+  @@map("cashier_shifts")
+}
+
+model CashMovement {
+  id       String  @id @default(cuid())
+  shiftId  String  @map("shift_id")
+  type     String
+  amount   Decimal @db.Decimal(12, 2)
+  reason   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  shift CashierShift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  @@map("cash_movements")
+}
+
+// ─── Tax ─────────────────────────────────────────────────────────────────────
+
+model TaxGroup {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+  isInclusive    Boolean @default(false) @map("is_inclusive")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rates        TaxRate[]
+  menuItems    MenuItem[]
+
+  @@map("tax_groups")
+}
+
+model TaxRate {
+  id         String  @id @default(cuid())
+  taxGroupId String  @map("tax_group_id")
+  name       String
+  rate       Decimal @db.Decimal(5, 2)
+  type       String  @default("percentage")
+
+  taxGroup TaxGroup @relation(fields: [taxGroupId], references: [id], onDelete: Cascade)
+
+  @@map("tax_rates")
+}
+
+// ─── Inventory & supply chain ──────────────────────────────────────────────
+
+model InventoryCategory {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+
+  items InventoryItem[]
+
+  @@map("inventory_categories")
+}
+
+model InventoryItem {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  outletId       String? @map("outlet_id")
+  categoryId     String? @map("category_id")
+  name           String
+  sku            String?
+  unit           String  @default("kg")
+  currentStock   Decimal @default(0) @map("current_stock") @db.Decimal(12, 3)
+  reorderLevel   Decimal @default(0) @map("reorder_level") @db.Decimal(12, 3)
+  costPerUnit    Decimal @default(0) @map("cost_per_unit") @db.Decimal(12, 2)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet?            @relation(fields: [outletId], references: [id])
+  category     InventoryCategory? @relation(fields: [categoryId], references: [id])
+  stockMovements StockMovement[]
+  recipeIngredients RecipeIngredient[]
+
+  @@map("inventory_items")
+}
+
+model StockLocation {
+  id       String @id @default(cuid())
+  outletId String @map("outlet_id")
+  name     String
+
+  @@map("stock_locations")
+}
+
+model StockMovement {
+  id              String            @id @default(cuid())
+  inventoryItemId String            @map("inventory_item_id")
+  type            StockMovementType
+  quantity        Decimal           @db.Decimal(12, 3)
+  reference       String?
+  notes           String?
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@map("stock_movements")
+}
+
+model Recipe {
+  id         String @id @default(cuid())
+  menuItemId String @unique @map("menu_item_id")
+  yield      Decimal @default(1) @db.Decimal(12, 2)
+
+  menuItem    MenuItem           @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  ingredients RecipeIngredient[]
+
+  @@map("recipes")
+}
+
+model RecipeIngredient {
+  id              String  @id @default(cuid())
+  recipeId        String  @map("recipe_id")
+  inventoryItemId String  @map("inventory_item_id")
+  quantity        Decimal @db.Decimal(12, 3)
+
+  recipe        Recipe        @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  @@map("recipe_ingredients")
+}
+
+model Wastage {
+  id              String  @id @default(cuid())
+  inventoryItemId String  @map("inventory_item_id")
+  quantity        Decimal @db.Decimal(12, 3)
+  reason          String?
+  recordedAt      DateTime @default(now()) @map("recorded_at")
+
+  @@map("wastage")
+}
+
+model Supplier {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+  email          String?
+  phone          String?
+  address        String?
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id        String   @id @default(cuid())
+  supplierId String  @map("supplier_id")
+  poNumber  String   @map("po_number")
+  status    POStatus @default(draft)
+  total     Decimal  @default(0) @db.Decimal(12, 2)
+  orderedAt DateTime? @map("ordered_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  supplier Supplier            @relation(fields: [supplierId], references: [id])
+  items    PurchaseOrderItem[]
+  grns     GRN[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String  @id @default(cuid())
+  purchaseOrderId String  @map("purchase_order_id")
+  inventoryItemId String? @map("inventory_item_id")
+  name            String
+  quantity        Decimal @db.Decimal(12, 3)
+  unitPrice       Decimal @map("unit_price") @db.Decimal(12, 2)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@map("purchase_order_items")
+}
+
+model GRN {
+  id              String    @id @default(cuid())
+  purchaseOrderId String?   @map("purchase_order_id")
+  grnNumber       String    @map("grn_number")
+  status          GRNStatus @default(draft)
+  receivedAt      DateTime? @map("received_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  items         GRNItem[]
+
+  @@map("grns")
+}
+
+model GRNItem {
+  id              String  @id @default(cuid())
+  grnId           String  @map("grn_id")
+  inventoryItemId String? @map("inventory_item_id")
+  quantity        Decimal @db.Decimal(12, 3)
+  unitPrice       Decimal @map("unit_price") @db.Decimal(12, 2)
+
+  grn GRN @relation(fields: [grnId], references: [id], onDelete: Cascade)
+
+  @@map("grn_items")
+}
+
+// ─── CRM & growth ────────────────────────────────────────────────────────────
+
+model Customer {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  name           String
+  email          String?
+  phone          String?
+  loyaltyTierId  String? @map("loyalty_tier_id")
+  loyaltyPoints  Int     @default(0) @map("loyalty_points")
+  metadata       Json?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  loyaltyTier  LoyaltyTier? @relation(fields: [loyaltyTierId], references: [id])
+  orders       Order[]
+  loyaltyTransactions LoyaltyTransaction[]
+  couponUsages CouponUsage[]
+
+  @@map("customers")
+}
+
+model LoyaltyTier {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+  minPoints      Int    @default(0) @map("min_points")
+  multiplier     Decimal @default(1) @db.Decimal(5, 2)
+
+  customers Customer[]
+
+  @@map("loyalty_tiers")
+}
+
+model LoyaltyTransaction {
+  id         String @id @default(cuid())
+  customerId String @map("customer_id")
+  points     Int
+  type       String
+  reference  String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("loyalty_transactions")
+}
+
+model Coupon {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  code           String
+  type           String
+  value          Decimal  @db.Decimal(12, 2)
+  minOrder       Decimal? @map("min_order") @db.Decimal(12, 2)
+  maxUses        Int?     @map("max_uses")
+  usedCount      Int      @default(0) @map("used_count")
+  startsAt       DateTime? @map("starts_at")
+  expiresAt      DateTime? @map("expires_at")
+  isActive       Boolean  @default(true) @map("is_active")
+
+  usages CouponUsage[]
+
+  @@unique([organizationId, code])
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id         String @id @default(cuid())
+  couponId   String @map("coupon_id")
+  customerId String? @map("customer_id")
+  orderId    String? @map("order_id")
+  usedAt     DateTime @default(now()) @map("used_at")
+
+  coupon   Coupon    @relation(fields: [couponId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@map("coupon_usages")
+}
+
+model DeliveryZone {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  outletId       String @map("outlet_id")
+  name           String
+  polygon        Json?
+  deliveryFee    Decimal @default(0) @map("delivery_fee") @db.Decimal(12, 2)
+  minOrder       Decimal @default(0) @map("min_order") @db.Decimal(12, 2)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id])
+
+  @@map("delivery_zones")
+}
+
+model DeliveryOrder {
+  id              String         @id @default(cuid())
+  orderId         String         @unique @map("order_id")
+  status          DeliveryStatus @default(pending)
+  address         String?
+  driverName      String?        @map("driver_name")
+  driverPhone     String?        @map("driver_phone")
+  estimatedAt     DateTime?      @map("estimated_at")
+  deliveredAt     DateTime?      @map("delivered_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("delivery_orders")
+}
+
+// ─── Hospitality ─────────────────────────────────────────────────────────────
+
+model Guest {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+  email          String?
+  phone          String?
+  documentType   String? @map("document_type")
+  documentNumber String? @map("document_number")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  roomPostings RoomPosting[]
+  banquetBookings BanquetBooking[]
+
+  @@map("guests")
+}
+
+model RoomType {
+  id       String  @id @default(cuid())
+  name     String
+  baseRate Decimal @default(0) @map("base_rate") @db.Decimal(12, 2)
+  capacity Int     @default(2)
+
+  rooms Room[]
+
+  @@map("room_types")
+}
+
+model Room {
+  id         String     @id @default(cuid())
+  outletId   String     @map("outlet_id")
+  roomTypeId String     @map("room_type_id")
+  number     String
+  floor      Int?
+  status     RoomStatus @default(available)
+
+  outlet       Outlet        @relation(fields: [outletId], references: [id])
+  roomType     RoomType      @relation(fields: [roomTypeId], references: [id])
+  roomPostings RoomPosting[]
+
+  @@unique([outletId, number])
+  @@map("rooms")
+}
+
+model RoomPosting {
+  id       String    @id @default(cuid())
+  roomId   String    @map("room_id")
+  guestId  String    @map("guest_id")
+  checkIn  DateTime  @map("check_in")
+  checkOut DateTime? @map("check_out")
+  amount   Decimal   @default(0) @db.Decimal(12, 2)
+
+  room  Room  @relation(fields: [roomId], references: [id])
+  guest Guest @relation(fields: [guestId], references: [id])
+
+  @@map("room_postings")
+}
+
+model Banquet {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+  capacity       Int
+  baseRate       Decimal @default(0) @map("base_rate") @db.Decimal(12, 2)
+
+  bookings BanquetBooking[]
+
+  @@map("banquets")
+}
+
+model BanquetBooking {
+  id        String        @id @default(cuid())
+  banquetId String        @map("banquet_id")
+  guestId   String        @map("guest_id")
+  eventDate DateTime      @map("event_date")
+  status    BanquetStatus @default(inquiry)
+  guestCount Int          @map("guest_count")
+  total     Decimal       @default(0) @db.Decimal(12, 2)
+
+  banquet Banquet @relation(fields: [banquetId], references: [id])
+  guest   Guest   @relation(fields: [guestId], references: [id])
+
+  @@map("banquet_bookings")
+}
+
+// ─── Enterprise ──────────────────────────────────────────────────────────────
+
+model FranchiseAgreement {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  franchiseeName String   @map("franchisee_name")
+  startDate      DateTime @map("start_date")
+  endDate        DateTime? @map("end_date")
+  terms          Json?
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlets      FranchiseOutlet[]
+
+  @@map("franchise_agreements")
+}
+
+model FranchiseOutlet {
+  id                   String @id @default(cuid())
+  franchiseAgreementId String @map("franchise_agreement_id")
+  outletId             String @map("outlet_id")
+
+  franchiseAgreement FranchiseAgreement @relation(fields: [franchiseAgreementId], references: [id])
+  outlet             Outlet             @relation(fields: [outletId], references: [id])
+
+  @@unique([franchiseAgreementId, outletId])
+  @@map("franchise_outlets")
+}
+
+model Employee {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  outletId       String? @map("outlet_id")
+  name           String
+  email          String?
+  phone          String?
+  role           String?
+  isActive       Boolean @default(true) @map("is_active")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet?      @relation(fields: [outletId], references: [id])
+  attendance   AttendanceRecord[]
+
+  @@map("employees")
+}
+
+model AttendanceShift {
+  id        String @id @default(cuid())
+  name      String
+  startTime String @map("start_time")
+  endTime   String @map("end_time")
+
+  records AttendanceRecord[]
+
+  @@map("attendance_shifts")
+}
+
+model AttendanceRecord {
+  id         String           @id @default(cuid())
+  employeeId String           @map("employee_id")
+  shiftId    String?          @map("shift_id")
+  date       DateTime         @db.Date
+  status     AttendanceStatus @default(present)
+  checkIn    DateTime?        @map("check_in")
+  checkOut   DateTime?        @map("check_out")
+
+  employee Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift    AttendanceShift?  @relation(fields: [shiftId], references: [id])
+
+  @@unique([employeeId, date])
+  @@map("attendance_records")
+}
+
+// ─── Platform ────────────────────────────────────────────────────────────────
+
+model Notification {
+  id             String              @id @default(cuid())
+  organizationId String              @map("organization_id")
+  userId         String?             @map("user_id")
+  channel        NotificationChannel @default(in_app)
+  title          String
+  body           String?
+  read           Boolean             @default(false)
+  metadata       Json?
+  createdAt      DateTime            @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Integration {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  provider       String
+  config         Json
+  isActive       Boolean @default(true) @map("is_active")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("integrations")
+}
+
+model Webhook {
+  id        String @id @default(cuid())
+  url       String
+  events    String[]
+  secret    String?
+  isActive  Boolean @default(true) @map("is_active")
+
+  deliveries WebhookDelivery[]
+
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id         String   @id @default(cuid())
+  webhookId  String   @map("webhook_id")
+  event      String
+  payload    Json
+  status     String
+  response   String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_deliveries")
+}
+
+model Device {
+  id             String     @id @default(cuid())
+  organizationId String     @map("organization_id")
+  outletId       String?    @map("outlet_id")
+  name           String
+  type           DeviceType
+  identifier     String?
+  lastSeenAt     DateTime?  @map("last_seen_at")
+  metadata       Json?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet?      @relation(fields: [outletId], references: [id])
+  registrations DeviceRegistration[]
+
+  @@map("devices")
+}
+
+model DeviceRegistration {
+  id       String @id @default(cuid())
+  deviceId String @map("device_id")
+  token    String @unique
+  platform String?
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("device_registrations")
+}
+
+model SyncEvent {
+  id             String          @id @default(cuid())
+  organizationId String          @map("organization_id")
+  deviceId       String?         @map("device_id")
+  eventType      String          @map("event_type")
+  payload        Json
+  idempotencyKey String          @unique @map("idempotency_key")
+  status         SyncEventStatus @default(pending)
+  syncedAt       DateTime?       @map("synced_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@map("sync_events")
+}
+
+model SyncQueue {
+  id        String   @id @default(cuid())
+  deviceId  String   @map("device_id")
+  payload   Json
+  status    String   @default("pending")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("sync_queue")
+}
+
+model AnalyticsSnapshot {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  date           DateTime @db.Date
+  metrics        Json
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, date])
+  @@map("analytics_snapshots")
+}
+
+model InsightsSnapshot {
+  id        String   @id @default(cuid())
+  outletId  String   @map("outlet_id")
+  date      DateTime @db.Date
+  insights  Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([outletId, date])
+  @@map("insights_snapshots")
+}
