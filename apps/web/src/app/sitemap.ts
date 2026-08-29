@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 import { getBlogSlugs } from '@/lib/blog';
 import { getSiteUrl } from '@/lib/urls';
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = getSiteUrl();
   const now = new Date();
 
@@ -11,6 +11,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/features',
     '/pricing',
     '/solutions/restaurants',
+    '/solutions/cafes',
+    '/solutions/food-trucks',
+    '/solutions/bakeries',
     '/solutions/chains',
     '/solutions/hospitality',
     '/integrations',
@@ -21,7 +24,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/terms',
   ];
 
-  const blogRoutes = getBlogSlugs().map((slug) => `/blog/${slug}`);
+  const slugs = await getBlogSlugs();
+  const blogRoutes = slugs.map((slug) => `/blog/${slug}`);
 
   return [...staticRoutes, ...blogRoutes].map((path) => ({
     url: `${siteUrl}${path}`,

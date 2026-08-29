@@ -22,12 +22,27 @@ export const FEATURES = {
   ROOM_POSTING: 'room_posting',
   BANQUET: 'banquet',
   HOSPITALITY_INTEGRATIONS: 'hospitality_integrations',
+  COUNTER_MODE: 'counter_mode',
+  PICKUP_QUEUE: 'pickup_queue',
+  PRE_ORDERS: 'pre_orders',
+  PRODUCTION: 'production',
 } as const;
 
 export type FeatureKey = (typeof FEATURES)[keyof typeof FEATURES];
 
 export const PLAN_FEATURES: Record<string, FeatureKey[]> = {
   STARTER: [FEATURES.POS, FEATURES.BILLING, FEATURES.KOT, FEATURES.BASIC_REPORTS],
+  QSR: [
+    FEATURES.POS,
+    FEATURES.BILLING,
+    FEATURES.KOT,
+    FEATURES.BASIC_REPORTS,
+    FEATURES.COUNTER_MODE,
+    FEATURES.PICKUP_QUEUE,
+    FEATURES.QR_ORDERING,
+    FEATURES.ONLINE_ORDERING,
+    FEATURES.LOYALTY,
+  ],
   PROFESSIONAL: [
     FEATURES.POS,
     FEATURES.BILLING,

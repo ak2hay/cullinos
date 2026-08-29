@@ -1,7 +1,8 @@
 'use client';
 
+import type { MarketingCmsBundle } from '@cullinos/shared';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ALL_COMPARISON_FEATURES,
   FEATURE_LABELS,
@@ -9,9 +10,40 @@ import {
   MARKETING_PLANS,
   type MarketingPlan,
 } from '@cullinos/shared';
+import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
 import { getRegisterUrl } from '@/lib/urls';
 
+type DisplayPlan = MarketingPlan & { id: string };
+
+function cmsCardToPlan(card: MarketingCmsBundle['pricingCards'][number]): DisplayPlan {
+  return {
+    id: card.id,
+    key: card.planKey as MarketingPlan['key'],
+    name: card.name,
+    description: card.description,
+    priceMonthly: card.priceMonthly,
+    priceYearly: card.priceYearly,
+    maxOutlets: card.maxOutlets,
+    maxUsers: card.maxUsers,
+    maxTerminals: card.maxTerminals,
+    features: card.features as MarketingPlan['features'],
+    cta: card.cta as MarketingPlan['cta'],
+    highlighted: card.highlighted,
+  };
+}
+
 export function PricingTable() {
+  const cms = useMarketingCms();
+  const registerUrl = cms.site?.registerUrl || getRegisterUrl();
+  const plans = useMemo(() => {
+    if (cms.pricingCards.length) {
+      return [...cms.pricingCards]
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map(cmsCardToPlan);
+    }
+    return MARKETING_PLANS.map((p) => ({ ...p, id: p.key }));
+  }, [cms.pricingCards]);
+
   const [yearly, setYearly] = useState(false);
 
   return (
@@ -38,8 +70,8 @@ export function PricingTable() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-4">
-        {MARKETING_PLANS.map((plan) => (
-          <PricingCard key={plan.key} plan={plan} yearly={yearly} />
+        {plans.map((plan) => (
+          <PricingCard key={plan.id} plan={plan} yearly={yearly} registerUrl={registerUrl} />
         ))}
       </div>
 
@@ -48,8 +80,8 @@ export function PricingTable() {
           <thead>
             <tr className="border-b border-border-light bg-bg-elevated">
               <th className="px-4 py-3 font-medium text-text-secondary">Feature</th>
-              {MARKETING_PLANS.map((plan) => (
-                <th key={plan.key} className="px-4 py-3 font-serif font-medium">
+              {plans.map((plan) => (
+                <th key={plan.id} className="px-4 py-3 font-serif font-medium">
                   {plan.name}
                 </th>
               ))}
@@ -59,8 +91,8 @@ export function PricingTable() {
             {ALL_COMPARISON_FEATURES.map((feature) => (
               <tr key={feature} className="border-b border-border-light">
                 <td className="px-4 py-3 text-text-secondary">{FEATURE_LABELS[feature]}</td>
-                {MARKETING_PLANS.map((plan) => (
-                  <td key={plan.key} className="px-4 py-3">
+                {plans.map((plan) => (
+                  <td key={plan.id} className="px-4 py-3">
                     {plan.features.includes(feature) ? (
                       <span className="text-status-success">✓</span>
                     ) : (
@@ -77,10 +109,18 @@ export function PricingTable() {
   );
 }
 
-function PricingCard({ plan, yearly }: { plan: MarketingPlan; yearly: boolean }) {
+function PricingCard({
+  plan,
+  yearly,
+  registerUrl,
+}: {
+  plan: DisplayPlan;
+  yearly: boolean;
+  registerUrl: string;
+}) {
   const price = yearly ? plan.priceYearly : plan.priceMonthly;
   const period = yearly ? '/year' : '/month';
-  const ctaHref = plan.cta === 'register' ? getRegisterUrl() : '/contact?plan=' + plan.key.toLowerCase();
+  const ctaHref = plan.cta === 'register' ? registerUrl : '/contact?plan=' + plan.key.toLowerCase();
 
   return (
     <article
@@ -102,7 +142,9 @@ function PricingCard({ plan, yearly }: { plan: MarketingPlan; yearly: boolean })
         <span className="text-sm font-normal text-text-muted">{period}</span>
       </p>
       <ul className="mt-4 space-y-2 text-sm text-text-secondary">
-        <li>{plan.maxOutlets} outlet{plan.maxOutlets > 1 ? 's' : ''}</li>
+        <li>
+          {plan.maxOutlets} outlet{plan.maxOutlets > 1 ? 's' : ''}
+        </li>
         <li>{plan.maxUsers} users</li>
         <li>{plan.maxTerminals} terminals</li>
       </ul>
@@ -117,10 +159,23 @@ function PricingCard({ plan, yearly }: { plan: MarketingPlan; yearly: boolean })
 }
 
 export function PricingTeaser() {
+  const cms = useMarketingCms();
+  const plans = useMemo(() => {
+    if (cms.pricingCards.length) {
+      return [...cms.pricingCards].sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+    return MARKETING_PLANS.map((p, i) => ({
+      id: p.key,
+      name: p.name,
+      priceMonthly: p.priceMonthly,
+      sortOrder: i,
+    }));
+  }, [cms.pricingCards]);
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {MARKETING_PLANS.map((plan) => (
-        <div key={plan.key} className="rounded-2xl border border-border-light bg-bg-card p-5 shadow-card">
+      {plans.map((plan) => (
+        <div key={plan.id} className="rounded-2xl border border-border-light bg-bg-card p-5 shadow-card">
           <h3 className="font-serif font-medium">{plan.name}</h3>
           <p className="mt-2 font-serif text-2xl font-medium text-brand-gold">
             {formatInr(plan.priceMonthly)}

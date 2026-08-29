@@ -80,6 +80,11 @@ export function LoginPage() {
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+
+        <p className="mt-6 text-center text-sm text-text-secondary">
+          Sign in with credentials issued to your organization owner. Additional manager
+          accounts can be created by the owner in Admin → Staff.
+        </p>
       </div>
     </div>
   );

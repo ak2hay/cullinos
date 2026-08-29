@@ -1,5 +1,18 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { cullinosTheme } from "@cullinos/ui";
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { MobileShell } from '@/components/layout/MobileShell';
+import { LoginPage } from '@/pages/LoginPage';
+import { OrderPage } from '@/pages/OrderPage';
+import { TablesPage } from '@/pages/TablesPage';
+import { useAuthStore } from '@/stores/auth';
+function PublicOnly({ children }) {
+    const accessToken = useAuthStore((s) => s.accessToken);
+    if (accessToken) {
+        return _jsx(Navigate, { to: "/", replace: true });
+    }
+    return children;
+}
 export default function App() {
-    return (_jsxs("div", { style: { minHeight: '100vh', background: cullinosTheme.colors.charcoal, color: cullinosTheme.colors.white, fontFamily: cullinosTheme.fonts.sans, padding: '2rem' }, children: [_jsxs("header", { style: { borderBottom: '1px solid ' + cullinosTheme.colors.border, paddingBottom: '1rem', marginBottom: '2rem' }, children: [_jsx("h1", { style: { color: cullinosTheme.colors.amber, margin: 0 }, children: "Cullinos Waiter" }), _jsx("p", { style: { color: cullinosTheme.colors.muted, margin: '0.5rem 0 0' }, children: "Floor Staff" })] }), _jsx("main", { children: _jsxs("div", { style: { background: cullinosTheme.colors.charcoalLight, border: '1px solid ' + cullinosTheme.colors.border, borderRadius: '12px', padding: '2rem' }, children: [_jsxs("p", { children: ["Connected to Cullinos API at ", _jsx("code", { style: { fontFamily: cullinosTheme.fonts.mono }, children: "localhost:3000" })] }), _jsx("p", { style: { color: cullinosTheme.colors.muted, marginTop: '1rem' }, children: "Cullinos v0.1.0" })] }) })] }));
+    return (_jsxs(Routes, { children: [_jsx(Route, { path: "/login", element: _jsx(PublicOnly, { children: _jsx(LoginPage, {}) }) }), _jsxs(Route, { path: "/", element: _jsx(ProtectedRoute, { children: _jsx(MobileShell, {}) }), children: [_jsx(Route, { index: true, element: _jsx(TablesPage, {}) }), _jsx(Route, { path: "order/:tableId", element: _jsx(OrderPage, {}) })] }), _jsx(Route, { path: "*", element: _jsx(Navigate, { to: "/", replace: true }) })] }));
 }

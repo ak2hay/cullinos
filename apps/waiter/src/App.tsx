@@ -1,19 +1,42 @@
-import { cullinosTheme, poweredByRkyves } from "@cullinos/ui";
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { MobileShell } from '@/components/layout/MobileShell';
+import { LoginPage } from '@/pages/LoginPage';
+import { OrderPage } from '@/pages/OrderPage';
+import { TablesPage } from '@/pages/TablesPage';
+import { useAuthStore } from '@/stores/auth';
+
+function PublicOnly({ children }: { children: React.ReactNode }) {
+  const accessToken = useAuthStore((s) => s.accessToken);
+  if (accessToken) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+}
 
 export default function App() {
   return (
-    <div style={{ minHeight: '100vh', background: cullinosTheme.colors.charcoal, color: cullinosTheme.colors.white, fontFamily: cullinosTheme.fonts.sans, padding: '2rem' }}>
-      <header style={{ borderBottom: '1px solid ' + cullinosTheme.colors.border, paddingBottom: '1rem', marginBottom: '2rem' }}>
-        <h1 style={{ color: cullinosTheme.colors.amber, margin: 0 }}>Cullinos Waiter</h1>
-        <p style={{ color: cullinosTheme.colors.muted, margin: '0.5rem 0 0' }}>Floor Staff</p>
-      </header>
-      <main>
-        <div style={{ background: cullinosTheme.colors.charcoalLight, border: '1px solid ' + cullinosTheme.colors.border, borderRadius: '12px', padding: '2rem' }}>
-          <p>Connected to Cullinos API at <code style={{ fontFamily: cullinosTheme.fonts.mono }}>localhost:3000</code></p>
-          <p style={{ color: cullinosTheme.colors.muted, marginTop: '1rem' }}>Cullinos v0.1.0</p>
-        </div>
-      </main>
-      
-    </div>
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          <PublicOnly>
+            <LoginPage />
+          </PublicOnly>
+        }
+      />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <MobileShell />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<TablesPage />} />
+        <Route path="order/:tableId" element={<OrderPage />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }

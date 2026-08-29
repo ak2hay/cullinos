@@ -1,11 +1,13 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { CustomerLayout } from '@/components/layout/CustomerLayout';
 import { Button } from '@/components/ui/Form';
+import { useStorefrontBase } from '@/hooks/useStorefrontBase';
 import { formatPrice } from '@/lib/api';
 import { useCartStore } from '@/stores/cart';
 
 export function CartPage() {
   const navigate = useNavigate();
+  const base = useStorefrontBase();
   const items = useCartStore((s) => s.items);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
@@ -16,7 +18,7 @@ export function CartPage() {
       <div className="p-4">
         <button
           type="button"
-          onClick={() => navigate('/')}
+          onClick={() => navigate(base)}
           className="mb-4 text-sm text-brand-primary"
         >
           ← Back to menu
@@ -27,7 +29,7 @@ export function CartPage() {
         {items.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/20 p-8 text-center">
             <p className="text-text-secondary">Your cart is empty.</p>
-            <Link to="/" className="mt-3 inline-block text-sm text-brand-primary">
+            <Link to={base} className="mt-3 inline-block text-sm text-brand-primary">
               Browse menu
             </Link>
           </div>
@@ -98,7 +100,7 @@ export function CartPage() {
               <span className="text-xl font-semibold text-brand-primary">{formatPrice(total)}</span>
             </div>
 
-            <Button className="mt-4 w-full" onClick={() => navigate('/checkout')}>
+            <Button className="mt-4 w-full" onClick={() => navigate(`${base}/checkout`)}>
               Proceed to checkout
             </Button>
           </>

@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Headers, Post, Patch, Param, UnauthorizedException } from "@nestjs/common";
-import { hashPassword } from "@cullinos/auth";
+import { Body, Controller, Get, Headers, Param, Patch, Post, UnauthorizedException } from "@nestjs/common";
 import { Public } from "../../common/decorators";
+import { TenantProvisioningService } from "../organizations/tenant-provisioning.service";
 import { PrismaService } from "../../prisma/prisma.service";
 
 class ProvisionDto {
@@ -15,94 +15,33 @@ class ProvisionDto {
 
 @Controller("internal")
 export class InternalController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private provisioning: TenantProvisioningService,
+    private prisma: PrismaService,
+  ) {}
 
   private verifyKey(key: string | undefined) {
     const expected = process.env.INTERNAL_API_KEY || "change-me-internal-provision-key";
     if (key !== expected) throw new UnauthorizedException("Invalid internal API key");
   }
 
+  /** Rkyves / platform ops onboards a restaurant and issues owner credentials. */
   @Public()
   @Post("provision")
   async provision(@Headers("x-internal-key") key: string, @Body() dto: ProvisionDto) {
     this.verifyKey(key);
 
-    const plan = await this.prisma.plan.findUnique({ where: { slug: dto.planSlug } });
-    if (!plan) throw new UnauthorizedException("Plan not found");
-
-    const slug = dto.companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
-    const passwordHash = await hashPassword(dto.adminPassword);
-
-    const org = await this.prisma.organization.create({
-      data: {
-        name: dto.companyName,
-        slug: `${slug}-${Date.now().toString(36)}`,
-        rkyvesClientId: dto.rkyvesClientId,
-        status: "trial",
-        email: dto.adminEmail,
-        settings: { create: { settings: {} } },
-      },
+    const result = await this.provisioning.provisionTenant({
+      companyName: dto.companyName,
+      planSlug: dto.planSlug,
+      adminEmail: dto.adminEmail,
+      adminPassword: dto.adminPassword,
+      adminName: dto.adminName,
+      outletName: dto.outletName,
+      rkyvesClientId: dto.rkyvesClientId,
+      status: "trial",
     });
 
-    const brand = await this.prisma.brand.create({
-      data: {
-        organizationId: org.id,
-        name: dto.companyName,
-        slug: "main",
-        isDefault: true,
-        settings: { create: { settings: {} } },
-      },
-    });
-
-    const outlet = await this.prisma.outlet.create({
-      data: {
-        organizationId: org.id,
-        brandId: brand.id,
-        name: dto.outletName,
-        slug: "main-outlet",
-        isDefault: true,
-        settings: { create: { settings: {} } },
-      },
-    });
-
-    const admin = await this.prisma.user.create({
-      data: {
-        organizationId: org.id,
-        email: dto.adminEmail,
-        passwordHash,
-        name: dto.adminName || "Admin",
-        isSuperAdmin: false,
-      },
-    });
-
-    const trialEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-    const subscription = await this.prisma.subscription.create({
-      data: {
-        organizationId: org.id,
-        planId: plan.id,
-        status: "trial",
-        trialEndsAt: trialEnd,
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: trialEnd,
-        entitlements: {
-          create: await this.prisma.planFeature.findMany({ where: { planId: plan.id } }).then((features) =>
-            features.map((f) => ({ module: f.module, enabled: f.enabled, limits: f.limits ?? undefined }))
-          ),
-        },
-      },
-    });
-
-    await this.prisma.auditLog.create({
-      data: {
-        organizationId: org.id,
-        action: "tenant.provisioned",
-        entityType: "organization",
-        entityId: org.id,
-        metadata: { rkyvesClientId: dto.rkyvesClientId, planSlug: dto.planSlug },
-      },
-    });
-
-  // Notify Rkyves webhook if configured
     const webhookUrl = process.env.RKYVES_WEBHOOK_URL;
     if (webhookUrl) {
       try {
@@ -114,10 +53,10 @@ export class InternalController {
           },
           body: JSON.stringify({
             event: "tenant.ready",
-            organizationId: org.id,
+            organizationId: result.organizationId,
             rkyvesClientId: dto.rkyvesClientId,
-            slug: org.slug,
-            adminEmail: dto.adminEmail,
+            slug: result.organizationSlug,
+            adminEmail: result.ownerEmail,
           }),
         });
       } catch {
@@ -126,12 +65,13 @@ export class InternalController {
     }
 
     return {
-      organizationId: org.id,
-      outletId: outlet.id,
-      adminUserId: admin.id,
-      subscriptionId: subscription.id,
-      slug: org.slug,
-      adminUrl: `https://admin.cullinos.com`,
+      organizationId: result.organizationId,
+      outletId: result.outletId,
+      adminUserId: result.ownerUserId,
+      subscriptionId: result.subscriptionId,
+      slug: result.organizationSlug,
+      adminUrl: result.adminUrl,
+      ownerEmail: result.ownerEmail,
     };
   }
 
@@ -140,7 +80,7 @@ export class InternalController {
   async updateEntitlements(
     @Headers("x-internal-key") key: string,
     @Param("orgId") orgId: string,
-    @Body() body: { status?: string; planSlug?: string; graceUntil?: string }
+    @Body() body: { status?: string; planSlug?: string; graceUntil?: string },
   ) {
     this.verifyKey(key);
 

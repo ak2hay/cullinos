@@ -7,6 +7,13 @@ interface CartSidebarProps {
   onClear: () => void;
   checkoutLoading: boolean;
   holdLoading: boolean;
+  counterMode?: boolean;
+  customerName?: string;
+  onCustomerNameChange?: (name: string) => void;
+  orderType?: 'takeaway' | 'dine_in';
+  onOrderTypeChange?: (type: 'takeaway' | 'dine_in') => void;
+  tipAmount?: number;
+  onTipChange?: (tip: number) => void;
 }
 
 export function CartSidebar({
@@ -15,6 +22,13 @@ export function CartSidebar({
   onClear,
   checkoutLoading,
   holdLoading,
+  counterMode = false,
+  customerName = '',
+  onCustomerNameChange,
+  orderType = 'takeaway',
+  onOrderTypeChange,
+  tipAmount = 0,
+  onTipChange,
 }: CartSidebarProps) {
   const lines = useCartStore((s) => s.lines);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
@@ -81,10 +95,48 @@ export function CartSidebar({
       </div>
 
       <div className="space-y-3 border-t border-white/5 p-4">
+        {counterMode ? (
+          <div className="space-y-2">
+            <input
+              type="text"
+              placeholder="Name on order"
+              value={customerName}
+              onChange={(e) => onCustomerNameChange?.(e.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
+            />
+            <div className="flex gap-2">
+              {(['takeaway', 'dine_in'] as const).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => onOrderTypeChange?.(type)}
+                  className={`flex-1 rounded-lg border px-2 py-2 text-xs font-medium ${
+                    orderType === type
+                      ? 'border-brand-primary bg-brand-primary/15 text-brand-primary'
+                      : 'border-white/10 text-text-muted'
+                  }`}
+                >
+                  {type === 'takeaway' ? 'Pickup' : 'Eat in'}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-text-muted">Tip (₹)</label>
+              <input
+                type="number"
+                min={0}
+                value={tipAmount || ''}
+                onChange={(e) => onTipChange?.(Number(e.target.value) || 0)}
+                className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
+              />
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex items-center justify-between text-lg">
           <span className="text-text-secondary">Subtotal</span>
           <span className="font-mono font-semibold text-brand-primary">
-            {formatMoney(subtotal)}
+            {formatMoney(subtotal + (tipAmount ? tipAmount * 100 : 0))}
           </span>
         </div>
 

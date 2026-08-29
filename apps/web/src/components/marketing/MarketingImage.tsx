@@ -1,6 +1,11 @@
+'use client';
+
 import Image from 'next/image';
-import { getMarketingImage, isRemoteImage } from '@/lib/images';
 import type { MarketingImageKey } from '@cullinos/shared';
+import { MARKETING_IMAGES } from '@cullinos/shared';
+import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
+import { resolveMarketingImage } from '@/lib/marketing-content';
+import { isRemoteImage, isLocalMarketingImage } from '@/lib/images';
 
 interface MarketingImageProps {
   imageKey: MarketingImageKey;
@@ -23,12 +28,14 @@ export function MarketingImage({
   priority,
   sizes,
 }: MarketingImageProps) {
-  const src = getMarketingImage(imageKey);
+  const cms = useMarketingCms();
+  const src = resolveMarketingImage(cms, imageKey, MARKETING_IMAGES[imageKey]);
+  const useNextImage = isRemoteImage(src) || isLocalMarketingImage(src);
   const containClass = className?.includes('object-cover')
     ? className.replace('object-cover', 'object-contain p-3')
     : className ?? 'object-contain p-3';
 
-  if (isRemoteImage(src)) {
+  if (useNextImage) {
     return (
       <Image
         src={src}
@@ -43,7 +50,6 @@ export function MarketingImage({
     );
   }
 
-  // Bundled SVGs: use native img to avoid Next Image SVG edge cases on Vercel
   if (fill) {
     return (
       // eslint-disable-next-line @next/next/no-img-element

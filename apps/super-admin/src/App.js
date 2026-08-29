@@ -1,5 +1,28 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { cullinosTheme } from "@cullinos/ui";
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { AppShell } from '@/components/layout/AppShell';
+import { HealthPage } from '@/pages/HealthPage';
+import { LoginPage } from '@/pages/LoginPage';
+import { SubscriptionsPage } from '@/pages/SubscriptionsPage';
+import { TenantsPage } from '@/pages/TenantsPage';
+import { BlogEditorPage } from '@/pages/marketing/BlogEditorPage';
+import { DesignLabPage } from '@/pages/marketing/DesignLabPage';
+import { HeroEditorPage } from '@/pages/marketing/HeroEditorPage';
+import { MarketingDashboardPage } from '@/pages/marketing/MarketingDashboardPage';
+import { MediaLibraryPage } from '@/pages/marketing/MediaLibraryPage';
+import { NavigationEditorPage } from '@/pages/marketing/NavigationEditorPage';
+import { PagesEditorPage } from '@/pages/marketing/PagesEditorPage';
+import { PricingEditorPage } from '@/pages/marketing/PricingEditorPage';
+import { ThemeEditorPage } from '@/pages/marketing/ThemeEditorPage';
+import { useAuthStore } from '@/stores/auth';
+function PublicOnly({ children }) {
+    const accessToken = useAuthStore((s) => s.accessToken);
+    if (accessToken) {
+        return _jsx(Navigate, { to: "/", replace: true });
+    }
+    return children;
+}
 export default function App() {
-    return (_jsxs("div", { style: { minHeight: '100vh', background: cullinosTheme.colors.charcoal, color: cullinosTheme.colors.white, fontFamily: cullinosTheme.fonts.sans, padding: '2rem' }, children: [_jsxs("header", { style: { borderBottom: '1px solid ' + cullinosTheme.colors.border, paddingBottom: '1rem', marginBottom: '2rem' }, children: [_jsx("h1", { style: { color: cullinosTheme.colors.amber, margin: 0 }, children: "Cullinos Super Admin" }), _jsx("p", { style: { color: cullinosTheme.colors.muted, margin: '0.5rem 0 0' }, children: "Platform Operations" })] }), _jsx("main", { children: _jsxs("div", { style: { background: cullinosTheme.colors.charcoalLight, border: '1px solid ' + cullinosTheme.colors.border, borderRadius: '12px', padding: '2rem' }, children: [_jsxs("p", { children: ["Connected to Cullinos API at ", _jsx("code", { style: { fontFamily: cullinosTheme.fonts.mono }, children: "localhost:3000" })] }), _jsx("p", { style: { color: cullinosTheme.colors.muted, marginTop: '1rem' }, children: "Cullinos v0.1.0" })] }) })] }));
+    return (_jsxs(Routes, { children: [_jsx(Route, { path: "/login", element: _jsx(PublicOnly, { children: _jsx(LoginPage, {}) }) }), _jsxs(Route, { path: "/", element: _jsx(ProtectedRoute, { children: _jsx(AppShell, {}) }), children: [_jsx(Route, { index: true, element: _jsx(TenantsPage, {}) }), _jsx(Route, { path: "subscriptions", element: _jsx(SubscriptionsPage, {}) }), _jsx(Route, { path: "health", element: _jsx(HealthPage, {}) }), _jsx(Route, { path: "marketing", element: _jsx(MarketingDashboardPage, {}) }), _jsx(Route, { path: "marketing/media", element: _jsx(MediaLibraryPage, {}) }), _jsx(Route, { path: "marketing/hero", element: _jsx(HeroEditorPage, {}) }), _jsx(Route, { path: "marketing/pages", element: _jsx(PagesEditorPage, {}) }), _jsx(Route, { path: "marketing/theme", element: _jsx(ThemeEditorPage, {}) }), _jsx(Route, { path: "marketing/pricing", element: _jsx(PricingEditorPage, {}) }), _jsx(Route, { path: "marketing/navigation", element: _jsx(NavigationEditorPage, {}) }), _jsx(Route, { path: "marketing/blog", element: _jsx(BlogEditorPage, {}) }), _jsx(Route, { path: "marketing/design-lab", element: _jsx(DesignLabPage, {}) })] }), _jsx(Route, { path: "*", element: _jsx(Navigate, { to: "/", replace: true }) })] }));
 }

@@ -2,7 +2,7 @@ import { getBlogPosts } from '@/lib/blog';
 import { getSiteUrl } from '@/lib/urls';
 
 export async function GET() {
-  const posts = getBlogPosts();
+  const posts = await getBlogPosts();
   const siteUrl = getSiteUrl();
 
   const items = posts

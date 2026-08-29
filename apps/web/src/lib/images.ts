@@ -9,6 +9,14 @@ export function isRemoteImage(src: string): boolean {
   return src.startsWith('http');
 }
 
+export function isLocalMarketingImage(src: string): boolean {
+  return src.startsWith('/images/') || src.startsWith('/cms/');
+}
+
 export function isBundledImage(src: string): boolean {
   return src.startsWith('/_next/static/') || src.includes('/_next/static/media/');
+}
+
+export function shouldOptimizeImage(src: string): boolean {
+  return isRemoteImage(src) || isLocalMarketingImage(src);
 }

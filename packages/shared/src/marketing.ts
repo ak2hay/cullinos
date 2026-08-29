@@ -3,7 +3,7 @@ import { FEATURES, PLAN_FEATURES, type FeatureKey } from './features';
 export const MARKETING_URLS = {
   site: 'https://cullinos.com',
   admin: 'https://admin.cullinos.com',
-  register: 'https://admin.cullinos.com/register',
+  register: 'https://cullinos.com/contact?intent=trial',
   manage: 'https://manage.cullinos.com',
   order: 'https://order.cullinos.com',
   waiter: 'https://waiter.cullinos.com',
@@ -34,9 +34,13 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   [FEATURES.ROOM_POSTING]: 'Room Posting',
   [FEATURES.BANQUET]: 'Banquet & Events',
   [FEATURES.HOSPITALITY_INTEGRATIONS]: 'Hotel PMS Integrations',
+  [FEATURES.COUNTER_MODE]: 'Counter / QSR Mode',
+  [FEATURES.PICKUP_QUEUE]: 'Pickup Queue Display',
+  [FEATURES.PRE_ORDERS]: 'Pre-orders & Scheduling',
+  [FEATURES.PRODUCTION]: 'Production & Batch Planning',
 };
 
-export type MarketingPlanKey = 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE' | 'HOSPITALITY';
+export type MarketingPlanKey = 'STARTER' | 'QSR' | 'PROFESSIONAL' | 'ENTERPRISE' | 'HOSPITALITY';
 
 export interface MarketingPlan {
   key: MarketingPlanKey;
@@ -63,6 +67,18 @@ export const MARKETING_PLANS: MarketingPlan[] = [
     maxUsers: 5,
     maxTerminals: 2,
     features: PLAN_FEATURES.STARTER,
+    cta: 'register',
+  },
+  {
+    key: 'QSR',
+    name: 'QSR / Food SMB',
+    description: 'Cafes, food trucks, counter-service — POS, QR, pickup queue, loyalty',
+    priceMonthly: 149900,
+    priceYearly: 1499900,
+    maxOutlets: 1,
+    maxUsers: 8,
+    maxTerminals: 3,
+    features: PLAN_FEATURES.QSR,
     cta: 'register',
   },
   {
@@ -119,6 +135,9 @@ export const NAV_LINKS = [
     label: 'Solutions',
     children: [
       { href: '/solutions/restaurants', label: 'Restaurants' },
+      { href: '/solutions/cafes', label: 'Cafes & Coffee' },
+      { href: '/solutions/food-trucks', label: 'Food Trucks' },
+      { href: '/solutions/bakeries', label: 'Bakeries' },
       { href: '/solutions/chains', label: 'Chains & Franchise' },
       { href: '/solutions/hospitality', label: 'Hotels & Resorts' },
     ],
@@ -246,7 +265,7 @@ export const FEATURE_SECTIONS = [
       {
         name: 'Coupons & Promotions',
         description: 'Discount codes and campaigns tied to your order engine.',
-        status: 'coming_soon' as const,
+        status: 'available' as const,
       },
       {
         name: 'Delivery',
@@ -347,29 +366,25 @@ export const ALL_COMPARISON_FEATURES: FeatureKey[] = [
 ];
 
 export const MARKETING_IMAGES = {
-  heroRestaurant:
-    'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1400&q=80',
-  heroKitchen:
-    'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1400&q=80',
-  heroTeam:
-    'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1400&q=80',
-  aboutKitchen:
-    'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=800&q=80',
-  mockupPos: '/images/mockup-pos.svg',
-  mockupKds: '/images/mockup-kds.svg',
-  mockupWaiter: '/images/mockup-waiter.svg',
-  mockupOrdering: '/images/mockup-ordering.svg',
-  mockupAdmin: '/images/mockup-admin.svg',
-  mockupEnterprise: '/images/mockup-enterprise.svg',
-  flowCloud: '/images/flow-cloud.svg',
+  heroRestaurant: '/images/hero-restaurant.png',
+  heroKitchen: '/images/hero-kitchen.png',
+  heroTeam: '/images/hero-team.png',
+  aboutKitchen: '/images/about-kitchen.png',
+  mockupPos: '/images/mockup-pos.png',
+  mockupKds: '/images/mockup-kds.png',
+  mockupWaiter: '/images/mockup-waiter.png',
+  mockupOrdering: '/images/mockup-ordering.png',
+  mockupAdmin: '/images/mockup-admin.png',
+  mockupEnterprise: '/images/mockup-enterprise.png',
+  flowCloud: '/images/flow-cloud.png',
 } as const;
 
 export type MarketingImageKey = keyof typeof MARKETING_IMAGES;
 
 export const CULLINOS_ELEVATOR_PITCH = {
-  headline: "Cullinos is your restaurant's operating system.",
+  headline: "Cullinos is your food business operating system.",
   subline:
-    'One login runs your cashier, kitchen, waiter app, online orders, inventory, and reports — with GST billing and offline mode built in.',
+    'One login runs your cashier, kitchen, online orders, production, and reports — for restaurants, cafes, food trucks, and bakeries. GST billing and offline mode built in.',
   bullets: [
     {
       title: 'One platform',

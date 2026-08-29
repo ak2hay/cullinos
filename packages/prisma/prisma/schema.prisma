@@ -136,6 +136,14 @@ enum RoomStatus {
   blocked
 }
 
+enum TableStatus {
+  available
+  occupied
+  reserved
+  cleaning
+  billing
+}
+
 enum BanquetStatus {
   inquiry
   confirmed
@@ -175,14 +183,48 @@ enum NotificationChannel {
   push
 }
 
+enum MarketingContentStatus {
+  draft
+  published
+}
+
+enum BusinessType {
+  restaurant
+  cafe
+  food_truck
+  bakery
+  qsr
+  cloud_kitchen
+  catering
+}
+
+enum OperatingMode {
+  full_service
+  counter
+  hybrid
+}
+
+enum PriceType {
+  retail
+  wholesale
+}
+
+enum ProductionBatchStatus {
+  planned
+  in_progress
+  completed
+  cancelled
+}
+
 // ─── Multi-tenant core ───────────────────────────────────────────────────────
 
 model Organization {
-  id              String    @id @default(cuid())
+  id              String       @id @default(cuid())
   name            String
-  slug            String    @unique
-  rkyvesClientId  String?   @unique @map("rkyves_client_id")
-  status          OrgStatus @default(trial)
+  slug            String       @unique
+  rkyvesClientId  String?      @unique @map("rkyves_client_id")
+  businessType    BusinessType @default(restaurant) @map("business_type")
+  status          OrgStatus    @default(trial)
   gstin           String?
   pan             String?
   email           String?
@@ -213,6 +255,9 @@ model Organization {
   employees           Employee[]
   notifications       Notification[]
   integrations        Integration[]
+  menuSchedules       MenuSchedule[]
+  outletEvents        OutletEvent[]
+  productionBatches   ProductionBatch[]
   devices             Device[]
   syncEvents          SyncEvent[]
   taxGroups           TaxGroup[]
@@ -261,13 +306,14 @@ model BrandSettings {
 }
 
 model Outlet {
-  id             String       @id @default(cuid())
-  organizationId String       @map("organization_id")
-  brandId        String       @map("brand_id")
+  id             String        @id @default(cuid())
+  organizationId String        @map("organization_id")
+  brandId        String        @map("brand_id")
   name           String
   slug           String
   code           String?
-  status         OutletStatus @default(active)
+  status         OutletStatus  @default(active)
+  operatingMode  OperatingMode @default(full_service) @map("operating_mode")
   address        String?
   city           String?
   state          String?
@@ -294,6 +340,8 @@ model Outlet {
   rooms           Room[]
   franchiseOutlets FranchiseOutlet[]
   outletUsers      OutletUser[]
+  events           OutletEvent[]
+  productionBatches ProductionBatch[]
 
   @@unique([organizationId, slug])
   @@map("outlets")
@@ -574,6 +622,7 @@ model MenuItem {
   taxGroupId     String?  @map("tax_group_id")
   isActive       Boolean  @default(true) @map("is_active")
   isVeg          Boolean  @default(false) @map("is_veg")
+  allergens      String[] @default([])
   sortOrder      Int      @default(0) @map("sort_order")
   sku            String?
   hsnCode        String?  @map("hsn_code")
@@ -680,21 +729,27 @@ model MenuSchedule {
   startTime      String   @map("start_time")
   endTime        String   @map("end_time")
   categoryIds    String[] @map("category_ids")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("menu_schedules")
 }
 
 model OutletMenuPrice {
-  id         String  @id @default(cuid())
-  outletId   String  @map("outlet_id")
-  menuItemId String  @map("menu_item_id")
-  price      Decimal @db.Decimal(12, 2)
-  isAvailable Boolean @default(true) @map("is_available")
+  id          String    @id @default(cuid())
+  outletId    String    @map("outlet_id")
+  menuItemId  String    @map("menu_item_id")
+  price       Decimal   @db.Decimal(12, 2)
+  priceType   PriceType @default(retail) @map("price_type")
+  isAvailable Boolean   @default(true) @map("is_available")
 
   outlet   Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
   menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
 
-  @@unique([outletId, menuItemId])
+  @@unique([outletId, menuItemId, priceType])
   @@map("outlet_menu_prices")
 }
 
@@ -739,12 +794,13 @@ model Section {
 }
 
 model Table {
-  id        String @id @default(cuid())
-  sectionId String @map("section_id")
+  id        String      @id @default(cuid())
+  sectionId String      @map("section_id")
   name      String
-  capacity  Int    @default(4)
-  sortOrder Int    @default(0) @map("sort_order")
-  qrCode    String? @map("qr_code")
+  capacity  Int         @default(4)
+  sortOrder Int         @default(0) @map("sort_order")
+  qrCode    String?     @map("qr_code")
+  status    TableStatus @default(available)
 
   section      Section        @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   tableSessions TableSession[]
@@ -783,7 +839,10 @@ model Order {
   subtotal       Decimal     @default(0) @db.Decimal(12, 2)
   taxTotal       Decimal     @default(0) @map("tax_total") @db.Decimal(12, 2)
   discountTotal  Decimal     @default(0) @map("discount_total") @db.Decimal(12, 2)
+  tipAmount      Decimal     @default(0) @map("tip_amount") @db.Decimal(12, 2)
   total          Decimal     @default(0) @db.Decimal(12, 2)
+  customerName   String?     @map("customer_name")
+  scheduledPickupAt DateTime? @map("scheduled_pickup_at")
   idempotencyKey String?     @unique @map("idempotency_key")
   metadata       Json?
   completedAt    DateTime?   @map("completed_at")
@@ -1072,8 +1131,10 @@ model InventoryItem {
   sku            String?
   unit           String  @default("kg")
   currentStock   Decimal @default(0) @map("current_stock") @db.Decimal(12, 3)
-  reorderLevel   Decimal @default(0) @map("reorder_level") @db.Decimal(12, 3)
-  costPerUnit    Decimal @default(0) @map("cost_per_unit") @db.Decimal(12, 2)
+  reorderLevel   Decimal   @default(0) @map("reorder_level") @db.Decimal(12, 3)
+  costPerUnit    Decimal   @default(0) @map("cost_per_unit") @db.Decimal(12, 2)
+  batchNumber    String?   @map("batch_number")
+  expiryDate     DateTime? @map("expiry_date")
 
   organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   outlet       Outlet?            @relation(fields: [outletId], references: [id])
@@ -1113,6 +1174,7 @@ model Recipe {
 
   menuItem    MenuItem           @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
   ingredients RecipeIngredient[]
+  batches     ProductionBatch[]
 
   @@map("recipes")
 }
@@ -1218,6 +1280,7 @@ model Customer {
   phone          String?
   loyaltyTierId  String? @map("loyalty_tier_id")
   loyaltyPoints  Int     @default(0) @map("loyalty_points")
+  stampCount     Int     @default(0) @map("stamp_count")
   metadata       Json?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -1607,4 +1670,244 @@ model InsightsSnapshot {
 
   @@unique([outletId, date])
   @@map("insights_snapshots")
+}
+
+// ─── Marketing CMS (platform) ───────────────────────────────────────────────
+
+model MarketingSite {
+  id              String   @id @default("default")
+  siteName        String   @map("site_name")
+  tagline         String
+  siteDescription String?  @map("site_description")
+  registerUrl     String?  @map("register_url")
+  adminUrl        String?  @map("admin_url")
+  contactEmail    String?  @map("contact_email")
+  seoTitle        String?  @map("seo_title")
+  seoDescription  String?  @map("seo_description")
+  lastPublishedAt DateTime? @map("last_published_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("marketing_sites")
+}
+
+model MarketingTheme {
+  id        String                 @id @default(cuid())
+  name      String                 @default("Default")
+  status    MarketingContentStatus @default(draft)
+  tokens    Json
+  publishedAt DateTime?            @map("published_at")
+  createdAt DateTime               @default(now()) @map("created_at")
+  updatedAt DateTime               @updatedAt @map("updated_at")
+
+  @@map("marketing_themes")
+}
+
+model MarketingAsset {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String   @map("original_name")
+  mimeType     String   @map("mime_type")
+  sizeBytes    Int      @map("size_bytes")
+  url          String
+  alt          String?
+  slotKey      String?  @map("slot_key")
+  tags         String[] @default([])
+  uploadedById String?  @map("uploaded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  heroSlides   MarketingHeroSlide[]
+  blogPosts    MarketingBlogPost[]
+
+  @@index([slotKey])
+  @@map("marketing_assets")
+}
+
+model MarketingHeroSlide {
+  id           String                 @id @default(cuid())
+  headline     String
+  headlineAccent String               @map("headline_accent")
+  subline      String
+  imageAssetId String?                @map("image_asset_id")
+  imageKey     String?                @map("image_key")
+  sortOrder    Int                    @default(0) @map("sort_order")
+  status       MarketingContentStatus @default(draft)
+  publishedAt  DateTime?              @map("published_at")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+
+  imageAsset MarketingAsset? @relation(fields: [imageAssetId], references: [id], onDelete: SetNull)
+
+  @@map("marketing_hero_slides")
+}
+
+model MarketingPage {
+  id             String                 @id @default(cuid())
+  slug           String                 @unique
+  title          String
+  seoTitle       String?                @map("seo_title")
+  seoDescription String?                @map("seo_description")
+  status         MarketingContentStatus @default(draft)
+  publishedAt    DateTime?              @map("published_at")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  blocks MarketingBlock[]
+
+  @@map("marketing_pages")
+}
+
+model MarketingBlock {
+  id        String                 @id @default(cuid())
+  pageId    String                 @map("page_id")
+  blockKey  String                 @map("block_key")
+  content   Json
+  sortOrder Int                    @default(0) @map("sort_order")
+  status    MarketingContentStatus @default(draft)
+  publishedAt DateTime?            @map("published_at")
+  createdAt DateTime               @default(now()) @map("created_at")
+  updatedAt DateTime               @updatedAt @map("updated_at")
+
+  page MarketingPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, blockKey, status])
+  @@map("marketing_blocks")
+}
+
+model MarketingNavItem {
+  id        String                 @id @default(cuid())
+  label     String
+  href      String
+  groupKey  String                 @default("main") @map("group_key")
+  sortOrder Int                    @default(0) @map("sort_order")
+  status    MarketingContentStatus @default(draft)
+  publishedAt DateTime?            @map("published_at")
+  createdAt DateTime               @default(now()) @map("created_at")
+  updatedAt DateTime               @updatedAt @map("updated_at")
+
+  @@map("marketing_nav_items")
+}
+
+model MarketingPricingCard {
+  id           String                 @id @default(cuid())
+  planKey      String                 @map("plan_key")
+  name         String
+  description  String
+  priceMonthly Int                    @map("price_monthly")
+  priceYearly  Int                    @map("price_yearly")
+  maxOutlets   Int                    @default(1) @map("max_outlets")
+  maxUsers     Int                    @default(5) @map("max_users")
+  maxTerminals Int                    @default(2) @map("max_terminals")
+  features     String[]               @default([])
+  cta          String                 @default("register")
+  highlighted  Boolean                @default(false)
+  sortOrder    Int                    @default(0) @map("sort_order")
+  status       MarketingContentStatus @default(draft)
+  publishedAt  DateTime?              @map("published_at")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+
+  @@map("marketing_pricing_cards")
+}
+
+model MarketingTestimonial {
+  id        String                 @id @default(cuid())
+  quote     String
+  author    String
+  role      String
+  sortOrder Int                    @default(0) @map("sort_order")
+  status    MarketingContentStatus @default(draft)
+  publishedAt DateTime?            @map("published_at")
+  createdAt DateTime               @default(now()) @map("created_at")
+  updatedAt DateTime               @updatedAt @map("updated_at")
+
+  @@map("marketing_testimonials")
+}
+
+model MarketingBlogPost {
+  id           String                 @id @default(cuid())
+  slug         String                 @unique
+  title        String
+  excerpt      String?
+  body         String
+  coverAssetId String?                @map("cover_asset_id")
+  status       MarketingContentStatus @default(draft)
+  publishedAt  DateTime?              @map("published_at")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+
+  coverAsset MarketingAsset? @relation(fields: [coverAssetId], references: [id], onDelete: SetNull)
+
+  @@map("marketing_blog_posts")
+}
+
+model MarketingDesignPreset {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  themeTokens Json     @map("theme_tokens")
+  layoutHints Json     @map("layout_hints")
+  copyTone    String   @map("copy_tone")
+  imagePrompts Json    @map("image_prompts")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("marketing_design_presets")
+}
+
+// ─── Food business verticals ───────────────────────────────────────────────────
+
+model OutletEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  outletId       String   @map("outlet_id")
+  name           String
+  location       String?
+  address        String?
+  latitude       Decimal? @db.Decimal(10, 7)
+  longitude      Decimal? @db.Decimal(10, 7)
+  eventDate      DateTime @map("event_date")
+  startTime      String   @map("start_time")
+  endTime        String   @map("end_time")
+  preOrderOpensAt DateTime? @map("pre_order_opens_at")
+  preOrderClosesAt DateTime? @map("pre_order_closes_at")
+  maxPreOrders   Int?     @map("max_pre_orders")
+  notes          String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@index([outletId, eventDate])
+  @@map("outlet_events")
+}
+
+model ProductionBatch {
+  id             String                @id @default(cuid())
+  organizationId String                @map("organization_id")
+  outletId       String                @map("outlet_id")
+  recipeId       String?               @map("recipe_id")
+  name           String
+  plannedQty     Decimal               @map("planned_qty") @db.Decimal(12, 2)
+  actualQty      Decimal?              @map("actual_qty") @db.Decimal(12, 2)
+  scaleFactor    Decimal               @default(1) @map("scale_factor") @db.Decimal(8, 2)
+  status         ProductionBatchStatus @default(planned)
+  batchNumber    String?               @map("batch_number")
+  scheduledFor   DateTime              @map("scheduled_for")
+  completedAt    DateTime?             @map("completed_at")
+  notes          String?
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  recipe       Recipe?      @relation(fields: [recipeId], references: [id])
+
+  @@index([outletId, scheduledFor])
+  @@map("production_batches")
 }

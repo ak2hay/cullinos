@@ -3,15 +3,18 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CustomerLayout } from '@/components/layout/CustomerLayout';
 import { Button, Input } from '@/components/ui/Form';
-import { formatPrice, hasApiAccess, ordersApi } from '@/lib/api';
+import { useStorefrontBase } from '@/hooks/useStorefrontBase';
+import { formatPrice, ordersApi } from '@/lib/api';
 import { useCartStore } from '@/stores/cart';
 import { useSessionStore } from '@/stores/session';
 
 export function CheckoutPage() {
   const navigate = useNavigate();
+  const base = useStorefrontBase();
   const items = useCartStore((s) => s.items);
   const total = useCartStore((s) => s.total());
   const clearCart = useCartStore((s) => s.clear);
+  const organizationId = useSessionStore((s) => s.organizationId);
   const outletId = useSessionStore((s) => s.outletId);
   const tableId = useSessionStore((s) => s.tableId);
   const orderMode = useSessionStore((s) => s.orderMode);
@@ -19,13 +22,15 @@ export function CheckoutPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
+  const [scheduledPickup, setScheduledPickup] = useState('');
+  const [tipAmount, setTipAmount] = useState(0);
   const [payLater, setPayLater] = useState(true);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   const placeOrderMutation = useMutation({
     mutationFn: async () => {
-      if (!outletId) throw new Error('Outlet not configured');
+      if (!outletId || !organizationId) throw new Error('Store not loaded');
       const orderNotes = [
         name && `Guest: ${name}`,
         phone && `Phone: ${phone}`,
@@ -35,10 +40,14 @@ export function CheckoutPage() {
         .filter(Boolean)
         .join(' · ');
 
-      const order = await ordersApi.create({
+      return ordersApi.create({
+        organizationId,
         outletId,
         source: orderMode === 'dine-in' ? 'QR' : 'ONLINE',
         tableId: tableId ?? undefined,
+        customerName: name || undefined,
+        scheduledPickupAt: scheduledPickup ? new Date(scheduledPickup).toISOString() : undefined,
+        tipAmount: tipAmount || undefined,
         notes: orderNotes || undefined,
         items: items.map((item) => ({
           menuItemId: item.menuItemId,
@@ -52,9 +61,6 @@ export function CheckoutPage() {
           notes: item.notes,
         })),
       });
-
-      await ordersApi.confirm(order.id);
-      return order;
     },
     onSuccess: (order) => {
       clearCart();
@@ -66,7 +72,7 @@ export function CheckoutPage() {
   });
 
   if (items.length === 0 && !success) {
-    navigate('/cart');
+    navigate(`${base}/cart`);
     return null;
   }
 
@@ -84,7 +90,7 @@ export function CheckoutPage() {
           {payLater ? (
             <p className="mt-1 text-sm text-text-muted">Pay at the counter when ready.</p>
           ) : null}
-          <Button className="mt-6 w-full" onClick={() => navigate('/')}>
+          <Button className="mt-6 w-full" onClick={() => navigate(base)}>
             Order more
           </Button>
         </div>
@@ -97,19 +103,13 @@ export function CheckoutPage() {
       <div className="p-4">
         <button
           type="button"
-          onClick={() => navigate('/cart')}
+          onClick={() => navigate(`${base}/cart`)}
           className="mb-4 text-sm text-brand-primary"
         >
           ← Back to cart
         </button>
 
         <h1 className="mb-4 text-xl font-semibold">Checkout</h1>
-
-        {!hasApiAccess() ? (
-          <div className="mb-4 rounded-xl border border-status-warning/30 bg-status-warning/10 p-4 text-sm text-status-warning">
-            Configure <code>VITE_ORDER_TOKEN</code> to submit orders to the API.
-          </div>
-        ) : null}
 
         {error ? (
           <div className="mb-4 rounded-lg border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
@@ -147,6 +147,21 @@ export function CheckoutPage() {
             placeholder="Allergies, seating preference…"
           />
 
+          <Input
+            label="Scheduled pickup (optional)"
+            type="datetime-local"
+            value={scheduledPickup}
+            onChange={(e) => setScheduledPickup(e.target.value)}
+          />
+
+          <Input
+            label="Tip (₹, optional)"
+            type="number"
+            min={0}
+            value={tipAmount || ''}
+            onChange={(e) => setTipAmount(Number(e.target.value) || 0)}
+          />
+
           <div className="rounded-xl border border-white/10 bg-bg-card p-4">
             <p className="mb-3 text-sm font-medium">Payment</p>
             <label className="flex cursor-pointer items-center gap-3">
@@ -158,15 +173,14 @@ export function CheckoutPage() {
               />
               <span className="text-sm">Pay later at counter / table</span>
             </label>
-            <label className="mt-2 flex cursor-pointer items-center gap-3 opacity-60">
+            <label className="mt-2 flex cursor-pointer items-center gap-3">
               <input
                 type="radio"
                 checked={!payLater}
                 onChange={() => setPayLater(false)}
-                disabled
                 className="accent-brand-primary"
               />
-              <span className="text-sm">Pay now (coming soon)</span>
+              <span className="text-sm">Pay now (UPI / card)</span>
             </label>
           </div>
 
@@ -179,7 +193,7 @@ export function CheckoutPage() {
             type="submit"
             className="w-full"
             loading={placeOrderMutation.isPending}
-            disabled={!hasApiAccess() || !outletId}
+            disabled={!outletId || !organizationId}
           >
             {payLater ? 'Place order · Pay later' : 'Place order & pay'}
           </Button>

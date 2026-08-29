@@ -6,13 +6,14 @@ import { Section } from '@/components/marketing/Section';
 import { getBlogPost, getBlogSlugs } from '@/lib/blog';
 import { createMetadata } from '@/lib/metadata';
 
-export function generateStaticParams() {
-  return getBlogSlugs().map((slug) => ({ slug }));
+export async function generateStaticParams() {
+  const slugs = await getBlogSlugs();
+  return slugs.map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const post = getBlogPost(slug);
+  const post = await getBlogPost(slug);
   if (!post) return {};
 
   return createMetadata({
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const post = getBlogPost(slug);
+  const post = await getBlogPost(slug);
 
   if (!post) {
     notFound();

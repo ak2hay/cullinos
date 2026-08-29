@@ -68,6 +68,11 @@ export function LoginPage() {
           Sign in
         </Button>
       </form>
+
+      <p className="mt-6 rounded-lg border border-white/10 bg-bg-card px-4 py-3 text-center text-sm text-text-secondary">
+        Staff credentials are created by your restaurant owner in Admin. Contact your manager if
+        you need access.
+      </p>
     </AuthLayout>
   );
 }

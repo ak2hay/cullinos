@@ -2,59 +2,61 @@
 
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MARKETING_IMAGES } from '@cullinos/shared';
+import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
+import { resolveMarketingImage } from '@/lib/marketing-content';
 import { getRegisterUrl } from '@/lib/urls';
-import { isRemoteImage } from '@/lib/images';
 import Image from 'next/image';
 import { easeOut } from '@/components/marketing/motion/motionVariants';
-
-const slides = [
-  {
-    imageKey: 'heroRestaurant' as const,
-    alt: 'Fine dining restaurant',
-    headline: 'Run your restaurant',
-    headlineAccent: 'from one place.',
-    subline:
-      'Cullinos is cloud software that runs your POS, kitchen, waiter app, online orders, and back office — together.',
-  },
-  {
-    imageKey: 'heroKitchen' as const,
-    alt: 'Restaurant kitchen',
-    headline: 'Your kitchen,',
-    headlineAccent: 'always in sync.',
-    subline: 'Every order from cashier, waiter, or QR menu appears on the kitchen display instantly.',
-  },
-  {
-    imageKey: 'heroTeam' as const,
-    alt: 'Restaurant team',
-    headline: 'One platform,',
-    headlineAccent: 'every team member.',
-    subline: 'Cashiers, waiters, managers, and owners — each with the right tools and permissions.',
-  },
-];
 
 const AUTOPLAY_MS = 6000;
 
 export function HomeHeroCarousel() {
+  const cms = useMarketingCms();
+  const slides = useMemo(
+    () =>
+      [...cms.heroSlides]
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((s) => ({
+          id: s.id,
+          imageKey: s.imageKey ?? 'heroRestaurant',
+          alt: s.imageAsset?.alt ?? s.headline,
+          headline: s.headline,
+          headlineAccent: s.headlineAccent,
+          subline: s.subline,
+          imageSrc:
+            s.imageAsset?.url ??
+            resolveMarketingImage(
+              cms,
+              s.imageKey ?? 'heroRestaurant',
+              MARKETING_IMAGES.heroRestaurant,
+            ),
+        })),
+    [cms],
+  );
+
+  const registerUrl = cms.site?.registerUrl || getRegisterUrl();
   const [current, setCurrent] = useState(0);
   const [paused, setPaused] = useState(false);
   const prefersReducedMotion = useReducedMotion();
-  const slide = slides[current];
+  const slide = slides[current] ?? slides[0];
 
   const prev = useCallback(() => {
     setCurrent((i) => (i === 0 ? slides.length - 1 : i - 1));
-  }, []);
+  }, [slides.length]);
 
   const next = useCallback(() => {
     setCurrent((i) => (i === slides.length - 1 ? 0 : i + 1));
-  }, []);
+  }, [slides.length]);
 
   useEffect(() => {
-    if (paused || prefersReducedMotion) return;
+    if (paused || prefersReducedMotion || slides.length <= 1) return;
     const timer = setInterval(next, AUTOPLAY_MS);
     return () => clearInterval(timer);
-  }, [paused, prefersReducedMotion, next, current]);
+  }, [paused, prefersReducedMotion, next, current, slides.length]);
+
+  if (!slide) return null;
 
   return (
     <section
@@ -70,7 +72,7 @@ export function HomeHeroCarousel() {
             {slides.map((s, i) =>
               i === current ? (
                 <motion.div
-                  key={s.imageKey}
+                  key={s.id}
                   className="absolute inset-0"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -84,13 +86,12 @@ export function HomeHeroCarousel() {
                     transition={{ duration: AUTOPLAY_MS / 1000, ease: 'linear' }}
                   >
                     <Image
-                      src={MARKETING_IMAGES[s.imageKey]}
+                      src={s.imageSrc}
                       alt={s.alt}
                       fill
                       priority={i === 0}
                       className="object-cover"
                       sizes="(max-width: 1280px) 100vw, 1280px"
-                      unoptimized={!isRemoteImage(MARKETING_IMAGES[s.imageKey])}
                     />
                   </motion.div>
                 </motion.div>
@@ -122,7 +123,7 @@ export function HomeHeroCarousel() {
                 </p>
                 <div className="mt-8 flex flex-wrap justify-center gap-4">
                   <Link
-                    href={getRegisterUrl()}
+                    href={registerUrl}
                     className="btn-pill-filled btn-pill border-white bg-white text-bg-dark hover:bg-brand-gold hover:border-brand-gold"
                   >
                     Start free trial
@@ -155,7 +156,7 @@ export function HomeHeroCarousel() {
           <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2">
             {slides.map((s, i) => (
               <button
-                key={s.imageKey}
+                key={s.id}
                 type="button"
                 onClick={() => setCurrent(i)}
                 aria-label={`Go to slide ${i + 1}`}
@@ -164,14 +165,6 @@ export function HomeHeroCarousel() {
                 <span
                   className={`absolute inset-0 rounded-full ${i === current ? 'bg-white' : 'bg-white/40'}`}
                 />
-                {i === current && !prefersReducedMotion && !paused && (
-                  <motion.span
-                    className="absolute inset-0 rounded-full border-2 border-white"
-                    initial={{ scale: 1, opacity: 1 }}
-                    animate={{ scale: 2, opacity: 0 }}
-                    transition={{ duration: AUTOPLAY_MS / 1000, ease: 'linear', repeat: Infinity }}
-                  />
-                )}
               </button>
             ))}
           </div>

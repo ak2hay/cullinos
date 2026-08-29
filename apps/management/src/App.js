@@ -1,5 +1,21 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { cullinosTheme } from "@cullinos/ui";
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { AppShell } from '@/components/layout/AppShell';
+import { ComparisonPage } from '@/pages/ComparisonPage';
+import { DashboardPage } from '@/pages/DashboardPage';
+import { FranchisePage } from '@/pages/FranchisePage';
+import { LoginPage } from '@/pages/LoginPage';
+import { ReportsPage } from '@/pages/ReportsPage';
+import { StockTransferPage } from '@/pages/StockTransferPage';
+import { useAuthStore } from '@/stores/auth';
+function PublicOnly({ children }) {
+    const accessToken = useAuthStore((s) => s.accessToken);
+    if (accessToken) {
+        return _jsx(Navigate, { to: "/", replace: true });
+    }
+    return children;
+}
 export default function App() {
-    return (_jsxs("div", { style: { minHeight: '100vh', background: cullinosTheme.colors.charcoal, color: cullinosTheme.colors.white, fontFamily: cullinosTheme.fonts.sans, padding: '2rem' }, children: [_jsxs("header", { style: { borderBottom: '1px solid ' + cullinosTheme.colors.border, paddingBottom: '1rem', marginBottom: '2rem' }, children: [_jsx("h1", { style: { color: cullinosTheme.colors.amber, margin: 0 }, children: "Cullinos Management" }), _jsx("p", { style: { color: cullinosTheme.colors.muted, margin: '0.5rem 0 0' }, children: "Enterprise Console" })] }), _jsx("main", { children: _jsxs("div", { style: { background: cullinosTheme.colors.charcoalLight, border: '1px solid ' + cullinosTheme.colors.border, borderRadius: '12px', padding: '2rem' }, children: [_jsxs("p", { children: ["Connected to Cullinos API at ", _jsx("code", { style: { fontFamily: cullinosTheme.fonts.mono }, children: "localhost:3000" })] }), _jsx("p", { style: { color: cullinosTheme.colors.muted, marginTop: '1rem' }, children: "Cullinos v0.1.0" })] }) })] }));
+    return (_jsxs(Routes, { children: [_jsx(Route, { path: "/login", element: _jsx(PublicOnly, { children: _jsx(LoginPage, {}) }) }), _jsxs(Route, { path: "/", element: _jsx(ProtectedRoute, { children: _jsx(AppShell, {}) }), children: [_jsx(Route, { index: true, element: _jsx(DashboardPage, {}) }), _jsx(Route, { path: "reports", element: _jsx(ReportsPage, {}) }), _jsx(Route, { path: "comparison", element: _jsx(ComparisonPage, {}) }), _jsx(Route, { path: "stock-transfer", element: _jsx(StockTransferPage, {}) }), _jsx(Route, { path: "franchise", element: _jsx(FranchisePage, {}) })] }), _jsx(Route, { path: "*", element: _jsx(Navigate, { to: "/", replace: true }) })] }));
 }

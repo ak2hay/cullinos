@@ -36,11 +36,18 @@ export function PosPage() {
   const [search, setSearch] = useState('');
   const [heldPanelOpen, setHeldPanelOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [orderType, setOrderType] = useState<'takeaway' | 'dine_in'>('takeaway');
+  const [tipAmount, setTipAmount] = useState(0);
 
   const outletsQuery = useQuery({
     queryKey: ['outlets'],
     queryFn: outletsApi.list,
   });
+
+  const selectedOutlet = outletsQuery.data?.find((o) => o.id === outletId);
+  const counterMode =
+    selectedOutlet?.operatingMode === 'counter' || selectedOutlet?.operatingMode === 'hybrid';
 
   const menuQuery = useQuery({
     queryKey: ['menu', outletId],
@@ -69,15 +76,26 @@ export function PosPage() {
       if (!outletId || lines.length === 0) throw new Error('Cart is empty');
       const items = lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity }));
       const key = generateIdempotencyKey();
+      const payload = {
+        outletId,
+        items,
+        autoConfirm: true,
+        type: counterMode ? orderType : undefined,
+        customerName: customerName || undefined,
+        tipAmount: tipAmount || undefined,
+        notes: counterMode ? `Counter order · ${orderType === 'takeaway' ? 'Pickup' : 'Eat in'}` : undefined,
+      };
       try {
-        return await posApi.quickOrder({ outletId, items, autoConfirm: true }, key);
+        return await posApi.quickOrder(payload, key);
       } catch {
         return ordersApi.create({ outletId, source: 'POS', items }, key);
       }
     },
     onSuccess: (order) => {
       clearCart();
-      setStatusMessage(`Order ${order.orderNumber} created`);
+      setCustomerName('');
+      setTipAmount(0);
+      setStatusMessage(`Order #${order.orderNumber} created`);
       queryClient.invalidateQueries({ queryKey: ['menu'] });
     },
     onError: (err) => {
@@ -280,6 +298,13 @@ export function PosPage() {
           }}
           checkoutLoading={checkoutMutation.isPending}
           holdLoading={holdMutation.isPending}
+          counterMode={counterMode}
+          customerName={customerName}
+          onCustomerNameChange={setCustomerName}
+          orderType={orderType}
+          onOrderTypeChange={setOrderType}
+          tipAmount={tipAmount}
+          onTipChange={setTipAmount}
         />
       </div>
     </div>

@@ -29,7 +29,29 @@ npm run db:seed
 npm run dev
 ```
 
-Demo login: `admin@cullinos.com` / `demo1234`
+Demo logins (after `npm run db:seed`):
+
+| Role | Email | Password | Notes |
+|------|-------|----------|-------|
+| **Platform Super Admin** | `superadmin@cullinos.com` | `demo1234` | Onboards restaurants, issues owner credentials |
+| **Restaurant owner** | `owner@cullinos.com` | `demo1234` | Admin app — creates all staff manually under Staff |
+| **Staff (waiter, etc.)** | *(created by owner)* | *(set by owner)* | Owner adds accounts in Admin → Staff |
+
+### Credential model
+
+1. **Rkyves / Super Admin** onboards a restaurant (Super Admin → Tenants → *Onboard restaurant*) and receives **owner email + password** to hand off.
+2. **Owner** signs into Admin, completes setup, and **manually creates** waiter, cashier, and manager logins under **Staff**.
+3. Staff use those credentials in Waiter, POS, KDS, etc. There is no self-service signup.
+
+Order Online storefront: `http://localhost:5176/demo-restaurant/main-outlet`
+
+## Smoke test checklist
+
+- **Waiter** — login, select outlet, open table, add item, confirm order (KOT on KDS)
+- **Management** — dashboard KPIs, outlet comparison, stock transfer, franchise list
+- **Order Online** — browse menu at `/{orgSlug}/{outletSlug}`, cart, checkout
+- **Super Admin** — list tenants, suspend/activate, update subscription plan
+- **API** — `GET http://localhost:3000/api/health`
 
 ## Brand
 

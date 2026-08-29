@@ -1,12 +1,18 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { StorefrontBootstrap } from '@/lib/api';
 
 interface SessionState {
+  organizationId: string | null;
+  organizationName: string | null;
+  organizationSlug: string | null;
   outletId: string | null;
+  outletName: string | null;
+  outletSlug: string | null;
   tableId: string | null;
   tableName: string | null;
   orderMode: 'dine-in' | 'online';
-  setOutletId: (id: string | null) => void;
+  setStorefront: (data: StorefrontBootstrap) => void;
   setTable: (tableId: string | null, tableName?: string | null) => void;
   setOrderMode: (mode: 'dine-in' | 'online') => void;
   initFromSearchParams: (params: URLSearchParams) => void;
@@ -15,12 +21,26 @@ interface SessionState {
 export const useSessionStore = create<SessionState>()(
   persist(
     (set) => ({
+      organizationId: null,
+      organizationName: null,
+      organizationSlug: null,
       outletId: import.meta.env.VITE_OUTLET_ID ?? null,
+      outletName: null,
+      outletSlug: null,
       tableId: null,
       tableName: null,
       orderMode: 'online',
 
-      setOutletId: (id) => set({ outletId: id }),
+      setStorefront: (data) =>
+        set({
+          organizationId: data.organizationId,
+          organizationName: data.organizationName,
+          organizationSlug: data.organizationSlug,
+          outletId: data.outletId,
+          outletName: data.outletName,
+          outletSlug: data.outletSlug,
+          orderMode: 'online',
+        }),
 
       setTable: (tableId, tableName = null) =>
         set({
@@ -33,18 +53,12 @@ export const useSessionStore = create<SessionState>()(
 
       initFromSearchParams: (params) => {
         const table = params.get('table');
-        const outlet = params.get('outlet');
+        const tableName = params.get('tableName');
         const updates: Partial<SessionState> = {};
-
-        if (outlet) {
-          updates.outletId = outlet;
-        } else if (import.meta.env.VITE_OUTLET_ID) {
-          updates.outletId = import.meta.env.VITE_OUTLET_ID;
-        }
 
         if (table) {
           updates.tableId = table;
-          updates.tableName = params.get('tableName') ?? `Table ${table.slice(0, 8)}`;
+          updates.tableName = tableName ?? `Table ${table.slice(0, 8)}`;
           updates.orderMode = 'dine-in';
         }
 
@@ -54,7 +68,12 @@ export const useSessionStore = create<SessionState>()(
     {
       name: 'cullinos-customer-session',
       partialize: (state) => ({
+        organizationId: state.organizationId,
+        organizationName: state.organizationName,
+        organizationSlug: state.organizationSlug,
         outletId: state.outletId,
+        outletName: state.outletName,
+        outletSlug: state.outletSlug,
         tableId: state.tableId,
         tableName: state.tableName,
         orderMode: state.orderMode,

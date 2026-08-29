@@ -85,6 +85,12 @@ export function OrderPage() {
     onSuccess: invalidate,
   });
 
+  const statusMutation = useMutation({
+    mutationFn: (status: string) =>
+      tablesApi.updateStatus(outletId!, tableId!, status),
+    onSuccess: invalidate,
+  });
+
   const assignMutation = useMutation({
     mutationFn: () => tablesApi.updateStatus(outletId!, tableId!, 'OCCUPIED'),
     onSuccess: invalidate,
@@ -137,7 +143,21 @@ export function OrderPage() {
             >
               Assign table
             </Button>
-          ) : null}
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {(['BILLING', 'CLEANING', 'AVAILABLE'] as const).map((status) => (
+                <Button
+                  key={status}
+                  variant="secondary"
+                  size="sm"
+                  loading={statusMutation.isPending}
+                  onClick={() => statusMutation.mutate(status)}
+                >
+                  {status.charAt(0) + status.slice(1).toLowerCase()}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

@@ -33,8 +33,16 @@ Each app has a `vercel.json` with monorepo build commands.
 
 **Environment (all frontends):**
 ```
-VITE_API_URL=https://api.cullinos.com/api/v1
+VITE_API_URL=https://api.cullinos.com/api
+VITE_WS_URL=https://api.cullinos.com
 ```
+
+**Customer (`apps/customer`) only:**
+```
+VITE_ORG_SLUG=demo-restaurant
+VITE_OUTLET_SLUG=main-outlet
+```
+Storefront URLs: `https://order.cullinos.com/{orgSlug}/{outletSlug}` (e.g. `/demo-restaurant/main-outlet`).
 
 **KDS only:**
 ```

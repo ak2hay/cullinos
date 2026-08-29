@@ -1,11 +1,18 @@
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Form';
+import { useWaiterSocket } from '@/hooks/useWaiterSocket';
 import { useAuthStore } from '@/stores/auth';
 
 export function MobileShell() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  useWaiterSocket();
+
+  function handleLogout() {
+    logout();
+    navigate('/login');
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-bg-primary">
@@ -20,7 +27,7 @@ export function MobileShell() {
             {user ? `${user.firstName}` : 'Staff'}
           </p>
         </button>
-        <Button variant="ghost" size="sm" onClick={logout}>
+        <Button variant="ghost" size="sm" onClick={handleLogout}>
           Logout
         </Button>
       </header>

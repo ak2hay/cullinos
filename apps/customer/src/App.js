@@ -1,5 +1,37 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { cullinosTheme, poweredByRkyves } from "@cullinos/ui";
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { CartPage } from '@/pages/CartPage';
+import { CheckoutPage } from '@/pages/CheckoutPage';
+import { MenuPage } from '@/pages/MenuPage';
+import { storefrontApi } from '@/lib/api';
+import { useSessionStore } from '@/stores/session';
+function StorefrontBootstrap({ children }) {
+    const { orgSlug, outletSlug } = useParams();
+    const setStorefront = useSessionStore((s) => s.setStorefront);
+    const { data, isLoading, isError } = useQuery({
+        queryKey: ['storefront', orgSlug, outletSlug],
+        queryFn: () => storefrontApi.bootstrap(orgSlug, outletSlug),
+        enabled: Boolean(orgSlug && outletSlug),
+    });
+    useEffect(() => {
+        if (data)
+            setStorefront(data);
+    }, [data, setStorefront]);
+    if (isLoading) {
+        return (_jsx("div", { className: "flex min-h-screen items-center justify-center bg-bg-primary text-text-secondary", children: "Loading menu\u2026" }));
+    }
+    if (isError || !data) {
+        return (_jsx("div", { className: "flex min-h-screen items-center justify-center bg-bg-primary p-6 text-center text-status-error", children: "Store not found. Check your ordering link." }));
+    }
+    return children;
+}
 export default function App() {
-    return (_jsxs("div", { style: { minHeight: '100vh', background: cullinosTheme.colors.charcoal, color: cullinosTheme.colors.white, fontFamily: cullinosTheme.fonts.sans, padding: '2rem' }, children: [_jsxs("header", { style: { borderBottom: '1px solid ' + cullinosTheme.colors.border, paddingBottom: '1rem', marginBottom: '2rem' }, children: [_jsx("h1", { style: { color: cullinosTheme.colors.amber, margin: 0 }, children: "Cullinos" }), _jsx("p", { style: { color: cullinosTheme.colors.muted, margin: '0.5rem 0 0' }, children: "Order Online" })] }), _jsx("main", { children: _jsxs("div", { style: { background: cullinosTheme.colors.charcoalLight, border: '1px solid ' + cullinosTheme.colors.border, borderRadius: '12px', padding: '2rem' }, children: [_jsxs("p", { children: ["Connected to Cullinos API at ", _jsx("code", { style: { fontFamily: cullinosTheme.fonts.mono }, children: "localhost:3000" })] }), _jsx("p", { style: { color: cullinosTheme.colors.muted, marginTop: '1rem' }, children: "Cullinos v0.1.0" })] }) }), _jsx("footer", { style: { marginTop: "3rem", color: cullinosTheme.colors.muted, fontSize: "0.875rem" }, children: poweredByRkyves })] }));
+    return (_jsxs(Routes, { children: [_jsx(Route, { path: "/", element: _jsx(LegacyRedirect, {}) }), _jsx(Route, { path: "/:orgSlug/:outletSlug", element: _jsx(StorefrontBootstrap, { children: _jsx(MenuPage, {}) }) }), _jsx(Route, { path: "/:orgSlug/:outletSlug/cart", element: _jsx(StorefrontBootstrap, { children: _jsx(CartPage, {}) }) }), _jsx(Route, { path: "/:orgSlug/:outletSlug/checkout", element: _jsx(StorefrontBootstrap, { children: _jsx(CheckoutPage, {}) }) }), _jsx(Route, { path: "*", element: _jsx(Navigate, { to: "/", replace: true }) })] }));
+}
+function LegacyRedirect() {
+    const orgSlug = import.meta.env.VITE_ORG_SLUG ?? 'demo-restaurant';
+    const outletSlug = import.meta.env.VITE_OUTLET_SLUG ?? 'main-outlet';
+    return _jsx(Navigate, { to: `/${orgSlug}/${outletSlug}`, replace: true });
 }

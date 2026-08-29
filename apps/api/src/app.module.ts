@@ -29,6 +29,7 @@ import { GuestsModule } from "./modules/guests/guests.module";
 import { RoomsModule } from "./modules/rooms/rooms.module";
 import { BanquetsModule } from "./modules/banquets/banquets.module";
 import { FranchiseModule } from "./modules/franchise/franchise.module";
+import { StorefrontModule } from "./modules/storefront/storefront.module";
 import { StaffModule } from "./modules/staff/staff.module";
 import { ReportsModule } from "./modules/reports/reports.module";
 import { AnalyticsModule } from "./modules/analytics/analytics.module";
@@ -40,6 +41,9 @@ import { DevicesModule } from "./modules/devices/devices.module";
 import { SyncModule } from "./modules/sync/sync.module";
 import { WebsocketModule } from "./websocket/websocket.module";
 import { InternalModule } from "./modules/internal/internal.module";
+import { MarketingModule } from "./modules/marketing/marketing.module";
+import { EventsModule } from "./modules/events/events.module";
+import { ProductionModule } from "./modules/production/production.module";
 import { HealthController } from "./health.controller";
 
 @Module({
@@ -74,6 +78,7 @@ import { HealthController } from "./health.controller";
     RoomsModule,
     BanquetsModule,
     FranchiseModule,
+    StorefrontModule,
     StaffModule,
     ReportsModule,
     AnalyticsModule,
@@ -85,6 +90,9 @@ import { HealthController } from "./health.controller";
     SyncModule,
     WebsocketModule,
     InternalModule,
+    MarketingModule,
+    EventsModule,
+    ProductionModule,
   ],
   controllers: [HealthController],
 })

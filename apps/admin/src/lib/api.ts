@@ -1,9 +1,14 @@
-import { CULLINOS_BRAND } from '@cullinos/shared';
+import {
+  CULLINOS_BRAND,
+  DEFAULT_API_BASE,
+  mapStaffLoginResponse,
+  type ApiStaffLoginResponse,
+  type StaffAuthResponse,
+} from '@cullinos/shared';
 import type { ApiError, OrderStatus, PaginatedResponse } from '@cullinos/shared';
 import { useAuthStore } from '../stores/auth';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1';
-
+const API_BASE = import.meta.env.VITE_API_URL ?? DEFAULT_API_BASE;
 export class ApiRequestError extends Error {
   constructor(
     message: string,
@@ -73,14 +78,7 @@ export interface RegisterPayload {
   phone?: string;
 }
 
-export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-  user: import('../stores/auth').AuthUser;
-  permissions: string[];
-}
-
+export interface AuthResponse extends StaffAuthResponse {}
 export interface Outlet {
   id: string;
   name: string;
@@ -138,19 +136,14 @@ export interface OrganizationSettings {
 }
 
 export const authApi = {
-  login: (payload: LoginPayload) =>
-    apiRequest<AuthResponse>(
+  login: async (payload: LoginPayload) => {
+    const raw = await apiRequest<ApiStaffLoginResponse>(
       '/auth/login',
       { method: 'POST', body: JSON.stringify(payload) },
       false,
-    ),
-
-  register: (payload: RegisterPayload) =>
-    apiRequest<AuthResponse>(
-      '/auth/register',
-      { method: 'POST', body: JSON.stringify(payload) },
-      false,
-    ),
+    );
+    return mapStaffLoginResponse(raw);
+  },
 
   logout: (refreshToken: string) =>
     apiRequest<{ success: boolean }>('/auth/logout', {
@@ -159,8 +152,7 @@ export const authApi = {
     }),
 };
 
-export const outletsApi = {
-  list: () => apiRequest<Outlet[]>('/outlets'),
+export const outletsApi = {  list: () => apiRequest<Outlet[]>('/outlets'),
 };
 
 export const analyticsApi = {
@@ -231,11 +223,114 @@ export const ordersApi = {
 
 export const settingsApi = {
   get: () => apiRequest<OrganizationSettings>('/organizations/settings'),
-  update: (settings: Record<string, unknown>) =>
-    apiRequest<OrganizationSettings>('/organizations/settings', {
+  update: async (data: Record<string, unknown>) => {
+    const { businessType, name, gstin, operatingMode, enabledOrderTypes, sampleCategories, ...rest } = data;
+    if (businessType || name || gstin) {
+      await apiRequest('/organizations/current', {
+        method: 'PATCH',
+        body: JSON.stringify({ businessType, name, gstin }),
+      });
+    }
+    const settings = {
+      ...(operatingMode ? { operatingMode } : {}),
+      ...(enabledOrderTypes ? { enabledOrderTypes } : {}),
+      ...(sampleCategories ? { sampleCategories } : {}),
+      ...rest,
+    };
+    return apiRequest<OrganizationSettings>('/organizations/settings', {
       method: 'PATCH',
       body: JSON.stringify({ settings }),
+    });
+  },
+};
+
+export const eventsApi = {
+  list: (outletId?: string) => {
+    const qs = outletId ? `?outletId=${outletId}` : '';
+    return apiRequest<Array<Record<string, unknown>>>(`/events${qs}`);
+  },
+  create: (payload: Record<string, unknown>) =>
+    apiRequest('/events', { method: 'POST', body: JSON.stringify(payload) }),
+  update: (id: string, payload: Record<string, unknown>) =>
+    apiRequest(`/events/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  delete: (id: string) => apiRequest(`/events/${id}`, { method: 'DELETE' }),
+};
+
+export const productionApi = {
+  list: (outletId?: string) => {
+    const qs = outletId ? `?outletId=${outletId}` : '';
+    return apiRequest<Array<Record<string, unknown>>>(`/production${qs}`);
+  },
+  create: (payload: Record<string, unknown>) =>
+    apiRequest('/production', { method: 'POST', body: JSON.stringify(payload) }),
+  complete: (id: string, actualQty?: number) =>
+    apiRequest(`/production/${id}/complete`, {
+      method: 'POST',
+      body: JSON.stringify({ actualQty }),
     }),
+  scaleRecipe: (recipeId: string, factor: number) =>
+    apiRequest(`/production/recipes/${recipeId}/scale?factor=${factor}`),
+};
+
+export const loyaltyApi = {
+  listTiers: () => apiRequest<Array<Record<string, unknown>>>('/loyalty'),
+  addStamp: (customerId: string) =>
+    apiRequest(`/loyalty/customers/${customerId}/stamp`, { method: 'POST' }),
+};
+
+export const couponsApi = {
+  list: () => apiRequest<Array<Record<string, unknown>>>('/coupons'),
+  create: (payload: Record<string, unknown>) =>
+    apiRequest('/coupons', { method: 'POST', body: JSON.stringify(payload) }),
+};
+
+export const reportsApi = {
+  smbSummary: (params?: { outletId?: string; date?: string }) => {
+    const search = new URLSearchParams();
+    if (params?.outletId) search.set('outletId', params.outletId);
+    if (params?.date) search.set('date', params.date);
+    const qs = search.toString();
+    return apiRequest<Record<string, unknown>>(`/reports/smb-summary${qs ? `?${qs}` : ''}`);
+  },
+};
+
+export interface StaffUser {
+  id: string;
+  email: string;
+  name: string;
+  status: string;
+  roles: Array<{ id: string; slug: string; name: string }>;
+  outlets: Array<{ id: string; name: string }>;
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+
+export interface Role {
+  id: string;
+  slug: string;
+  name: string;
+  isSystem: boolean;
+}
+
+export const usersApi = {
+  list: () => apiRequest<StaffUser[]>('/users'),
+  create: (payload: {
+    email: string;
+    password: string;
+    name: string;
+    roleSlug: string;
+    outletIds?: string[];
+  }) =>
+    apiRequest<StaffUser>('/users', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  deactivate: (id: string) =>
+    apiRequest(`/users/${id}/deactivate`, { method: 'PATCH' }),
+};
+
+export const rolesApi = {
+  list: () => apiRequest<Role[]>('/roles'),
 };
 
 export { CULLINOS_BRAND };

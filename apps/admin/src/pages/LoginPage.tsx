@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AuthFooterLink, AuthLayout } from '@/components/auth/AuthLayout';
+import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Button, Input } from '@/components/ui/Form';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
@@ -64,11 +64,10 @@ export function LoginPage() {
         </Button>
       </form>
 
-      <AuthFooterLink
-        text="New to Cullinos?"
-        linkText="Create an account"
-        to="/register"
-      />
+        <p className="mt-6 rounded-lg border border-white/10 bg-bg-card px-4 py-3 text-center text-sm text-text-secondary">
+        Owner credentials are issued when your restaurant is onboarded. Use Admin to create
+        staff accounts for your team — contact Rkyves if you need owner access.
+      </p>
     </AuthLayout>
   );
 }

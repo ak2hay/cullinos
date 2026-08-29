@@ -85,7 +85,7 @@ export function TablesPage() {
               <TableCard
                 table={table}
                 activeOrderCount={orderCountByTable.get(table.id) ?? 0}
-                onSelect={() => navigate(`/tables/${table.id}`)}
+                onSelect={() => navigate(`/order/${table.id}`)}
               />
               {table.status === 'AVAILABLE' ? (
                 <Button

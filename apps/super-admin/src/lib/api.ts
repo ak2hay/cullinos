@@ -1,7 +1,8 @@
+import { DEFAULT_API_BASE } from '@cullinos/shared';
 import type { ApiError } from '@cullinos/shared';
 import { useAuthStore } from '../stores/auth';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1';
+const API_BASE = import.meta.env.VITE_API_URL ?? DEFAULT_API_BASE;
 
 export class ApiRequestError extends Error {
   constructor(
@@ -100,8 +101,16 @@ export interface SystemHealth {
 }
 
 export interface ManageSubscriptionPayload {
-  planId: string;
+  planId?: string;
+  planSlug?: string;
   status: string;
+}
+
+export interface PlanSummary {
+  id: string;
+  slug: string;
+  name: string;
+  priceMonthly: number;
 }
 
 export const superAdminApi = {
@@ -127,6 +136,26 @@ export const superAdminApi = {
   manageSubscription: (id: string, payload: ManageSubscriptionPayload) =>
     apiRequest(`/super-admin/organizations/${id}/subscription`, {
       method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  listPlans: () => apiRequest<PlanSummary[]>('/super-admin/plans'),
+
+  onboardRestaurant: (payload: {
+    companyName: string;
+    planSlug: string;
+    ownerEmail: string;
+    ownerPassword: string;
+    ownerName?: string;
+    outletName?: string;
+  }) =>
+    apiRequest<{
+      organizationId: string;
+      organizationSlug: string;
+      ownerEmail: string;
+      adminUrl: string;
+    }>('/super-admin/organizations', {
+      method: 'POST',
       body: JSON.stringify(payload),
     }),
 

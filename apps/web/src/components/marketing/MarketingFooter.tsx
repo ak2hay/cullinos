@@ -1,9 +1,14 @@
+'use client';
+
 import Link from 'next/link';
 import { CULLINOS_BRAND } from '@cullinos/shared';
+import { useMemo } from 'react';
+import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
 
-const columns = [
+const fallbackColumns = [
   {
     title: 'Product',
+    groupKey: 'product',
     links: [
       { href: '/features', label: 'Features' },
       { href: '/pricing', label: 'Pricing' },
@@ -13,6 +18,7 @@ const columns = [
   },
   {
     title: 'Solutions',
+    groupKey: 'solutions',
     links: [
       { href: '/solutions/restaurants', label: 'Restaurants' },
       { href: '/solutions/chains', label: 'Chains' },
@@ -21,6 +27,7 @@ const columns = [
   },
   {
     title: 'Contact',
+    groupKey: 'contact',
     links: [
       { href: '/contact', label: 'Get in touch' },
       { href: '/about', label: 'About us' },
@@ -36,6 +43,38 @@ const socialLinks = [
 ];
 
 export function MarketingFooter() {
+  const cms = useMarketingCms();
+  const contactEmail = cms.site?.contactEmail ?? 'hello@rkyves.com';
+
+  const columns = useMemo(() => {
+    const footerItems = cms.navItems.filter(
+      (n: { groupKey?: string }) => (n.groupKey ?? 'main') !== 'main',
+    );
+    if (!footerItems.length) {
+      return fallbackColumns.map((col) =>
+        col.groupKey === 'contact'
+          ? {
+              ...col,
+              links: col.links.map((l) =>
+                l.href.startsWith('mailto:') ? { ...l, href: `mailto:${contactEmail}`, label: contactEmail } : l,
+              ),
+            }
+          : col,
+      );
+    }
+
+    const groups = new Map<string, { title: string; links: { href: string; label: string }[] }>();
+    for (const item of footerItems.sort(
+      (a: { sortOrder: number }, b: { sortOrder: number }) => a.sortOrder - b.sortOrder,
+    )) {
+      const key = item.groupKey ?? 'footer';
+      const title = key.charAt(0).toUpperCase() + key.slice(1);
+      if (!groups.has(key)) groups.set(key, { title, links: [] });
+      groups.get(key)!.links.push({ href: item.href, label: item.label });
+    }
+    return [...groups.values()];
+  }, [cms.navItems, contactEmail]);
+
   return (
     <footer className="border-t border-border-light bg-bg-secondary">
       <div className="mx-auto max-w-7xl px-6 py-14 lg:px-10">

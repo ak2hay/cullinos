@@ -10,8 +10,8 @@ export const metadata = createMetadata({
   path: '/blog',
 });
 
-export default function BlogPage() {
-  const posts = getBlogPosts();
+export default async function BlogPage() {
+  const posts = await getBlogPosts();
 
   return (
     <>

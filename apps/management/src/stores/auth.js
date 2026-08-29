@@ -1,0 +1,31 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+export const useAuthStore = create()(persist((set) => ({
+    accessToken: null,
+    refreshToken: null,
+    user: null,
+    permissions: [],
+    selectedBrandId: null,
+    selectedOutletId: null,
+    setAuth: ({ accessToken, refreshToken, user, permissions }) => set({ accessToken, refreshToken, user, permissions }),
+    setSelectedBrand: (brandId) => set({ selectedBrandId: brandId }),
+    setSelectedOutlet: (outletId) => set({ selectedOutletId: outletId }),
+    logout: () => set({
+        accessToken: null,
+        refreshToken: null,
+        user: null,
+        permissions: [],
+        selectedBrandId: null,
+        selectedOutletId: null,
+    }),
+}), {
+    name: 'cullinos-management-auth',
+    partialize: (state) => ({
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        user: state.user,
+        permissions: state.permissions,
+        selectedBrandId: state.selectedBrandId,
+        selectedOutletId: state.selectedOutletId,
+    }),
+}));

@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
 import { getRegisterUrl } from '@/lib/urls';
 import { Logo } from './Logo';
 
-const navItems = [
+const fallbackNav = [
   { href: '/', label: 'Home' },
   { href: '/features', label: 'Features' },
   { href: '/about', label: 'About' },
@@ -16,6 +17,15 @@ const navItems = [
 ];
 
 export function MarketingNav() {
+  const cms = useMarketingCms();
+  const navItems = useMemo(() => {
+    const items = [...cms.navItems]
+      .filter((n) => (n.groupKey ?? 'main') === 'main')
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((n) => ({ href: n.href, label: n.label }));
+    return items.length ? items : fallbackNav;
+  }, [cms.navItems]);
+  const registerUrl = cms.site?.registerUrl || getRegisterUrl();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
@@ -60,7 +70,7 @@ export function MarketingNav() {
         </nav>
 
         <div className="hidden lg:block">
-          <Link href={getRegisterUrl()} className="btn-pill">
+          <Link href={registerUrl} className="btn-pill">
             Start free trial
           </Link>
         </div>
@@ -113,7 +123,7 @@ export function MarketingNav() {
                   </Link>
                 ))}
                 <Link
-                  href={getRegisterUrl()}
+                  href={registerUrl}
                   className="btn-pill mt-2 text-center"
                   onClick={() => setMobileOpen(false)}
                 >

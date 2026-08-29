@@ -77,15 +77,7 @@ export function MenuPage() {
       <div className="p-4">
         {!outletId ? (
           <div className="rounded-xl border border-status-warning/30 bg-status-warning/10 p-4 text-sm">
-            <p className="font-medium text-status-warning">Outlet not configured</p>
-            <p className="mt-1 text-text-secondary">
-              Add <code className="text-brand-primary">?outlet=YOUR_OUTLET_ID</code> to the URL or set{' '}
-              <code className="text-brand-primary">VITE_OUTLET_ID</code> in your environment.
-            </p>
-          </div>
-        ) : !hasApiAccess() ? (
-          <div className="rounded-xl border border-white/10 bg-bg-card p-4 text-sm text-text-secondary">
-            Set <code className="text-brand-primary">VITE_ORDER_TOKEN</code> with a service JWT to load the live menu and place orders.
+            <p className="font-medium text-status-warning">Loading store…</p>
           </div>
         ) : isLoading ? (
           <p className="py-12 text-center text-text-secondary">Loading menu…</p>

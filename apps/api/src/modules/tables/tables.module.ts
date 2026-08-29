@@ -1,9 +1,11 @@
 import { Module } from "@nestjs/common";
-import { TablesController } from "./tables.controller";
+import { WebsocketModule } from "../../websocket/websocket.module";
+import { PublicTablesController, TablesController } from "./tables.controller";
 import { TablesService } from "./tables.service";
 
 @Module({
-  controllers: [TablesController],
+  imports: [WebsocketModule],
+  controllers: [TablesController, PublicTablesController],
   providers: [TablesService],
   exports: [TablesService],
 })

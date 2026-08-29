@@ -1,19 +1,62 @@
-import { cullinosTheme, poweredByRkyves } from "@cullinos/ui";
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { AppShell } from '@/components/layout/AppShell';
+import { HealthPage } from '@/pages/HealthPage';
+import { LoginPage } from '@/pages/LoginPage';
+import { SubscriptionsPage } from '@/pages/SubscriptionsPage';
+import { TenantsPage } from '@/pages/TenantsPage';
+import { BlogEditorPage } from '@/pages/marketing/BlogEditorPage';
+import { DesignLabPage } from '@/pages/marketing/DesignLabPage';
+import { HeroEditorPage } from '@/pages/marketing/HeroEditorPage';
+import { MarketingDashboardPage } from '@/pages/marketing/MarketingDashboardPage';
+import { MediaLibraryPage } from '@/pages/marketing/MediaLibraryPage';
+import { NavigationEditorPage } from '@/pages/marketing/NavigationEditorPage';
+import { PagesEditorPage } from '@/pages/marketing/PagesEditorPage';
+import { PricingEditorPage } from '@/pages/marketing/PricingEditorPage';
+import { ThemeEditorPage } from '@/pages/marketing/ThemeEditorPage';
+import { useAuthStore } from '@/stores/auth';
+
+function PublicOnly({ children }: { children: React.ReactNode }) {
+  const accessToken = useAuthStore((s) => s.accessToken);
+  if (accessToken) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+}
 
 export default function App() {
   return (
-    <div style={{ minHeight: '100vh', background: cullinosTheme.colors.charcoal, color: cullinosTheme.colors.white, fontFamily: cullinosTheme.fonts.sans, padding: '2rem' }}>
-      <header style={{ borderBottom: '1px solid ' + cullinosTheme.colors.border, paddingBottom: '1rem', marginBottom: '2rem' }}>
-        <h1 style={{ color: cullinosTheme.colors.amber, margin: 0 }}>Cullinos Super Admin</h1>
-        <p style={{ color: cullinosTheme.colors.muted, margin: '0.5rem 0 0' }}>Platform Operations</p>
-      </header>
-      <main>
-        <div style={{ background: cullinosTheme.colors.charcoalLight, border: '1px solid ' + cullinosTheme.colors.border, borderRadius: '12px', padding: '2rem' }}>
-          <p>Connected to Cullinos API at <code style={{ fontFamily: cullinosTheme.fonts.mono }}>localhost:3000</code></p>
-          <p style={{ color: cullinosTheme.colors.muted, marginTop: '1rem' }}>Cullinos v0.1.0</p>
-        </div>
-      </main>
-      
-    </div>
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          <PublicOnly>
+            <LoginPage />
+          </PublicOnly>
+        }
+      />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<TenantsPage />} />
+        <Route path="subscriptions" element={<SubscriptionsPage />} />
+        <Route path="health" element={<HealthPage />} />
+        <Route path="marketing" element={<MarketingDashboardPage />} />
+        <Route path="marketing/media" element={<MediaLibraryPage />} />
+        <Route path="marketing/hero" element={<HeroEditorPage />} />
+        <Route path="marketing/pages" element={<PagesEditorPage />} />
+        <Route path="marketing/theme" element={<ThemeEditorPage />} />
+        <Route path="marketing/pricing" element={<PricingEditorPage />} />
+        <Route path="marketing/navigation" element={<NavigationEditorPage />} />
+        <Route path="marketing/blog" element={<BlogEditorPage />} />
+        <Route path="marketing/design-lab" element={<DesignLabPage />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
