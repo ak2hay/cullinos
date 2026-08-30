@@ -4,7 +4,7 @@
 
 | Component | Host | Domain |
 |-----------|------|--------|
-| API | Railway | `api.cullinos.com` |
+| API | Render | `api.cullinos.com` |
 | Database | Neon | (connection string in env) |
 | Redis | Upstash | `REDIS_URL` |
 | Admin | Vercel | `admin.cullinos.com` |
@@ -14,11 +14,58 @@
 | Waiter | Vercel | `waiter.cullinos.com` |
 | Marketing | Vercel | `cullinos.com` |
 
-## Railway (API)
+## Render (API)
+
+Recommended host for the NestJS API (WebSockets, monorepo build).
+
+### Option A — Blueprint (fastest)
+
+1. [Render Dashboard](https://dashboard.render.com) → **New +** → **Blueprint**
+2. Connect GitHub repo `ak2hay/cullinos` (branch `main`)
+3. Render reads [`render.yaml`](../render.yaml) and creates **cullinos-api**
+4. In the service **Environment**, set secrets marked `sync: false`:
+   - `DATABASE_URL` — Neon **pooled** URL
+   - `JWT_SECRET` — use value from `JWT_ACCESS_SECRET` in your secrets file *(code reads `JWT_SECRET`)*
+   - `JWT_REFRESH_SECRET`, `SUPER_ADMIN_JWT_SECRET`, `ENCRYPTION_KEY`
+   - `REDIS_URL` — Upstash (optional)
+5. **Settings → Custom Domains** → add `api.cullinos.com` → update DNS CNAME to Render
+6. Do **not** set `API_PORT` — Render injects `PORT` automatically
+
+### Option B — Manual Web Service
+
+| Setting | Value |
+|---------|--------|
+| Root Directory | *(blank — repo root)* |
+| Runtime | Node |
+| Build Command | `npm ci --include=dev && npm run build:api` |
+| Start Command | `node index.js` |
+| Health Check Path | `/api/v1/health` |
+| Plan | Starter or higher (free tier sleeps) |
+
+Add the same environment variables as in [`render.yaml`](../render.yaml).
+
+### Render env (copy from secrets)
+
+```
+NODE_ENV=production
+NODE_VERSION=22
+DATABASE_URL=<Neon pooled URL>
+JWT_SECRET=<JWT_ACCESS_SECRET value>
+JWT_REFRESH_SECRET=<from secrets>
+SUPER_ADMIN_JWT_SECRET=<from secrets>
+ENCRYPTION_KEY=<from secrets>
+API_URL=https://api.cullinos.com
+CORS_ORIGINS=https://admin.cullinos.com,https://manage.cullinos.com,https://platform.cullinos.com,https://order.cullinos.com,https://waiter.cullinos.com
+REDIS_URL=<Upstash URL if used>
+```
+
+## Railway (API) — legacy
+
+Railway config remains in [`railpack.json`](../railpack.json), [`railway.toml`](../railway.toml), [`railway.json`](../railway.json) if you need it. Prefer Render for new deploys.
 
 1. Connect GitHub repo (e.g. `ak2hay/cullinos`).
 2. **Root Directory** must be the **repo root** (leave blank) — not `apps/api`.
-3. Builder: **Railpack** — see [`railpack.json`](railpack.json), [`railway.toml`](railway.toml), [`railway.json`](railway.json).
+3. Builder: **Railpack** — see railpack/railway config files above.
 4. **Build command** must be `npm run build:api` (not `npm run build` — that builds all 18 apps and fails without Prisma client).
 5. If prepare still fails with “No start command detected”, set env `RAILPACK_START_CMD=node index.js` and redeploy (clear build cache).
 6. Set variables from `secrets-export.txt` (or your password manager).
@@ -33,7 +80,7 @@ Each app has a `vercel.json` with monorepo build commands.
 
 **Environment (all frontends):**
 ```
-VITE_API_URL=https://api.cullinos.com/api
+VITE_API_URL=https://api.cullinos.com/api/v1
 VITE_WS_URL=https://api.cullinos.com
 ```
 

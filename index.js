@@ -1,4 +1,4 @@
 'use strict';
 
-// Railpack / Railway entry when auto-detection skips monorepo root scripts.
+// Production entry for Render / Railway (monorepo root).
 require('./apps/api/dist/main.js');

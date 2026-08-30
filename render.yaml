@@ -1,0 +1,35 @@
+# Render Blueprint — Cullinos API (monorepo root)
+# Dashboard: New → Blueprint → connect ak2hay/cullinos
+# Set secret env vars in Render after the service is created (sync: false below).
+
+services:
+  - type: web
+    name: cullinos-api
+    runtime: node
+    region: ohio
+    plan: starter
+    branch: main
+    buildCommand: npm ci --include=dev && npm run build:api
+    startCommand: node index.js
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: SUPER_ADMIN_JWT_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: API_URL
+        value: https://api.cullinos.com
+      - key: CORS_ORIGINS
+        value: https://admin.cullinos.com,https://manage.cullinos.com,https://platform.cullinos.com,https://order.cullinos.com,https://waiter.cullinos.com
+      - key: REDIS_URL
+        sync: false
