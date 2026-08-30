@@ -22,7 +22,7 @@
     "db:seed": "npm run seed -w @cullinos/prisma",
     "docker:up": "docker compose -f docker/docker-compose.yml up -d",
     "docker:down": "docker compose -f docker/docker-compose.yml down",
-    "build:api": "npm run db:generate && npx turbo run build --filter=@cullinos/api"
+    "build:api": "npm run db:generate && npm run build -w @cullinos/shared -w @cullinos/ai-contracts -w @cullinos/database -w @cullinos/auth -w @cullinos/events -w @cullinos/integrations -w @cullinos/sync -w @cullinos/tax-engine -w @cullinos/prisma -w @cullinos/api"
   },
   "dependencies": {
     "turbo": "^2.5.4",
@@ -41,7 +41,7 @@
   "devEngines": {
     "packageManager": {
       "name": "npm",
-      "version": "^10.9.0",
+      "version": "10.9.8",
       "onFail": "warn"
     }
   },

@@ -11,6 +11,7 @@
     "build": {
       "inputs": [{ "step": "install" }],
       "commands": [
+        "grep -q devEngines package.json",
         "npm run build:api",
         "test -f apps/api/dist/main.js"
       ]
