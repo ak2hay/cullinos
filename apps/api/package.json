@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "nest start --watch",
-    "build": "nest build",
+    "build": "tsc -p tsconfig.json",
     "start": "node dist/main",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\""
@@ -30,7 +30,8 @@
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "typescript": "^5.8.3"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.7",
@@ -38,7 +39,6 @@
     "@types/express": "^5.0.2",
     "@types/multer": "^1.4.13",
     "@types/node": "^22.15.21",
-    "@types/passport-jwt": "^4.0.1",
-    "typescript": "^5.8.3"
+    "@types/passport-jwt": "^4.0.1"
   }
 }
