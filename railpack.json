@@ -2,9 +2,15 @@
   "$schema": "https://schema.railpack.com",
   "provider": "node",
   "steps": {
+    "install": {
+      "commands": ["npm ci --include=dev"]
+    },
     "build": {
       "inputs": [{ "step": "install" }],
-      "commands": ["npm run build:api"]
+      "commands": [
+        "npm run build:api",
+        "node -e \"require('fs').accessSync('apps/api/dist/main.js')\""
+      ]
     }
   },
   "deploy": {
