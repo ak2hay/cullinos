@@ -21,7 +21,8 @@
     "db:migrate": "npm run migrate -w @cullinos/prisma",
     "db:seed": "npm run seed -w @cullinos/prisma",
     "docker:up": "docker compose -f docker/docker-compose.yml up -d",
-    "docker:down": "docker compose -f docker/docker-compose.yml down"
+    "docker:down": "docker compose -f docker/docker-compose.yml down",
+    "build:api": "npm run db:generate && npx turbo run build --filter=@cullinos/api"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
@@ -32,5 +33,12 @@
     "typescript": "^5.8.3",
     "vitest": "^2.1.8"
   },
-  "packageManager": "npm@10.9.2"
+  "packageManager": "npm@10.9.2",
+  "overrides": {
+    "@nestjs/common": "11.2.3",
+    "@nestjs/core": "11.2.3",
+    "@nestjs/platform-express": "11.2.3",
+    "@nestjs/websockets": "11.2.3",
+    "@nestjs/platform-socket.io": "11.2.3"
+  }
 }

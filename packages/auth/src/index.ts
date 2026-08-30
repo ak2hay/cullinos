@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import jwt, { type SignOptions } from "jsonwebtoken";
 
 export type JwtPayload = {
   sub: string;
@@ -16,7 +16,7 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return bcrypt.compare(password, hash);
 }
 
-export function signToken(payload: JwtPayload, secret: string, expiresIn = "7d"): string {
+export function signToken(payload: JwtPayload, secret: string, expiresIn: SignOptions["expiresIn"] = "7d"): string {
   return jwt.sign(payload, secret, { expiresIn });
 }
 
