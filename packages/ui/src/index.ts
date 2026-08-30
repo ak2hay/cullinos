@@ -17,7 +17,7 @@ export const cullinosTheme = {
   },
 };
 
-export { colors } from './theme';
+export { colors, typography, borderRadius } from './theme';
 
 export const poweredByRkyves = "Powered by Rkyves";
 
