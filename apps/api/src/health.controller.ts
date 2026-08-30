@@ -4,6 +4,15 @@ import { Controller, Get } from "@nestjs/common";
 export class HealthController {
   @Get()
   health() {
-    return { status: "ok", service: "cullinos-api", version: "0.1.0" };
+    return {
+      status: "ok",
+      service: "cullinos-api",
+      version: "0.1.1",
+      commit: process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "unknown",
+      timestamp: new Date().toISOString(),
+      features: {
+        superAdminOnboard: true,
+      },
+    };
   }
 }
