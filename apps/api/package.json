@@ -14,6 +14,7 @@
     "@cullinos/events": "*",
     "@cullinos/integrations": "*",
     "@cullinos/prisma": "*",
+    "@cullinos/shared": "*",
     "@cullinos/sync": "*",
     "@cullinos/tax-engine": "*",
     "@nestjs/common": "^11.1.3",
