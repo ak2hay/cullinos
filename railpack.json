@@ -9,7 +9,7 @@
       "inputs": [{ "step": "install" }],
       "commands": [
         "npm run build:api",
-        "node -e \"require('fs').accessSync('apps/api/dist/main.js')\""
+        "test -f apps/api/dist/main.js"
       ]
     }
   },
