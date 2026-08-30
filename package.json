@@ -38,6 +38,13 @@
   "engines": {
     "node": ">=20"
   },
+  "devEngines": {
+    "packageManager": {
+      "name": "npm",
+      "version": "^10.9.0",
+      "onFail": "warn"
+    }
+  },
   "overrides": {
     "@nestjs/common": "11.2.3",
     "@nestjs/core": "11.2.3",
