@@ -2,6 +2,9 @@
 builder = "RAILPACK"
 buildCommand = "npm run build:api"
 
+[build.env]
+NPM_CONFIG_PRODUCTION = "false"
+
 [deploy]
 startCommand = "node index.js"
 healthcheckPath = "/api/v1/health"

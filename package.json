@@ -24,13 +24,15 @@
     "docker:down": "docker compose -f docker/docker-compose.yml down",
     "build:api": "npm run db:generate && npx turbo run build --filter=@cullinos/api"
   },
+  "dependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
     "@tailwindcss/vite": "^4.0.0",
     "dotenv": "^16.6.1",
     "tailwindcss": "^4.0.0",
-    "turbo": "^2.5.4",
-    "typescript": "^5.8.3",
     "vitest": "^2.1.8"
   },
   "packageManager": "npm@10.9.2",
