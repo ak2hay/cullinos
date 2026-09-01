@@ -47,6 +47,12 @@ export const ordersApi = {
     }),
     confirm: (orderId) => apiRequest(`/public/orders/${orderId}/confirm`, { method: 'POST' }),
 };
+export const paymentsApi = {
+    createIntent: (payload) => apiRequest('/payments/online/intent', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    }),
+};
 export const tablesApi = {
     list: (outletId) => apiRequest(`/public/tables/outlets/${outletId}`),
 };

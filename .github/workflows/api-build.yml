@@ -8,8 +8,8 @@ on:
       - 'packages/**'
       - 'package.json'
       - 'package-lock.json'
-      - 'railway.toml'
-      - 'railpack.json'
+      - 'Dockerfile'
+      - 'docker-compose.prod.yml'
       - 'index.js'
   pull_request:
     branches: [main]
@@ -32,7 +32,7 @@ jobs:
 
       - run: npm ci
 
-      - name: Build API (Railway command)
+      - name: Build API (production Docker image)
         run: npm run build:api
 
       - name: Verify onboard route exists in build output

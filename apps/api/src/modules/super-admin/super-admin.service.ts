@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { verifyPassword } from "@cullinos/auth";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -164,10 +169,25 @@ export class SuperAdminService {
     ownerName?: string;
     outletName?: string;
   }) {
+    const ownerEmail = input.ownerEmail.trim().toLowerCase();
+    const existingUser = await this.prisma.user.findFirst({
+      where: { email: ownerEmail },
+    });
+    if (existingUser?.isSuperAdmin) {
+      throw new BadRequestException(
+        "Owner email cannot be your platform admin login. Use a unique email for the restaurant owner.",
+      );
+    }
+    if (existingUser) {
+      throw new BadRequestException(
+        `Email "${ownerEmail}" is already registered. Use a unique owner email for this restaurant.`,
+      );
+    }
+
     return this.provisioning.provisionTenant({
       companyName: input.companyName,
       planSlug: input.planSlug,
-      adminEmail: input.ownerEmail,
+      adminEmail: ownerEmail,
       adminPassword: input.ownerPassword,
       adminName: input.ownerName ?? "Owner",
       outletName: input.outletName,

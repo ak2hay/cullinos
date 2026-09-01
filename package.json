@@ -18,6 +18,8 @@
     "test:e2e:ui": "playwright test --ui",
     "db:generate": "npm run generate -w @cullinos/prisma",
     "db:push": "npm run push -w @cullinos/prisma",
+    "db:push:reset": "npm run push -w @cullinos/prisma -- --force-reset",
+    "db:reset": "npm run db:push:reset && npm run db:seed",
     "db:migrate": "npm run migrate -w @cullinos/prisma",
     "db:seed": "npm run seed -w @cullinos/prisma",
     "docker:up": "docker compose -f docker/docker-compose.yml up -d",

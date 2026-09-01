@@ -14,7 +14,15 @@ export class ApiRequestError extends Error {
 async function parseError(response) {
     try {
         const body = (await response.json());
-        return new ApiRequestError(body.error?.message ?? 'Request failed', body.error?.code ?? 'UNKNOWN', response.status);
+        if (body.error && typeof body.error === 'object' && body.error.message) {
+            return new ApiRequestError(body.error.message, body.error.code ?? 'UNKNOWN', response.status);
+        }
+        if (body.message) {
+            const message = Array.isArray(body.message) ? body.message.join(', ') : body.message;
+            const code = typeof body.error === 'string' ? body.error : 'HTTP_ERROR';
+            return new ApiRequestError(message, code, response.status);
+        }
+        return new ApiRequestError('Request failed', 'UNKNOWN', response.status);
     }
     catch {
         return new ApiRequestError(response.statusText || 'Request failed', 'UNKNOWN', response.status);
@@ -54,6 +62,10 @@ export const superAdminApi = {
         body: JSON.stringify(payload),
     }),
     listPlans: () => apiRequest('/super-admin/plans'),
+    onboardRestaurant: (payload) => apiRequest('/super-admin/organizations', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    }),
     health: () => apiRequest('/super-admin/health'),
 };
 export const RKYVES_BRAND = {

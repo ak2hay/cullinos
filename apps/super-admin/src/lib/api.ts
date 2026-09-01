@@ -17,12 +17,23 @@ export class ApiRequestError extends Error {
 
 async function parseError(response: Response): Promise<ApiRequestError> {
   try {
-    const body = (await response.json()) as ApiError;
-    return new ApiRequestError(
-      body.error?.message ?? 'Request failed',
-      body.error?.code ?? 'UNKNOWN',
-      response.status,
-    );
+    const body = (await response.json()) as ApiError & {
+      message?: string | string[];
+      statusCode?: number;
+      error?: string | ApiError['error'];
+    };
+
+    if (body.error && typeof body.error === 'object' && body.error.message) {
+      return new ApiRequestError(body.error.message, body.error.code ?? 'UNKNOWN', response.status);
+    }
+
+    if (body.message) {
+      const message = Array.isArray(body.message) ? body.message.join(', ') : body.message;
+      const code = typeof body.error === 'string' ? body.error : 'HTTP_ERROR';
+      return new ApiRequestError(message, code, response.status);
+    }
+
+    return new ApiRequestError('Request failed', 'UNKNOWN', response.status);
   } catch {
     return new ApiRequestError(response.statusText || 'Request failed', 'UNKNOWN', response.status);
   }

@@ -1,7 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AuthFooterLink, AuthLayout } from '@/components/auth/AuthLayout';
+import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Button, Input } from '@/components/ui/Form';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
@@ -28,5 +28,5 @@ export function LoginPage() {
             setLoading(false);
         }
     }
-    return (_jsxs(AuthLayout, { title: "Welcome back", subtitle: "Sign in to manage your restaurant", children: [_jsxs("form", { onSubmit: handleSubmit, className: "space-y-5", children: [error ? (_jsx("div", { className: "rounded-lg border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error", children: error })) : null, _jsx(Input, { label: "Email", type: "email", autoComplete: "email", required: true, value: email, onChange: (e) => setEmail(e.target.value) }), _jsx(Input, { label: "Password", type: "password", autoComplete: "current-password", required: true, value: password, onChange: (e) => setPassword(e.target.value) }), _jsx(Button, { type: "submit", className: "w-full", loading: loading, children: "Sign in" })] }), _jsx(AuthFooterLink, { text: "New to Cullinos?", linkText: "Create an account", to: "/register" })] }));
+    return (_jsxs(AuthLayout, { title: "Welcome back", subtitle: "Sign in to manage your restaurant", children: [_jsxs("form", { onSubmit: handleSubmit, className: "space-y-5", children: [error ? (_jsx("div", { className: "rounded-lg border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error", children: error })) : null, _jsx(Input, { label: "Email", type: "email", autoComplete: "email", required: true, value: email, onChange: (e) => setEmail(e.target.value) }), _jsx(Input, { label: "Password", type: "password", autoComplete: "current-password", required: true, value: password, onChange: (e) => setPassword(e.target.value) }), _jsx(Button, { type: "submit", className: "w-full", loading: loading, children: "Sign in" })] }), _jsx("p", { className: "mt-6 rounded-lg border border-white/10 bg-bg-card px-4 py-3 text-center text-sm text-text-secondary", children: "Owner credentials are issued when your restaurant is onboarded. Use Admin to create staff accounts for your team \u2014 contact Rkyves if you need owner access." })] }));
 }

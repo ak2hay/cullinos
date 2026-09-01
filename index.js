@@ -1,4 +1,4 @@
 'use strict';
 
-// Production entry for Render / Railway (monorepo root).
+// Production entry for VM Docker deployment (monorepo root).
 require('./apps/api/dist/main.js');

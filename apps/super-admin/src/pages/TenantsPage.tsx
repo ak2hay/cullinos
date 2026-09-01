@@ -280,6 +280,9 @@ export function TenantsPage() {
                   onChange={(e) => setOwnerEmail(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
                 />
+                <span className="mt-1 block text-xs text-text-muted">
+                  Must be unique — do not use your platform admin email.
+                </span>
               </label>
               <label className="block">
                 <span className="text-sm text-text-secondary">Owner temporary password</span>

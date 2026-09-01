@@ -21,6 +21,8 @@ export function CheckoutPage() {
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [notes, setNotes] = useState('');
+    const [scheduledPickup, setScheduledPickup] = useState('');
+    const [tipAmount, setTipAmount] = useState(0);
     const [payLater, setPayLater] = useState(true);
     const [success, setSuccess] = useState(null);
     const [error, setError] = useState('');
@@ -41,6 +43,9 @@ export function CheckoutPage() {
                 outletId,
                 source: orderMode === 'dine-in' ? 'QR' : 'ONLINE',
                 tableId: tableId ?? undefined,
+                customerName: name || undefined,
+                scheduledPickupAt: scheduledPickup ? new Date(scheduledPickup).toISOString() : undefined,
+                tipAmount: tipAmount || undefined,
                 notes: orderNotes || undefined,
                 items: items.map((item) => ({
                     menuItemId: item.menuItemId,
@@ -74,5 +79,5 @@ export function CheckoutPage() {
                         e.preventDefault();
                         setError('');
                         placeOrderMutation.mutate();
-                    }, children: [_jsx(Input, { label: "Name (optional)", value: name, onChange: (e) => setName(e.target.value), placeholder: "Your name" }), _jsx(Input, { label: "Phone (optional)", type: "tel", value: phone, onChange: (e) => setPhone(e.target.value), placeholder: "+91 \u2026" }), _jsx(Input, { label: "Order notes", value: notes, onChange: (e) => setNotes(e.target.value), placeholder: "Allergies, seating preference\u2026" }), _jsxs("div", { className: "rounded-xl border border-white/10 bg-bg-card p-4", children: [_jsx("p", { className: "mb-3 text-sm font-medium", children: "Payment" }), _jsxs("label", { className: "flex cursor-pointer items-center gap-3", children: [_jsx("input", { type: "radio", checked: payLater, onChange: () => setPayLater(true), className: "accent-brand-primary" }), _jsx("span", { className: "text-sm", children: "Pay later at counter / table" })] }), _jsxs("label", { className: "mt-2 flex cursor-pointer items-center gap-3 opacity-60", children: [_jsx("input", { type: "radio", checked: !payLater, onChange: () => setPayLater(false), disabled: true, className: "accent-brand-primary" }), _jsx("span", { className: "text-sm", children: "Pay now (coming soon)" })] })] }), _jsxs("div", { className: "flex items-center justify-between rounded-xl bg-bg-elevated p-4", children: [_jsx("span", { className: "font-medium", children: "Total due" }), _jsx("span", { className: "text-xl font-semibold text-brand-primary", children: formatPrice(total) })] }), _jsx(Button, { type: "submit", className: "w-full", loading: placeOrderMutation.isPending, disabled: !outletId || !organizationId, children: payLater ? 'Place order · Pay later' : 'Place order & pay' })] })] }) }));
+                    }, children: [_jsx(Input, { label: "Name (optional)", value: name, onChange: (e) => setName(e.target.value), placeholder: "Your name" }), _jsx(Input, { label: "Phone (optional)", type: "tel", value: phone, onChange: (e) => setPhone(e.target.value), placeholder: "+91 \u2026" }), _jsx(Input, { label: "Order notes", value: notes, onChange: (e) => setNotes(e.target.value), placeholder: "Allergies, seating preference\u2026" }), _jsx(Input, { label: "Scheduled pickup (optional)", type: "datetime-local", value: scheduledPickup, onChange: (e) => setScheduledPickup(e.target.value) }), _jsx(Input, { label: "Tip (\u20B9, optional)", type: "number", min: 0, value: tipAmount || '', onChange: (e) => setTipAmount(Number(e.target.value) || 0) }), _jsxs("div", { className: "rounded-xl border border-white/10 bg-bg-card p-4", children: [_jsx("p", { className: "mb-3 text-sm font-medium", children: "Payment" }), _jsxs("label", { className: "flex cursor-pointer items-center gap-3", children: [_jsx("input", { type: "radio", checked: payLater, onChange: () => setPayLater(true), className: "accent-brand-primary" }), _jsx("span", { className: "text-sm", children: "Pay later at counter / table" })] }), _jsxs("label", { className: "mt-2 flex cursor-pointer items-center gap-3", children: [_jsx("input", { type: "radio", checked: !payLater, onChange: () => setPayLater(false), className: "accent-brand-primary" }), _jsx("span", { className: "text-sm", children: "Pay now (UPI / card)" })] })] }), _jsxs("div", { className: "flex items-center justify-between rounded-xl bg-bg-elevated p-4", children: [_jsx("span", { className: "font-medium", children: "Total due" }), _jsx("span", { className: "text-xl font-semibold text-brand-primary", children: formatPrice(total) })] }), _jsx(Button, { type: "submit", className: "w-full", loading: placeOrderMutation.isPending, disabled: !outletId || !organizationId, children: payLater ? 'Place order · Pay later' : 'Place order & pay' })] })] }) }));
 }

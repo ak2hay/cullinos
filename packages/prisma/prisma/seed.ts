@@ -280,6 +280,24 @@ async function main() {
     },
   });
 
+  const productionAdminHash = await bcrypt.hash("superadmin123", 10);
+  await prisma.user.upsert({
+    where: {
+      organizationId_email: {
+        organizationId: platformOrg.id,
+        email: "admin@rkyves.com",
+      },
+    },
+    update: { passwordHash: productionAdminHash, isSuperAdmin: true },
+    create: {
+      organizationId: platformOrg.id,
+      email: "admin@rkyves.com",
+      passwordHash: productionAdminHash,
+      name: "Rkyves Admin",
+      isSuperAdmin: true,
+    },
+  });
+
   const owner = await prisma.user.upsert({
     where: {
       organizationId_email: { organizationId: org.id, email: "owner@cullinos.com" },

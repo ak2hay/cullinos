@@ -1,14 +1,28 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { useState } from "react";
-import { cullinosTheme } from "@cullinos/ui";
-const STEPS = ["Business Info", "Menu Setup", "Tables", "Tax & GST", "Staff", "Done"];
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { AppShell } from '@/components/layout/AppShell';
+import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
+import { DashboardPage } from '@/pages/DashboardPage';
+import { LoginPage } from '@/pages/LoginPage';
+import { MenuPage } from '@/pages/MenuPage';
+import { OrdersPage } from '@/pages/OrdersPage';
+import { PlaceholderPage } from '@/pages/PlaceholderPage';
+import { EventsPage } from '@/pages/EventsPage';
+import { ProductionPage } from '@/pages/ProductionPage';
+import { ReportsPage } from '@/pages/ReportsPage';
+import { CustomersPage } from '@/pages/CustomersPage';
+import { PickupQueuePage } from '@/pages/PickupQueuePage';
+import { StaffPage } from '@/pages/StaffPage';
+import { SettingsPage } from '@/pages/SettingsPage';
+import { useAuthStore } from '@/stores/auth';
+function PublicOnly({ children }) {
+    const accessToken = useAuthStore((s) => s.accessToken);
+    if (accessToken) {
+        return _jsx(Navigate, { to: "/", replace: true });
+    }
+    return children;
+}
 export default function App() {
-    const [step, setStep] = useState(0);
-    const s = { bg: cullinosTheme.colors.charcoal, card: cullinosTheme.colors.charcoalLight, border: cullinosTheme.colors.border, amber: cullinosTheme.colors.amber };
-    return (_jsxs("div", { style: { minHeight: "100vh", background: s.bg, color: "#fff", fontFamily: cullinosTheme.fonts.sans, padding: "2rem" }, children: [_jsx("h1", { style: { color: s.amber, marginBottom: "0.5rem" }, children: "Cullinos Admin" }), _jsx("p", { style: { color: cullinosTheme.colors.muted, marginBottom: "2rem" }, children: "Onboarding Wizard" }), _jsx("div", { style: { display: "flex", gap: "0.5rem", marginBottom: "2rem" }, children: STEPS.map((label, i) => (_jsx("div", { style: {
-                        padding: "0.5rem 1rem", borderRadius: "20px", fontSize: "0.875rem",
-                        background: i === step ? s.amber : s.card,
-                        color: i === step ? s.bg : cullinosTheme.colors.muted,
-                        border: `1px solid ${s.border}`,
-                    }, children: label }, label))) }), _jsxs("div", { style: { background: s.card, border: `1px solid ${s.border}`, borderRadius: "12px", padding: "2rem", maxWidth: "600px" }, children: [_jsx("h2", { style: { marginTop: 0 }, children: STEPS[step] }), step === 0 && (_jsxs("div", { style: { display: "flex", flexDirection: "column", gap: "0.75rem" }, children: [_jsx("input", { placeholder: "Restaurant Name", style: { padding: "0.75rem", borderRadius: "8px", border: `1px solid ${s.border}`, background: s.bg, color: "#fff" } }), _jsx("input", { placeholder: "GSTIN", style: { padding: "0.75rem", borderRadius: "8px", border: `1px solid ${s.border}`, background: s.bg, color: "#fff" } })] })), step === 3 && _jsx("p", { children: "Configure CGST/SGST at 2.5% each for 5% GST on food items." }), step === 5 && _jsx("p", { style: { color: s.amber }, children: "Your restaurant is ready! Open POS to start taking orders." }), _jsxs("div", { style: { display: "flex", gap: "1rem", marginTop: "1.5rem" }, children: [step > 0 && _jsx("button", { onClick: () => setStep(step - 1), style: { padding: "0.75rem 1.5rem", borderRadius: "8px", border: `1px solid ${s.border}`, background: "transparent", color: "#fff", cursor: "pointer" }, children: "Back" }), step < STEPS.length - 1 && _jsx("button", { onClick: () => setStep(step + 1), style: { padding: "0.75rem 1.5rem", borderRadius: "8px", border: "none", background: s.amber, color: s.bg, fontWeight: 600, cursor: "pointer" }, children: "Continue" })] })] })] }));
+    return (_jsxs(Routes, { children: [_jsx(Route, { path: "/login", element: _jsx(PublicOnly, { children: _jsx(LoginPage, {}) }) }), _jsx(Route, { path: "/register", element: _jsx(Navigate, { to: "/login", replace: true }) }), _jsx(Route, { path: "/onboarding", element: _jsx(ProtectedRoute, { children: _jsx(AppShell, { compact: true, children: _jsx(OnboardingWizard, {}) }) }) }), _jsxs(Route, { path: "/", element: _jsx(ProtectedRoute, { children: _jsx(AppShell, {}) }), children: [_jsx(Route, { index: true, element: _jsx(DashboardPage, {}) }), _jsx(Route, { path: "menu", element: _jsx(MenuPage, {}) }), _jsx(Route, { path: "orders", element: _jsx(OrdersPage, {}) }), _jsx(Route, { path: "tables", element: _jsx(PlaceholderPage, { title: "Tables", phase: "Phase 2 \u2014 Table Management" }) }), _jsx(Route, { path: "inventory", element: _jsx(PlaceholderPage, { title: "Inventory", phase: "Phase 2 \u2014 Inventory Management" }) }), _jsx(Route, { path: "customers", element: _jsx(CustomersPage, {}) }), _jsx(Route, { path: "events", element: _jsx(EventsPage, {}) }), _jsx(Route, { path: "production", element: _jsx(ProductionPage, {}) }), _jsx(Route, { path: "pickup-queue", element: _jsx(PickupQueuePage, {}) }), _jsx(Route, { path: "staff", element: _jsx(StaffPage, {}) }), _jsx(Route, { path: "reports", element: _jsx(ReportsPage, {}) }), _jsx(Route, { path: "settings", element: _jsx(SettingsPage, {}) })] }), _jsx(Route, { path: "*", element: _jsx(Navigate, { to: "/", replace: true }) })] }));
 }

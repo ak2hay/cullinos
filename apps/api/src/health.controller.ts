@@ -1,7 +1,9 @@
 import { Controller, Get } from "@nestjs/common";
+import { Public } from "./common/decorators";
 
 @Controller("health")
 export class HealthController {
+  @Public()
   @Get()
   health() {
     return {
@@ -9,9 +11,8 @@ export class HealthController {
       service: "cullinos-api",
       version: "0.1.1",
       commit:
-        process.env.RENDER_GIT_COMMIT ??
-        process.env.RAILWAY_GIT_COMMIT_SHA ??
-        process.env.VERCEL_GIT_COMMIT_SHA ??
+        process.env.GIT_COMMIT ??
+        process.env.DEPLOY_COMMIT ??
         "unknown",
       timestamp: new Date().toISOString(),
       features: {
