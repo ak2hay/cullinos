@@ -7,7 +7,8 @@ import { HeldOrdersPanel } from '@/components/pos/HeldOrdersPanel';
 import { ItemGrid } from '@/components/pos/ItemGrid';
 import { KeyboardHints } from '@/components/pos/KeyboardHints';
 import { SearchBar } from '@/components/pos/SearchBar';
-import { CULLINOS_BRAND, menuApi, ordersApi, outletsApi, posApi } from '@/lib/api';
+import { CULLINOS_BRAND, menuApi, ordersApi, outletsApi, paymentsApi, posApi } from '@/lib/api';
+import { openRazorpayCheckout } from '@/lib/razorpay-checkout';
 import { generateIdempotencyKey } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
 import { useCartStore } from '@/stores/cart';
@@ -39,6 +40,7 @@ export function PosPage() {
   const [customerName, setCustomerName] = useState('');
   const [orderType, setOrderType] = useState<'takeaway' | 'dine_in'>('takeaway');
   const [tipAmount, setTipAmount] = useState(0);
+  const [unpaidOrder, setUnpaidOrder] = useState<{ id: string; orderNumber: string } | null>(null);
 
   const outletsQuery = useQuery({
     queryKey: ['outlets'],
@@ -71,32 +73,78 @@ export function PosPage() {
     });
   }, [menuQuery.data?.items, selectedCategoryId, search]);
 
-  const checkoutMutation = useMutation({
-    mutationFn: async () => {
-      if (!outletId || lines.length === 0) throw new Error('Cart is empty');
-      const items = lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity }));
-      const key = generateIdempotencyKey();
-      const payload = {
-        outletId,
-        items,
-        autoConfirm: true,
-        type: counterMode ? orderType : undefined,
-        customerName: customerName || undefined,
-        tipAmount: tipAmount || undefined,
-        notes: counterMode ? `Counter order · ${orderType === 'takeaway' ? 'Pickup' : 'Eat in'}` : undefined,
-      };
-      try {
-        return await posApi.quickOrder(payload, key);
-      } catch {
-        return ordersApi.create({ outletId, source: 'POS', items }, key);
-      }
-    },
-    onSuccess: (order) => {
+  const createOrder = useCallback(async () => {
+    if (!outletId || lines.length === 0) throw new Error('Cart is empty');
+    const items = lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity }));
+    const key = generateIdempotencyKey();
+    const payload = {
+      outletId,
+      items,
+      autoConfirm: true,
+      type: counterMode ? orderType : undefined,
+      customerName: customerName || undefined,
+      tipAmount: tipAmount || undefined,
+      notes: counterMode ? `Counter order · ${orderType === 'takeaway' ? 'Pickup' : 'Eat in'}` : undefined,
+    };
+    try {
+      return await posApi.quickOrder(payload, key);
+    } catch {
+      return ordersApi.create({ outletId, source: 'POS', items }, key);
+    }
+  }, [outletId, lines, counterMode, orderType, customerName, tipAmount]);
+
+  const finishPaid = useCallback(
+    (orderNumber: string, method: string) => {
       clearCart();
       setCustomerName('');
       setTipAmount(0);
-      setStatusMessage(`Order #${order.orderNumber} created`);
+      setUnpaidOrder(null);
+      setStatusMessage(`Order #${orderNumber} paid · ${method}`);
       queryClient.invalidateQueries({ queryKey: ['menu'] });
+    },
+    [clearCart, queryClient],
+  );
+
+  const checkoutMutation = useMutation({
+    mutationFn: async (input: { tender: 'cash' | 'online'; orderId?: string; orderNumber?: string }) => {
+      const order = input.orderId
+        ? { id: input.orderId, orderNumber: input.orderNumber ?? input.orderId }
+        : await createOrder();
+
+      if (input.tender === 'cash') {
+        await paymentsApi.payCash(order.id);
+        return { order, method: 'Cash' };
+      }
+
+      const intent = await paymentsApi.createIntent(order.id);
+      const key = intent.keyId ?? import.meta.env.VITE_RAZORPAY_KEY_ID;
+      if (!key) throw new Error('Razorpay key is not configured');
+      try {
+        const result = await openRazorpayCheckout({
+          key,
+          amountPaise: intent.amountPaise,
+          currency: intent.currency,
+          razorpayOrderId: intent.razorpayOrderId,
+          description: `Order #${order.orderNumber}`,
+        });
+        await paymentsApi.verify({
+          razorpayOrderId: result.razorpay_order_id,
+          razorpayPaymentId: result.razorpay_payment_id,
+          razorpaySignature: result.razorpay_signature,
+        });
+        return { order, method: 'UPI / card' };
+      } catch (err) {
+        setUnpaidOrder({ id: order.id, orderNumber: order.orderNumber });
+        if (!input.orderId) {
+          clearCart();
+          setCustomerName('');
+          setTipAmount(0);
+        }
+        throw err;
+      }
+    },
+    onSuccess: ({ order, method }) => {
+      finishPaid(order.orderNumber, method);
     },
     onError: (err) => {
       setStatusMessage(err instanceof Error ? err.message : 'Checkout failed');
@@ -149,9 +197,15 @@ export function PosPage() {
     [removeHeld],
   );
 
-  const handleCheckout = useCallback(() => {
+  const handleCash = useCallback(() => {
     if (!checkoutMutation.isPending && lines.length > 0) {
-      checkoutMutation.mutate();
+      checkoutMutation.mutate({ tender: 'cash' });
+    }
+  }, [checkoutMutation, lines.length]);
+
+  const handleOnline = useCallback(() => {
+    if (!checkoutMutation.isPending && lines.length > 0) {
+      checkoutMutation.mutate({ tender: 'online' });
     }
   }, [checkoutMutation, lines.length]);
 
@@ -176,7 +230,7 @@ export function PosPage() {
 
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        handleCheckout();
+        handleCash();
       } else if (e.key.toLowerCase() === 'h') {
         e.preventDefault();
         handleHold();
@@ -189,7 +243,7 @@ export function PosPage() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleCheckout, handleHold, clearCart]);
+  }, [handleCash, handleHold, clearCart]);
 
   useEffect(() => {
     if (!statusMessage) return;
@@ -290,7 +344,25 @@ export function PosPage() {
         </main>
 
         <CartSidebar
-          onCheckout={handleCheckout}
+          onCash={handleCash}
+          onOnline={handleOnline}
+          unpaidOrder={unpaidOrder}
+          onRetryUnpaidCash={() =>
+            unpaidOrder &&
+            checkoutMutation.mutate({
+              tender: 'cash',
+              orderId: unpaidOrder.id,
+              orderNumber: unpaidOrder.orderNumber,
+            })
+          }
+          onRetryUnpaidOnline={() =>
+            unpaidOrder &&
+            checkoutMutation.mutate({
+              tender: 'online',
+              orderId: unpaidOrder.id,
+              orderNumber: unpaidOrder.orderNumber,
+            })
+          }
           onHold={handleHold}
           onClear={() => {
             clearCart();

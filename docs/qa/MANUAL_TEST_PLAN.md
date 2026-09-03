@@ -33,7 +33,7 @@ One QA lead switches between roles (Super Admin, Owner, Guest) while one employe
 
 | Constraint | Impact |
 |------------|--------|
-| POS / KDS not on Vercel | Run locally against prod API, or mark POS/KDS cases Blocked/N/A |
+| POS / KDS on VM | https://pos.cullinos.com and https://kds.cullinos.com |
 | Admin Tables & Inventory | Placeholder UI — test tables via Waiter; inventory via Swagger |
 | API-only modules | No dedicated UI — verify via Swagger |
 | Razorpay pay-now | N/A unless production keys configured |
@@ -189,36 +189,37 @@ flowchart TD
 
 Record order IDs, timestamps, and screenshots on failure in Bug Log.
 
-### 2.1 Dine-in: Waiter → Kitchen (KDS)
+### 2.1 Dine-in: Waiter order + QR guest ordering → KDS
 
 ```mermaid
 sequenceDiagram
   participant W as WaiterApp
+  participant G as GuestPhone
   participant API as ProductionAPI
-  participant K as KDS_local
-  participant A as AdminOrders
-  W->>API: Login select outlet open table
-  W->>API: Add items confirm order
-  API->>K: KOT on kitchen display poll
-  A->>API: Order visible in orders list
+  participant K as KDS
+  W->>API: Start table session show QR
+  G->>API: Scan session link add items submit
+  API->>K: KOT via WebSocket
+  W->>API: View table order end session
 ```
 
-**Apps:** Waiter, KDS (local), Admin
+**Apps:** Waiter, Customer (session QR), KDS (`https://kds.cullinos.com`), Admin
 
 | Step | Action | Expected |
 |------|--------|----------|
 | 1 | Employee logs into https://waiter.cullinos.com | Login succeeds |
-| 2 | Select main outlet | Outlet loads; table grid visible |
-| 3 | Open a table → `/order/:tableId` | Menu items load |
-| 4 | Add 2+ items, confirm order | Success message; order number shown |
-| 5 | Open KDS locally: `http://localhost:5174?outletId=<id>` | KOT card appears within ~5s |
-| 6 | Admin → `/orders` | Order listed with correct status, source, total |
+| 2 | Select main outlet | Table grid visible |
+| 3 | Tap table → **Show QR to customers** | QR modal with session link |
+| 4 | Open QR link on phone (incognito) | Menu loads; “Ordering for Table …” |
+| 5 | Guest adds items → checkout | Order sent to kitchen |
+| 6 | Waiter **View table order** | Same order shows guest items |
+| 7 | Open https://kds.cullinos.com (kitchen login) | KOT card appears |
+| 8 | Waiter **End session** | Guest link shows expired on refresh |
+| 9 | Alt: **Take order on waiter app** | Waiter adds items directly (same table order) |
 
-**Table data gap:** If no tables exist, create via Swagger `POST /api/v1/tables` (Admin Tables UI is placeholder). Document in Bug Log if blocked.
+### 2.2 Counter / takeaway: POS
 
-### 2.2 Counter / takeaway: POS (local only)
-
-**App:** POS on localhost:5173 (against prod API)
+**App:** https://pos.cullinos.com
 
 | Step | Action | Expected |
 |------|--------|----------|
@@ -227,8 +228,6 @@ sequenceDiagram
 | 3 | Hold order | Order appears in held panel |
 | 4 | Resume held order | Cart restores |
 | 5 | Checkout (quick order) | Order confirmed |
-
-Mark **Blocked** if local POS not available.
 
 ### 2.3 Guest online ordering: Customer app
 
@@ -243,7 +242,7 @@ Mark **Blocked** if local POS not available.
 | 5 | Optional: scheduled pickup, tip | Fields accept input |
 | 6 | Pay later (default) | Order placed; confirmation shown |
 | 7 | Admin → `/orders` | Online/QR source order visible |
-| 8 | Retry with `?table=T1` query param | Table binding on order (if table exists) |
+| 8 | Session QR flow (waiter generates QR, guest orders) | Items merge into table order; KOT on KDS |
 
 **Pay now (Razorpay):** Test only if keys configured; otherwise N/A.
 
@@ -385,7 +384,7 @@ Test each module after Phase 2 orders exist (for meaningful dashboard/reports da
 | Devices | `/devices` | List registered devices |
 | Integrations | `/integrations` | List integrations |
 | Insights | `/insights` | Fetch insights payload |
-| Sync | `/sync` | Document only — requires Gateway token |
+| Sync | `/sync` | Document only — API endpoint for device sync |
 
 Record HTTP status and response shape in TEST_RUN_SHEET notes column.
 
@@ -399,9 +398,8 @@ Document these as **Known limitations**, not defects:
 |------|--------|
 | Admin Tables UI | Phase 2 placeholder — use Waiter + Swagger |
 | Admin Inventory UI | Phase 2 placeholder — use Swagger |
-| POS/KDS on production Vercel | Local/Gateway apps only |
+| POS/KDS browser apps | https://pos.cullinos.com and https://kds.cullinos.com |
 | Razorpay pay-now | Requires production payment keys |
-| Gateway offline sync | Requires Electron app on outlet LAN |
 | Frontend route permissions | UI checks auth token only, not per-route RBAC |
 | Staff password reset in UI | May not exist — note if missing |
 

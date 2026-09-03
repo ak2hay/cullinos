@@ -115,7 +115,8 @@ export interface MenuItem {
   name: string;
   description: string | null;
   basePrice: number;
-  isAvailable: boolean;
+  /** API field — soft-deleted items are omitted from list endpoints */
+  isActive: boolean;
   sortOrder: number;
 }
 
@@ -152,7 +153,25 @@ export const authApi = {
     }),
 };
 
-export const outletsApi = {  list: () => apiRequest<Outlet[]>('/outlets'),
+export const outletsApi = {
+  list: () => apiRequest<Outlet[]>('/outlets'),
+  create: (data: { name: string; city?: string; phone?: string; operatingMode?: string }) =>
+    apiRequest<Outlet>('/outlets', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: { name?: string; phone?: string; operatingMode?: string }) =>
+    apiRequest<Outlet>(`/outlets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+};
+
+export interface OrganizationCurrent {
+  id: string;
+  name: string;
+  businessType: string | null;
+  gstin: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
+export const organizationsApi = {
+  current: () => apiRequest<OrganizationCurrent>('/organizations/current'),
 };
 
 export const analyticsApi = {
@@ -193,7 +212,13 @@ export const menuApi = {
     }),
   updateItem: (
     id: string,
-    payload: Partial<{ name: string; description: string; basePrice: number; isAvailable: boolean }>,
+    payload: Partial<{
+      name: string;
+      description: string;
+      basePrice: number;
+      isActive: boolean;
+      isAvailable: boolean;
+    }>,
   ) =>
     apiRequest<MenuItem>(`/menu/items/${id}`, {
       method: 'PATCH',
@@ -242,6 +267,63 @@ export const settingsApi = {
       body: JSON.stringify({ settings }),
     });
   },
+};
+
+export interface DiningTable {
+  id: string;
+  outletId: string;
+  sectionId: string;
+  name: string;
+  capacity: number;
+  status: string;
+  qrCode: string | null;
+  section: { id: string; name: string } | null;
+}
+
+export const tablesApi = {
+  listByOutlet: (outletId: string) =>
+    apiRequest<DiningTable[]>(`/tables/outlets/${outletId}`),
+  create: (payload: {
+    outletId: string;
+    name: string;
+    capacity?: number;
+    sectionName?: string;
+  }) =>
+    apiRequest<DiningTable>('/tables', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateStatus: (outletId: string, tableId: string, status: string) =>
+    apiRequest<DiningTable>(`/tables/outlets/${outletId}/${tableId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+};
+
+export interface InventoryItemRow {
+  id: string;
+  name: string;
+  sku: string | null;
+  unit: string;
+  currentStock: number;
+  reorderLevel?: number;
+  outletId?: string | null;
+}
+
+export const inventoryApi = {
+  listItems: () => apiRequest<InventoryItemRow[]>('/inventory/items'),
+  createItem: (payload: {
+    outletId?: string;
+    name: string;
+    sku?: string;
+    unit?: string;
+    currentStock?: number;
+    reorderLevel?: number;
+  }) =>
+    apiRequest<InventoryItemRow>('/inventory/items', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 };
 
 export const eventsApi = {
@@ -331,6 +413,34 @@ export const usersApi = {
 
 export const rolesApi = {
   list: () => apiRequest<Role[]>('/roles'),
+};
+
+export interface TenantSubscription {
+  id: string;
+  status: string;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  graceUntil: string | null;
+  razorpaySubId: string | null;
+  razorpayShortUrl: string | null;
+  plan: {
+    id: string;
+    slug: string;
+    name: string;
+    priceMonthly: number | string;
+  };
+}
+
+export const subscriptionsApi = {
+  list: () => apiRequest<TenantSubscription[]>('/subscriptions'),
+  checkout: () =>
+    apiRequest<{
+      organizationId: string;
+      subscriptionId: string;
+      razorpaySubId: string | null;
+      shortUrl: string | null;
+      status: string;
+    }>('/subscriptions/checkout', { method: 'POST', body: JSON.stringify({}) }),
 };
 
 export { CULLINOS_BRAND };

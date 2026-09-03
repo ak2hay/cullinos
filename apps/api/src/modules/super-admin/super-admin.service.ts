@@ -8,6 +8,7 @@ import { JwtService } from "@nestjs/jwt";
 import { verifyPassword } from "@cullinos/auth";
 import { PrismaService } from "../../prisma/prisma.service";
 import { TenantProvisioningService } from "../organizations/tenant-provisioning.service";
+import { SaasBillingService } from "../subscriptions/saas-billing.service";
 
 @Injectable()
 export class SuperAdminService {
@@ -15,6 +16,7 @@ export class SuperAdminService {
     private prisma: PrismaService,
     private jwt: JwtService,
     private provisioning: TenantProvisioningService,
+    private saas: SaasBillingService,
   ) {}
 
   async login(email: string, password: string) {
@@ -72,6 +74,9 @@ export class SuperAdminService {
         isActive: org.status === "active" || org.status === "trial",
         plan: org.subscriptions[0]?.plan?.slug ?? null,
         subscriptionStatus: org.subscriptions[0]?.status ?? null,
+        trialEndsAt: org.subscriptions[0]?.trialEndsAt?.toISOString() ?? null,
+        checkoutUrl: org.subscriptions[0]?.razorpayShortUrl ?? null,
+        razorpaySubId: org.subscriptions[0]?.razorpaySubId ?? null,
         outletCount: org.outlets.length,
         userCount: org.users.length,
         createdAt: org.createdAt.toISOString(),
@@ -127,11 +132,18 @@ export class SuperAdminService {
         where: { subscriptionId: subscription.id },
       });
 
-      return this.prisma.subscription.update({
+      const nextStatus = payload.status.toLowerCase();
+      const previousPlanId = subscription.planId;
+      if (nextStatus === "cancelled") {
+        await this.saas.cancelGatewaySubscription(subscription);
+      }
+
+      const updated = await this.prisma.subscription.update({
         where: { id: subscription.id },
         data: {
           planId: plan.id,
-          status: payload.status.toLowerCase() as never,
+          status: nextStatus as never,
+          cancelledAt: nextStatus === "cancelled" ? new Date() : null,
           entitlements: {
             create: planFeatures.map((f) => ({
               module: f.module,
@@ -141,6 +153,12 @@ export class SuperAdminService {
         },
         include: { plan: true, entitlements: true },
       });
+
+      if (nextStatus !== "cancelled" && previousPlanId !== plan.id && subscription.razorpaySubId) {
+        await this.saas.recreateForPlanChange(orgId);
+      }
+
+      return updated;
     }
 
     return this.prisma.subscription.create({
@@ -193,6 +211,10 @@ export class SuperAdminService {
       outletName: input.outletName,
       status: "trial",
     });
+  }
+
+  collectSubscription(orgId: string) {
+    return this.saas.collectPayment(orgId);
   }
 
   async listPlans() {

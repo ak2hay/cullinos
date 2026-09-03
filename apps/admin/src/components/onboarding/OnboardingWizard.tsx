@@ -1,13 +1,21 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BUSINESS_TYPE_DEFAULTS,
   BUSINESS_TYPE_LABELS,
-  BUSINESS_TYPES,
+  BUSINESS_TYPE_PARENT_LABELS,
+  BUSINESS_TYPE_PARENTS,
+  QSR_SUBTYPE_LABELS,
+  QSR_SUBTYPES,
+  getBusinessTypeParent,
+  resolveBusinessTypeFromParent,
   type BusinessType,
+  type BusinessTypeParent,
   type OnboardingStep,
+  type QsrSubtype,
 } from '@cullinos/shared';
-import { settingsApi } from '@/lib/api';
+import { outletsApi, settingsApi } from '@/lib/api';
 
 const STEP_LABELS: Record<OnboardingStep, string> = {
   business_info: 'Business Info',
@@ -21,11 +29,19 @@ const STEP_LABELS: Record<OnboardingStep, string> = {
 
 export function OnboardingWizard() {
   const navigate = useNavigate();
-  const [businessType, setBusinessType] = useState<BusinessType>('restaurant');
+  const queryClient = useQueryClient();
+  const [parentType, setParentType] = useState<BusinessTypeParent>('restaurant');
+  const [qsrSubtype, setQsrSubtype] = useState<QsrSubtype>('cafe');
   const [businessName, setBusinessName] = useState('');
   const [gstin, setGstin] = useState('');
   const [stepIndex, setStepIndex] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const businessType: BusinessType = useMemo(
+    () => resolveBusinessTypeFromParent(parentType, qsrSubtype),
+    [parentType, qsrSubtype],
+  );
 
   const steps = useMemo(
     () => BUSINESS_TYPE_DEFAULTS[businessType].onboardingSteps,
@@ -35,15 +51,29 @@ export function OnboardingWizard() {
 
   async function saveBusinessInfo() {
     setSaving(true);
+    setSaveError(null);
     try {
+      const defaults = BUSINESS_TYPE_DEFAULTS[businessType];
       await settingsApi.update({
         businessType,
         name: businessName,
         gstin,
-        operatingMode: BUSINESS_TYPE_DEFAULTS[businessType].operatingMode,
-        enabledOrderTypes: BUSINESS_TYPE_DEFAULTS[businessType].enabledOrderTypes,
-        sampleCategories: BUSINESS_TYPE_DEFAULTS[businessType].sampleCategories,
+        operatingMode: defaults.operatingMode,
+        enabledOrderTypes: defaults.enabledOrderTypes,
+        sampleCategories: defaults.sampleCategories,
       });
+
+      // Sync outlet operatingMode so POS/counter UX matches the type.
+      const outlets = await outletsApi.list();
+      await Promise.all(
+        outlets.map((outlet) =>
+          outletsApi.update(outlet.id, { operatingMode: defaults.operatingMode }),
+        ),
+      );
+      await queryClient.invalidateQueries({ queryKey: ['organizations', 'current'] });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save business info. Please try again.');
+      throw err;
     } finally {
       setSaving(false);
     }
@@ -51,11 +81,23 @@ export function OnboardingWizard() {
 
   async function handleContinue() {
     if (currentStep === 'business_info') {
-      await saveBusinessInfo();
+      try {
+        await saveBusinessInfo();
+      } catch {
+        return;
+      }
     }
     if (stepIndex < steps.length - 1) {
       setStepIndex(stepIndex + 1);
     }
+  }
+
+  function handleParentChange(next: BusinessTypeParent) {
+    setParentType(next);
+    if (next === 'qsr' && getBusinessTypeParent(businessType) !== 'qsr') {
+      setQsrSubtype('cafe');
+    }
+    setStepIndex(0);
   }
 
   return (
@@ -87,21 +129,39 @@ export function OnboardingWizard() {
 
         {currentStep === 'business_info' && (
           <div className="mt-4 space-y-3">
-            <label className="block text-sm text-text-secondary">Business type</label>
+            <label className="block text-sm text-text-secondary">Business category</label>
             <select
-              value={businessType}
-              onChange={(e) => {
-                setBusinessType(e.target.value as BusinessType);
-                setStepIndex(0);
-              }}
+              value={parentType}
+              onChange={(e) => handleParentChange(e.target.value as BusinessTypeParent)}
               className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
             >
-              {BUSINESS_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {BUSINESS_TYPE_LABELS[type]}
+              {BUSINESS_TYPE_PARENTS.map((parent) => (
+                <option key={parent} value={parent}>
+                  {BUSINESS_TYPE_PARENT_LABELS[parent]}
                 </option>
               ))}
             </select>
+
+            {parentType === 'qsr' ? (
+              <>
+                <label className="block text-sm text-text-secondary">QSR subcategory</label>
+                <select
+                  value={qsrSubtype}
+                  onChange={(e) => {
+                    setQsrSubtype(e.target.value as QsrSubtype);
+                    setStepIndex(0);
+                  }}
+                  className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                >
+                  {QSR_SUBTYPES.map((sub) => (
+                    <option key={sub} value={sub}>
+                      {QSR_SUBTYPE_LABELS[sub]}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : null}
+
             <input
               placeholder="Business name"
               value={businessName}
@@ -117,6 +177,11 @@ export function OnboardingWizard() {
             <p className="text-xs text-text-muted">
               Recommended plan: {BUSINESS_TYPE_DEFAULTS[businessType].recommendedPlan}
             </p>
+            {saveError && (
+              <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">
+                {saveError}
+              </p>
+            )}
           </div>
         )}
 
@@ -147,7 +212,7 @@ export function OnboardingWizard() {
 
         {currentStep === 'staff' && (
           <p className="mt-4 text-sm text-text-secondary">
-            Invite team members from Settings. Waiter app is optional for counter-service businesses.
+            Invite team members from the Staff page. Waiter app is optional for counter-service businesses.
           </p>
         )}
 

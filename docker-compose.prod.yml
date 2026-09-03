@@ -51,6 +51,19 @@ services:
     networks:
       - cullinos
 
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: cullinos-web
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - '127.0.0.1:5180:5180'
+    networks:
+      - cullinos
+
 volumes:
   cullinos_pg_data:
   cullinos_redis_data:

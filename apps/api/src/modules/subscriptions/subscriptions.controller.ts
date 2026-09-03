@@ -1,9 +1,23 @@
-import { Controller, Get } from "@nestjs/common";
+import { Body, Controller, Get, Post } from "@nestjs/common";
 import { OrgId } from "../../common/decorators";
-import { SubscriptionsService } from "./subscriptions.service";
+import { SaasBillingService } from "./saas-billing.service";
 
 @Controller("subscriptions")
 export class SubscriptionsController {
-  constructor(private service: SubscriptionsService) {}
-  @Get() list(@OrgId() orgId: string) { return this.service.list(orgId); }
+  constructor(private saas: SaasBillingService) {}
+
+  @Get()
+  list(@OrgId() orgId: string) {
+    return this.saas.listForOrg(orgId);
+  }
+
+  @Get("current")
+  current(@OrgId() orgId: string) {
+    return this.saas.currentForOrg(orgId);
+  }
+
+  @Post("checkout")
+  checkout(@OrgId() orgId: string, @Body() _body: Record<string, unknown>) {
+    return this.saas.collectPayment(orgId);
+  }
 }

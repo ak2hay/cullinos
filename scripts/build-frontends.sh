@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Build all Vite frontends for VM deployment (run from repo root).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+export VITE_API_URL="${VITE_API_URL:-https://api.cullinos.com/api/v1}"
+export VITE_WS_URL="${VITE_WS_URL:-https://api.cullinos.com}"
+export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.cullinos.com/api/v1}"
+
+echo "Building frontends with VITE_API_URL=$VITE_API_URL"
+
+echo ">>> Building shared packages"
+npm run build -w @cullinos/shared -w @cullinos/ui
+
+APPS=(admin management super-admin customer waiter pos kds)
+
+for app in "${APPS[@]}"; do
+  echo ">>> Building @cullinos/$app"
+  npm run build -w "@cullinos/$app"
+done
+
+echo ">>> Building @cullinos/web (Next.js marketing)"
+npm run build -w @cullinos/web
+
+OUT="${ROOT}/dist-frontends"
+rm -rf "$OUT"
+mkdir -p "$OUT"
+
+for app in "${APPS[@]}"; do
+  src="${ROOT}/apps/${app}/dist"
+  if [[ ! -d "$src" ]]; then
+    echo "Missing dist for $app" >&2
+    exit 1
+  fi
+  cp -r "$src" "${OUT}/${app}"
+done
+
+echo "Frontend bundles ready in dist-frontends/"
+echo "Deploy to VM: rsync dist-frontends/* to /var/www/cullinos/"

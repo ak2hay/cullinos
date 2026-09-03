@@ -1,21 +1,20 @@
 # Cullinos — Restaurant Operating System
 
-Cullinos is Rkyves's multi-tenant restaurant platform — one cloud backend, role-specific apps (POS, kitchen, floor, guest, admin), offline-capable operations, and GST-native billing.
+Cullinos is Rkyves's multi-tenant restaurant platform — one cloud backend, role-specific web apps (POS, kitchen, floor, guest, admin), and GST-native billing.
 
 ## Apps
 
 | App | Port | Purpose |
 |-----|------|---------|
 | API | 3000 | NestJS REST + WebSocket |
-| POS | 5173 | Cashier terminal |
-| KDS | 5174 | Kitchen display |
+| POS | 5173 | Cashier terminal (production: https://pos.cullinos.com) |
+| KDS | 5174 | Kitchen display (production: https://kds.cullinos.com) |
 | Waiter | 5175 | Floor staff |
 | Customer | 5176 | QR / online ordering |
 | Admin | 5181 | Owner dashboard |
 | Management | 5182 | Multi-outlet chains |
 | Super Admin | 5183 | Platform ops |
 | Web | 5180 | Marketing site |
-| Gateway | — | Electron offline sync |
 
 ## Quick start
 

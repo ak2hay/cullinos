@@ -21,6 +21,25 @@ APP_DIR = "/opt/cullinos"
 VM_DATABASE_URL = "postgresql://cullinos:{password}@postgres:5432/cullinos"
 VM_REDIS_URL = "redis://redis:6379"
 
+CORS_ORIGINS = (
+    "https://admin.cullinos.com,https://manage.cullinos.com,"
+    "https://platform.cullinos.com,https://order.cullinos.com,"
+    "https://waiter.cullinos.com,https://pos.cullinos.com,"
+    "https://kds.cullinos.com,https://cullinos.com"
+)
+
+FRONTEND_DOMAINS = [
+    "admin.cullinos.com",
+    "manage.cullinos.com",
+    "platform.cullinos.com",
+    "order.cullinos.com",
+    "waiter.cullinos.com",
+    "pos.cullinos.com",
+    "kds.cullinos.com",
+    "cullinos.com",
+    "www.cullinos.com",
+]
+
 EXCLUDE_DIRS = {
     "node_modules",
     ".git",
@@ -32,20 +51,26 @@ EXCLUDE_DIRS = {
 }
 EXCLUDE_FILES = {"secrets-export.txt", ".env"}
 
+SECRET_KEYS = (
+    "JWT_ACCESS_SECRET",
+    "JWT_REFRESH_SECRET",
+    "SUPER_ADMIN_JWT_SECRET",
+    "ENCRYPTION_KEY",
+    "POSTGRES_PASSWORD",
+    "REVALIDATE_SECRET",
+    "INTERNAL_API_KEY",
+)
+
 
 def parse_secrets(path: Path) -> dict[str, str]:
     text = path.read_text(encoding="utf-8")
     secrets: dict[str, str] = {}
-    for key in (
-        "JWT_ACCESS_SECRET",
-        "JWT_REFRESH_SECRET",
-        "SUPER_ADMIN_JWT_SECRET",
-        "ENCRYPTION_KEY",
-        "POSTGRES_PASSWORD",
-    ):
+    for key in SECRET_KEYS:
         m = re.search(rf"{key}\n([^\n]+)", text)
         if m:
-            secrets[key] = m.group(1).strip()
+            value = m.group(1).strip()
+            if value and not value.startswith("<"):
+                secrets[key] = value
     return secrets
 
 
@@ -123,14 +148,17 @@ def patch_env_file(sftp: paramiko.SFTPClient, path: str, updates: dict[str, str]
 
 def vm_env_updates(secrets: dict[str, str], existing: dict[str, str] | None = None) -> dict[str, str]:
     pg_pw = (
-        (existing or {}).get("POSTGRES_PASSWORD")
-        or secrets.get("POSTGRES_PASSWORD")
+        secrets.get("POSTGRES_PASSWORD")
+        or (existing or {}).get("POSTGRES_PASSWORD")
         or os.urandom(16).hex()
     )
     updates: dict[str, str] = {
         "POSTGRES_PASSWORD": pg_pw,
         "DATABASE_URL": VM_DATABASE_URL.format(password=pg_pw),
         "REDIS_URL": VM_REDIS_URL,
+        "REVALIDATE_SECRET": secrets.get("REVALIDATE_SECRET") or (existing or {}).get("REVALIDATE_SECRET") or os.urandom(24).hex(),
+        "MARKETING_REVALIDATE_URL": "https://cullinos.com/api/revalidate",
+        "INTERNAL_API_KEY": secrets.get("INTERNAL_API_KEY") or (existing or {}).get("INTERNAL_API_KEY") or os.urandom(24).hex(),
     }
     if secrets.get("JWT_ACCESS_SECRET"):
         updates["JWT_SECRET"] = secrets["JWT_ACCESS_SECRET"]
@@ -141,6 +169,67 @@ def vm_env_updates(secrets: dict[str, str], existing: dict[str, str] | None = No
     if secrets.get("ENCRYPTION_KEY"):
         updates["ENCRYPTION_KEY"] = secrets["ENCRYPTION_KEY"]
     return updates
+
+
+def build_env_content(updates: dict[str, str]) -> str:
+    return f"""NODE_ENV=production
+API_PORT=3000
+POSTGRES_PASSWORD={updates["POSTGRES_PASSWORD"]}
+DATABASE_URL={updates["DATABASE_URL"]}
+REDIS_URL={updates["REDIS_URL"]}
+JWT_SECRET={updates.get("JWT_SECRET", os.urandom(32).hex())}
+JWT_REFRESH_SECRET={updates.get("JWT_REFRESH_SECRET", os.urandom(32).hex())}
+SUPER_ADMIN_JWT_SECRET={updates.get("SUPER_ADMIN_JWT_SECRET", os.urandom(32).hex())}
+ENCRYPTION_KEY={updates.get("ENCRYPTION_KEY", os.urandom(32).hex())}
+INTERNAL_API_KEY={updates["INTERNAL_API_KEY"]}
+REVALIDATE_SECRET={updates["REVALIDATE_SECRET"]}
+MARKETING_REVALIDATE_URL={updates["MARKETING_REVALIDATE_URL"]}
+API_URL=https://api.cullinos.com
+CORS_ORIGINS={CORS_ORIGINS}
+CUSTOMER_APP_URL=https://order.cullinos.com
+MARKETING_UPLOAD_DIR=/data/marketing-uploads
+"""
+
+
+def reset_postgres_volume(ssh: paramiko.SSHClient) -> None:
+    print("Postgres password changed — wiping database volume for fresh start...")
+    run(ssh, f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml down || true")
+    run(
+        ssh,
+        "for vol in $(docker volume ls -q | grep cullinos_pg_data || true); do "
+        "docker volume rm \"$vol\" 2>/dev/null || true; done",
+    )
+
+
+def run_certbot(ssh: paramiko.SSHClient) -> None:
+    print("Installing certbot and requesting SSL certificates...")
+    run(
+        ssh,
+        "export DEBIAN_FRONTEND=noninteractive && "
+        "apt-get install -y -qq certbot python3-certbot-nginx",
+        timeout=300,
+    )
+
+    frontend_domains = " ".join(f"-d {d}" for d in FRONTEND_DOMAINS)
+    certbot_cmd = (
+        f"certbot --nginx --non-interactive --agree-tos --register-unsafely-without-email "
+        f"--redirect {frontend_domains} || true"
+    )
+    code, out, _ = run(ssh, certbot_cmd, timeout=600)
+    if code != 0:
+        print("Certbot for frontends did not complete — DNS may not be ready yet.")
+        print("Re-run after DNS propagates:")
+        print(f"  certbot --nginx {frontend_domains}")
+
+    api_cert = "/etc/letsencrypt/live/api.cullinos.com/fullchain.pem"
+    _, api_ssl, _ = run(ssh, f"test -f {api_cert} && echo has_ssl || echo no_ssl")
+    if "no_ssl" in api_ssl:
+        run(
+            ssh,
+            "certbot --nginx --non-interactive --agree-tos --register-unsafely-without-email "
+            "--redirect -d api.cullinos.com || true",
+            timeout=300,
+        )
 
 
 def main() -> int:
@@ -180,55 +269,100 @@ def main() -> int:
     run(ssh, f"test -f /tmp/cullinos.env.bak && mv /tmp/cullinos.env.bak {APP_DIR}/.env || true")
 
     sftp = ssh.open_sftp()
+    existing: dict[str, str] = {}
     _, env_check, _ = run(ssh, f"test -f {APP_DIR}/.env && echo exists || echo missing")
-    if "exists" not in env_check:
-        updates = vm_env_updates(secrets)
-        internal_key = os.urandom(24).hex()
-        env_content = f"""NODE_ENV=production
-API_PORT=3000
-POSTGRES_PASSWORD={updates["POSTGRES_PASSWORD"]}
-DATABASE_URL={updates["DATABASE_URL"]}
-REDIS_URL={updates["REDIS_URL"]}
-JWT_SECRET={updates.get("JWT_SECRET", os.urandom(32).hex())}
-JWT_REFRESH_SECRET={updates.get("JWT_REFRESH_SECRET", os.urandom(32).hex())}
-SUPER_ADMIN_JWT_SECRET={updates.get("SUPER_ADMIN_JWT_SECRET", os.urandom(32).hex())}
-ENCRYPTION_KEY={updates.get("ENCRYPTION_KEY", os.urandom(32).hex())}
-INTERNAL_API_KEY={internal_key}
-API_URL=https://api.cullinos.com
-CORS_ORIGINS=https://admin.cullinos.com,https://manage.cullinos.com,https://platform.cullinos.com,https://order.cullinos.com,https://waiter.cullinos.com
-MARKETING_UPLOAD_DIR=/data/marketing-uploads
-"""
-        with sftp.file(f"{APP_DIR}/.env", "w") as f:
-            f.write(env_content)
-        print("Created VM .env (Postgres + Redis on Docker, no external DB).")
-    else:
-        print("Preserving existing .env on server — forcing VM Postgres/Redis URLs.")
+    if "exists" in env_check:
         try:
             with sftp.file(f"{APP_DIR}/.env", "r") as f:
                 existing = read_env_values(f.read().decode("utf-8").splitlines())
         except FileNotFoundError:
             existing = {}
-        updates = vm_env_updates(secrets, existing)
+
+    updates = vm_env_updates(secrets, existing)
+    new_pg_pw = updates["POSTGRES_PASSWORD"]
+    old_pg_pw = existing.get("POSTGRES_PASSWORD", "")
+    pg_password_changed = bool(old_pg_pw and new_pg_pw and old_pg_pw != new_pg_pw)
+
+    if "exists" not in env_check:
+        with sftp.file(f"{APP_DIR}/.env", "w") as f:
+            f.write(build_env_content(updates))
+        print("Created VM .env (Postgres + Redis on Docker, no external DB).")
+    else:
+        print("Preserving existing .env on server — syncing secrets and data service URLs.")
         patch_env_file(sftp, f"{APP_DIR}/.env", updates)
-        print("Synced VM data services:", "DATABASE_URL, REDIS_URL, POSTGRES_PASSWORD")
-        if any(k in updates for k in ("JWT_SECRET", "JWT_REFRESH_SECRET", "ENCRYPTION_KEY")):
-            print("Synced auth secrets from secrets-export.txt")
+        print("Synced VM data services: DATABASE_URL, REDIS_URL, POSTGRES_PASSWORD")
+        if any(k in updates for k in ("JWT_SECRET", "JWT_REFRESH_SECRET", "ENCRYPTION_KEY", "REVALIDATE_SECRET")):
+            print("Synced auth/CMS secrets from secrets-export.txt")
     sftp.close()
+
+    if pg_password_changed:
+        reset_postgres_volume(ssh)
 
     print("Building and starting Docker stack (this may take several minutes)...")
     code, _, _ = run(
         ssh,
-        f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml up -d --build",
+        f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml build --no-cache api "
+        f"&& docker compose -f docker-compose.prod.yml up -d postgres redis api",
         timeout=1800,
     )
     if code != 0:
         print("Docker build failed.", file=sys.stderr)
         return code
 
+    print("Initializing database schema...")
+    run(ssh, f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml stop api || true")
+    run(
+        ssh,
+        f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml run --rm -T api "
+        "npx prisma db push --schema=packages/prisma/prisma/schema.prisma",
+        timeout=600,
+    )
+    run(
+        ssh,
+        f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml run --rm -T api "
+        "npx tsx packages/prisma/prisma/seed.ts",
+        timeout=600,
+    )
+    run(ssh, f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml up -d api")
+
+    print("Building frontends on VM (Node 22)...")
+    run(
+        ssh,
+        "command -v node >/dev/null || "
+        "(curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs)",
+        timeout=600,
+    )
+    run(
+        ssh,
+        f"cd {APP_DIR} && npm ci --include=dev && bash scripts/build-frontends.sh",
+        timeout=2400,
+    )
+    _, build_check, _ = run(ssh, f"test -d {APP_DIR}/dist-frontends/admin && echo ok || echo missing")
+    if "missing" in build_check:
+        print("Frontend build failed — dist-frontends not created.", file=sys.stderr)
+        return 1
+    run(
+        ssh,
+        f"mkdir -p /var/www/cullinos && cp -r {APP_DIR}/dist-frontends/* /var/www/cullinos/",
+    )
+    run(
+        ssh,
+        f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml up -d --build web",
+        timeout=1200,
+    )
+
+    frontends_nginx = (ROOT / "infrastructure" / "nginx" / "cullinos-frontends.conf").read_text(
+        encoding="utf-8"
+    )
+    sftp = ssh.open_sftp()
+    with sftp.file("/etc/nginx/sites-available/cullinos-frontends.conf", "w") as f:
+        f.write(frontends_nginx)
+    sftp.close()
+
     print("Waiting for API...")
     for _ in range(36):
         c, out, _ = run(ssh, "curl -sf http://127.0.0.1:3000/api/v1/health || true", timeout=30)
-        if '"status":"ok"' in out or '"status": "ok"' in out or '"status":' in out and 'ok' in out:
+        if '"status":"ok"' in out or '"status": "ok"' in out or ('"status":' in out and 'ok' in out):
             print("API healthy.")
             break
         time.sleep(10)
@@ -236,10 +370,21 @@ MARKETING_UPLOAD_DIR=/data/marketing-uploads
         print("API did not become healthy in time — check logs.", file=sys.stderr)
         run(ssh, f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml logs --tail=80 api")
 
-    run(ssh, f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml exec -T api npm run db:push", timeout=300)
-    run(ssh, f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml exec -T api npm run db:seed", timeout=300)
+    nginx_conf_path = "/etc/nginx/sites-available/cullinos-api.conf"
+    ssl_cert = "/etc/letsencrypt/live/api.cullinos.com/fullchain.pem"
+    _, ssl_check, _ = run(ssh, f"test -f {ssl_cert} && echo has_ssl || echo no_ssl")
 
-    nginx_http = r"""server {
+    if "has_ssl" in ssl_check:
+        print("Restoring HTTPS nginx config (SSL cert present)...")
+        nginx_ssl = (ROOT / "infrastructure" / "nginx" / "api.cullinos.com.conf").read_text(encoding="utf-8")
+        sftp = ssh.open_sftp()
+        run(ssh, "mkdir -p /var/www/certbot /etc/nginx/sites-available /etc/nginx/sites-enabled")
+        with sftp.file(nginx_conf_path, "w") as f:
+            f.write(nginx_ssl)
+        sftp.close()
+    else:
+        print("Writing HTTP-only nginx config (certbot will upgrade after DNS)...")
+        nginx_http = r"""server {
     listen 80 default_server;
     server_name api.cullinos.com in17906.onliveserver.com _;
 
@@ -260,26 +405,34 @@ MARKETING_UPLOAD_DIR=/data/marketing-uploads
     }
 }
 """
-    sftp = ssh.open_sftp()
-    run(ssh, "mkdir -p /var/www/certbot /etc/nginx/sites-available /etc/nginx/sites-enabled")
-    with sftp.file("/etc/nginx/sites-available/cullinos-api.conf", "w") as f:
-        f.write(nginx_http)
-    sftp.close()
+        sftp = ssh.open_sftp()
+        run(ssh, "mkdir -p /var/www/certbot /etc/nginx/sites-available /etc/nginx/sites-enabled")
+        with sftp.file(nginx_conf_path, "w") as f:
+            f.write(nginx_http)
+        sftp.close()
+
     run(
         ssh,
         "rm -f /etc/nginx/sites-enabled/default "
-        "&& ln -sf /etc/nginx/sites-available/cullinos-api.conf /etc/nginx/sites-enabled/cullinos-api.conf "
+        f"&& ln -sf {nginx_conf_path} /etc/nginx/sites-enabled/cullinos-api.conf "
+        "&& ln -sf /etc/nginx/sites-available/cullinos-frontends.conf "
+        "/etc/nginx/sites-enabled/cullinos-frontends.conf "
         "&& nginx -t && systemctl reload nginx",
     )
+
+    print("Requesting SSL certificates (requires DNS pointing to this VM)...")
+    run_certbot(ssh)
+    run(ssh, "nginx -t && systemctl reload nginx")
 
     _, out, _ = run(ssh, "curl -sf http://127.0.0.1:3000/api/v1/health")
     print("\n=== Deploy complete ===")
     print(f"API (internal): http://127.0.0.1:3000/api/v1/health")
-    print(f"API (public HTTP): http://{HOST}/api/v1/health")
+    print(f"API (public): https://api.cullinos.com/api/v1/health")
     print(f"App directory: {APP_DIR}")
-    print("Backend stack: API + Postgres + Redis (all on this VM — no Neon/Railway/Upstash).")
-    print("Point api.cullinos.com A record to", HOST)
-    print("Then: certbot --nginx -d api.cullinos.com")
+    print("Backend stack: API + Postgres + Redis (all on this VM).")
+    print("Frontends: https://admin.cullinos.com, https://waiter.cullinos.com, etc.")
+    if pg_password_changed:
+        print("Database was reset with new POSTGRES_PASSWORD — demo seed restored.")
     ssh.close()
     return 0
 

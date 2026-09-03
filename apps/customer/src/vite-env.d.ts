@@ -2,6 +2,8 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
+  readonly VITE_ORG_SLUG?: string;
+  readonly VITE_OUTLET_SLUG?: string;
   readonly VITE_OUTLET_ID?: string;
   readonly VITE_ORDER_TOKEN?: string;
 }

@@ -1,12 +1,14 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { AppShell } from '@/components/layout/AppShell';
+import { BusinessTypeRoute } from '@/components/layout/BusinessTypeRoute';
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { MenuPage } from '@/pages/MenuPage';
 import { OrdersPage } from '@/pages/OrdersPage';
-import { PlaceholderPage } from '@/pages/PlaceholderPage';
+import { TablesPage } from '@/pages/TablesPage';
+import { InventoryPage } from '@/pages/InventoryPage';
 import { EventsPage } from '@/pages/EventsPage';
 import { ProductionPage } from '@/pages/ProductionPage';
 import { ReportsPage } from '@/pages/ReportsPage';
@@ -14,6 +16,7 @@ import { CustomersPage } from '@/pages/CustomersPage';
 import { PickupQueuePage } from '@/pages/PickupQueuePage';
 import { StaffPage } from '@/pages/StaffPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { BillingPage } from '@/pages/BillingPage';
 import { useAuthStore } from '@/stores/auth';
 
 function PublicOnly({ children }: { children: React.ReactNode }) {
@@ -59,19 +62,49 @@ export default function App() {
         <Route path="orders" element={<OrdersPage />} />
         <Route
           path="tables"
-          element={<PlaceholderPage title="Tables" phase="Phase 2 — Table Management" />}
+          element={
+            <BusinessTypeRoute>
+              <TablesPage />
+            </BusinessTypeRoute>
+          }
         />
         <Route
           path="inventory"
-          element={<PlaceholderPage title="Inventory" phase="Phase 2 — Inventory Management" />}
+          element={
+            <BusinessTypeRoute>
+              <InventoryPage />
+            </BusinessTypeRoute>
+          }
         />
         <Route path="customers" element={<CustomersPage />} />
-        <Route path="events" element={<EventsPage />} />
-        <Route path="production" element={<ProductionPage />} />
-        <Route path="pickup-queue" element={<PickupQueuePage />} />
+        <Route
+          path="events"
+          element={
+            <BusinessTypeRoute>
+              <EventsPage />
+            </BusinessTypeRoute>
+          }
+        />
+        <Route
+          path="production"
+          element={
+            <BusinessTypeRoute>
+              <ProductionPage />
+            </BusinessTypeRoute>
+          }
+        />
+        <Route
+          path="pickup-queue"
+          element={
+            <BusinessTypeRoute>
+              <PickupQueuePage />
+            </BusinessTypeRoute>
+          }
+        />
         <Route path="staff" element={<StaffPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="billing" element={<BillingPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

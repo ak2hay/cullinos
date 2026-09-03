@@ -200,11 +200,12 @@ Record expected gaps so they are not filed as defects.
 
 | ID | Module | Description | Documented in plan |
 |----|--------|-------------|-------------------|
-| KL-001 | Admin Tables | Phase 2 placeholder UI | Yes |
-| KL-002 | Admin Inventory | Phase 2 placeholder UI | Yes |
-| KL-003 | POS/KDS | Local apps only on production | Yes |
-| KL-004 | Razorpay | Pay-now requires keys | Yes |
-| KL-005 | Gateway sync | Requires Electron + LAN | Yes |
+| KL-001 | Admin Tables | Phase 2 placeholder UI — table ops via Waiter app | Yes |
+| KL-002 | Admin Inventory | Phase 2 placeholder UI — inventory APIs via Swagger/Management | Yes |
+| KL-003 | POS/KDS | Web apps at pos/kds.cullinos.com (DNS required) | Yes |
+| KL-004 | Razorpay | Pay-now requires production payment keys | Yes |
+| KL-005 | Admin Pickup Queue | Local testing requires KDS running on port 5174 (`npm run dev --workspace=apps/kds`) | Yes |
+| KL-006 | Production — stock deduction | Stock deducts only when batch is linked to a recipe with ingredients; batches without a recipe are still marked complete | Yes |
 
 ---
 
@@ -212,7 +213,12 @@ Record expected gaps so they are not filed as defects.
 
 | ID | Title | Severity | Closed date | Resolution |
 |----|-------|----------|-------------|------------|
-| | | | | |
+| BUG-FX-001 | Settings / Setup tab returns "Module not entitled: settings" | High | 2026-09-03 | Added `settings` and `reports` to all plans in seed + plan-bootstrap. Auto-syncs missing entitlements on API startup. |
+| BUG-FX-002 | Events scheduling fails silently | High | 2026-09-03 | Added `events` + `production` to professional/enterprise/qsr plans. EventsPage now auto-selects outlet and shows success/error feedback. |
+| BUG-FX-003 | Production batches — no feedback on Schedule/Complete | Medium | 2026-09-03 | ProductionPage shows success toast on schedule and complete; errors surfaced. Added note about recipe-based stock deduction. |
+| BUG-FX-004 | Menu delete appears to do nothing | Medium | 2026-09-03 | MenuPage now shows success/error banners on delete (and create/update). API already uses soft-delete; deleted items/categories are filtered from lists. |
+| BUG-FX-005 | Pickup Queue URL hardcoded to localhost:5174 | Low | 2026-09-03 | PickupQueuePage now computes correct URL for dev vs production. KDS now supports `?mode=pickup&outletId=…` — shows public customer-facing preparing/ready board (no login required). |
+| BUG-FX-006 | OnboardingWizard hides settings save errors | Low | 2026-09-03 | Business Info step now shows API errors inline so entitlement or network failures are visible. |
 
 ---
 

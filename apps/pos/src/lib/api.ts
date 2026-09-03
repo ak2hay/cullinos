@@ -114,6 +114,49 @@ export interface Order {
   totalAmount: number;
 }
 
+export interface CashPaymentResult {
+  success: boolean;
+  orderId: string;
+  paymentId?: string;
+  alreadyPaid?: boolean;
+}
+
+export interface OnlineIntent {
+  provider: string;
+  orderId: string;
+  paymentId: string;
+  keyId?: string;
+  razorpayOrderId: string;
+  amount: number;
+  amountPaise: number;
+  currency: string;
+  status: string;
+}
+
+export const paymentsApi = {
+  payCash: (orderId: string) =>
+    apiRequest<CashPaymentResult>('/payments/cash', {
+      method: 'POST',
+      body: JSON.stringify({ orderId }),
+    }),
+
+  createIntent: (orderId: string) =>
+    apiRequest<OnlineIntent>('/payments/online/intent', {
+      method: 'POST',
+      body: JSON.stringify({ orderId }),
+    }),
+
+  verify: (payload: {
+    razorpayOrderId: string;
+    razorpayPaymentId: string;
+    razorpaySignature: string;
+  }) =>
+    apiRequest<{ success: boolean; orderId: string }>('/payments/online/verify', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+};
+
 export interface QuickOrderItem {
   menuItemId: string;
   quantity: number;

@@ -6,9 +6,9 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "generate": "prisma generate",
-    "push": "dotenv -e ../../.env -- prisma db push",
+    "push": "prisma db push",
     "migrate": "prisma migrate dev",
-    "seed": "tsx --env-file=../../.env prisma/seed.ts",
+    "seed": "tsx prisma/seed.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },

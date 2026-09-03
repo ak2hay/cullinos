@@ -1,0 +1,17 @@
+{
+  "name": "@cullinos/kds-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cullinos KDS — Windows desktop app (online)",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "build:app": "npx cross-env VITE_DESKTOP=true VITE_API_URL=https://api.cullinos.com/api/v1 VITE_WS_URL=https://api.cullinos.com npm run build -w @cullinos/kds",
+    "build": "npm run build:app && npx --no-install electron-builder --win --config electron-builder.json",
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "35.7.5",
+    "electron-builder": "^25.1.8"
+  }
+}

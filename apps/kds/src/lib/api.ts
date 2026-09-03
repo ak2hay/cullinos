@@ -1,8 +1,14 @@
-import { API_PREFIX, CULLINOS_BRAND } from '@cullinos/shared';
+import {
+  DEFAULT_API_BASE,
+  CULLINOS_BRAND,
+  mapStaffLoginResponse,
+  type ApiStaffLoginResponse,
+  type StaffAuthResponse,
+} from '@cullinos/shared';
 import type { ApiError } from '@cullinos/shared';
 import { useAuthStore } from '../stores/auth';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? API_PREFIX;
+const API_BASE = import.meta.env.VITE_API_URL ?? DEFAULT_API_BASE;
 
 export class ApiRequestError extends Error {
   constructor(
@@ -64,13 +70,18 @@ export interface LoginPayload {
   password: string;
 }
 
-export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-  user: import('../stores/auth').AuthUser;
-  permissions: string[];
-}
+export interface AuthResponse extends StaffAuthResponse {}
+
+export const authApi = {
+  login: async (payload: LoginPayload) => {
+    const raw = await apiRequest<ApiStaffLoginResponse>(
+      '/auth/login',
+      { method: 'POST', body: JSON.stringify(payload) },
+      false,
+    );
+    return mapStaffLoginResponse(raw);
+  },
+};
 
 export interface Outlet {
   id: string;
@@ -129,14 +140,6 @@ export interface KitchenDisplayData {
 }
 
 export type KotItemStatus = 'PREPARING' | 'READY' | 'SERVED';
-
-export const authApi = {
-  login: (payload: LoginPayload) =>
-    apiRequest<AuthResponse>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }, false),
-};
 
 export const outletsApi = {
   list: () => apiRequest<Outlet[]>('/outlets'),

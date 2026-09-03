@@ -16,12 +16,41 @@ export type BusinessType = (typeof BUSINESS_TYPES)[number];
 export const OPERATING_MODES = ['full_service', 'counter', 'hybrid'] as const;
 export type OperatingMode = (typeof OPERATING_MODES)[number];
 
+/** Top-level category shown in onboarding (QSR expands to subcategories). */
+export const BUSINESS_TYPE_PARENTS = [
+  'restaurant',
+  'qsr',
+  'cloud_kitchen',
+  'catering',
+] as const;
+
+export type BusinessTypeParent = (typeof BUSINESS_TYPE_PARENTS)[number];
+
+export const BUSINESS_TYPE_PARENT_LABELS: Record<BusinessTypeParent, string> = {
+  restaurant: 'Restaurant',
+  qsr: 'QSR',
+  cloud_kitchen: 'Cloud Kitchen',
+  catering: 'Catering',
+};
+
+/** Subcategories under the QSR parent. Stored as existing BusinessType values. */
+export const QSR_SUBTYPES = ['cafe', 'food_truck', 'bakery', 'qsr'] as const;
+
+export type QsrSubtype = (typeof QSR_SUBTYPES)[number];
+
+export const QSR_SUBTYPE_LABELS: Record<QsrSubtype, string> = {
+  cafe: 'Cafe & Coffee Shop',
+  food_truck: 'Food Truck & Pop-up',
+  bakery: 'Bakery & Patisserie',
+  qsr: 'Fast Casual',
+};
+
 export const BUSINESS_TYPE_LABELS: Record<BusinessType, string> = {
   restaurant: 'Restaurant',
   cafe: 'Cafe & Coffee Shop',
   food_truck: 'Food Truck & Pop-up',
   bakery: 'Bakery & Patisserie',
-  qsr: 'QSR / Fast Casual',
+  qsr: 'Fast Casual',
   cloud_kitchen: 'Cloud Kitchen',
   catering: 'Catering',
 };
@@ -76,6 +105,7 @@ export const BUSINESS_TYPE_DEFAULTS: Record<BusinessType, BusinessTypeDefaults> 
       FEATURES.PICKUP_QUEUE,
       FEATURES.LOYALTY,
       FEATURES.QR_ORDERING,
+      FEATURES.EVENTS,
     ],
   },
   food_truck: {
@@ -140,6 +170,7 @@ export const BUSINESS_TYPE_DEFAULTS: Record<BusinessType, BusinessTypeDefaults> 
       FEATURES.DELIVERY,
       FEATURES.ONLINE_ORDERING,
       FEATURES.MULTI_BRAND,
+      FEATURES.PICKUP_QUEUE,
     ],
   },
   catering: {
@@ -155,8 +186,18 @@ export const BUSINESS_TYPE_DEFAULTS: Record<BusinessType, BusinessTypeDefaults> 
       FEATURES.PRE_ORDERS,
       FEATURES.BANQUET,
       FEATURES.CRM,
+      FEATURES.EVENTS,
     ],
   },
+};
+
+/** Admin routes that require a business-type feature to appear in nav. */
+export const ADMIN_NAV_FEATURE_MAP: Record<string, FeatureKey> = {
+  '/tables': FEATURES.TABLES,
+  '/inventory': FEATURES.INVENTORY,
+  '/production': FEATURES.PRODUCTION,
+  '/pickup-queue': FEATURES.PICKUP_QUEUE,
+  '/events': FEATURES.EVENTS,
 };
 
 export function getOnboardingStepsForBusinessType(type: BusinessType): OnboardingStep[] {
@@ -165,4 +206,41 @@ export function getOnboardingStepsForBusinessType(type: BusinessType): Onboardin
 
 export function shouldSkipTablesStep(type: BusinessType): boolean {
   return !BUSINESS_TYPE_DEFAULTS[type].onboardingSteps.includes('tables');
+}
+
+export function getBusinessTypeParent(type: BusinessType): BusinessTypeParent {
+  if ((QSR_SUBTYPES as readonly string[]).includes(type)) return 'qsr';
+  if (type === 'restaurant') return 'restaurant';
+  if (type === 'cloud_kitchen') return 'cloud_kitchen';
+  return 'catering';
+}
+
+export function getQsrSubtypes(): readonly QsrSubtype[] {
+  return QSR_SUBTYPES;
+}
+
+export function resolveBusinessTypeFromParent(
+  parent: BusinessTypeParent,
+  qsrSubtype: QsrSubtype = 'qsr',
+): BusinessType {
+  if (parent === 'qsr') return qsrSubtype;
+  return parent;
+}
+
+export function isNavFeatureVisible(
+  type: BusinessType | null | undefined,
+  feature: FeatureKey,
+): boolean {
+  // Unset type during setup — show everything.
+  if (!type) return true;
+  return BUSINESS_TYPE_DEFAULTS[type].features.includes(feature);
+}
+
+export function isAdminNavPathVisible(
+  type: BusinessType | null | undefined,
+  path: string,
+): boolean {
+  const feature = ADMIN_NAV_FEATURE_MAP[path];
+  if (!feature) return true;
+  return isNavFeatureVisible(type, feature);
 }

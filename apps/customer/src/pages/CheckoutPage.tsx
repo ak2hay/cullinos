@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { CustomerLayout } from '@/components/layout/CustomerLayout';
 import { Button, Input } from '@/components/ui/Form';
 import { useStorefrontBase } from '@/hooks/useStorefrontBase';
-import { formatPrice, ordersApi } from '@/lib/api';
+import { formatPrice, ordersApi, sessionsApi } from '@/lib/api';
 import { useCartStore } from '@/stores/cart';
 import { useSessionStore } from '@/stores/session';
 
@@ -17,6 +17,8 @@ export function CheckoutPage() {
   const organizationId = useSessionStore((s) => s.organizationId);
   const outletId = useSessionStore((s) => s.outletId);
   const tableId = useSessionStore((s) => s.tableId);
+  const sessionToken = useSessionStore((s) => s.sessionToken);
+  const tableName = useSessionStore((s) => s.tableName);
   const orderMode = useSessionStore((s) => s.orderMode);
 
   const [name, setName] = useState('');
@@ -40,6 +42,27 @@ export function CheckoutPage() {
         .filter(Boolean)
         .join(' · ');
 
+      const mappedItems = items.map((item) => ({
+        menuItemId: item.menuItemId,
+        variantId: item.variantId,
+        quantity: item.quantity,
+        modifiers: item.modifiers.map((m) => ({
+          name: m.name,
+          price: m.price,
+          modifierId: m.id,
+        })),
+        notes: item.notes,
+      }));
+
+      if (sessionToken) {
+        await sessionsApi.addItems(sessionToken, {
+          items: mappedItems,
+          customerName: name || undefined,
+          notes: orderNotes || undefined,
+        });
+        return sessionsApi.submit(sessionToken);
+      }
+
       return ordersApi.create({
         organizationId,
         outletId,
@@ -49,17 +72,7 @@ export function CheckoutPage() {
         scheduledPickupAt: scheduledPickup ? new Date(scheduledPickup).toISOString() : undefined,
         tipAmount: tipAmount || undefined,
         notes: orderNotes || undefined,
-        items: items.map((item) => ({
-          menuItemId: item.menuItemId,
-          variantId: item.variantId,
-          quantity: item.quantity,
-          modifiers: item.modifiers.map((m) => ({
-            name: m.name,
-            price: m.price,
-            modifierId: m.id,
-          })),
-          notes: item.notes,
-        })),
+        items: mappedItems,
       });
     },
     onSuccess: (order) => {
@@ -111,6 +124,12 @@ export function CheckoutPage() {
 
         <h1 className="mb-4 text-xl font-semibold">Checkout</h1>
 
+        {orderMode === 'dine-in' && tableName ? (
+          <p className="mb-4 rounded-lg bg-brand-primary/10 px-3 py-2 text-sm text-brand-primary">
+            Sending to table order: {tableName}
+          </p>
+        ) : null}
+
         {error ? (
           <div className="mb-4 rounded-lg border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
             {error}
@@ -147,20 +166,24 @@ export function CheckoutPage() {
             placeholder="Allergies, seating preference…"
           />
 
-          <Input
-            label="Scheduled pickup (optional)"
-            type="datetime-local"
-            value={scheduledPickup}
-            onChange={(e) => setScheduledPickup(e.target.value)}
-          />
+          {orderMode !== 'dine-in' ? (
+            <>
+              <Input
+                label="Scheduled pickup (optional)"
+                type="datetime-local"
+                value={scheduledPickup}
+                onChange={(e) => setScheduledPickup(e.target.value)}
+              />
 
-          <Input
-            label="Tip (₹, optional)"
-            type="number"
-            min={0}
-            value={tipAmount || ''}
-            onChange={(e) => setTipAmount(Number(e.target.value) || 0)}
-          />
+              <Input
+                label="Tip (₹, optional)"
+                type="number"
+                min={0}
+                value={tipAmount || ''}
+                onChange={(e) => setTipAmount(Number(e.target.value) || 0)}
+              />
+            </>
+          ) : null}
 
           <div className="rounded-xl border border-white/10 bg-bg-card p-4">
             <p className="mb-3 text-sm font-medium">Payment</p>

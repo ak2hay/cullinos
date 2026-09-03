@@ -9,6 +9,17 @@
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
+    "@cullinos/customer#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "env": [
+        "VITE_API_URL",
+        "VITE_ORG_SLUG",
+        "VITE_OUTLET_SLUG",
+        "VITE_OUTLET_ID",
+        "VITE_ORDER_TOKEN"
+      ]
+    },
     "dev": {
       "cache": false,
       "persistent": true

@@ -29,6 +29,18 @@ export function SubscriptionsPage() {
     onError: (err: Error) => setMessage(err.message),
   });
 
+  const collectMutation = useMutation({
+    mutationFn: (orgId: string) => superAdminApi.collectSubscription(orgId),
+    onSuccess: (result) => {
+      setMessage(result.shortUrl ? `Razorpay checkout ready: ${result.shortUrl}` : 'Razorpay subscription created.');
+      queryClient.invalidateQueries({ queryKey: ['super-admin', 'organizations'] });
+      if (result.shortUrl) {
+        window.open(result.shortUrl, '_blank', 'noopener,noreferrer');
+      }
+    },
+    onError: (err: Error) => setMessage(err.message),
+  });
+
   const selected = data?.data.find((t) => t.id === selectedOrgId);
 
   return (
@@ -96,7 +108,31 @@ export function SubscriptionsPage() {
                   <dt className="text-text-muted">Created</dt>
                   <dd>{new Date(selected.createdAt).toLocaleDateString()}</dd>
                 </div>
+                <div className="col-span-2">
+                  <dt className="text-text-muted">Trial ends</dt>
+                  <dd>{selected.trialEndsAt ? new Date(selected.trialEndsAt).toLocaleDateString() : '—'}</dd>
+                </div>
               </dl>
+
+              <button
+                type="button"
+                disabled={collectMutation.isPending}
+                onClick={() => {
+                  setMessage(null);
+                  collectMutation.mutate(selected.id);
+                }}
+                className="rounded-lg border border-brand-primary/40 bg-brand-primary/15 px-4 py-2.5 text-sm font-medium text-brand-primary hover:bg-brand-primary/25 disabled:opacity-60"
+              >
+                {collectMutation.isPending ? 'Creating Razorpay subscription…' : 'Collect / convert to paid'}
+              </button>
+              {selected.checkoutUrl ? (
+                <p className="text-xs text-text-muted">
+                  Checkout:{' '}
+                  <a href={selected.checkoutUrl} className="text-brand-primary underline" target="_blank" rel="noreferrer">
+                    {selected.checkoutUrl}
+                  </a>
+                </p>
+              ) : null}
 
               <form
                 className="space-y-4 border-t border-white/5 pt-4"

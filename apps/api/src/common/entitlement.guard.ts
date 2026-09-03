@@ -24,26 +24,52 @@ export class EntitlementGuard implements CanActivate {
     if (!orgId) return false;
 
     const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
-    if (org?.status === "suspended") {
+    if (org?.status === "suspended" || org?.status === "cancelled") {
       throw new ForbiddenException("Organization suspended");
     }
 
     const subscription = await this.prisma.subscription.findFirst({
-      where: { organizationId: orgId, status: { in: ["active", "trial"] } },
+      where: { organizationId: orgId },
       include: { entitlements: true },
+      orderBy: { createdAt: "desc" },
     });
 
-    if (!subscription) {
+    if (!subscription || !this.subscriptionAllowsAccess(subscription)) {
       throw new ForbiddenException("No active subscription");
     }
 
     const entitled = subscription.entitlements.some(
-      (e) => e.module === module && e.enabled
+      (e) => e.module === module && e.enabled,
     );
     if (!entitled) {
       throw new ForbiddenException(`Module not entitled: ${module}`);
     }
 
     return true;
+  }
+
+  private subscriptionAllowsAccess(subscription: {
+    status: string;
+    trialEndsAt: Date | null;
+    graceUntil: Date | null;
+  }) {
+    const now = Date.now();
+    const graceOk = subscription.graceUntil ? subscription.graceUntil.getTime() > now : false;
+
+    if (subscription.status === "cancelled" || subscription.status === "suspended") {
+      return false;
+    }
+
+    if (subscription.status === "trial") {
+      if (graceOk) return true;
+      if (!subscription.trialEndsAt) return true;
+      return subscription.trialEndsAt.getTime() > now;
+    }
+
+    if (subscription.status === "past_due") {
+      return graceOk;
+    }
+
+    return subscription.status === "active";
   }
 }

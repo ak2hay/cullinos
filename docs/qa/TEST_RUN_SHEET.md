@@ -25,7 +25,7 @@
 | Fail | |
 | Blocked | |
 | N/A | |
-| **Total** | 95 |
+| **Total** | 127 |
 
 ---
 

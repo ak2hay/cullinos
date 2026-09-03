@@ -4,6 +4,18 @@ import matter from 'gray-matter';
 import { MARKETING_API_BASE } from '@/lib/marketing-content';
 
 const contentDirectory = path.join(process.cwd(), 'content/blog');
+const API_FETCH_TIMEOUT_MS = 5_000;
+
+async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), API_FETCH_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export interface BlogPost {
   slug: string;
@@ -40,7 +52,7 @@ function getLocalBlogPosts(): BlogPost[] {
 
 async function fetchCmsBlogPosts(): Promise<BlogPost[]> {
   try {
-    const res = await fetch(`${MARKETING_API_BASE}/public/marketing/blog`, { next: { revalidate: 60 } });
+    const res = await fetchWithTimeout(`${MARKETING_API_BASE}/public/marketing/blog`, { next: { revalidate: 60 } });
     if (!res.ok) return [];
     const rows = (await res.json()) as Array<{
       slug: string;
@@ -64,7 +76,7 @@ async function fetchCmsBlogPosts(): Promise<BlogPost[]> {
 
 async function fetchCmsBlogPost(slug: string): Promise<BlogPost | undefined> {
   try {
-    const res = await fetch(`${MARKETING_API_BASE}/public/marketing/blog/${encodeURIComponent(slug)}`, {
+    const res = await fetchWithTimeout(`${MARKETING_API_BASE}/public/marketing/blog/${encodeURIComponent(slug)}`, {
       next: { revalidate: 60 },
     });
     if (!res.ok) return undefined;

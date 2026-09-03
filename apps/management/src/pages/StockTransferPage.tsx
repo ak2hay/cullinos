@@ -63,6 +63,19 @@ export function StockTransferPage() {
         </p>
       </div>
 
+      {outlets.length < 2 && (
+        <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-400">
+          <strong>At least 2 outlets are required</strong> for stock transfer.
+          Create a second outlet in <strong>Admin → Settings → Outlets</strong>, then refresh this page.
+        </div>
+      )}
+
+      {outlets.length >= 2 && items.length === 0 && (
+        <div className="rounded-xl border border-white/10 bg-bg-card px-4 py-3 text-sm text-text-secondary">
+          No inventory items found. Add inventory items via <strong>Swagger</strong> (<code>/docs</code>) — <code>POST /api/v1/inventory/items</code> — then refresh this page.
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-5 rounded-xl border border-white/5 bg-bg-card p-6">
         <label className="block">
           <span className="text-sm text-text-secondary">From outlet</span>

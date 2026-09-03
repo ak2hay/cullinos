@@ -17,6 +17,23 @@ export class InventoryController {
     return this.service.listItems(orgId);
   }
 
+  @Post("items")
+  @RequireModule("inventory")
+  createItem(
+    @OrgId() orgId: string,
+    @Body()
+    body: {
+      outletId?: string;
+      name: string;
+      sku?: string;
+      unit?: string;
+      currentStock?: number;
+      reorderLevel?: number;
+    },
+  ) {
+    return this.service.createItem(orgId, body);
+  }
+
   @Post("transfers")
   @RequireModule("inventory")
   transfer(@OrgId() orgId: string, @Body() body: Record<string, unknown>) {

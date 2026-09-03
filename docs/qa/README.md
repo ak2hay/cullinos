@@ -4,28 +4,78 @@ Production-focused manual testing documentation for full functionality verificat
 
 ## New tester? Start here
 
-**[QA_QUICK_START.md](./QA_QUICK_START.md)** — portal URLs, credential worksheet, 30-minute first steps, and app cheat sheet. Read this before anything else.
+**[TESTER_HANDBOOK.md](./TESTER_HANDBOOK.md)** — plain-English step-by-step guide (Day 1–4). Best for fresh hires.
+
+**[QA_QUICK_START.md](./QA_QUICK_START.md)** — portal URLs, credential worksheet, 30-minute first steps, and app cheat sheet.
+
+## For hiring a tester
+
+Give your employee the **5-file QA pack** from [`export/`](export/):
+
+| # | File | Purpose |
+|---|------|---------|
+| 1 | `export/pdf/QA_Tester_Handbook.pdf` | Full step-by-step instructions — read first |
+| 2 | `export/pdf/Quick_Reference_Card.pdf` | 1-page desk reference (print) |
+| 3 | `export/pdf/Employee_Brief.pdf` | Job expectations, deliverables, rules |
+| 4 | `export/excel/TEST_RUN_SHEET.xlsx` | Mark Pass / Fail / Blocked / N/A (127 cases) |
+| 5 | `export/excel/BUG_LOG.xlsx` | Log defects with steps and screenshots |
+| 6 | `export/excel/CREDENTIALS_LOG.xlsx` | Record slugs, IDs, emails (no real passwords) |
+
+### Generate the pack
+
+From repo root:
+
+```bash
+npm install
+npm run qa:export
+```
+
+This writes PDFs to `docs/qa/export/pdf/` and Excel files to `docs/qa/export/excel/`.
+
+Regenerate after changing test cases in [`TEST_RUN_SHEET.md`](./TEST_RUN_SHEET.md) or handbook content.
+
+### Start a test run
+
+1. Run `npm run qa:export` (or copy existing export files).
+2. Copy the Excel files into a dated folder:
+   ```text
+   docs/qa/runs/RUN-YYYYMMDD/
+   ├── TEST_RUN_SHEET.xlsx
+   ├── BUG_LOG.xlsx
+   ├── CREDENTIALS_LOG.xlsx
+   └── evidence/
+       └── BUG-001-screenshot.png
+   ```
+3. Share PDF handbook + Excel files with the tester (Google Drive, USB, etc.).
+4. Hand off Super Admin login securely on Day 1 (password manager — never in Excel).
+5. Daily check-in: review Excel Summary sheet and new bug rows.
+
+The `runs/` folder is gitignored — do not commit filled credentials or evidence.
 
 ## Documents
 
 | File | Purpose |
 |------|---------|
-| [QA_QUICK_START.md](./QA_QUICK_START.md) | **Onboarding guide** — URLs, credentials, day-1 steps for new testers |
-| [MANUAL_TEST_PLAN.md](./MANUAL_TEST_PLAN.md) | Master test plan — phases, workflows, expected results, known limitations |
-| [CREDENTIALS_LOG.md](./CREDENTIALS_LOG.md) | Template to record logins, org slugs, outlet IDs, and URLs |
-| [BUG_LOG.md](./BUG_LOG.md) | Template for structured defect tracking |
-| [TEST_RUN_SHEET.md](./TEST_RUN_SHEET.md) | Per-run execution checklist (Pass / Fail / Blocked / N/A) |
+| [TESTER_HANDBOOK.md](./TESTER_HANDBOOK.md) | **Fresh tester guide** — Day 1–4 checklists, glossary, Swagger help |
+| [EMPLOYEE_BRIEF.md](./EMPLOYEE_BRIEF.md) | Job brief for hires — deliverables, rules, escalation |
+| [QUICK_REFERENCE_CARD.md](./QUICK_REFERENCE_CARD.md) | 1-page printable reference |
+| [QA_QUICK_START.md](./QA_QUICK_START.md) | URLs, credentials, 30-minute first steps |
+| [MANUAL_TEST_PLAN.md](./MANUAL_TEST_PLAN.md) | Master test plan — phases, workflows, expected results |
+| [CREDENTIALS_LOG.md](./CREDENTIALS_LOG.md) | Markdown credential template |
+| [BUG_LOG.md](./BUG_LOG.md) | Markdown defect template |
+| [TEST_RUN_SHEET.md](./TEST_RUN_SHEET.md) | Markdown test checklist (127 cases) — source for Excel export |
 
-## How to use
+## How to use (markdown workflow)
 
-1. **Start a new run** — copy the three templates into a dated folder:
+1. **Start a new run** — copy templates into a dated folder:
    ```text
    docs/qa/runs/RUN-YYYYMMDD/
    ├── CREDENTIALS_LOG.md   (filled)
    ├── BUG_LOG.md           (filled as issues found)
    └── TEST_RUN_SHEET.md    (filled during execution)
    ```
-2. **Follow the plan** — execute phases in order from [MANUAL_TEST_PLAN.md](./MANUAL_TEST_PLAN.md).
+   Or use the Excel export workflow above (recommended for hires).
+2. **Follow the plan** — execute phases in order from [MANUAL_TEST_PLAN.md](./MANUAL_TEST_PLAN.md) or [TESTER_HANDBOOK.md](./TESTER_HANDBOOK.md).
 3. **Log everything** — credentials (references only), defects, and pass/fail status per test case.
 4. **Never commit secrets** — the `runs/` folder is gitignored; store real passwords in a password manager.
 
@@ -61,20 +111,26 @@ Production-focused manual testing documentation for full functionality verificat
 | Customer storefront | https://order.cullinos.com/{orgSlug}/{outletSlug} |
 | Marketing | https://cullinos.com |
 
-### Local-only apps (optional)
+### POS & KDS (production)
 
-POS and KDS are not deployed to Vercel. To test cashier and kitchen screens against production:
+All apps are hosted on the VM (no Vercel):
+
+| App | URL |
+|-----|-----|
+| POS | https://pos.cullinos.com |
+| KDS | https://kds.cullinos.com |
+
+### Local dev (optional)
 
 ```bash
-# From repo root, with env pointing at production API
 VITE_API_URL=https://api.cullinos.com/api/v1 VITE_WS_URL=https://api.cullinos.com npm run dev --workspace=@cullinos/pos
 VITE_API_URL=https://api.cullinos.com/api/v1 VITE_WS_URL=https://api.cullinos.com npm run dev --workspace=@cullinos/kds
 ```
 
-| App | Local port | Notes |
-|-----|------------|-------|
-| POS | 5173 | Requires Cashier account |
-| KDS | 5174 | Kitchen: `?outletId=<id>` — Pickup: `?outletId=<id>&mode=pickup` |
+| App | Local port |
+|-----|------------|
+| POS | 5173 |
+| KDS | 5174 |
 
 ## Preflight checklist
 

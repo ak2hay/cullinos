@@ -13,6 +13,7 @@ COPY packages ./packages
 COPY index.js turbo.json tsconfig.base.json ./
 
 RUN npm ci --include=dev \
+  && npm run db:generate \
   && npm run build:api \
   && npm prune --omit=dev
 

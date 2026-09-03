@@ -6,14 +6,29 @@ import {
   NAV_LINKS,
 } from '@cullinos/shared';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1';
+const API_FETCH_TIMEOUT_MS = 5_000;
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), API_FETCH_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export async function fetchMarketingBundle(previewToken?: string): Promise<MarketingCmsBundle | null> {
   try {
     const url = previewToken
       ? `${API_BASE}/public/marketing/site?preview=${encodeURIComponent(previewToken)}`
       : `${API_BASE}/public/marketing/site`;
-    const res = await fetch(url, previewToken ? { cache: 'no-store' } : { next: { revalidate: 60 } });
+    const res = await fetchWithTimeout(url, previewToken ? { cache: 'no-store' } : { next: { revalidate: 60 } });
     if (!res.ok) return null;
     return (await res.json()) as MarketingCmsBundle;
   } catch {

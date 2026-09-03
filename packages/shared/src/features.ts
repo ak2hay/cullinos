@@ -26,6 +26,7 @@ export const FEATURES = {
   PICKUP_QUEUE: 'pickup_queue',
   PRE_ORDERS: 'pre_orders',
   PRODUCTION: 'production',
+  EVENTS: 'events',
 } as const;
 
 export type FeatureKey = (typeof FEATURES)[keyof typeof FEATURES];

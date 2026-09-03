@@ -336,6 +336,76 @@ export const tablesApi = {
 
 
 
+export interface PublicSessionInfo {
+
+  sessionId: string;
+
+  sessionToken: string;
+
+  sessionActive: boolean;
+
+  tableId: string;
+
+  tableName: string;
+
+  organizationId: string;
+
+  organizationSlug: string;
+
+  organizationName: string;
+
+  outletId: string;
+
+  outletSlug: string;
+
+  outletName: string;
+
+  orderId: string | null;
+
+  orderNumber: string | null;
+
+}
+
+
+
+export const sessionsApi = {
+
+  validate: (token: string) =>
+
+    apiRequest<PublicSessionInfo>(`/public/sessions/${token}`),
+
+  addItems: (
+
+    token: string,
+
+    payload: {
+
+      items: OrderPayload['items'];
+
+      customerName?: string;
+
+      notes?: string;
+
+    },
+
+  ) =>
+
+    apiRequest<Order>(`/public/sessions/${token}/items`, {
+
+      method: 'POST',
+
+      body: JSON.stringify(payload),
+
+    }),
+
+  submit: (token: string) =>
+
+    apiRequest<Order>(`/public/sessions/${token}/submit`, { method: 'POST' }),
+
+};
+
+
+
 export { CULLINOS_BRAND };
 
 

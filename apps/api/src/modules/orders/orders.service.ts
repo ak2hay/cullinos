@@ -35,6 +35,7 @@ type CreateOrderDto = {
   type?: string;
   source?: string;
   tableId?: string;
+  tableSessionId?: string;
   customerId?: string;
   customerName?: string;
   guestCount?: number;
@@ -147,6 +148,7 @@ export class OrdersService {
         source: source as never,
         status: initialStatus as never,
         tableId: dto.tableId,
+        tableSessionId: dto.tableSessionId,
         customerId: dto.customerId,
         createdById: userId,
         guestCount: dto.guestCount,
@@ -329,6 +331,13 @@ export class OrdersService {
     return this.confirm(orgId, orderId);
   }
 
+  findOutletById(outletId: string) {
+    return this.prisma.outlet.findUnique({
+      where: { id: outletId },
+      select: { id: true, organizationId: true },
+    });
+  }
+
   async getPickupQueue(orgId: string, outletId: string) {
     const orders = await this.prisma.order.findMany({
       where: {
@@ -342,6 +351,41 @@ export class OrdersService {
       include: { items: true },
     });
     return orders.map((o) => mapOrderToClient(o));
+  }
+
+  async createKotForOrder(orgId: string, orderId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, organizationId: orgId },
+      include: { items: true, kots: { include: { items: true } } },
+    });
+    if (!order) throw new NotFoundException("Order not found");
+
+    const kotItemIds = new Set(
+      order.kots.flatMap((k) => k.items.map((i) => i.orderItemId)),
+    );
+    const newItems = order.items.filter((i) => !kotItemIds.has(i.id));
+    if (newItems.length === 0) {
+      return mapOrderToClient(order);
+    }
+
+    const kot = await this.prisma.kOT.create({
+      data: {
+        orderId: order.id,
+        kotNumber: `K${order.orderNumber}-${order.kots.length + 1}`,
+        status: "pending",
+        items: {
+          create: newItems.map((item) => ({
+            orderItemId: item.id,
+            status: "pending",
+          })),
+        },
+      },
+      include: { items: true },
+    });
+
+    const mapped = mapOrderToClient(order);
+    this.ws.emitToOutlet(order.outletId, "kot.created", { order: mapped, kot });
+    return mapped;
   }
 
   private async createKot(order: { id: string; orderNumber: string; items: { id: string }[] }) {

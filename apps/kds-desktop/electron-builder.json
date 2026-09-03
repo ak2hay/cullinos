@@ -1,0 +1,28 @@
+{
+  "appId": "com.rkyves.cullinos.kds",
+  "productName": "Cullinos KDS",
+  "npmRebuild": false,
+  "nodeGypRebuild": false,
+  "buildDependenciesFromSource": false,
+  "directories": {
+    "output": "../../electron-dist/kds"
+  },
+  "files": [
+    "electron/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "../kds/dist",
+      "to": "app",
+      "filter": ["**/*"]
+    }
+  ],
+  "win": {
+    "target": ["nsis"],
+    "artifactName": "Cullinos-KDS-Setup-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  }
+}

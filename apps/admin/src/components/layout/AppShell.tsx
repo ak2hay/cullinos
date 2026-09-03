@@ -1,6 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { CULLINOS_BRAND } from '@/lib/api';
+import {
+  BUSINESS_TYPES,
+  isAdminNavPathVisible,
+  type BusinessType,
+} from '@cullinos/shared';
+import { CULLINOS_BRAND, organizationsApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { OutletSelector } from './OutletSelector';
 
@@ -18,6 +24,7 @@ const navItems = [
   { to: '/reports', label: 'Reports' },
   { to: '/onboarding', label: 'Setup' },
   { to: '/settings', label: 'Settings' },
+  { to: '/billing', label: 'Billing' },
 ];
 
 interface AppShellProps {
@@ -25,10 +32,29 @@ interface AppShellProps {
   children?: React.ReactNode;
 }
 
+function parseBusinessType(value: string | null | undefined): BusinessType | null {
+  if (!value) return null;
+  return (BUSINESS_TYPES as readonly string[]).includes(value)
+    ? (value as BusinessType)
+    : null;
+}
+
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+
+  const { data: org } = useQuery({
+    queryKey: ['organizations', 'current'],
+    queryFn: organizationsApi.current,
+  });
+
+  const businessType = parseBusinessType(org?.businessType);
+
+  const visibleNav = useMemo(
+    () => navItems.filter((item) => isAdminNavPathVisible(businessType, item.to)),
+    [businessType],
+  );
 
   function handleLogout() {
     logout();
@@ -51,7 +77,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-        {navItems.map((item) => (
+        {visibleNav.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

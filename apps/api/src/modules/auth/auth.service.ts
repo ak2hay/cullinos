@@ -54,12 +54,28 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
+    const nameParts = user.name.trim().split(/\s+/);
+    const refreshToken = this.jwt.sign(
+      { sub: user.id, type: "refresh" },
+      { expiresIn: "30d" },
+    );
+
     return {
       token,
+      accessToken: token,
+      refreshToken,
+      expiresIn: 7 * 24 * 60 * 60,
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
+        firstName: nameParts[0] ?? "",
+        lastName: nameParts.slice(1).join(" ") || "",
+        phone: user.phone,
+        avatarUrl: null,
+        isActive: true,
+        lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+        createdAt: user.createdAt.toISOString(),
         organizationId: user.organizationId,
         organizationName: user.organization.name,
         isSuperAdmin: user.isSuperAdmin,

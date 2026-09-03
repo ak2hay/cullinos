@@ -11,9 +11,12 @@ interface SessionState {
   outletSlug: string | null;
   tableId: string | null;
   tableName: string | null;
+  sessionToken: string | null;
   orderMode: 'dine-in' | 'online';
   setStorefront: (data: StorefrontBootstrap) => void;
   setTable: (tableId: string | null, tableName?: string | null) => void;
+  setSession: (token: string, tableId: string, tableName: string) => void;
+  clearSession: () => void;
   setOrderMode: (mode: 'dine-in' | 'online') => void;
   initFromSearchParams: (params: URLSearchParams) => void;
 }
@@ -29,6 +32,7 @@ export const useSessionStore = create<SessionState>()(
       outletSlug: null,
       tableId: null,
       tableName: null,
+      sessionToken: null,
       orderMode: 'online',
 
       setStorefront: (data) =>
@@ -39,7 +43,6 @@ export const useSessionStore = create<SessionState>()(
           outletId: data.outletId,
           outletName: data.outletName,
           outletSlug: data.outletSlug,
-          orderMode: 'online',
         }),
 
       setTable: (tableId, tableName = null) =>
@@ -49,14 +52,34 @@ export const useSessionStore = create<SessionState>()(
           orderMode: tableId ? 'dine-in' : 'online',
         }),
 
+      setSession: (sessionToken, tableId, tableName) =>
+        set({
+          sessionToken,
+          tableId,
+          tableName,
+          orderMode: 'dine-in',
+        }),
+
+      clearSession: () =>
+        set({
+          sessionToken: null,
+          tableId: null,
+          tableName: null,
+          orderMode: 'online',
+        }),
+
       setOrderMode: (mode) => set({ orderMode: mode }),
 
       initFromSearchParams: (params) => {
+        const session = params.get('session');
         const table = params.get('table');
         const tableName = params.get('tableName');
         const updates: Partial<SessionState> = {};
 
-        if (table) {
+        if (session) {
+          updates.sessionToken = session;
+          updates.orderMode = 'dine-in';
+        } else if (table) {
           updates.tableId = table;
           updates.tableName = tableName ?? `Table ${table.slice(0, 8)}`;
           updates.orderMode = 'dine-in';
@@ -76,6 +99,7 @@ export const useSessionStore = create<SessionState>()(
         outletSlug: state.outletSlug,
         tableId: state.tableId,
         tableName: state.tableName,
+        sessionToken: state.sessionToken,
         orderMode: state.orderMode,
       }),
     },

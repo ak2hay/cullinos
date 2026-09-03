@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -114,5 +115,18 @@ export class PublicOrdersController {
       ...(dto as Record<string, unknown>),
       autoConfirm: true,
     } as never);
+  }
+
+  /**
+   * Public pickup queue for customer-facing displays (no auth required).
+   * The outletId uniquely identifies both the outlet and its parent org.
+   */
+  @Public()
+  @Get("pickup-queue")
+  async pickupQueue(@Query("outletId") outletId: string) {
+    if (!outletId) throw new BadRequestException("outletId is required");
+    const outlet = await this.service.findOutletById(outletId);
+    if (!outlet) throw new NotFoundException("Outlet not found");
+    return this.service.getPickupQueue(outlet.organizationId, outletId);
   }
 }

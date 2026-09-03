@@ -38,6 +38,7 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   [FEATURES.PICKUP_QUEUE]: 'Pickup Queue Display',
   [FEATURES.PRE_ORDERS]: 'Pre-orders & Scheduling',
   [FEATURES.PRODUCTION]: 'Production & Batch Planning',
+  [FEATURES.EVENTS]: 'Events & Promotions',
 };
 
 export type MarketingPlanKey = 'STARTER' | 'QSR' | 'PROFESSIONAL' | 'ENTERPRISE' | 'HOSPITALITY';

@@ -1,8 +1,18 @@
+import { useState } from 'react';
 import { formatMoney } from '@/lib/format';
 import { useCartStore } from '@/stores/cart';
 
+interface UnpaidTicket {
+  id: string;
+  orderNumber: string;
+}
+
 interface CartSidebarProps {
-  onCheckout: () => void;
+  onCash: () => void;
+  onOnline: () => void;
+  unpaidOrder?: UnpaidTicket | null;
+  onRetryUnpaidCash?: () => void;
+  onRetryUnpaidOnline?: () => void;
   onHold: () => void;
   onClear: () => void;
   checkoutLoading: boolean;
@@ -17,7 +27,11 @@ interface CartSidebarProps {
 }
 
 export function CartSidebar({
-  onCheckout,
+  onCash,
+  onOnline,
+  unpaidOrder,
+  onRetryUnpaidCash,
+  onRetryUnpaidOnline,
   onHold,
   onClear,
   checkoutLoading,
@@ -35,6 +49,7 @@ export function CartSidebar({
   const removeItem = useCartStore((s) => s.removeItem);
   const subtotal = useCartStore((s) => s.subtotal());
   const itemCount = useCartStore((s) => s.itemCount());
+  const [tenderOpen, setTenderOpen] = useState(false);
 
   return (
     <aside className="flex w-full shrink-0 flex-col border-l border-white/5 bg-bg-secondary lg:w-96">
@@ -140,14 +155,65 @@ export function CartSidebar({
           </span>
         </div>
 
+        {unpaidOrder ? (
+          <div className="rounded-xl border border-status-warning/30 bg-status-warning/10 p-3 text-sm">
+            <p className="font-medium">Order #{unpaidOrder.orderNumber} unpaid</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={checkoutLoading}
+                onClick={onRetryUnpaidCash}
+                className="rounded-lg bg-brand-primary px-2 py-2 text-xs font-semibold text-bg-primary disabled:opacity-40"
+              >
+                Cash
+              </button>
+              <button
+                type="button"
+                disabled={checkoutLoading}
+                onClick={onRetryUnpaidOnline}
+                className="rounded-lg border border-white/10 px-2 py-2 text-xs font-semibold disabled:opacity-40"
+              >
+                UPI / card
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <button
           type="button"
           disabled={lines.length === 0 || checkoutLoading}
-          onClick={onCheckout}
+          onClick={() => setTenderOpen(true)}
           className="h-14 w-full rounded-xl bg-brand-primary text-lg font-bold text-bg-primary transition active:scale-[0.98] disabled:opacity-40"
         >
-          {checkoutLoading ? 'Processing…' : 'Charge (Enter)'}
+          {checkoutLoading ? 'Processing…' : 'Charge'}
         </button>
+
+        {tenderOpen && lines.length > 0 ? (
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={checkoutLoading}
+              onClick={() => {
+                setTenderOpen(false);
+                onCash();
+              }}
+              className="h-12 rounded-xl bg-brand-primary/20 font-medium text-brand-primary disabled:opacity-40"
+            >
+              Cash (Enter)
+            </button>
+            <button
+              type="button"
+              disabled={checkoutLoading}
+              onClick={() => {
+                setTenderOpen(false);
+                onOnline();
+              }}
+              className="h-12 rounded-xl border border-white/10 font-medium disabled:opacity-40"
+            >
+              UPI / card
+            </button>
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-2 gap-2">
           <button

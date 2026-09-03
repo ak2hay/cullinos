@@ -1,31 +1,32 @@
-# Cullinos — Production Deployment
+# Cullinos — Production Deployment (VM-only)
+
+All apps run on your OnLiveServer VM (`95.135.254.46`). No Vercel or external frontend hosts.
 
 ## Architecture
 
-**Backend is fully self-hosted on the VM.** No Railway, Neon, Upstash, or Render for API/DB/Redis.
-
 | Component | Host | Domain |
 |-----------|------|--------|
-| API | OnLiveServer VM | `api.cullinos.com` |
-| Postgres | OnLiveServer VM (Docker) | internal `postgres:5432` |
-| Redis | OnLiveServer VM (Docker) | internal `redis:6379` |
-| Admin | Vercel | `admin.cullinos.com` |
-| Management | Vercel | `manage.cullinos.com` |
-| Super Admin | Vercel | `platform.cullinos.com` |
-| Customer | Vercel | `order.cullinos.com` |
-| Waiter | Vercel | `waiter.cullinos.com` |
-| Marketing | Vercel | `cullinos.com` |
+| API + WebSocket | Docker on VM | `api.cullinos.com` |
+| Postgres + Redis | Docker on VM | internal only |
+| Admin | nginx static | `admin.cullinos.com` |
+| Management | nginx static | `manage.cullinos.com` |
+| Super Admin | nginx static | `platform.cullinos.com` |
+| Customer (QR ordering) | nginx static | `order.cullinos.com` |
+| Waiter | nginx static | `waiter.cullinos.com` |
+| POS (browser) | nginx static | `pos.cullinos.com` |
+| KDS (browser) | nginx static | `kds.cullinos.com` |
+| Marketing | Docker Next.js | `cullinos.com` |
 
-Production stack: [`docker-compose.prod.yml`](../docker-compose.prod.yml).
+Stack: [`docker-compose.prod.yml`](../docker-compose.prod.yml)
 
-| Setting | Value |
-|---------|--------|
-| Server IP | `95.135.254.46` |
-| App directory | `/opt/cullinos` |
-| API (HTTP) | `http://95.135.254.46/api/v1/health` |
-| API (production domain) | `https://api.cullinos.com` |
+## QR table ordering
 
-## Deploy / update API
+1. Waiter taps a table → **Show QR to customers** or **Take order on waiter app**
+2. Session QR URL: `https://order.cullinos.com/{orgSlug}/{outletSlug}?session={token}`
+3. Guests scan, add dishes, checkout → items merge into the table’s shared order
+4. Waiter taps **End session** when the table is cleared (QR stops working)
+
+## Deploy / update
 
 From your dev machine:
 
@@ -34,72 +35,87 @@ export DEPLOY_PASSWORD='your-root-password'
 python scripts/remote-deploy.py
 ```
 
-Or on the server after `git pull`:
+On the server after `git pull`:
 
 ```bash
 cd /opt/cullinos
 docker compose -f docker-compose.prod.yml up -d --build
-docker compose -f docker-compose.prod.yml exec -T api npm run db:push
-docker compose -f docker-compose.prod.yml exec -T api npm run db:seed
+docker compose -f docker-compose.prod.yml run --rm -T api npx prisma db push --schema=packages/prisma/prisma/schema.prisma
+bash scripts/build-frontends.sh
+sudo mkdir -p /var/www/cullinos
+sudo cp -r dist-frontends/* /var/www/cullinos/
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-### VM `.env` (on server)
+### VM `.env`
 
 Copy from [`.env.production.example`](../.env.production.example):
 
 ```
 DATABASE_URL=postgresql://cullinos:<password>@postgres:5432/cullinos
 REDIS_URL=redis://redis:6379
+CUSTOMER_APP_URL=https://order.cullinos.com
+CORS_ORIGINS=https://admin.cullinos.com,https://manage.cullinos.com,https://platform.cullinos.com,https://order.cullinos.com,https://waiter.cullinos.com,https://pos.cullinos.com,https://kds.cullinos.com,https://cullinos.com
 ```
 
-`postgres` and `redis` are Docker service names on the VM network — not external hosts.
+### nginx
 
-### SSL (after DNS)
+- API: [`infrastructure/nginx/api.cullinos.com.conf`](../infrastructure/nginx/api.cullinos.com.conf)
+- Frontends: [`infrastructure/nginx/cullinos-frontends.conf`](../infrastructure/nginx/cullinos-frontends.conf)
 
-1. Point `api.cullinos.com` A record → `95.135.254.46`
-2. On server: `apt install -y certbot python3-certbot-nginx`
-3. `certbot --nginx -d api.cullinos.com`
-4. Copy [`infrastructure/nginx/api.cullinos.com.conf`](../infrastructure/nginx/api.cullinos.com.conf) and reload nginx
+DNS: point all subdomains A → `95.135.254.46` (disable Cloudflare proxy during initial certbot)
 
-### Stack
+| Subdomain | Purpose |
+|-----------|---------|
+| `api` | API + WebSocket |
+| `admin`, `manage`, `platform`, `order`, `waiter` | SPAs |
+| `pos`, `kds` | POS / KDS browser apps |
+| `cullinos.com`, `www` | Marketing site |
 
-| Service | Container | Notes |
-|---------|-----------|-------|
-| API | `cullinos-api` | Port 3000, localhost only (nginx proxies) |
-| Postgres | `cullinos-postgres` | Persistent volume `cullinos_pg_data` |
-| Redis | `cullinos-redis` | Persistent volume `cullinos_redis_data` |
+SSL: automated by `scripts/remote-deploy.py` via certbot after DNS propagates.
 
-## Vercel (frontends only)
+### Build frontends locally
 
-Create one project per app; set **Root Directory** to the app folder (e.g. `apps/admin`).
+```bash
+npm run build:frontends
+# Output in dist-frontends/
+```
 
-**Environment (all frontends):**
+Env baked in at build time:
+
 ```
 VITE_API_URL=https://api.cullinos.com/api/v1
 VITE_WS_URL=https://api.cullinos.com
 ```
 
-JWT, `DATABASE_URL`, and `REDIS_URL` stay on the VM only — never on Vercel.
+## POS & KDS (browser)
 
-**Customer (`apps/customer`) only:**
-```
-VITE_ORG_SLUG=demo-restaurant
-VITE_OUTLET_SLUG=main-outlet
-```
+Cashier and kitchen staff use the web apps — no desktop installer required:
 
-**Marketing site (`apps/web`) only:** see env vars in previous docs (`RESEND_API_KEY`, etc.).
+| App | URL |
+|-----|-----|
+| POS | https://pos.cullinos.com |
+| KDS | https://kds.cullinos.com |
+
+Ensure DNS A records for `pos` and `kds` point to the VM (`95.135.254.46`).
 
 ## Local development
 
-Use local Postgres/Redis (see [`.env.example`](../.env.example)) or `docker compose -f docker-compose.prod.yml` on a dev machine.
-
 ```bash
+cp .env.example .env
+npm run docker:up
+npm install
+npm run db:generate
 npm run db:push
 npm run db:seed
+npm run dev
 ```
 
 ## Verify production
 
 - `GET https://api.cullinos.com/api/v1/health`
 - `GET https://api.cullinos.com/api/v1/health/db`
-- `https://api.cullinos.com/docs` — Swagger
+- `https://waiter.cullinos.com` — waiter login
+- `https://pos.cullinos.com` — cashier login
+- `https://kds.cullinos.com` — kitchen login
+- `https://order.cullinos.com/demo-restaurant/main-outlet?session=...` — after starting session from waiter

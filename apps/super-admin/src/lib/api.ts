@@ -88,6 +88,9 @@ export interface Tenant {
   isActive: boolean;
   plan: string | null;
   subscriptionStatus: string | null;
+  trialEndsAt: string | null;
+  checkoutUrl: string | null;
+  razorpaySubId: string | null;
   outletCount: number;
   userCount: number;
   createdAt: string;
@@ -149,6 +152,15 @@ export const superAdminApi = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+
+  collectSubscription: (id: string) =>
+    apiRequest<{
+      organizationId: string;
+      subscriptionId: string;
+      razorpaySubId: string | null;
+      shortUrl: string | null;
+      status: string;
+    }>(`/super-admin/organizations/${id}/subscription/collect`, { method: 'POST' }),
 
   listPlans: () => apiRequest<PlanSummary[]>('/super-admin/plans'),
 

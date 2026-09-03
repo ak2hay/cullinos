@@ -15,14 +15,14 @@ export class MenuService {
 
   list(orgId: string) {
     return this.prisma.menuItem.findMany({
-      where: { organizationId: orgId },
+      where: { organizationId: orgId, isActive: true },
       take: 200,
     });
   }
 
   listCategories(orgId: string) {
     return this.prisma.menuCategory.findMany({
-      where: { organizationId: orgId },
+      where: { organizationId: orgId, isActive: true },
       orderBy: { sortOrder: "asc" },
     });
   }
@@ -66,12 +66,22 @@ export class MenuService {
       where: { id, organizationId: orgId },
     });
     if (!existing) throw new NotFoundException("Category not found");
-    await this.prisma.menuCategory.delete({ where: { id } });
+    // Soft-delete: hard delete fails when menu items still reference the category.
+    await this.prisma.$transaction([
+      this.prisma.menuItem.updateMany({
+        where: { categoryId: id, organizationId: orgId },
+        data: { isActive: false },
+      }),
+      this.prisma.menuCategory.update({
+        where: { id },
+        data: { isActive: false },
+      }),
+    ]);
   }
 
   listItems(orgId: string) {
     return this.prisma.menuItem.findMany({
-      where: { organizationId: orgId },
+      where: { organizationId: orgId, isActive: true },
       include: { category: true },
       orderBy: { sortOrder: "asc" },
     });
@@ -113,6 +123,7 @@ export class MenuService {
       description: string;
       basePrice: number;
       isActive: boolean;
+      isAvailable: boolean;
       isVeg: boolean;
       allergens: string[];
       categoryId: string;
@@ -122,11 +133,13 @@ export class MenuService {
       where: { id, organizationId: orgId },
     });
     if (!existing) throw new NotFoundException("Menu item not found");
-    const update: Record<string, unknown> = { ...data };
+    const { isAvailable, ...rest } = data;
+    const update: Record<string, unknown> = { ...rest };
     if (data.name) update.slug = slugify(data.name);
     if (data.basePrice != null) {
       update.basePrice = data.basePrice >= 100 ? data.basePrice / 100 : data.basePrice;
     }
+    if (isAvailable != null) update.isActive = isAvailable;
     return this.prisma.menuItem.update({ where: { id }, data: update });
   }
 
@@ -135,6 +148,7 @@ export class MenuService {
       where: { id, organizationId: orgId },
     });
     if (!existing) throw new NotFoundException("Menu item not found");
+    // Soft-delete so order history FKs remain valid; list endpoints exclude inactive.
     await this.prisma.menuItem.update({
       where: { id },
       data: { isActive: false },

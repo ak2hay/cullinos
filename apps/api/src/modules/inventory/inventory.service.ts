@@ -30,8 +30,53 @@ export class InventoryService {
           sku: item.sku,
           unit: item.unit,
           currentStock: Number(item.currentStock),
+          reorderLevel: Number(item.reorderLevel),
+          outletId: item.outletId,
         })),
       );
+  }
+
+  async createItem(
+    orgId: string,
+    data: {
+      outletId?: string;
+      name: string;
+      sku?: string;
+      unit?: string;
+      currentStock?: number;
+      reorderLevel?: number;
+    },
+  ) {
+    if (!data.name?.trim()) throw new BadRequestException("Item name is required");
+
+    if (data.outletId) {
+      const outlet = await this.prisma.outlet.findFirst({
+        where: { id: data.outletId, organizationId: orgId },
+      });
+      if (!outlet) throw new NotFoundException("Outlet not found");
+    }
+
+    const item = await this.prisma.inventoryItem.create({
+      data: {
+        organizationId: orgId,
+        outletId: data.outletId || null,
+        name: data.name.trim(),
+        sku: data.sku?.trim() || null,
+        unit: data.unit?.trim() || "kg",
+        currentStock: data.currentStock ?? 0,
+        reorderLevel: data.reorderLevel ?? 0,
+      },
+    });
+
+    return {
+      id: item.id,
+      name: item.name,
+      sku: item.sku,
+      unit: item.unit,
+      currentStock: Number(item.currentStock),
+      reorderLevel: Number(item.reorderLevel),
+      outletId: item.outletId,
+    };
   }
 
   async transfer(

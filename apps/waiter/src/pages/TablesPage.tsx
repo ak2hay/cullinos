@@ -1,15 +1,20 @@
 import { useMutation, useQueries, useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { NewOrderModal } from '@/components/NewOrderModal';
+import { QrCodeModal } from '@/components/QrCodeModal';
 import { TableCard } from '@/components/TableCard';
 import { Button } from '@/components/ui/Form';
-import { ordersApi, outletsApi, tablesApi } from '@/lib/api';
+import { ordersApi, outletsApi, tablesApi, type Table, type TableSession } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
 export function TablesPage() {
   const navigate = useNavigate();
   const outletId = useAuthStore((s) => s.selectedOutletId);
   const setSelectedOutlet = useAuthStore((s) => s.setSelectedOutlet);
+
+  const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+  const [activeSession, setActiveSession] = useState<TableSession | null>(null);
 
   const { data: outlets = [] } = useQuery({
     queryKey: ['outlets'],
@@ -51,6 +56,30 @@ export function TablesPage() {
     onSuccess: () => void refetch(),
   });
 
+  const startSessionMutation = useMutation({
+    mutationFn: (tableId: string) => tablesApi.startSession(outletId!, tableId),
+    onSuccess: (session) => {
+      setActiveSession(session);
+      void refetch();
+    },
+  });
+
+  function handleTableSelect(table: Table) {
+    setSelectedTable(table);
+  }
+
+  function handleWaiterOrder() {
+    if (!selectedTable) return;
+    navigate(`/order/${selectedTable.id}`);
+    setSelectedTable(null);
+  }
+
+  function handleQrOrder() {
+    if (!selectedTable) return;
+    startSessionMutation.mutate(selectedTable.id);
+    setSelectedTable(null);
+  }
+
   return (
     <div className="p-4">
       <div className="mb-4">
@@ -77,7 +106,13 @@ export function TablesPage() {
       ) : isLoading ? (
         <p className="py-12 text-center text-text-secondary">Loading tables…</p>
       ) : tables.length === 0 ? (
-        <p className="py-12 text-center text-text-secondary">No tables configured.</p>
+        <div className="py-12 text-center">
+          <p className="text-text-secondary">No tables configured for this outlet.</p>
+          <p className="mt-2 text-xs text-text-muted">
+            Tables are created by the restaurant owner in Admin → Settings → Outlets.<br />
+            For QA testing, switch to <strong>Main Outlet</strong> which has pre-configured tables.
+          </p>
+        </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {tables.map((table) => (
@@ -85,7 +120,7 @@ export function TablesPage() {
               <TableCard
                 table={table}
                 activeOrderCount={orderCountByTable.get(table.id) ?? 0}
-                onSelect={() => navigate(`/order/${table.id}`)}
+                onSelect={() => handleTableSelect(table)}
               />
               {table.status === 'AVAILABLE' ? (
                 <Button
@@ -101,6 +136,29 @@ export function TablesPage() {
           ))}
         </div>
       )}
+
+      {selectedTable ? (
+        <NewOrderModal
+          tableName={selectedTable.name}
+          loading={startSessionMutation.isPending}
+          onQrOrder={handleQrOrder}
+          onWaiterOrder={handleWaiterOrder}
+          onClose={() => setSelectedTable(null)}
+        />
+      ) : null}
+
+      {activeSession?.qrUrl ? (
+        <QrCodeModal
+          tableName={activeSession.tableName}
+          qrUrl={activeSession.qrUrl}
+          sessionToken={activeSession.sessionToken}
+          onViewOrder={() => {
+            navigate(`/order/${activeSession.tableId}`);
+            setActiveSession(null);
+          }}
+          onClose={() => setActiveSession(null)}
+        />
+      ) : null}
     </div>
   );
 }

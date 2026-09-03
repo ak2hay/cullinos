@@ -1,12 +1,18 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { WebsocketModule } from "../../websocket/websocket.module";
-import { PublicTablesController, TablesController } from "./tables.controller";
+import { OrdersModule } from "../orders/orders.module";
+import {
+  PublicSessionsController,
+  PublicTablesController,
+  TablesController,
+} from "./tables.controller";
+import { TableSessionsService } from "./table-sessions.service";
 import { TablesService } from "./tables.service";
 
 @Module({
-  imports: [WebsocketModule],
-  controllers: [TablesController, PublicTablesController],
-  providers: [TablesService],
-  exports: [TablesService],
+  imports: [WebsocketModule, forwardRef(() => OrdersModule)],
+  controllers: [TablesController, PublicTablesController, PublicSessionsController],
+  providers: [TablesService, TableSessionsService],
+  exports: [TablesService, TableSessionsService],
 })
 export class TablesModule {}

@@ -28,7 +28,7 @@ export function CustomerLayout({ children, showCart = true }: CustomerLayoutProp
               {title}
             </Link>
             {orderMode === 'dine-in' && tableName ? (
-              <p className="text-xs text-text-secondary">{tableName}</p>
+              <p className="text-xs text-text-secondary">Ordering for {tableName}</p>
             ) : (
               <p className="text-xs text-text-secondary">Order online</p>
             )}

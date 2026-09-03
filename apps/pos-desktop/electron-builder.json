@@ -1,0 +1,28 @@
+{
+  "appId": "com.rkyves.cullinos.pos",
+  "productName": "Cullinos POS",
+  "npmRebuild": false,
+  "nodeGypRebuild": false,
+  "buildDependenciesFromSource": false,
+  "directories": {
+    "output": "../../electron-dist/pos"
+  },
+  "files": [
+    "electron/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "../pos/dist",
+      "to": "app",
+      "filter": ["**/*"]
+    }
+  ],
+  "win": {
+    "target": ["nsis"],
+    "artifactName": "Cullinos-POS-Setup-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  }
+}

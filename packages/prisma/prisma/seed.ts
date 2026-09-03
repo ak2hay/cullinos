@@ -42,6 +42,12 @@ const ALL_MODULES = [
   "hotel",
   "analytics",
   "delivery",
+  // Core admin capabilities — must be on every plan that includes admin
+  "settings",
+  "reports",
+  // Operational modules — available on professional+ and qsr
+  "events",
+  "production",
 ];
 
 async function seedPermissions() {
@@ -53,11 +59,14 @@ async function seedPermissions() {
   for (const perm of permissionStrings) {
     const [module, ...actionParts] = perm.split(":");
     const action = actionParts.join(":");
-    await prisma.permission.upsert({
-      where: { module_action: { module, action } },
-      update: {},
-      create: { module, action, description: perm },
+    const existing = await prisma.permission.findFirst({
+      where: { module, action },
     });
+    if (!existing) {
+      await prisma.permission.create({
+        data: { module, action, description: perm },
+      });
+    }
   }
 }
 
@@ -121,7 +130,7 @@ async function seedPlans() {
   for (const plan of [starterPlan, qsrPlan, professionalPlan, enterprisePlan]) {
     const modules =
       plan.slug === "starter"
-        ? ["pos", "kds", "admin", "menu", "orders", "tables", "billing", "tax"]
+        ? ["pos", "kds", "admin", "menu", "orders", "tables", "billing", "tax", "settings", "reports"]
         : plan.slug === "qsr"
           ? [
               "pos",
@@ -134,6 +143,8 @@ async function seedPlans() {
               "loyalty",
               "events",
               "production",
+              "settings",
+              "reports",
             ]
           : plan.slug === "professional"
           ? [
@@ -148,6 +159,10 @@ async function seedPlans() {
               "inventory",
               "crm",
               "loyalty",
+              "events",
+              "production",
+              "settings",
+              "reports",
             ]
           : ALL_MODULES;
 
@@ -172,8 +187,8 @@ async function assignRolePermissions(orgId: string, roleSlug: string, permString
   for (const perm of permStrings) {
     const [module, ...actionParts] = perm.split(":");
     const action = actionParts.join(":");
-    const permission = await prisma.permission.findUnique({
-      where: { module_action: { module, action } },
+    const permission = await prisma.permission.findFirst({
+      where: { module, action },
     });
     if (!permission) continue;
     await prisma.rolePermission.upsert({
@@ -466,6 +481,42 @@ async function main() {
         capacity: 4,
         qrCode: `qr-table-${i}`,
         status: i <= 2 ? "occupied" : "available",
+      },
+    });
+  }
+
+  // Tables for outlet2 (Bandra Outlet) so Waiter QA works on both outlets
+  const floorBandra = await prisma.floor.upsert({
+    where: { id: "seed-floor-bandra" },
+    update: {},
+    create: {
+      id: "seed-floor-bandra",
+      outletId: outlet2.id,
+      name: "Ground Floor",
+    },
+  });
+
+  const sectionBandra = await prisma.section.upsert({
+    where: { id: "seed-section-bandra" },
+    update: {},
+    create: {
+      id: "seed-section-bandra",
+      floorId: floorBandra.id,
+      name: "Dining",
+    },
+  });
+
+  for (let i = 1; i <= 4; i++) {
+    await prisma.table.upsert({
+      where: { id: `seed-table-bandra-${i}` },
+      update: {},
+      create: {
+        id: `seed-table-bandra-${i}`,
+        sectionId: sectionBandra.id,
+        name: `B${i}`,
+        capacity: 4,
+        qrCode: `qr-bandra-table-${i}`,
+        status: "available",
       },
     });
   }

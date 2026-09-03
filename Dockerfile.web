@@ -1,0 +1,39 @@
+# syntax=docker/dockerfile:1
+
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+RUN apk add --no-cache openssl
+
+COPY package.json package-lock.json .npmrc ./
+COPY apps/web ./apps/web
+COPY packages ./packages
+COPY turbo.json tsconfig.base.json ./
+
+ARG NEXT_PUBLIC_API_URL=https://api.cullinos.com/api/v1
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+RUN npm ci --include=dev \
+  && npm run build -w @cullinos/shared -w @cullinos/ui \
+  && npm run build -w @cullinos/web
+
+FROM node:22-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=5180
+
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/apps/web/.next/standalone ./
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
+
+USER nextjs
+
+EXPOSE 5180
+
+CMD ["node", "apps/web/server.js"]

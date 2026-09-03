@@ -46,6 +46,21 @@ export function OrderPage() {
     enabled: Boolean(outletId),
   });
 
+  const { data: activeSession, refetch: refetchSession } = useQuery({
+    queryKey: ['table-session', tableId],
+    queryFn: () => tablesApi.getActiveSession(outletId!, tableId!),
+    enabled: Boolean(outletId && tableId),
+  });
+
+  const closeSessionMutation = useMutation({
+    mutationFn: () =>
+      tablesApi.closeSession(outletId!, tableId!, activeSession!.id),
+    onSuccess: () => {
+      invalidate();
+      void refetchSession();
+    },
+  });
+
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['table-orders-detail', tableId] });
     void queryClient.invalidateQueries({ queryKey: ['tables', outletId] });
@@ -145,6 +160,16 @@ export function OrderPage() {
             </Button>
           ) : (
             <div className="flex flex-wrap gap-2">
+              {activeSession ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={closeSessionMutation.isPending}
+                  onClick={() => closeSessionMutation.mutate()}
+                >
+                  End session
+                </Button>
+              ) : null}
               {(['BILLING', 'CLEANING', 'AVAILABLE'] as const).map((status) => (
                 <Button
                   key={status}

@@ -86,6 +86,11 @@ export class SuperAdminController {
     return this.service.manageSubscription(id, body);
   }
 
+  @Post("organizations/:id/subscription/collect")
+  collectSubscription(@Param("id") id: string) {
+    return this.service.collectSubscription(id);
+  }
+
   @Get("plans")
   listPlans() {
     return this.service.listPlans();

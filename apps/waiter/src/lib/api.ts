@@ -164,6 +164,18 @@ export const outletsApi = {
   list: () => apiRequest<Outlet[]>('/outlets'),
 };
 
+export interface TableSession {
+  id: string;
+  sessionToken: string;
+  status: string;
+  guestCount: number | null;
+  tableId: string;
+  tableName: string;
+  orderId: string | null;
+  orderNumber: string | null;
+  qrUrl: string | null;
+}
+
 export const tablesApi = {
   list: (outletId: string) => apiRequest<Table[]>(`/tables/outlets/${outletId}`),
 
@@ -172,6 +184,23 @@ export const tablesApi = {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }),
+
+  startSession: (outletId: string, tableId: string, guestCount?: number) =>
+    apiRequest<TableSession>(`/tables/outlets/${outletId}/${tableId}/sessions`, {
+      method: 'POST',
+      body: JSON.stringify({ guestCount }),
+    }),
+
+  getActiveSession: (outletId: string, tableId: string) =>
+    apiRequest<TableSession | null>(
+      `/tables/outlets/${outletId}/${tableId}/sessions/active`,
+    ),
+
+  closeSession: (outletId: string, tableId: string, sessionId: string) =>
+    apiRequest<{ success: boolean }>(
+      `/tables/outlets/${outletId}/${tableId}/sessions/${sessionId}/close`,
+      { method: 'POST' },
+    ),
 };
 
 export const ordersApi = {

@@ -16,6 +16,12 @@ export function MenuPage() {
   });
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  function showNotice(type: 'success' | 'error', text: string) {
+    setNotice({ type, text });
+    setTimeout(() => setNotice(null), 4000);
+  }
 
   const categoriesQuery = useQuery({
     queryKey: ['menu', 'categories'],
@@ -46,7 +52,12 @@ export function MenuPage() {
 
   const deleteCategory = useMutation({
     mutationFn: menuApi.deleteCategory,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['menu', 'categories'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menu', 'categories'] });
+      queryClient.invalidateQueries({ queryKey: ['menu', 'items'] });
+      showNotice('success', 'Category deleted.');
+    },
+    onError: (err: Error) => showNotice('error', err.message ?? 'Failed to delete category.'),
   });
 
   const createItem = useMutation({
@@ -54,7 +65,9 @@ export function MenuPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu', 'items'] });
       setItemForm({ name: '', description: '', categoryId: '', basePrice: '' });
+      showNotice('success', 'Item added.');
     },
+    onError: (err: Error) => showNotice('error', err.message ?? 'Failed to add item.'),
   });
 
   const updateItem = useMutation({
@@ -63,12 +76,18 @@ export function MenuPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu', 'items'] });
       setEditingItem(null);
+      showNotice('success', 'Item updated.');
     },
+    onError: (err: Error) => showNotice('error', err.message ?? 'Failed to update item.'),
   });
 
   const deleteItem = useMutation({
     mutationFn: menuApi.deleteItem,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['menu', 'items'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menu', 'items'] });
+      showNotice('success', 'Item deleted.');
+    },
+    onError: (err: Error) => showNotice('error', err.message ?? 'Failed to delete item.'),
   });
 
   const categories = categoriesQuery.data ?? [];
@@ -76,6 +95,17 @@ export function MenuPage() {
 
   return (
     <div className="space-y-6">
+      {notice && (
+        <div
+          className={`rounded-lg px-4 py-3 text-sm font-medium ${
+            notice.type === 'success'
+              ? 'bg-green-500/15 text-green-400'
+              : 'bg-red-500/15 text-red-400'
+          }`}
+        >
+          {notice.text}
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Menu</h1>
@@ -169,6 +199,7 @@ export function MenuPage() {
                     </div>
                     <div className="flex gap-2">
                       <Button
+                        type="button"
                         variant="ghost"
                         onClick={() => {
                           setEditingCategory(category);
@@ -181,8 +212,18 @@ export function MenuPage() {
                         Edit
                       </Button>
                       <Button
+                        type="button"
                         variant="ghost"
-                        onClick={() => deleteCategory.mutate(category.id)}
+                        loading={deleteCategory.isPending}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Delete category “${category.name}”? Items in this category will also be removed from the menu.`,
+                            )
+                          ) {
+                            deleteCategory.mutate(category.id);
+                          }
+                        }}
                       >
                         Delete
                       </Button>
@@ -191,6 +232,11 @@ export function MenuPage() {
                 ))}
               </ul>
             )}
+            {deleteCategory.isError ? (
+              <p className="mt-3 text-sm text-status-error">
+                Could not delete category. Try again.
+              </p>
+            ) : null}
           </div>
         </div>
       ) : (
@@ -286,11 +332,12 @@ export function MenuPage() {
                       <p className="font-medium">{item.name}</p>
                       <p className="text-sm text-text-muted">
                         {formatMoney(item.basePrice)}
-                        {!item.isAvailable ? ' · Unavailable' : ''}
+                        {!item.isActive ? ' · Unavailable' : ''}
                       </p>
                     </div>
                     <div className="flex gap-2">
                       <Button
+                        type="button"
                         variant="ghost"
                         onClick={() => {
                           setEditingItem(item);
@@ -304,7 +351,16 @@ export function MenuPage() {
                       >
                         Edit
                       </Button>
-                      <Button variant="ghost" onClick={() => deleteItem.mutate(item.id)}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        loading={deleteItem.isPending}
+                        onClick={() => {
+                          if (window.confirm(`Delete menu item “${item.name}”?`)) {
+                            deleteItem.mutate(item.id);
+                          }
+                        }}
+                      >
                         Delete
                       </Button>
                     </div>
@@ -312,6 +368,11 @@ export function MenuPage() {
                 ))}
               </ul>
             )}
+            {deleteItem.isError ? (
+              <p className="mt-3 text-sm text-status-error">
+                Could not delete menu item. Try again.
+              </p>
+            ) : null}
           </div>
         </div>
       )}
