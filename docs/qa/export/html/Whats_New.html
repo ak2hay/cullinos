@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>WHATS_NEW</title>
+  <style>
+  body { font-family: Segoe UI, Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #1a1a1a; max-width: 900px; margin: 0 auto; padding: 24px; }
+  h1 { color: #0F0F1A; border-bottom: 2px solid #D4A017; padding-bottom: 6px; font-size: 20pt; page-break-after: avoid; }
+  h2 { color: #0F0F1A; margin-top: 1.2em; font-size: 14pt; page-break-after: avoid; }
+  h3 { color: #333; font-size: 12pt; page-break-after: avoid; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 10pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #D4A017; color: #0F0F1A; font-weight: 600; }
+  tr:nth-child(even) { background: #f9f9f9; }
+  code { background: #f4f4f4; padding: 1px 4px; border-radius: 3px; font-size: 9pt; }
+  pre { background: #f4f4f4; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 9pt; white-space: pre-wrap; }
+  blockquote { border-left: 3px solid #D4A017; margin: 0; padding-left: 12px; color: #555; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+  a { color: #0F0F1A; }
+  @media print { body { padding: 0; } }
+</style>
+</head>
+<body><h1 id="cullinos-qa--whats-new-for-testers">Cullinos QA — What&#39;s New for Testers</h1>
+<p><strong>Cycle:</strong> 2026-09 (share with the latest QA pack)<br><strong>Case count:</strong> <strong>160</strong> test cases (was 127)</p>
+<p>Read this before Day 1. Full steps stay in <a href="./TESTER_HANDBOOK.md">TESTER_HANDBOOK.md</a>.</p>
+<hr>
+<h2 id="production-apps-updated">Production apps (updated)</h2>
+<table>
+<thead>
+<tr>
+<th>App</th>
+<th>URL</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>POS</td>
+<td><a href="https://pos.cullinos.com">https://pos.cullinos.com</a></td>
+<td><strong>Hosted</strong> — not local-only</td>
+</tr>
+<tr>
+<td>KDS</td>
+<td><a href="https://kds.cullinos.com">https://kds.cullinos.com</a></td>
+<td><strong>Hosted</strong> — not local-only</td>
+</tr>
+<tr>
+<td>Admin Portal POS</td>
+<td><a href="https://admin.cullinos.com/pos">https://admin.cullinos.com/pos</a></td>
+<td>In-admin counter POS (permission <code>POS_ACCESS</code>)</td>
+</tr>
+<tr>
+<td>Order Display (CDS)</td>
+<td>Admin → <code>/cds</code></td>
+<td>Replaces Pickup Queue (<code>/pickup-queue</code> redirects here)</td>
+</tr>
+</tbody></table>
+<p>Local POS/KDS remains an optional fallback only.</p>
+<hr>
+<h2 id="new-or-upgraded-features-to-test">New or upgraded features to test</h2>
+<h3 id="admin-owner">Admin (owner)</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Path</th>
+<th>What changed</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Tables</strong></td>
+<td><code>/tables</code></td>
+<td>Real create/edit UI (no longer a placeholder)</td>
+</tr>
+<tr>
+<td><strong>Inventory</strong></td>
+<td><code>/inventory</code></td>
+<td>Real stock UI (no longer a placeholder)</td>
+</tr>
+<tr>
+<td><strong>Recipes</strong></td>
+<td><code>/recipes</code></td>
+<td>Full recipes UI (also still in Swagger)</td>
+</tr>
+<tr>
+<td><strong>Loyalty</strong></td>
+<td><code>/loyalty</code></td>
+<td>Dedicated loyalty page</td>
+</tr>
+<tr>
+<td><strong>Delivery</strong></td>
+<td><code>/delivery</code></td>
+<td>Delivery orders UI</td>
+</tr>
+<tr>
+<td><strong>Promo Email</strong></td>
+<td><code>/promo-email</code></td>
+<td>Compose / send promo campaigns</td>
+</tr>
+<tr>
+<td><strong>Billing</strong></td>
+<td><code>/billing</code></td>
+<td>Subscription / billing page</td>
+</tr>
+<tr>
+<td><strong>Kitchen Display</strong></td>
+<td><code>/kds</code></td>
+<td>Launcher for KDS URL</td>
+</tr>
+<tr>
+<td><strong>Order Display</strong></td>
+<td><code>/cds</code></td>
+<td>Customer-facing preparing/ready board launcher</td>
+</tr>
+<tr>
+<td><strong>Digital Ordering</strong></td>
+<td><code>/kiosk</code></td>
+<td>Kiosk / storefront launcher</td>
+</tr>
+<tr>
+<td><strong>Portal POS</strong></td>
+<td><code>/pos</code></td>
+<td>Hold / resume / checkout in Admin</td>
+</tr>
+<tr>
+<td><strong>Forgot / Change password</strong></td>
+<td><code>/forgot-password</code>, <code>/change-password</code></td>
+<td>Auth recovery flows</td>
+</tr>
+</tbody></table>
+<h3 id="business-type-gated-often-na-on-restaurant-tenant">Business-type gated (often <strong>N/A</strong> on restaurant tenant)</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Path</th>
+<th>Visible when</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Banquets</td>
+<td><code>/banquets</code></td>
+<td>Banquet / events business type</td>
+</tr>
+<tr>
+<td>Brands</td>
+<td><code>/brands</code></td>
+<td>Cloud kitchen / multi-brand</td>
+</tr>
+<tr>
+<td>Guests</td>
+<td><code>/hospitality/guests</code></td>
+<td>Hotel / room service</td>
+</tr>
+<tr>
+<td>Rooms</td>
+<td><code>/hospitality/rooms</code></td>
+<td>Hotel / room service</td>
+</tr>
+</tbody></table>
+<p>Primary QA tenant: <strong>enterprise</strong> + <strong>restaurant</strong> (medium or large size so Tables, KDS, Inventory, Loyalty, Recipes, Delivery appear). Mark gated pages <strong>N/A</strong> unless you create a second tenant of that type.</p>
+<h3 id="customer-storefront">Customer storefront</h3>
+<ul>
+<li>Guest checkout still works without login (incognito).</li>
+<li>Optional <strong>customer login</strong> modal — test that browse/checkout still works as guest, and login UI opens without crashing.</li>
+</ul>
+<h3 id="super-admin">Super Admin</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Path</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Plans</td>
+<td><code>/plans</code></td>
+</tr>
+<tr>
+<td>Promo Email</td>
+<td><code>/promo-email</code></td>
+</tr>
+<tr>
+<td>Testimonials editor</td>
+<td><code>/marketing/testimonials</code></td>
+</tr>
+<tr>
+<td>Design Lab</td>
+<td><code>/marketing/design-lab</code></td>
+</tr>
+<tr>
+<td>Settings</td>
+<td><code>/settings</code></td>
+</tr>
+<tr>
+<td>Forgot password</td>
+<td><code>/forgot-password</code></td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="known-limitations-updated">Known limitations (updated)</h2>
+<table>
+<thead>
+<tr>
+<th>Still expected</th>
+<th>Not a bug anymore</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Razorpay pay-now without keys → <strong>N/A</strong></td>
+<td>Admin Tables placeholder</td>
+</tr>
+<tr>
+<td>Outlet comparison needs 2+ outlets</td>
+<td>Admin Inventory placeholder</td>
+</tr>
+<tr>
+<td>Banquets / Brands / Guests / Rooms hidden on restaurant → <strong>N/A</strong></td>
+<td>POS/KDS “local only”</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="share-pack">Share pack</h2>
+<p>After <code>npm run qa:export</code>, send:</p>
+<ol>
+<li><code>Whats_New.pdf</code> (this doc)</li>
+<li><code>QA_Tester_Handbook.pdf</code></li>
+<li><code>Quick_Reference_Card.pdf</code></li>
+<li><code>Employee_Brief.pdf</code></li>
+<li><code>TEST_RUN_SHEET.xlsx</code> / <code>BUG_LOG.xlsx</code> / <code>CREDENTIALS_LOG.xlsx</code></li>
+</ol>
+<p>Hand off Super Admin login securely on Day 1 (password manager — never in Excel).</p>
+</body>
+</html>

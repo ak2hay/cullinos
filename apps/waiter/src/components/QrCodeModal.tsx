@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
-import { Button } from '@/components/ui/Form';
+import { Button } from '@cullinos/ui';
 
 interface QrCodeModalProps {
   tableName: string;

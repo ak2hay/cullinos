@@ -52,7 +52,13 @@ def main():
         run(ssh, f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml logs --tail=30 api")
 
     run(ssh, f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml exec -T api npm run db:push")
-    run(ssh, f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml exec -T api npx tsx packages/prisma/prisma/seed.ts", timeout=300)
+    run(
+        ssh,
+        f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml exec -T "
+        "-e SEED_DEMO=false -e NODE_ENV=production api "
+        "npx tsx packages/prisma/prisma/seed.ts",
+        timeout=300,
+    )
     _, out, _ = run(ssh, "curl -sf http://127.0.0.1:3000/api/v1/health")
     run(ssh, "curl -sf http://127.0.0.1/api/v1/health || curl -sf http://127.0.0.1:3000/api/v1/health")
     ssh.close()

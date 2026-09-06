@@ -1,11 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
-import { analyticsApi } from '@/lib/api';
+import { MARKETING_URLS } from '@cullinos/shared';
+import { analyticsApi, outletsApi } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
+
+const ADMIN_URL = import.meta.env.VITE_ADMIN_URL ?? MARKETING_URLS.admin;
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const outletId = useAuthStore((s) => s.selectedOutletId);
+
+  const outletsQuery = useQuery({
+    queryKey: ['outlets'],
+    queryFn: () => outletsApi.list(),
+  });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['analytics', 'daily', outletId],
@@ -13,6 +21,7 @@ export function DashboardPage() {
   });
 
   const summary = data?.summary;
+  const outlets = outletsQuery.data ?? [];
 
   const kpis = [
     { label: 'Consolidated revenue', value: summary ? formatMoney(summary.totalRevenue) : '—' },
@@ -46,6 +55,58 @@ export function DashboardPage() {
           </div>
         ))}
       </div>
+
+      <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-medium">Outlets</h2>
+            <p className="mt-1 text-sm text-text-secondary">
+              Open a location in Admin for day-to-day operations.
+            </p>
+          </div>
+          <a
+            href={ADMIN_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm font-medium text-brand-primary hover:underline"
+          >
+            Open Admin →
+          </a>
+        </div>
+
+        {outletsQuery.error ? (
+          <p className="mt-4 text-sm text-status-error">
+            {outletsQuery.error instanceof Error
+              ? outletsQuery.error.message
+              : 'Failed to load outlets'}
+          </p>
+        ) : outletsQuery.isLoading ? (
+          <p className="mt-4 text-sm text-text-muted">Loading outlets…</p>
+        ) : outlets.length === 0 ? (
+          <p className="mt-4 text-sm text-text-muted">No outlets yet.</p>
+        ) : (
+          <ul className="mt-4 divide-y divide-white/5">
+            {outlets.map((outlet) => (
+              <li key={outlet.id} className="flex items-center justify-between gap-3 py-3">
+                <div>
+                  <p className="font-medium">{outlet.name}</p>
+                  <p className="text-xs text-text-muted">
+                    {[outlet.city, outlet.code].filter(Boolean).join(' · ') || 'No city set'}
+                  </p>
+                </div>
+                <a
+                  href={ADMIN_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg bg-bg-elevated px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-white/5"
+                >
+                  Manage
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-white/5 bg-bg-card p-6">

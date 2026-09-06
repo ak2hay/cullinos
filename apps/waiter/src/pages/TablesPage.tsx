@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { NewOrderModal } from '@/components/NewOrderModal';
 import { QrCodeModal } from '@/components/QrCodeModal';
 import { TableCard } from '@/components/TableCard';
-import { Button } from '@/components/ui/Form';
+import { Button } from '@cullinos/ui';
 import { ordersApi, outletsApi, tablesApi, type Table, type TableSession } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 

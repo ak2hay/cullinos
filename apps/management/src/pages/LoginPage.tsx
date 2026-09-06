@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Button, Input } from '@cullinos/ui';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
@@ -45,26 +46,20 @@ export function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block">
-            <span className="text-sm text-text-secondary">Email</span>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm text-text-secondary">Password</span>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
-            />
-          </label>
+          <Input
+            label="Email"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Input
+            label="Password"
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
           {error ? (
             <p className="rounded-lg border border-status-error/30 bg-status-error/10 px-3 py-2 text-sm text-status-error">
@@ -72,13 +67,9 @@ export function LoginPage() {
             </p>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-brand-primary py-2.5 text-sm font-medium text-bg-primary transition hover:bg-brand-primary-dark disabled:opacity-60"
-          >
-            {loading ? 'Signing in…' : 'Sign in'}
-          </button>
+          <Button type="submit" loading={loading} className="w-full">
+            Sign in
+          </Button>
         </form>
 
         <p className="mt-6 text-center text-sm text-text-secondary">

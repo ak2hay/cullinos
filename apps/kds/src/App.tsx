@@ -3,6 +3,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { KitchenDisplayPage } from '@/pages/KitchenDisplayPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { PickupDisplayPage } from '@/pages/PickupDisplayPage';
+import { ReceiptPrintPage } from '@/pages/ReceiptPrintPage';
 import { useAuthStore } from '@/stores/auth';
 
 function PublicOnly({ children }: { children: React.ReactNode }) {
@@ -19,12 +20,16 @@ function getQueryParam(key: string): string | null {
 }
 
 export default function App() {
-  // Pickup mode is a public customer-facing display — no login needed.
+  // Pickup / CDS / receipt modes are public — no login needed.
   const mode = getQueryParam('mode');
   const outletId = getQueryParam('outletId');
 
-  if (mode === 'pickup' && outletId) {
+  if ((mode === 'pickup' || mode === 'cds') && outletId) {
     return <PickupDisplayPage outletId={outletId} />;
+  }
+
+  if (mode === 'receipt' && outletId) {
+    return <ReceiptPrintPage outletId={outletId} />;
   }
 
   return (

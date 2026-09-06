@@ -18,7 +18,7 @@ Full functionality manual QA for production, starting from a **fresh tenant** on
 6. [Phase 4 — Enterprise Management](#phase-4--enterprise-management)
 7. [Phase 5 — Super Admin platform ops](#phase-5--super-admin-platform-ops)
 8. [Phase 6 — Marketing website](#phase-6--marketing-website)
-9. [Phase 7 — API-only modules (Swagger)](#phase-7--api-only-modules-swagger)
+9. [Phase 7 — API smoke (Swagger)](#phase-7--api-smoke-swagger)
 10. [Out of scope / expected N/A items](#out-of-scope--expected-na-items)
 
 ---
@@ -33,9 +33,9 @@ One QA lead switches between roles (Super Admin, Owner, Guest) while one employe
 
 | Constraint | Impact |
 |------------|--------|
-| POS / KDS on VM | https://pos.cullinos.com and https://kds.cullinos.com |
-| Admin Tables & Inventory | Placeholder UI — test tables via Waiter; inventory via Swagger |
-| API-only modules | No dedicated UI — verify via Swagger |
+| POS / KDS hosted | https://pos.cullinos.com and https://kds.cullinos.com |
+| Admin Portal POS | https://admin.cullinos.com/pos (requires POS_ACCESS) |
+| Business-type nav | Banquets / Brands / Guests / Rooms may be hidden on restaurant → N/A |
 | Razorpay pay-now | N/A unless production keys configured |
 
 ### Phase flow
@@ -55,16 +55,19 @@ flowchart TD
   subgraph phase2 [Phase 2 - Core ops]
     WaiterFlow[Waiter table order]
     KDSVerify[KDS kitchen display]
-    POSFlow[POS counter order local]
+    POSFlow[POS counter order]
+    PortalPos[Admin Portal POS]
     CustomerFlow[Guest online order]
+    CdsFlow[Order Display CDS]
   end
   subgraph phase3 [Phase 3 - Back office]
-    AdminModules[Admin dashboard menu orders reports]
+    AdminModules[Admin dashboard menu orders tables inventory]
+    NewModules[Recipes loyalty delivery promo billing]
     EventsProd[Events or Production by business type]
     ManagementEnt[Management multi-outlet if 2nd outlet added]
   end
   subgraph phase4 [Phase 4 - Platform]
-    SuperOps[Tenant suspend activate subscription]
+    SuperOps[Tenant suspend activate subscription plans]
     MarketingCMS[Marketing CMS plus public site]
   end
   phase0 --> phase1 --> phase2 --> phase3 --> phase4
@@ -166,7 +169,8 @@ flowchart TD
 | Area | Route | Minimum data |
 |------|-------|--------------|
 | Menu | `/menu` | 2 categories, 4+ items (mix veg/non-veg, varied prices) |
-| Staff | `/staff` | 1 employee — role **Waiter**, assigned to main outlet |
+| Tables | `/tables` | 2+ tables (e.g. T1, T2) via Admin UI |
+| Staff | `/staff` | 1 **Waiter** + 1 **Cashier** (for POS), assigned to main outlet |
 | Settings | `/settings` | Confirm businessType, operatingMode, enabledOrderTypes |
 | 2nd outlet (optional) | Swagger | Add second outlet for Management stock transfer tests |
 
@@ -176,10 +180,12 @@ flowchart TD
 2. Name, email, password, role: Waiter
 3. Assign main outlet
 4. Submit — record credentials in Credentials Log (password ref only)
+5. Repeat for **Cashier** (POS at pos.cullinos.com and Admin `/pos`)
 
-**Optional (local POS only):**
+**Auth recovery (Phase 1.4):**
 
-- Create second staff account with role **Cashier** for POS testing.
+- Admin `/forgot-password` and Super Admin `/forgot-password` — page loads, accepts email (do not need to complete mailbox delivery)
+- Owner `/change-password` — page reachable after login
 
 ---
 
@@ -223,7 +229,7 @@ sequenceDiagram
 
 | Step | Action | Expected |
 |------|--------|----------|
-| 1 | Login as Cashier | POS loads with outlet |
+| 1 | Open POS URL, login as Cashier | POS loads with outlet |
 | 2 | Browse menu, add items, set takeaway | Cart subtotal correct |
 | 3 | Hold order | Order appears in held panel |
 | 4 | Resume held order | Cart restores |
@@ -243,21 +249,37 @@ sequenceDiagram
 | 6 | Pay later (default) | Order placed; confirmation shown |
 | 7 | Admin → `/orders` | Online/QR source order visible |
 | 8 | Session QR flow (waiter generates QR, guest orders) | Items merge into table order; KOT on KDS |
+| 9 | Open customer login modal | Modal opens; guest can still checkout without login |
 
 **Pay now (Razorpay):** Test only if keys configured; otherwise N/A.
 
-### 2.4 Pickup queue (cafe/QSR path)
+### 2.4 Order Display (CDS)
 
-For counter/cafe business types, or after switching operating mode in Settings:
+**Admin route:** `/cds` (old `/pickup-queue` redirects here)
 
 | Step | Action | Expected |
 |------|--------|----------|
-| 1 | Admin → `/pickup-queue` | Page loads with KDS pickup URL |
-| 2 | Copy URL, open in browser/KDS | Pickup display loads |
+| 1 | Admin → Order Display (`/cds`) | Page loads with display URL |
+| 2 | Copy URL, open in browser/tablet | Preparing/Ready board loads |
 | 3 | Place counter/online order | Order appears in Preparing column |
-| 4 | Mark ready (via API or KDS action) | Order moves to Ready column |
+| 4 | Mark ready (via KDS or board action) | Order moves to Ready column |
 
-For restaurant-only setup, mark N/A or retest after changing business type.
+### 2.5 Admin Portal POS
+
+**App:** https://admin.cullinos.com/pos (owner or staff with `POS_ACCESS`)
+
+| Step | Action | Expected |
+|------|--------|----------|
+| 1 | Open `/pos` as owner | Portal POS loads |
+| 2 | Add items, hold, resume | Cart restores from held panel |
+| 3 | Checkout | Order confirmed and listed in Admin Orders |
+
+### 2.6 Digital Ordering (kiosk) launcher
+
+| Step | Action | Expected |
+|------|--------|----------|
+| 1 | Admin → `/kiosk` | Launcher page loads |
+| 2 | Copy / open storefront or kiosk URL | Storefront usable |
 
 ---
 
@@ -268,18 +290,29 @@ For restaurant-only setup, mark N/A or retest after changing business type.
 
 Test each module after Phase 2 orders exist (for meaningful dashboard/reports data).
 
-| Module | Route | Test focus | Known limit |
-|--------|-------|------------|-------------|
+| Module | Route | Test focus | Notes |
+|--------|-------|------------|-------|
 | Dashboard | `/` | KPIs: revenue, orders, AOV, payment breakdown | Numbers reflect test orders |
 | Menu | `/menu` | Create/edit category; create/edit item; price change | Changes visible on Waiter/Customer |
 | Orders | `/orders` | List all test orders; check status, source, total | All Phase 2 orders present |
-| Tables | `/tables` | Page loads | **Phase 2 placeholder** — not a bug |
-| Inventory | `/inventory` | Page loads | **Phase 2 placeholder** — not a bug |
+| Tables | `/tables` | Create/edit tables | Real UI — not a placeholder |
+| Inventory | `/inventory` | List stock; add or adjust item | Real UI — not a placeholder |
 | Customers | `/customers` | Loyalty tiers list; coupons list | Read-only display OK |
+| Loyalty | `/loyalty` | Page loads | Enterprise / size-gated |
+| Recipes | `/recipes` | Create recipe; appears in list | Also smokeable via Swagger |
+| Delivery | `/delivery` | List / status UI loads | May be empty on fresh tenant |
+| Promo Email | `/promo-email` | Compose draft or send without crash | Needs SETTINGS_UPDATE |
+| Billing | `/billing` | Page loads | Subscription / invoices |
 | Events | `/events` | Create event: location, date, pre-order window | Event saves and lists |
 | Production | `/production` | Schedule batch; complete batch | May be empty for restaurant type |
-| Pickup Queue | `/pickup-queue` | Copy KDS URL | URL includes correct outletId |
-| Staff | `/staff` | Employee listed; form validation | 1 waiter visible |
+| Kitchen Display | `/kds` | Launcher opens KDS URL | Production: kds.cullinos.com |
+| Order Display | `/cds` | Copy display URL | URL includes correct outletId |
+| Digital Ordering | `/kiosk` | Launcher shows storefront URL | |
+| Banquets | `/banquets` | Page loads | **N/A** on restaurant tenant |
+| Brands | `/brands` | Page loads | **N/A** on restaurant tenant |
+| Guests | `/hospitality/guests` | Page loads | **N/A** on restaurant tenant |
+| Rooms | `/hospitality/rooms` | Page loads | **N/A** on restaurant tenant |
+| Staff | `/staff` | Employees listed; Waiter without POS denied `/pos` | |
 | Reports | `/reports` | Revenue, top items, peak hours | Non-zero after test orders |
 | Settings | `/settings` | Edit JSON, save valid config | Invalid JSON shows error |
 | Onboarding | `/onboarding` | Revisit wizard | Steps reflect business type |
@@ -315,14 +348,19 @@ Test each module after Phase 2 orders exist (for meaningful dashboard/reports da
 |--------|-------|------------|
 | Tenants | `/` | Find QA tenant in list |
 | Onboard | modal | Completed in Phase 1 — verify tenant details |
+| Plans | `/plans` | Plans list / editor loads |
 | Subscriptions | `/subscriptions` | Change plan for QA tenant; verify entitlements |
+| Promo Email | `/promo-email` | Page loads |
+| Settings | `/settings` | Platform settings page loads |
 | System Health | `/health` | Platform metrics load (orgs, orders, sync) |
+| Forgot password | `/forgot-password` | Page loads (logged out) |
 | Marketing CMS | `/marketing` | Dashboard loads |
 | Hero editor | `/marketing/hero` | Edit and save draft |
 | Pages editor | `/marketing/pages` | Edit page content |
 | Theme editor | `/marketing/theme` | View/edit theme tokens |
 | Pricing editor | `/marketing/pricing` | View/edit pricing tiers |
 | Navigation editor | `/marketing/navigation` | View/edit nav links |
+| Testimonials | `/marketing/testimonials` | Editor loads |
 | Blog editor | `/marketing/blog` | Create/edit draft post |
 | Media library | `/marketing/media` | Upload or list media |
 | Design lab | `/marketing/design-lab` | Page loads |
@@ -364,10 +402,12 @@ Test each module after Phase 2 orders exist (for meaningful dashboard/reports da
 
 ---
 
-## Phase 7 — API-only modules (Swagger)
+## Phase 7 — API smoke (Swagger)
 
 **Tool:** https://api.cullinos.com/docs  
 **Auth:** Owner JWT from browser DevTools (Network tab after Admin login) or `POST /api/v1/auth/login`.
+
+Recipes, Delivery, and Hospitality also have Admin UIs — Swagger remains a valid smoke path.
 
 | Module | API prefix | Smoke test |
 |--------|------------|------------|
@@ -396,12 +436,11 @@ Document these as **Known limitations**, not defects:
 
 | Item | Reason |
 |------|--------|
-| Admin Tables UI | Phase 2 placeholder — use Waiter + Swagger |
-| Admin Inventory UI | Phase 2 placeholder — use Swagger |
-| POS/KDS browser apps | https://pos.cullinos.com and https://kds.cullinos.com |
-| Razorpay pay-now | Requires production payment keys |
-| Frontend route permissions | UI checks auth token only, not per-route RBAC |
-| Staff password reset in UI | May not exist — note if missing |
+| Razorpay pay-now | Requires production payment keys — use Pay later |
+| Banquets / Brands / Guests / Rooms on restaurant tenant | Hidden by business-type nav — mark N/A |
+| Outlet comparison / stock transfer | Needs 2+ outlets |
+| Gateway offline sync | Needs Electron app on restaurant LAN |
+| Marketing CMS publish to live site | Needs team lead approval before publish |
 
 ---
 

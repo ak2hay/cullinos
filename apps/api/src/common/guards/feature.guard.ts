@@ -1,3 +1,9 @@
+/**
+ * Legacy plan-feature guard (FeatureKey / PLAN_FEATURES).
+ * EntitlementGuard (RequireModule + SubscriptionEntitlement) is the canonical
+ * access check and is registered as APP_GUARD — prefer that for new routes.
+ * This file is left unregistered for optional opt-in use / migration.
+ */
 import {
   Injectable,
   CanActivate,

@@ -31,8 +31,52 @@ export const FEATURES = {
 
 export type FeatureKey = (typeof FEATURES)[keyof typeof FEATURES];
 
+/**
+ * Maps product FeatureKeys to DB SubscriptionEntitlement module keys.
+ * Features without a module are behavior flags (operatingMode / public routes).
+ */
+export const FEATURE_TO_MODULE: Partial<Record<FeatureKey, string>> = {
+  [FEATURES.POS]: 'pos',
+  [FEATURES.BILLING]: 'billing',
+  [FEATURES.KOT]: 'orders',
+  [FEATURES.BASIC_REPORTS]: 'reports',
+  [FEATURES.TABLES]: 'tables',
+  [FEATURES.KDS]: 'kds',
+  [FEATURES.INVENTORY]: 'inventory',
+  [FEATURES.RECIPES]: 'inventory',
+  [FEATURES.PURCHASING]: 'inventory',
+  [FEATURES.CRM]: 'crm',
+  [FEATURES.LOYALTY]: 'loyalty',
+  [FEATURES.QR_ORDERING]: 'customer',
+  [FEATURES.ONLINE_ORDERING]: 'customer',
+  [FEATURES.DELIVERY]: 'delivery',
+  [FEATURES.MULTI_OUTLET]: 'management',
+  [FEATURES.MULTI_BRAND]: 'management',
+  [FEATURES.FRANCHISE]: 'franchise',
+  [FEATURES.ADVANCED_ANALYTICS]: 'analytics',
+  [FEATURES.API_ACCESS]: 'management',
+  [FEATURES.ROOM_SERVICE]: 'hotel',
+  [FEATURES.ROOM_POSTING]: 'hotel',
+  [FEATURES.BANQUET]: 'hotel',
+  [FEATURES.HOSPITALITY_INTEGRATIONS]: 'hotel',
+  [FEATURES.PICKUP_QUEUE]: 'kds',
+  [FEATURES.PRODUCTION]: 'production',
+  [FEATURES.EVENTS]: 'events',
+  [FEATURES.PRE_ORDERS]: 'orders',
+  [FEATURES.COUNTER_MODE]: 'pos',
+};
+
 export const PLAN_FEATURES: Record<string, FeatureKey[]> = {
-  STARTER: [FEATURES.POS, FEATURES.BILLING, FEATURES.KOT, FEATURES.BASIC_REPORTS],
+  STARTER: [
+    FEATURES.POS,
+    FEATURES.BILLING,
+    FEATURES.KOT,
+    FEATURES.BASIC_REPORTS,
+    FEATURES.TABLES,
+    FEATURES.KDS,
+    FEATURES.QR_ORDERING,
+    FEATURES.ONLINE_ORDERING,
+  ],
   QSR: [
     FEATURES.POS,
     FEATURES.BILLING,
@@ -40,9 +84,15 @@ export const PLAN_FEATURES: Record<string, FeatureKey[]> = {
     FEATURES.BASIC_REPORTS,
     FEATURES.COUNTER_MODE,
     FEATURES.PICKUP_QUEUE,
+    FEATURES.KDS,
+    FEATURES.TABLES,
     FEATURES.QR_ORDERING,
     FEATURES.ONLINE_ORDERING,
     FEATURES.LOYALTY,
+    FEATURES.INVENTORY,
+    FEATURES.RECIPES,
+    FEATURES.EVENTS,
+    FEATURES.PRODUCTION,
   ],
   PROFESSIONAL: [
     FEATURES.POS,
@@ -59,6 +109,9 @@ export const PLAN_FEATURES: Record<string, FeatureKey[]> = {
     FEATURES.QR_ORDERING,
     FEATURES.ONLINE_ORDERING,
     FEATURES.DELIVERY,
+    FEATURES.PICKUP_QUEUE,
+    FEATURES.PRODUCTION,
+    FEATURES.EVENTS,
   ],
   ENTERPRISE: [
     FEATURES.POS,
@@ -80,6 +133,9 @@ export const PLAN_FEATURES: Record<string, FeatureKey[]> = {
     FEATURES.FRANCHISE,
     FEATURES.ADVANCED_ANALYTICS,
     FEATURES.API_ACCESS,
+    FEATURES.PICKUP_QUEUE,
+    FEATURES.PRODUCTION,
+    FEATURES.EVENTS,
   ],
   HOSPITALITY: [
     FEATURES.POS,

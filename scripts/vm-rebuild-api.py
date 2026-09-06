@@ -53,7 +53,8 @@ def main():
     )
     run(
         ssh,
-        f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml run --rm -T api "
+        f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml run --rm -T "
+        "-e SEED_DEMO=false -e NODE_ENV=production api "
         "npx tsx packages/prisma/prisma/seed.ts",
         timeout=600,
     )

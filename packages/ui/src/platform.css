@@ -1,0 +1,15 @@
+/* Platform (super-admin) theme overrides — import after theme.css */
+@theme {
+  --color-brand-primary: #6b7280;
+  --color-brand-primary-dark: #4b5563;
+  --color-brand-secondary: #111827;
+  --color-brand-accent: #9ca3af;
+  --color-bg-primary: #0a0a0f;
+  --color-bg-secondary: #111827;
+  --color-bg-card: #1f2937;
+  --color-bg-elevated: #374151;
+  --color-text-primary: #f9fafb;
+  --color-text-secondary: #d1d5db;
+  --color-text-muted: #9ca3af;
+  --color-border: #374151;
+}

@@ -22,6 +22,7 @@
 </head>
 <body><h1 id="cullinos-qa-tester-handbook">Cullinos QA Tester Handbook</h1>
 <p><strong>For new testers.</strong> Read Sections 1–2 first, then follow the day-by-day checklists. Mark results in your Excel Test Run Sheet.</p>
+<p>Also read <strong><a href="./WHATS_NEW.md">WHATS_NEW.md</a></strong> for features added in this QA cycle.</p>
 <hr>
 <h2 id="how-to-use-this-handbook">How to use this handbook</h2>
 <table>
@@ -33,7 +34,7 @@
 </thead>
 <tbody><tr>
 <td>1</td>
-<td>Read Sections 1–2 below</td>
+<td>Read Sections 1–2 below and What&#39;s New</td>
 </tr>
 <tr>
 <td>2</td>
@@ -41,7 +42,7 @@
 </tr>
 <tr>
 <td>3</td>
-<td><strong>Day 1:</strong> health checks → Super Admin onboard → Admin wizard → menu + 1 waiter staff</td>
+<td><strong>Day 1:</strong> health checks → Super Admin onboard → Admin wizard → menu + tables + Waiter + Cashier</td>
 </tr>
 <tr>
 <td>4</td>
@@ -79,7 +80,7 @@
 <tr>
 <td>Restaurant owner</td>
 <td><strong>Admin</strong></td>
-<td>Menu, staff, orders, reports, settings</td>
+<td>Menu, staff, orders, reports, settings, Portal POS</td>
 </tr>
 <tr>
 <td>Multi-outlet chains</td>
@@ -93,18 +94,18 @@
 </tr>
 <tr>
 <td>Cashier</td>
-<td><strong>POS</strong> <em>(local only)</em></td>
-<td>Counter / takeaway billing</td>
+<td><strong>POS</strong></td>
+<td>Counter / takeaway billing — <a href="https://pos.cullinos.com">https://pos.cullinos.com</a></td>
 </tr>
 <tr>
 <td>Kitchen</td>
-<td><strong>KDS</strong> <em>(local only)</em></td>
-<td>See kitchen tickets</td>
+<td><strong>KDS</strong></td>
+<td>Kitchen tickets — <a href="https://kds.cullinos.com">https://kds.cullinos.com</a></td>
 </tr>
 <tr>
 <td>Guest customer</td>
 <td><strong>Customer</strong></td>
-<td>Order online (no login)</td>
+<td>Order online (guest OK; optional login)</td>
 </tr>
 <tr>
 <td>Public visitors</td>
@@ -112,7 +113,7 @@
 <td>cullinos.com — no login</td>
 </tr>
 </tbody></table>
-<p><strong>Your job:</strong> Test all <strong>127 test cases</strong> on <strong>production</strong> using a <strong>fresh test restaurant</strong> you create on Day 1.</p>
+<p><strong>Your job:</strong> Test all <strong>160 test cases</strong> on <strong>production</strong> using a <strong>fresh test restaurant</strong> you create on Day 1.</p>
 <hr>
 <h2 id="2-before-day-1--what-you-need">2. Before Day 1 — what you need</h2>
 <h3 id="tools">Tools</h3>
@@ -121,13 +122,15 @@
 <li><strong>Incognito / private window</strong> — for guest customer tests (Ctrl+Shift+N in Chrome)</li>
 <li><strong>Screenshot tool</strong> — Windows: Win+Shift+S</li>
 <li><strong>Excel</strong> — to fill in Test Run Sheet, Bug Log, Credentials Log</li>
-<li><strong>Folder for evidence</strong> — e.g. <code>RUN-20260902/evidence/</code> for bug screenshots</li>
+<li><strong>Folder for evidence</strong> — e.g. <code>RUN-20260906/evidence/</code> for bug screenshots</li>
 </ul>
 <h3 id="files-from-your-team-lead">Files from your team lead</h3>
-<p>You should receive these 5 files:</p>
+<p>You should receive these files:</p>
 <ol>
+<li><code>Whats_New.pdf</code> — new features in this cycle</li>
 <li><code>QA_Tester_Handbook.pdf</code> (this document)</li>
 <li><code>Quick_Reference_Card.pdf</code></li>
+<li><code>Employee_Brief.pdf</code></li>
 <li><code>TEST_RUN_SHEET.xlsx</code></li>
 <li><code>BUG_LOG.xlsx</code></li>
 <li><code>CREDENTIALS_LOG.xlsx</code></li>
@@ -153,12 +156,24 @@
 <td><a href="https://admin.cullinos.com">https://admin.cullinos.com</a></td>
 </tr>
 <tr>
+<td>Admin Portal POS</td>
+<td><a href="https://admin.cullinos.com/pos">https://admin.cullinos.com/pos</a></td>
+</tr>
+<tr>
 <td>Management</td>
 <td><a href="https://manage.cullinos.com">https://manage.cullinos.com</a></td>
 </tr>
 <tr>
 <td>Waiter</td>
 <td><a href="https://waiter.cullinos.com">https://waiter.cullinos.com</a></td>
+</tr>
+<tr>
+<td>POS</td>
+<td><a href="https://pos.cullinos.com">https://pos.cullinos.com</a></td>
+</tr>
+<tr>
+<td>KDS</td>
+<td><a href="https://kds.cullinos.com">https://kds.cullinos.com</a></td>
 </tr>
 <tr>
 <td>Customer storefront</td>
@@ -208,6 +223,14 @@
 <td>Kitchen Order Ticket — order sent to kitchen</td>
 </tr>
 <tr>
+<td><strong>CDS</strong></td>
+<td>Customer / Order Display — preparing &amp; ready board</td>
+</tr>
+<tr>
+<td><strong>Portal POS</strong></td>
+<td>Counter POS inside Admin at <code>/pos</code></td>
+</tr>
+<tr>
 <td><strong>JWT / Token</strong></td>
 <td>Secret login key used by API tools (Swagger)</td>
 </tr>
@@ -225,11 +248,11 @@
 </tr>
 <tr>
 <td><strong>Blocked</strong></td>
-<td>Cannot test (missing access, tool not installed)</td>
+<td>Cannot test (missing access, DNS, etc.)</td>
 </tr>
 <tr>
 <td><strong>N/A</strong></td>
-<td>Not applicable (e.g. payment not configured)</td>
+<td>Not applicable (e.g. payment not configured, business-type gated page)</td>
 </tr>
 <tr>
 <td><strong>Swagger</strong></td>
@@ -259,17 +282,17 @@
 </tr>
 <tr>
 <td><strong>Blocked</strong></td>
-<td>You cannot run the test (no Super Admin access, POS not installed)</td>
+<td>You cannot run the test (no Super Admin access, POS URL down)</td>
 </tr>
 <tr>
 <td><strong>N/A</strong></td>
-<td>Test does not apply (Razorpay pay-now without keys, only 1 outlet for comparison tests)</td>
+<td>Test does not apply (Razorpay without keys, Banquets on restaurant tenant, only 1 outlet for comparison)</td>
 </tr>
 </tbody></table>
 <hr>
 <h2 id="5-day-1--setup-phases-0-and-1">5. Day 1 — Setup (Phases 0 and 1)</h2>
-<p><strong>Goal:</strong> Confirm production works, create a test restaurant, add menu and staff.</p>
-<p><strong>Time:</strong> ~6–8 hours<br><strong>Apps:</strong> Super Admin, Admin<br><strong>Excel tests:</strong> TC-0-01 through TC-1.3-07</p>
+<p><strong>Goal:</strong> Confirm production works, create a test restaurant, add menu, tables, and staff.</p>
+<p><strong>Time:</strong> ~6–8 hours<br><strong>Apps:</strong> Super Admin, Admin<br><strong>Excel tests:</strong> TC-0-01 through TC-1.4-03</p>
 <h3 id="morning--preflight-phase-0">Morning — Preflight (Phase 0)</h3>
 <ol>
 <li>Open <a href="https://api.cullinos.com/api/v1/health">https://api.cullinos.com/api/v1/health</a>  <ul>
@@ -288,7 +311,7 @@
 <li><strong>Expected:</strong> Dashboard loads → mark TC-0-04 <strong>Pass</strong></li>
 </ul>
 </li>
-<li>Create a folder for this run (e.g. <code>RUN-20260902/</code>) and copy your Excel files there  <ul>
+<li>Create a folder for this run (e.g. <code>RUN-20260906/</code>) and copy your Excel files there  <ul>
 <li>Mark TC-0-05 <strong>Pass</strong></li>
 </ul>
 </li>
@@ -318,7 +341,7 @@
 <ol>
 <li>Go to <a href="https://admin.cullinos.com">https://admin.cullinos.com</a> — login with owner credentials → TC-1.2-01 <strong>Pass</strong></li>
 <li>Go to <strong>Setup</strong> (<code>/onboarding</code>) if not redirected → TC-1.2-02 <strong>Pass</strong></li>
-<li>Select business type: <strong>Restaurant</strong> → TC-1.2-03 <strong>Pass</strong></li>
+<li>Select business type: <strong>Restaurant</strong> (prefer <strong>medium</strong> or <strong>large</strong> size if asked, so Inventory / Loyalty / Recipes / Delivery appear) → TC-1.2-03 <strong>Pass</strong></li>
 <li>Complete wizard steps:<ul>
 <li>Business info: name, GSTIN test value <code>27AAAAA0000A1Z5</code></li>
 <li>Follow remaining steps (menu, tables, tax, staff guidance)</li>
@@ -330,43 +353,53 @@
 <li>Create <strong>4 or more items</strong> with different prices → TC-1.3-03 <strong>Pass</strong></li>
 </ul>
 </li>
+<li>Go to <strong>Tables</strong> (<code>/tables</code>):<ul>
+<li>Create at least <strong>2 tables</strong> (e.g. T1, T2) → TC-1.3-07 <strong>Pass</strong></li>
+</ul>
+</li>
 <li>Go to <strong>Staff</strong> (<code>/staff</code>):<ul>
-<li>Click <strong>Add staff member</strong></li>
-<li>Name, email, password, role: <strong>Waiter</strong>, assign main outlet → TC-1.3-04, TC-1.3-05 <strong>Pass</strong></li>
+<li>Add <strong>Waiter</strong>, assign main outlet → TC-1.3-04, TC-1.3-05 <strong>Pass</strong></li>
+<li>Add <strong>Cashier</strong>, assign main outlet → TC-1.3-08 <strong>Pass</strong></li>
 </ul>
 </li>
 <li>Go to <strong>Settings</strong> (<code>/settings</code>) — confirm businessType is correct → TC-1.3-06 <strong>Pass</strong></li>
-<li><strong>If Waiter will need tables (Day 2):</strong> If Admin Tables page is empty, create tables via Swagger (see Section 9) → TC-1.3-07 <strong>Pass</strong> or <strong>N/A</strong> if tables already exist</li>
+</ol>
+<h3 id="auth-recovery-phase-14">Auth recovery (Phase 1.4)</h3>
+<ol>
+<li>Log out → open <a href="https://admin.cullinos.com/forgot-password">https://admin.cullinos.com/forgot-password</a> — enter owner email → TC-1.4-01 <strong>Pass</strong> (page accepts email; mailbox delivery optional)</li>
+<li>Open <a href="https://platform.cullinos.com/forgot-password">https://platform.cullinos.com/forgot-password</a> — enter Super Admin email → TC-1.4-02 <strong>Pass</strong></li>
+<li>Log in as owner → open <code>/change-password</code> → TC-1.4-03 <strong>Pass</strong> (page loads; changing password optional)</li>
 </ol>
 <p><strong>End of Day 1:</strong> All Phase 0 and Phase 1 rows marked in Excel. Credentials Log filled (no real passwords — use &quot;PM entry #&quot; only).</p>
 <hr>
 <h2 id="6-day-2--orders-phase-2">6. Day 2 — Orders (Phase 2)</h2>
-<p><strong>Goal:</strong> Test real order flows — waiter, customer, optional KDS/POS.<br><strong>Time:</strong> ~6–8 hours<br><strong>Apps:</strong> Waiter, Customer (incognito), Admin, optional local KDS/POS<br><strong>Excel tests:</strong> TC-2.1-01 through TC-2.4-04</p>
+<p><strong>Goal:</strong> Test real order flows — waiter, POS, KDS, customer, CDS, Portal POS.<br><strong>Time:</strong> ~6–8 hours<br><strong>Apps:</strong> Waiter, POS, KDS, Customer (incognito), Admin<br><strong>Excel tests:</strong> TC-2.1-01 through TC-2.6-02</p>
 <h3 id="61-waiter-dine-in-order-tc-21-xx">6.1 Waiter dine-in order (TC-2.1-xx)</h3>
 <ol>
 <li>Go to <a href="https://waiter.cullinos.com">https://waiter.cullinos.com</a> — login as Waiter staff → TC-2.1-01 <strong>Pass</strong></li>
 <li>Select main outlet → TC-2.1-02 <strong>Pass</strong></li>
 <li>Check table grid shows tables → TC-2.1-03 <strong>Pass</strong>  <ul>
-<li>If no tables: use Swagger to create tables (Section 9) or mark <strong>Blocked</strong> and tell team lead</li>
+<li>If no tables: create them in Admin → Tables, or mark <strong>Blocked</strong> and tell team lead</li>
 </ul>
 </li>
 <li>Tap/open a table — menu should load → TC-2.1-04 <strong>Pass</strong></li>
 <li>Add 2 or more items → TC-2.1-05 <strong>Pass</strong></li>
 <li>Confirm order — note the order number → TC-2.1-06 <strong>Pass</strong></li>
-<li><strong>Optional KDS:</strong> If team lead set up local KDS (<code>http://localhost:5174?outletId=YOUR_OUTLET_ID</code>), check KOT appears within ~5 seconds → TC-2.1-07 <strong>Pass</strong> or <strong>Blocked</strong></li>
+<li>Open <a href="https://kds.cullinos.com">https://kds.cullinos.com</a> (kitchen login) — KOT appears within ~5 seconds → TC-2.1-07 <strong>Pass</strong> or <strong>Blocked</strong> if KDS URL unavailable</li>
 <li>In Admin → <strong>Orders</strong> (<code>/orders</code>) — find the dine-in order → TC-2.1-08 <strong>Pass</strong></li>
 <li>Verify order total matches items → TC-2.1-09 <strong>Pass</strong></li>
+<li>On a table: <strong>Show QR to customers</strong> — open link in phone/incognito → TC-2.1-10 <strong>Pass</strong></li>
+<li>Waiter <strong>End session</strong> — refresh guest link → expired → TC-2.1-11 <strong>Pass</strong></li>
 </ol>
-<h3 id="62-pos-counter--local-only-tc-22-xx">6.2 POS counter — local only (TC-2.2-xx)</h3>
-<p>Only if team lead installed local POS. Otherwise mark all TC-2.2-xx as <strong>Blocked</strong>.</p>
+<h3 id="62-pos-counter--production-tc-22-xx">6.2 POS counter — production (TC-2.2-xx)</h3>
 <ol>
-<li>Open <a href="http://localhost:5173">http://localhost:5173</a> — login as Cashier (create in Admin → Staff if needed)</li>
-<li>Add items, check cart subtotal</li>
-<li>Set order type to takeaway</li>
-<li>Hold order, then resume it</li>
-<li>Checkout (quick order)</li>
+<li>Open <a href="https://pos.cullinos.com">https://pos.cullinos.com</a> — login as Cashier → TC-2.2-01, TC-2.2-02 <strong>Pass</strong></li>
+<li>Add items, check cart subtotal → TC-2.2-03 <strong>Pass</strong></li>
+<li>Set order type to takeaway → TC-2.2-04 <strong>Pass</strong></li>
+<li>Hold order, then resume it → TC-2.2-05, TC-2.2-06 <strong>Pass</strong></li>
+<li>Checkout (quick order) → TC-2.2-07 <strong>Pass</strong></li>
 </ol>
-<p>Mark each step Pass/Fail/Blocked in Excel.</p>
+<p>If POS URL is down, mark <strong>Blocked</strong> (local fallback is optional — see Section 10).</p>
 <h3 id="63-guest-online-order-tc-23-xx">6.3 Guest online order (TC-2.3-xx)</h3>
 <p>Use <strong>Incognito</strong> window — you are a customer with no login.</p>
 <ol>
@@ -379,18 +412,30 @@
 <li>Admin → Orders — online/QR order visible → TC-2.3-08 <strong>Pass</strong></li>
 <li>Retry storefront with <code>?table=T1</code> on URL if table T1 exists → TC-2.3-09 <strong>Pass</strong> or <strong>N/A</strong></li>
 <li><strong>Pay now (Razorpay):</strong> Mark TC-2.3-10 <strong>N/A</strong> unless team lead confirms payment keys are configured</li>
+<li>Open <strong>customer login</strong> control/modal — opens without blocking guest checkout → TC-2.3-11 <strong>Pass</strong></li>
 </ol>
-<h3 id="64-pickup-queue-tc-24-xx">6.4 Pickup queue (TC-2.4-xx)</h3>
+<h3 id="64-order-display--cds-tc-24-xx">6.4 Order Display / CDS (TC-2.4-xx)</h3>
 <ol>
-<li>Admin → <strong>Pickup Queue</strong> (<code>/pickup-queue</code>) — page loads → TC-2.4-01 <strong>Pass</strong></li>
-<li>Copy KDS pickup URL and open it → TC-2.4-02 <strong>Pass</strong> or <strong>Blocked</strong> if no local KDS</li>
+<li>Admin → <strong>Order Display</strong> (<code>/cds</code>) — page loads → TC-2.4-01 <strong>Pass</strong><br>(<code>/pickup-queue</code> redirects here — that is expected)</li>
+<li>Copy display URL and open it → TC-2.4-02 <strong>Pass</strong> or <strong>Blocked</strong></li>
 <li>Place a counter/online order — appears in Preparing → TC-2.4-03 <strong>Pass</strong> or <strong>N/A</strong></li>
 <li>Mark ready — moves to Ready column → TC-2.4-04 <strong>Pass</strong> or <strong>N/A</strong></li>
 </ol>
-<p>For restaurant-only setup, pickup tests may be <strong>N/A</strong>.</p>
+<h3 id="65-admin-portal-pos-tc-25-xx">6.5 Admin Portal POS (TC-2.5-xx)</h3>
+<ol>
+<li>As owner, open <a href="https://admin.cullinos.com/pos">https://admin.cullinos.com/pos</a> → TC-2.5-01 <strong>Pass</strong></li>
+<li>Add items — subtotal correct → TC-2.5-02 <strong>Pass</strong></li>
+<li>Hold and resume → TC-2.5-03 <strong>Pass</strong></li>
+<li>Checkout confirms → TC-2.5-04 <strong>Pass</strong></li>
+</ol>
+<h3 id="66-digital-ordering-launcher-tc-26-xx">6.6 Digital Ordering launcher (TC-2.6-xx)</h3>
+<ol>
+<li>Admin → <strong>Digital Ordering</strong> (<code>/kiosk</code>) → TC-2.6-01 <strong>Pass</strong></li>
+<li>Launcher shows a usable storefront / kiosk URL → TC-2.6-02 <strong>Pass</strong></li>
+</ol>
 <hr>
 <h2 id="7-day-3--back-office-and-platform-phases-3-4-5">7. Day 3 — Back office and platform (Phases 3, 4, 5)</h2>
-<p><strong>Goal:</strong> Test Admin modules, Management, Super Admin.<br><strong>Time:</strong> ~6–8 hours<br><strong>Apps:</strong> Admin, Management, Super Admin</p>
+<p><strong>Goal:</strong> Test Admin modules (including new pages), Management, Super Admin.<br><strong>Time:</strong> ~6–8 hours<br><strong>Apps:</strong> Admin, Management, Super Admin</p>
 <h3 id="71-admin-back-office-tc-3-xx">7.1 Admin back office (TC-3-xx)</h3>
 <p>Login as <strong>Owner</strong> at <a href="https://admin.cullinos.com">https://admin.cullinos.com</a>. Visit each page and verify:</p>
 <table>
@@ -419,17 +464,42 @@
 <tr>
 <td>Tables</td>
 <td><code>/tables</code></td>
-<td>Page loads (placeholder UI — <strong>not a bug</strong>)</td>
+<td>Create/edit a table (real UI)</td>
 </tr>
 <tr>
 <td>Inventory</td>
 <td><code>/inventory</code></td>
-<td>Page loads (placeholder UI — <strong>not a bug</strong>)</td>
+<td>List stock; add or adjust an item</td>
 </tr>
 <tr>
 <td>Customers</td>
 <td><code>/customers</code></td>
-<td>Loyalty tiers and coupons lists load</td>
+<td>Loyalty tiers and coupons lists load (see §7.4)</td>
+</tr>
+<tr>
+<td>Loyalty</td>
+<td><code>/loyalty</code></td>
+<td>Page loads</td>
+</tr>
+<tr>
+<td>Recipes</td>
+<td><code>/recipes</code></td>
+<td>Create recipe; appears in list</td>
+</tr>
+<tr>
+<td>Delivery</td>
+<td><code>/delivery</code></td>
+<td>Page / list loads</td>
+</tr>
+<tr>
+<td>Promo Email</td>
+<td><code>/promo-email</code></td>
+<td>Page loads; compose draft or send without crash</td>
+</tr>
+<tr>
+<td>Billing</td>
+<td><code>/billing</code></td>
+<td>Page loads</td>
 </tr>
 <tr>
 <td>Events</td>
@@ -442,14 +512,44 @@
 <td>Schedule/complete batch if applicable, else <strong>N/A</strong></td>
 </tr>
 <tr>
-<td>Pickup Queue</td>
-<td><code>/pickup-queue</code></td>
+<td>Kitchen Display</td>
+<td><code>/kds</code></td>
+<td>Launcher opens usable KDS URL</td>
+</tr>
+<tr>
+<td>Order Display</td>
+<td><code>/cds</code></td>
 <td>URL includes correct outletId</td>
+</tr>
+<tr>
+<td>Digital Ordering</td>
+<td><code>/kiosk</code></td>
+<td>Storefront URL shown</td>
+</tr>
+<tr>
+<td>Banquets</td>
+<td><code>/banquets</code></td>
+<td><strong>N/A</strong> on restaurant tenant (or Pass if visible)</td>
+</tr>
+<tr>
+<td>Brands</td>
+<td><code>/brands</code></td>
+<td><strong>N/A</strong> on restaurant tenant</td>
+</tr>
+<tr>
+<td>Guests</td>
+<td><code>/hospitality/guests</code></td>
+<td><strong>N/A</strong> on restaurant tenant</td>
+</tr>
+<tr>
+<td>Rooms</td>
+<td><code>/hospitality/rooms</code></td>
+<td><strong>N/A</strong> on restaurant tenant</td>
 </tr>
 <tr>
 <td>Staff</td>
 <td><code>/staff</code></td>
-<td>Waiter employee listed</td>
+<td>Waiter + Cashier listed; Waiter without POS denied <code>/pos</code></td>
 </tr>
 <tr>
 <td>Reports</td>
@@ -467,7 +567,7 @@
 <td>Logout and re-login works</td>
 </tr>
 </tbody></table>
-<p>Mark TC-3-01 through TC-3-22 in Excel.</p>
+<p>Mark TC-3-01 through TC-3-36 in Excel.</p>
 <h3 id="72-enterprise-management-tc-4-xx">7.2 Enterprise Management (TC-4-xx)</h3>
 <p>Login as <strong>Owner</strong> at <a href="https://manage.cullinos.com">https://manage.cullinos.com</a>.</p>
 <ol>
@@ -478,13 +578,41 @@
 <li>Franchise page loads → TC-4-07 <strong>Pass</strong></li>
 <li>If needed, add second outlet via Swagger → TC-4-08</li>
 </ol>
+<h3 id="74-crm--loyalty-tc-3-xx">7.4 CRM &amp; Loyalty (TC-3-xx)</h3>
+<p><strong>Background:</strong> The Admin Customers page is read-only — it displays loyalty tiers and active coupons. There is no UI button to add stamps; stamps are added via API (Swagger). Also open Admin <strong>Loyalty</strong> (<code>/loyalty</code>) for TC-3-25.</p>
+<p><strong>Pre-seeded data (demo org):</strong></p>
+<ul>
+<li>Loyalty tier: Stamp Card — 10 stamps = 100 points = free drink reward</li>
+<li>Coupon: <code>WELCOME10</code> — 10% off, minimum order ₹200</li>
+</ul>
+<p><strong>Stamp test steps:</strong></p>
+<ol>
+<li>Place an order via the Customer app so a customer record exists.</li>
+<li>Open Swagger at <code>https://api.cullinos.com/docs</code>.</li>
+<li>Click <strong>Authorize</strong> — paste your owner Bearer token.</li>
+<li><code>GET /api/v1/customers</code> → find the customer <code>id</code> from the response.</li>
+<li><code>POST /api/v1/loyalty/customers/{customerId}/stamp</code> — execute 10 times.</li>
+<li>After 10 stamps the tier reward triggers automatically (100 loyalty points, stamp count resets).</li>
+<li>Admin Customers page → Loyalty tiers section shows the tier → <strong>Pass</strong>.</li>
+</ol>
+<p><strong>Coupon test steps:</strong></p>
+<ol>
+<li>Add items to cart in Customer app totalling ≥ ₹200.</li>
+<li>At checkout enter coupon code <strong><code>WELCOME10</code></strong>.</li>
+<li>Verify 10% discount is applied → <strong>Pass</strong>.</li>
+</ol>
+<hr>
 <h3 id="73-super-admin-platform-tc-5-xx">7.3 Super Admin platform (TC-5-xx)</h3>
 <p>Login at <a href="https://platform.cullinos.com">https://platform.cullinos.com</a>. <strong>Use QA test tenant only</strong> for destructive tests.</p>
 <ol>
 <li>Find QA tenant in list → TC-5-01 <strong>Pass</strong></li>
 <li>Subscriptions — change plan for QA tenant → TC-5-02, TC-5-03 <strong>Pass</strong></li>
 <li>System Health — metrics load → TC-5-04 <strong>Pass</strong></li>
-<li>Marketing section — open each editor (Hero, Pages, Theme, Pricing, Navigation, Blog, Media) → TC-5-05 through TC-5-12 <strong>Pass</strong></li>
+<li><strong>Plans</strong> (<code>/plans</code>) → TC-5-15 <strong>Pass</strong></li>
+<li><strong>Promo Email</strong> (<code>/promo-email</code>) → TC-5-16 <strong>Pass</strong></li>
+<li><strong>Settings</strong> (<code>/settings</code>) → TC-5-19 <strong>Pass</strong></li>
+<li>Marketing section — open each editor (Hero, Pages, Theme, Pricing, Navigation, Blog, Media, Testimonials, Design Lab) → TC-5-05 through TC-5-12, TC-5-17, TC-5-18 <strong>Pass</strong></li>
+<li>Logged out: <code>/forgot-password</code> → TC-5-20 <strong>Pass</strong></li>
 <li><strong>Destructive (QA tenant only):</strong><ul>
 <li>Suspend tenant — owner cannot login to Admin → TC-5-13 <strong>Pass</strong></li>
 <li>Reactivate tenant — owner can login again → TC-5-14 <strong>Pass</strong></li>
@@ -572,9 +700,10 @@
 <p>Mark TC-6-01 through TC-6-16. Contact form: submit is OK, or graceful error without crash → TC-6-08.</p>
 <h3 id="82-api-smoke-tests-via-swagger-tc-7-xx">8.2 API smoke tests via Swagger (TC-7-xx)</h3>
 <p>See <strong>Section 9 — Swagger mini-guide</strong> below. Run each API check and mark TC-7-01 through TC-7-14.</p>
+<p>Recipes, Delivery, and Hospitality also have Admin UIs — Swagger is still a valid smoke path.</p>
 <hr>
 <h2 id="9-swagger-mini-guide-for-day-4">9. Swagger mini-guide (for Day 4)</h2>
-<p>Swagger lets you test backend features that have no website UI yet.</p>
+<p>Swagger lets you test backend features and create data when needed.</p>
 <h3 id="step-a--get-your-login-token-jwt">Step A — Get your login token (JWT)</h3>
 <ol>
 <li>Login to <strong>Admin</strong> as Owner at <a href="https://admin.cullinos.com">https://admin.cullinos.com</a></li>
@@ -669,7 +798,8 @@
 </tr>
 </tbody></table>
 <p>Write HTTP status codes in the <strong>Notes</strong> column of your Test Run Sheet.</p>
-<h3 id="step-d--create-tables-via-swagger-if-waiter-has-no-tables">Step D — Create tables via Swagger (if Waiter has no tables)</h3>
+<h3 id="step-d--create-tables-via-swagger-fallback-only">Step D — Create tables via Swagger (fallback only)</h3>
+<p>Prefer Admin → <strong>Tables</strong>. Use Swagger only if the UI fails:</p>
 <ol>
 <li>With Swagger authorized (Step B), find <strong>Tables</strong> → <code>POST /api/v1/tables</code></li>
 <li>Click <strong>Try it out</strong></li>
@@ -681,12 +811,11 @@
 </code></pre>
 </li>
 <li>Click <strong>Execute</strong> — expect HTTP 201</li>
-<li>Repeat for T2 if needed</li>
 </ol>
 <p>Get <code>outletId</code> from CREDENTIALS_LOG or Admin Settings.</p>
 <hr>
-<h2 id="10-optional--local-pos-and-kds">10. Optional — Local POS and KDS</h2>
-<p>POS and KDS are <strong>not</strong> on the public internet. Ask your team lead to help set these up, or mark POS/KDS tests as <strong>Blocked</strong>.</p>
+<h2 id="10-optional--local-pos-and-kds-fallback">10. Optional — Local POS and KDS fallback</h2>
+<p>Production URLs are preferred (<code>pos.cullinos.com</code>, <code>kds.cullinos.com</code>). Use local only if production apps are down and your team lead asks you to.</p>
 <p><strong>Only if Node.js and the project are installed on your PC:</strong></p>
 <pre><code class="language-bash"># Terminal 1 — POS
 cd path\to\cullinos
@@ -700,7 +829,7 @@ set VITE_WS_URL=https://api.cullinos.com
 npm run dev --workspace=@cullinos/kds
 </code></pre>
 <ul>
-<li>POS: <a href="http://localhost:5173">http://localhost:5173</a> (login as <strong>Cashier</strong> — create in Admin → Staff)</li>
+<li>POS: <a href="http://localhost:5173">http://localhost:5173</a> (login as <strong>Cashier</strong>)</li>
 <li>KDS: <a href="http://localhost:5174?outletId=**YOUR_OUTLET_ID">http://localhost:5174?outletId=**YOUR_OUTLET_ID</a>**</li>
 </ul>
 <hr>
@@ -714,34 +843,27 @@ npm run dev --workspace=@cullinos/kds
 </tr>
 </thead>
 <tbody><tr>
-<td>Admin Tables page</td>
-<td>Placeholder UI — use Waiter + Swagger for tables</td>
-</tr>
-<tr>
-<td>Admin Inventory page</td>
-<td>Placeholder UI — use Swagger for inventory</td>
-</tr>
-<tr>
-<td>POS/KDS on production URLs</td>
-<td>Local apps only — run on your PC or mark Blocked</td>
-</tr>
-<tr>
 <td>Razorpay pay-now</td>
 <td>Needs payment keys — use Pay later instead</td>
 </tr>
 <tr>
-<td>Gateway offline sync</td>
-<td>Needs Electron app on restaurant LAN</td>
+<td>Banquets / Brands / Guests / Rooms</td>
+<td>Hidden for restaurant business type — mark N/A</td>
 </tr>
 <tr>
 <td>Outlet comparison with 1 outlet</td>
 <td>Needs 2+ outlets — mark N/A or add outlet via API</td>
 </tr>
 <tr>
-<td>Staff password reset in UI</td>
-<td>May not exist — note if missing, do not fail unless spec says otherwise</td>
+<td>Gateway offline sync</td>
+<td>Needs Electron app on restaurant LAN</td>
+</tr>
+<tr>
+<td>Marketing CMS publish</td>
+<td>Do not publish to live site without team lead approval</td>
 </tr>
 </tbody></table>
+<p><strong>No longer limitations:</strong> Admin Tables, Admin Inventory, and hosted POS/KDS are real features — failures there are bugs.</p>
 <hr>
 <h2 id="12-how-to-report-a-bug">12. How to report a bug</h2>
 <p>When any test is <strong>Fail</strong>:</p>
@@ -793,7 +915,7 @@ npm run dev --workspace=@cullinos/kds
 <h2 id="13-sign-off-last-day">13. Sign-off (last day)</h2>
 <p>Before sending work to your team lead:</p>
 <ul>
-<li><input disabled="" type="checkbox"> All 127 test cases marked Pass / Fail / Blocked / N/A in TEST_RUN_SHEET.xlsx</li>
+<li><input disabled="" type="checkbox"> All 160 test cases marked Pass / Fail / Blocked / N/A in TEST_RUN_SHEET.xlsx</li>
 <li><input disabled="" type="checkbox"> Summary sheet counts look correct</li>
 <li><input disabled="" type="checkbox"> Every <strong>Fail</strong> has a row in BUG_LOG.xlsx</li>
 <li><input disabled="" type="checkbox"> CREDENTIALS_LOG.xlsx filled (no real passwords)</li>
@@ -804,7 +926,7 @@ npm run dev --workspace=@cullinos/kds
 <hr>
 <h2 id="14-need-help">14. Need help?</h2>
 <ol>
-<li>Check the <strong>Quick Reference Card</strong> (1-page PDF)</li>
+<li>Check the <strong>Quick Reference Card</strong> (1-page PDF) and <strong>What&#39;s New</strong></li>
 <li>Ask your team lead for Super Admin access or outlet IDs</li>
 <li>Mark tests <strong>Blocked</strong> if you are stuck — do not guess Pass/Fail</li>
 <li>Read <code>EMPLOYEE_BRIEF.pdf</code> for job expectations and rules</li>

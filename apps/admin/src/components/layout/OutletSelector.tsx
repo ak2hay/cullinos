@@ -13,7 +13,11 @@ export function OutletSelector() {
   });
 
   useEffect(() => {
-    if (!selectedOutletId && outlets.length > 0) {
+    if (outlets.length === 0) return;
+    const stillValid =
+      selectedOutletId != null && outlets.some((o) => o.id === selectedOutletId);
+    // Stale IDs (e.g. after re-seed) still render a label in some browsers but fail API calls.
+    if (!stillValid) {
       setSelectedOutlet(outlets[0].id);
     }
   }, [outlets, selectedOutletId, setSelectedOutlet]);

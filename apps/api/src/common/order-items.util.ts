@@ -105,14 +105,18 @@ function toRupeesFromClient(price: number): number {
 export function mapOrderToClient(order: {
   id: string;
   orderNumber: string;
+  pickupCode?: string | null;
   status: string;
+  source?: string;
   tableId: string | null;
   outletId: string;
   subtotal: unknown;
   total?: unknown;
   tipAmount?: unknown;
   customerName?: string | null;
+  notes?: string | null;
   scheduledPickupAt?: Date | null;
+  readyAt?: Date | null;
   type?: string;
   createdAt?: Date;
   items?: Array<{
@@ -126,12 +130,16 @@ export function mapOrderToClient(order: {
   return {
     id: order.id,
     orderNumber: order.orderNumber,
+    pickupCode: order.pickupCode ?? null,
     status: order.status.toUpperCase(),
+    source: order.source?.toUpperCase(),
     tableId: order.tableId,
     outletId: order.outletId,
     type: order.type?.toUpperCase(),
     customerName: order.customerName,
+    notes: order.notes ?? null,
     scheduledPickupAt: order.scheduledPickupAt?.toISOString(),
+    readyAt: order.readyAt?.toISOString() ?? null,
     subtotal: toPaise(Number(order.subtotal)),
     tipAmount: order.tipAmount != null ? toPaise(Number(order.tipAmount)) : 0,
     total: order.total != null ? toPaise(Number(order.total)) : undefined,

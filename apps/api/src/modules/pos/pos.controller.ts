@@ -19,6 +19,7 @@ export class PosController {
       source: (body.source as string) ?? "POS",
       type: (body.type as string) ?? undefined,
       tableId: body.tableId as string | undefined,
+      customerId: body.customerId as string | undefined,
       customerName: body.customerName as string | undefined,
       tipAmount: body.tipAmount as number | undefined,
       notes: body.notes as string | undefined,

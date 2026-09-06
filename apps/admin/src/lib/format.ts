@@ -15,3 +15,7 @@ export function formatDate(iso: string): string {
     timeStyle: 'short',
   });
 }
+
+export function generateIdempotencyKey(): string {
+  return crypto.randomUUID();
+}

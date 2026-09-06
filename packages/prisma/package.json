@@ -9,6 +9,9 @@
     "push": "prisma db push",
     "migrate": "prisma migrate dev",
     "seed": "tsx prisma/seed.ts",
+    "seed:demo": "SEED_DEMO=true tsx prisma/seed.ts",
+    "seed:org-menu": "tsx prisma/seed-org-menu.ts",
+    "clear-demo": "tsx prisma/clear-demo-data.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },

@@ -24,7 +24,8 @@
 <p><strong>Role:</strong> Manual QA Tester (Production)<br><strong>Duration:</strong> ~4 days (6–8 hours per day)<br><strong>Environment:</strong> Production (cullinos.com)</p>
 <hr>
 <h2 id="your-goal">Your goal</h2>
-<p>Test all <strong>127 test cases</strong> on the live Cullinos platform. Record results in Excel. Log every failure with steps and screenshots. Return completed work to your team lead.</p>
+<p>Test all <strong>160 test cases</strong> on the live Cullinos platform. Record results in Excel. Log every failure with steps and screenshots. Return completed work to your team lead.</p>
+<p>Read <strong>Whats_New.pdf</strong> first for features added in this cycle.</p>
 <hr>
 <h2 id="what-you-will-receive">What you will receive</h2>
 <table>
@@ -37,26 +38,31 @@
 </thead>
 <tbody><tr>
 <td>1</td>
-<td>QA_Tester_Handbook.pdf</td>
-<td>Step-by-step instructions — <strong>read first</strong></td>
+<td>Whats_New.pdf</td>
+<td>New features checklist — read first</td>
 </tr>
 <tr>
 <td>2</td>
+<td>QA_Tester_Handbook.pdf</td>
+<td>Step-by-step instructions</td>
+</tr>
+<tr>
+<td>3</td>
 <td>Quick_Reference_Card.pdf</td>
 <td>1-page desk reference</td>
 </tr>
 <tr>
-<td>3</td>
+<td>4</td>
 <td>TEST_RUN_SHEET.xlsx</td>
 <td>Mark Pass / Fail / Blocked / N/A for each test</td>
 </tr>
 <tr>
-<td>4</td>
+<td>5</td>
 <td>BUG_LOG.xlsx</td>
 <td>One row per bug found</td>
 </tr>
 <tr>
-<td>5</td>
+<td>6</td>
 <td>CREDENTIALS_LOG.xlsx</td>
 <td>Record URLs, slugs, IDs (no real passwords)</td>
 </tr>
@@ -74,17 +80,17 @@
 </thead>
 <tbody><tr>
 <td><strong>1</strong></td>
-<td>Health checks, create test restaurant, menu, 1 waiter staff</td>
+<td>Health checks, create test restaurant, menu, tables, Waiter + Cashier</td>
 <td>Phase 0 + 1 rows filled in Excel</td>
 </tr>
 <tr>
 <td><strong>2</strong></td>
-<td>Waiter orders, guest checkout, optional KDS/POS</td>
+<td>Waiter, POS, KDS, guest checkout, CDS, Portal POS</td>
 <td>Phase 2 rows filled</td>
 </tr>
 <tr>
 <td><strong>3</strong></td>
-<td>Admin modules, Management, Super Admin</td>
+<td>Admin modules (including new pages), Management, Super Admin</td>
 <td>Phase 3 + 4 + 5 rows filled</td>
 </tr>
 <tr>
@@ -96,7 +102,7 @@
 <hr>
 <h2 id="your-deliverables-end-of-day-4">Your deliverables (end of Day 4)</h2>
 <ol>
-<li><strong>TEST_RUN_SHEET.xlsx</strong> — all 127 test cases marked; Summary and Sign-off sheets complete</li>
+<li><strong>TEST_RUN_SHEET.xlsx</strong> — all 160 test cases marked; Summary and Sign-off sheets complete</li>
 <li><strong>BUG_LOG.xlsx</strong> — every Fail has a bug row with steps, expected, actual, screenshot path</li>
 <li><strong>CREDENTIALS_LOG.xlsx</strong> — org slug, outlet slug, outlet ID, emails (password refs only)</li>
 <li><strong>evidence/</strong> folder — PNG screenshots named like <code>BUG-001-screenshot.png</code></li>
@@ -121,11 +127,11 @@
 </tr>
 <tr>
 <td><strong>Blocked</strong></td>
-<td>You cannot run the test (no access, POS not installed, etc.)</td>
+<td>You cannot run the test (no access, URL down, etc.)</td>
 </tr>
 <tr>
 <td><strong>N/A</strong></td>
-<td>Test does not apply (e.g. Razorpay without keys, 1 outlet for comparison)</td>
+<td>Test does not apply (e.g. Razorpay without keys, Banquets on restaurant tenant)</td>
 </tr>
 </tbody></table>
 <p><strong>Rule:</strong> Mark tests the <strong>same day</strong> you run them. Do not leave rows blank.</p>
@@ -136,6 +142,7 @@
 <li>Health check URLs return errors</li>
 <li>&quot;Failed to fetch&quot; on login pages</li>
 <li>You cannot create tables and Waiter shows empty grid</li>
+<li>POS or KDS production URL does not load</li>
 <li>Swagger returns 401 after following the JWT guide</li>
 <li>Unsure if something is a bug or a known limitation</li>
 </ul>
@@ -162,10 +169,6 @@
 <td>Needs team lead approval</td>
 </tr>
 <tr>
-<td>Mark Fail for Admin Tables/Inventory placeholders</td>
-<td>Documented known limitations</td>
-</tr>
-<tr>
 <td>Skip Fail tests without logging a bug</td>
 <td>Every Fail needs a BUG_LOG row</td>
 </tr>
@@ -178,11 +181,12 @@
 <h2 id="known-limitations-not-bugs">Known limitations (not bugs)</h2>
 <p>These are expected. Mark <strong>N/A</strong> or note in bug log as &quot;Known limitation&quot;:</p>
 <ul>
-<li>Admin <strong>Tables</strong> and <strong>Inventory</strong> pages are placeholders</li>
-<li><strong>POS</strong> and <strong>KDS</strong> run locally only (not on cullinos.com URLs)</li>
 <li><strong>Pay now (Razorpay)</strong> needs payment keys — use Pay later</li>
 <li><strong>Outlet comparison</strong> needs 2+ outlets</li>
+<li><strong>Banquets / Brands / Guests / Rooms</strong> often hidden on restaurant business type</li>
+<li>Marketing CMS <strong>publish</strong> needs team lead approval</li>
 </ul>
+<p>Admin <strong>Tables</strong>, <strong>Inventory</strong>, and hosted <strong>POS/KDS</strong> are real features — failures there are bugs.</p>
 <p>Full list is in the Tester Handbook Section 11.</p>
 <hr>
 <h2 id="skills-needed">Skills needed</h2>
@@ -200,7 +204,7 @@
 <hr>
 <h2 id="quick-start-first-30-minutes">Quick start (first 30 minutes)</h2>
 <ol>
-<li>Read Quick Reference Card</li>
+<li>Read Whats New + Quick Reference Card</li>
 <li>Open health URL — confirm API is up</li>
 <li>Login to Super Admin (credentials from team lead)</li>
 <li>Onboard test restaurant (enterprise plan)</li>

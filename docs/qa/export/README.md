@@ -10,6 +10,7 @@ npm run qa:export
 
 | File | Source |
 |------|--------|
+| Whats_New.pdf | WHATS_NEW.md |
 | QA_Tester_Handbook.pdf | TESTER_HANDBOOK.md |
 | Quick_Reference_Card.pdf | QUICK_REFERENCE_CARD.md |
 | Employee_Brief.pdf | EMPLOYEE_BRIEF.md |
@@ -22,7 +23,7 @@ HTML sources are always generated alongside PDFs for easy re-printing.
 
 | File | Purpose |
 |------|---------|
-| TEST_RUN_SHEET.xlsx | 127 test cases with Pass/Fail/Blocked/N/A dropdowns |
+| TEST_RUN_SHEET.xlsx | **160** test cases with Pass/Fail/Blocked/N/A dropdowns |
 | BUG_LOG.xlsx | Defect log with severity dropdowns |
 | CREDENTIALS_LOG.xlsx | Credential worksheet (no password columns) |
 

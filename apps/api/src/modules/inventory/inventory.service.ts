@@ -5,9 +5,28 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 
+const ALLOWED_INVENTORY_UNITS = new Set([
+  "kg",
+  "g",
+  "L",
+  "mL",
+  "pieces",
+  "bottles",
+]);
+
 @Injectable()
 export class InventoryService {
   constructor(private prisma: PrismaService) {}
+
+  private resolveUnit(unit?: string): string {
+    const value = unit?.trim() || "kg";
+    if (!ALLOWED_INVENTORY_UNITS.has(value)) {
+      throw new BadRequestException(
+        "Unit must be one of: kg, g, L, mL, pieces, bottles",
+      );
+    }
+    return value;
+  }
 
   list(orgId: string) {
     return this.prisma.inventoryItem.findMany({
@@ -62,7 +81,7 @@ export class InventoryService {
         outletId: data.outletId || null,
         name: data.name.trim(),
         sku: data.sku?.trim() || null,
-        unit: data.unit?.trim() || "kg",
+        unit: this.resolveUnit(data.unit),
         currentStock: data.currentStock ?? 0,
         reorderLevel: data.reorderLevel ?? 0,
       },
@@ -76,6 +95,86 @@ export class InventoryService {
       currentStock: Number(item.currentStock),
       reorderLevel: Number(item.reorderLevel),
       outletId: item.outletId,
+    };
+  }
+
+  async lowStock(orgId: string) {
+    const items = await this.prisma.inventoryItem.findMany({
+      where: { organizationId: orgId },
+      orderBy: { name: "asc" },
+      take: 500,
+    });
+
+    return items
+      .filter((item) => Number(item.currentStock) <= Number(item.reorderLevel))
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        sku: item.sku,
+        unit: item.unit,
+        currentStock: Number(item.currentStock),
+        reorderLevel: Number(item.reorderLevel),
+        outletId: item.outletId,
+      }));
+  }
+
+  async adjust(
+    orgId: string,
+    itemId: string,
+    data: { quantity: number; type: "in" | "out" | "waste"; notes?: string },
+  ) {
+    const qty = Number(data.quantity);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      throw new BadRequestException("quantity must be a positive number");
+    }
+    if (!["in", "out", "waste"].includes(data.type)) {
+      throw new BadRequestException("type must be in, out, or waste");
+    }
+
+    const item = await this.prisma.inventoryItem.findFirst({
+      where: { id: itemId, organizationId: orgId },
+    });
+    if (!item) throw new NotFoundException("Inventory item not found");
+
+    const current = Number(item.currentStock);
+    if (data.type !== "in" && current < qty) {
+      throw new BadRequestException("Insufficient stock");
+    }
+
+    const movementType =
+      data.type === "in" ? "purchase" : data.type === "waste" ? "wastage" : "sale";
+    const delta = data.type === "in" ? qty : -qty;
+
+    const [updated, movement] = await this.prisma.$transaction(async (tx) => {
+      const next = await tx.inventoryItem.update({
+        where: { id: item.id },
+        data: { currentStock: { increment: delta } },
+      });
+      const mov = await tx.stockMovement.create({
+        data: {
+          inventoryItemId: item.id,
+          type: movementType,
+          quantity: qty,
+          notes: data.notes?.trim() || null,
+        },
+      });
+      return [next, mov] as const;
+    });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      sku: updated.sku,
+      unit: updated.unit,
+      currentStock: Number(updated.currentStock),
+      reorderLevel: Number(updated.reorderLevel),
+      outletId: updated.outletId,
+      movement: {
+        id: movement.id,
+        type: movement.type,
+        quantity: Number(movement.quantity),
+        notes: movement.notes,
+      },
     };
   }
 

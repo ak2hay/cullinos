@@ -1,6 +1,9 @@
 import { Body, Controller, Get, Headers, Param, Patch, Post, UnauthorizedException } from "@nestjs/common";
 import { Public } from "../../common/decorators";
+import { generateTemporaryPassword } from "../../common/generate-password";
 import { TenantProvisioningService } from "../organizations/tenant-provisioning.service";
+import { MailService } from "../mail/mail.service";
+import { PlatformConfigService } from "../platform-config/platform-config.service";
 import { PrismaService } from "../../prisma/prisma.service";
 
 class ProvisionDto {
@@ -8,7 +11,7 @@ class ProvisionDto {
   companyName!: string;
   planSlug!: string;
   adminEmail!: string;
-  adminPassword!: string;
+  adminPassword?: string;
   outletName!: string;
   adminName?: string;
 }
@@ -18,10 +21,13 @@ export class InternalController {
   constructor(
     private provisioning: TenantProvisioningService,
     private prisma: PrismaService,
+    private mail: MailService,
+    private config: PlatformConfigService,
   ) {}
 
   private verifyKey(key: string | undefined) {
-    const expected = process.env.INTERNAL_API_KEY || "change-me-internal-provision-key";
+    const expected =
+      this.config.get("INTERNAL_API_KEY") || "change-me-internal-provision-key";
     if (key !== expected) throw new UnauthorizedException("Invalid internal API key");
   }
 
@@ -31,25 +37,41 @@ export class InternalController {
   async provision(@Headers("x-internal-key") key: string, @Body() dto: ProvisionDto) {
     this.verifyKey(key);
 
+    const temporaryPassword = dto.adminPassword?.trim() || generateTemporaryPassword();
+    const mustChangePassword = !dto.adminPassword?.trim();
+    const adminName = dto.adminName ?? "Owner";
+
     const result = await this.provisioning.provisionTenant({
       companyName: dto.companyName,
       planSlug: dto.planSlug,
       adminEmail: dto.adminEmail,
-      adminPassword: dto.adminPassword,
-      adminName: dto.adminName,
+      adminPassword: temporaryPassword,
+      adminName,
       outletName: dto.outletName,
       rkyvesClientId: dto.rkyvesClientId,
       status: "trial",
+      mustChangePassword,
     });
 
-    const webhookUrl = process.env.RKYVES_WEBHOOK_URL;
+    let emailSent = false;
+    if (mustChangePassword) {
+      emailSent = await this.mail.sendOwnerCredentials({
+        to: dto.adminEmail,
+        ownerName: adminName,
+        restaurantName: dto.companyName,
+        temporaryPassword,
+        adminUrl: result.adminUrl,
+      });
+    }
+
+    const webhookUrl = this.config.get("RKYVES_WEBHOOK_URL");
     if (webhookUrl) {
       try {
         await fetch(webhookUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-webhook-secret": process.env.RKYVES_WEBHOOK_SECRET || "",
+            "x-webhook-secret": this.config.get("RKYVES_WEBHOOK_SECRET") || "",
           },
           body: JSON.stringify({
             event: "tenant.ready",
@@ -72,6 +94,8 @@ export class InternalController {
       slug: result.organizationSlug,
       adminUrl: result.adminUrl,
       ownerEmail: result.ownerEmail,
+      temporaryPassword: mustChangePassword ? temporaryPassword : undefined,
+      emailSent,
     };
   }
 

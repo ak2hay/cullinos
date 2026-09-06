@@ -11,7 +11,7 @@ const DEFAULT_PLANS = [
     priceYearly: 29990,
     maxOutlets: 1,
     maxTerminals: 2,
-    modules: ["pos", "kds", "admin", "menu", "orders", "tables", "billing", "tax", "settings", "reports"],
+    modules: ["pos", "kds", "admin", "menu", "orders", "tables", "billing", "tax", "settings", "reports", "analytics"],
   },
   {
     slug: "qsr",
@@ -23,17 +23,21 @@ const DEFAULT_PLANS = [
     maxTerminals: 3,
     modules: [
       "pos",
+      "kds",
       "admin",
       "menu",
       "orders",
+      "tables",
       "billing",
       "tax",
       "customer",
       "loyalty",
+      "inventory",
       "events",
       "production",
       "settings",
       "reports",
+      "analytics",
     ],
   },
   {
@@ -53,13 +57,17 @@ const DEFAULT_PLANS = [
       "menu",
       "orders",
       "tables",
+      "billing",
+      "tax",
       "inventory",
       "crm",
       "loyalty",
+      "delivery",
       "events",
       "production",
       "settings",
       "reports",
+      "analytics",
     ],
   },
   {
@@ -110,10 +118,19 @@ export class PlanBootstrapService implements OnModuleInit {
     try {
       await this.upsertPlans();
       await this.syncSubscriptionEntitlements();
-      await this.saas.syncPlansToRazorpay();
     } catch (err) {
       this.logger.error(
         "Plan bootstrap failed — run db:seed manually. API will continue starting.",
+        err instanceof Error ? err.message : err,
+      );
+      return;
+    }
+
+    try {
+      await this.saas.syncPlansToRazorpay();
+    } catch (err) {
+      this.logger.warn(
+        "Razorpay plan sync failed after entitlement bootstrap — entitlements are still up to date.",
         err instanceof Error ? err.message : err,
       );
     }
@@ -154,7 +171,8 @@ export class PlanBootstrapService implements OnModuleInit {
 
   /**
    * For every active/trial subscription, insert any missing SubscriptionEntitlement
-   * rows that exist on the plan's features but not yet on the subscription.
+   * rows that exist on the plan's features but not yet on the subscription, and
+   * re-enable rows that were left disabled after plan modules were restored.
    * This syncs existing tenants after new modules are added to plans without
    * requiring a manual re-provision in Super Admin.
    */
@@ -169,9 +187,10 @@ export class PlanBootstrapService implements OnModuleInit {
 
     let synced = 0;
     for (const sub of subscriptions) {
-      const existing = new Set(sub.entitlements.map((e) => e.module));
+      const byModule = new Map(sub.entitlements.map((e) => [e.module, e]));
       for (const feature of sub.plan.features) {
-        if (!existing.has(feature.module)) {
+        const existing = byModule.get(feature.module);
+        if (!existing) {
           await this.prisma.subscriptionEntitlement.create({
             data: {
               subscriptionId: sub.id,
@@ -180,12 +199,20 @@ export class PlanBootstrapService implements OnModuleInit {
             },
           });
           synced++;
+          continue;
+        }
+        if (feature.enabled && !existing.enabled) {
+          await this.prisma.subscriptionEntitlement.update({
+            where: { id: existing.id },
+            data: { enabled: true },
+          });
+          synced++;
         }
       }
     }
 
     if (synced > 0) {
-      this.logger.log(`Synced ${synced} missing subscription entitlement(s) across ${subscriptions.length} subscription(s)`);
+      this.logger.log(`Synced ${synced} subscription entitlement(s) across ${subscriptions.length} subscription(s)`);
     }
   }
 }

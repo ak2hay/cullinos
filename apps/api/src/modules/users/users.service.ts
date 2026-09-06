@@ -137,4 +137,20 @@ export class UsersService {
       data: { status: "inactive" },
     });
   }
+
+  async activate(orgId: string, userId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId: orgId },
+      include: { userRoles: { include: { role: true } } },
+    });
+    if (!user) throw new NotFoundException("User not found");
+    if (user.userRoles.some((ur) => ur.role.slug === "owner")) {
+      throw new ForbiddenException("Cannot change status of the organization owner");
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { status: "active" },
+    });
+  }
 }

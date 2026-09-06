@@ -27,7 +27,7 @@ Global setup will:
 
 Fill in super admin credentials at minimum. Owner credentials are used for login tests; auto-provision creates `e2e-owner@cullinos.com` if needed.
 
-**Vercel frontends** must be built with `VITE_API_URL=https://api.cullinos.com/api/v1` or browser login tests show "Failed to fetch". Redeploy after updating env vars.
+**VM-hosted frontends** must be built with `VITE_API_URL=https://api.cullinos.com/api/v1` or browser login tests show "Failed to fetch". Rebuild/redeploy on the VM after updating env vars.
 
 ### 3. Install browsers (first time only)
 

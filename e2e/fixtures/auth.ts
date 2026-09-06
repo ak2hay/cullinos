@@ -31,7 +31,7 @@ export async function login(
     loginError.waitFor({ state: 'visible', timeout: 20_000 }).then(async () => {
       const message = (await loginError.first().textContent())?.trim() ?? 'Login failed';
       throw new Error(
-        `Login failed: ${message}. Check VITE_API_URL on Vercel is https://api.cullinos.com/api/v1`,
+        `Login failed: ${message}. Check VITE_API_URL on the VM build is https://api.cullinos.com/api/v1`,
       );
     }),
   ]);

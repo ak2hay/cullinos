@@ -10,14 +10,16 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
-  IsBoolean,
   IsDateString,
+  IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Min,
 } from 'class-validator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequireModule } from '../../common/decorators';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { HospitalityService } from './hospitality.service';
 
@@ -35,21 +37,33 @@ class CreateGuestDto {
 
   @IsOptional()
   @IsString()
-  roomNumber?: string;
-
-  @IsOptional()
-  @IsDateString()
-  checkInAt?: string;
+  documentType?: string;
 
   @IsOptional()
   @IsString()
-  notes?: string;
+  documentNumber?: string;
 }
 
-class UpdateGuestDto extends CreateGuestDto {
+class UpdateGuestDto {
   @IsOptional()
-  @IsDateString()
-  checkOutAt?: string;
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  documentType?: string;
+
+  @IsOptional()
+  @IsString()
+  documentNumber?: string;
 }
 
 class CreateRoomDto {
@@ -57,53 +71,48 @@ class CreateRoomDto {
   outletId!: string;
 
   @IsString()
+  roomTypeId!: string;
+
+  @IsString()
   number!: string;
 
   @IsOptional()
-  @IsString()
-  floor?: string;
-
-  @IsOptional()
-  @IsString()
-  type?: string;
+  @IsInt()
+  floor?: number;
 }
 
 class UpdateRoomDto {
   @IsOptional()
-  @IsString()
-  floor?: string;
+  @IsInt()
+  floor?: number;
 
   @IsOptional()
-  @IsString()
-  type?: string;
-
-  @IsOptional()
-  @IsString()
+  @IsIn(['available', 'occupied', 'maintenance', 'blocked'])
   status?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
 }
 
 class RoomPostingDto {
   @IsString()
-  orderId!: string;
-
-  @IsString()
   roomId!: string;
 
-  @IsInt()
-  @Min(1)
+  @IsString()
+  guestId!: string;
+
+  @IsNumber()
+  @Min(0)
   amount!: number;
+
+  @IsOptional()
+  @IsDateString()
+  checkIn?: string;
 }
 
 class CreateBanquetEventDto {
   @IsString()
-  outletId!: string;
+  banquetId!: string;
 
   @IsString()
-  name!: string;
+  guestId!: string;
 
   @IsDateString()
   eventDate!: string;
@@ -113,18 +122,20 @@ class CreateBanquetEventDto {
   guestCount!: number;
 
   @IsOptional()
-  @IsString()
-  notes?: string;
+  @IsNumber()
+  @Min(0)
+  total?: number;
 }
 
 class UpdateBanquetStatusDto {
-  @IsString()
+  @IsIn(['inquiry', 'confirmed', 'in_progress', 'completed', 'cancelled'])
   status!: string;
 }
 
 @ApiTags('hospitality')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
+@RequireModule('hotel')
 @Controller('hospitality')
 export class HospitalityController {
   constructor(private readonly hospitalityService: HospitalityService) {}
@@ -147,10 +158,7 @@ export class HospitalityController {
     @CurrentUser() user: { id: string; organizationId: string },
     @Body() dto: CreateGuestDto,
   ) {
-    return this.hospitalityService.createGuest(user.organizationId, user.id, {
-      ...dto,
-      checkInAt: dto.checkInAt ? new Date(dto.checkInAt) : undefined,
-    });
+    return this.hospitalityService.createGuest(user.organizationId, user.id, dto);
   }
 
   @Patch('guests/:id')
@@ -159,11 +167,7 @@ export class HospitalityController {
     @CurrentUser() user: { id: string; organizationId: string },
     @Body() dto: UpdateGuestDto,
   ) {
-    return this.hospitalityService.updateGuest(id, user.organizationId, user.id, {
-      ...dto,
-      checkInAt: dto.checkInAt ? new Date(dto.checkInAt) : undefined,
-      checkOutAt: dto.checkOutAt ? new Date(dto.checkOutAt) : undefined,
-    });
+    return this.hospitalityService.updateGuest(id, user.organizationId, user.id, dto);
   }
 
   @Post('guests/:id/checkout')
@@ -175,8 +179,11 @@ export class HospitalityController {
   }
 
   @Get('rooms')
-  findAllRooms(@Query('outletId') outletId: string) {
-    return this.hospitalityService.findAllRooms(outletId);
+  findAllRooms(
+    @CurrentUser('organizationId') organizationId: string,
+    @Query('outletId') outletId?: string,
+  ) {
+    return this.hospitalityService.findAllRooms(outletId ?? '', organizationId);
   }
 
   @Post('rooms')
@@ -201,7 +208,10 @@ export class HospitalityController {
     @CurrentUser() user: { id: string; organizationId: string },
     @Body() dto: RoomPostingDto,
   ) {
-    return this.hospitalityService.postToRoom(user.organizationId, user.id, dto);
+    return this.hospitalityService.postToRoom(user.organizationId, user.id, {
+      ...dto,
+      checkIn: dto.checkIn ? new Date(dto.checkIn) : undefined,
+    });
   }
 
   @Post('room-postings/:id/settle')
@@ -213,8 +223,11 @@ export class HospitalityController {
   }
 
   @Get('banquet-events')
-  findBanquetEvents(@Query('outletId') outletId: string) {
-    return this.hospitalityService.findBanquetEvents(outletId);
+  findBanquetEvents(
+    @CurrentUser('organizationId') organizationId: string,
+    @Query('banquetId') banquetId?: string,
+  ) {
+    return this.hospitalityService.findBanquetEvents(organizationId, banquetId);
   }
 
   @Post('banquet-events')

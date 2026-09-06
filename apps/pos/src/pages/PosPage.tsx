@@ -1,18 +1,46 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CartSidebar } from '@/components/pos/CartSidebar';
+import { CartSidebar, type PosCustomer } from '@/components/pos/CartSidebar';
 import { CategoryTabs } from '@/components/pos/CategoryTabs';
 import { HeldOrdersPanel } from '@/components/pos/HeldOrdersPanel';
 import { ItemGrid } from '@/components/pos/ItemGrid';
 import { KeyboardHints } from '@/components/pos/KeyboardHints';
 import { SearchBar } from '@/components/pos/SearchBar';
-import { CULLINOS_BRAND, menuApi, ordersApi, outletsApi, paymentsApi, posApi } from '@/lib/api';
+import {
+  CULLINOS_BRAND,
+  customersApi,
+  loyaltyApi,
+  menuApi,
+  ordersApi,
+  outletsApi,
+  paymentsApi,
+  posApi,
+} from '@/lib/api';
 import { openRazorpayCheckout } from '@/lib/razorpay-checkout';
 import { generateIdempotencyKey } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
 import { useCartStore } from '@/stores/cart';
 import { useHeldOrdersStore, type HeldOrder } from '@/stores/heldOrders';
+
+const RECENT_KEY = 'cullinos.pos.recentItemIds';
+
+function loadRecentIds(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function pushRecentId(id: string) {
+  const next = [id, ...loadRecentIds().filter((x) => x !== id)].slice(0, 8);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  return next;
+}
 
 export function PosPage() {
   const navigate = useNavigate();
@@ -38,9 +66,14 @@ export function PosPage() {
   const [heldPanelOpen, setHeldPanelOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [linkedCustomer, setLinkedCustomer] = useState<PosCustomer | null>(null);
   const [orderType, setOrderType] = useState<'takeaway' | 'dine_in'>('takeaway');
   const [tipAmount, setTipAmount] = useState(0);
+  const [redeemPoints, setRedeemPoints] = useState(0);
   const [unpaidOrder, setUnpaidOrder] = useState<{ id: string; orderNumber: string } | null>(null);
+  const [recentIds, setRecentIds] = useState<string[]>(() => loadRecentIds());
+  const redeemAppliedOrderId = useRef<string | null>(null);
 
   const outletsQuery = useQuery({
     queryKey: ['outlets'],
@@ -63,6 +96,12 @@ export function PosPage() {
     }
   }, [outletId, outletsQuery.data, setSelectedOutlet]);
 
+  const quantities = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const line of lines) map[line.menuItemId] = line.quantity;
+    return map;
+  }, [lines]);
+
   const filteredItems = useMemo(() => {
     const items = menuQuery.data?.items ?? [];
     const query = search.trim().toLowerCase();
@@ -73,6 +112,14 @@ export function PosPage() {
     });
   }, [menuQuery.data?.items, selectedCategoryId, search]);
 
+  const recentItems = useMemo(() => {
+    const items = menuQuery.data?.items ?? [];
+    return recentIds
+      .map((id) => items.find((i) => i.id === id && i.isAvailable))
+      .filter((i): i is NonNullable<typeof i> => Boolean(i))
+      .slice(0, 6);
+  }, [menuQuery.data?.items, recentIds]);
+
   const createOrder = useCallback(async () => {
     if (!outletId || lines.length === 0) throw new Error('Cart is empty');
     const items = lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity }));
@@ -82,34 +129,97 @@ export function PosPage() {
       items,
       autoConfirm: true,
       type: counterMode ? orderType : undefined,
-      customerName: customerName || undefined,
+      customerId: linkedCustomer?.id,
+      customerName: customerName || linkedCustomer?.name || undefined,
       tipAmount: tipAmount || undefined,
-      notes: counterMode ? `Counter order · ${orderType === 'takeaway' ? 'Pickup' : 'Eat in'}` : undefined,
+      notes: counterMode
+        ? `Counter order · ${orderType === 'takeaway' ? 'Pickup' : 'Eat in'}`
+        : undefined,
     };
     try {
       return await posApi.quickOrder(payload, key);
     } catch {
-      return ordersApi.create({ outletId, source: 'POS', items }, key);
+      return ordersApi.create(
+        { outletId, source: 'POS', items, customerId: linkedCustomer?.id },
+        key,
+      );
     }
-  }, [outletId, lines, counterMode, orderType, customerName, tipAmount]);
+  }, [outletId, lines, counterMode, orderType, customerName, tipAmount, linkedCustomer]);
+
+  const resetCustomer = useCallback(() => {
+    setCustomerName('');
+    setCustomerPhone('');
+    setLinkedCustomer(null);
+    setTipAmount(0);
+    setRedeemPoints(0);
+  }, []);
 
   const finishPaid = useCallback(
     (orderNumber: string, method: string) => {
       clearCart();
-      setCustomerName('');
-      setTipAmount(0);
+      resetCustomer();
       setUnpaidOrder(null);
+      redeemAppliedOrderId.current = null;
       setStatusMessage(`Order #${orderNumber} paid · ${method}`);
       queryClient.invalidateQueries({ queryKey: ['menu'] });
     },
-    [clearCart, queryClient],
+    [clearCart, queryClient, resetCustomer],
   );
 
+  const loyaltySettingsQuery = useQuery({
+    queryKey: ['loyalty', 'settings'],
+    queryFn: loyaltyApi.getSettings,
+    enabled: Boolean(linkedCustomer),
+  });
+
   const checkoutMutation = useMutation({
-    mutationFn: async (input: { tender: 'cash' | 'online'; orderId?: string; orderNumber?: string }) => {
+    mutationFn: async (input: {
+      tender: 'cash' | 'online';
+      orderId?: string;
+      orderNumber?: string;
+    }) => {
+      const settings = loyaltySettingsQuery.data;
+      if (redeemPoints > 0) {
+        if (!linkedCustomer) throw new Error('Link a customer to redeem points');
+        if (!settings) throw new Error('Loyalty settings unavailable');
+        if (redeemPoints < settings.minRedeem) {
+          throw new Error(`Minimum ${settings.minRedeem} points to redeem`);
+        }
+        if (redeemPoints > linkedCustomer.loyaltyPoints) {
+          throw new Error('Not enough loyalty points');
+        }
+        const discountRupees = redeemPoints * settings.redemptionValue;
+        const cartRupees = subtotal() / 100 + (tipAmount || 0);
+        if (discountRupees > cartRupees) {
+          throw new Error('Loyalty discount cannot exceed order total');
+        }
+      }
+
       const order = input.orderId
         ? { id: input.orderId, orderNumber: input.orderNumber ?? input.orderId }
         : await createOrder();
+
+      if (
+        linkedCustomer &&
+        redeemPoints > 0 &&
+        redeemAppliedOrderId.current !== order.id
+      ) {
+        try {
+          const result = await loyaltyApi.redeem(
+            linkedCustomer.id,
+            redeemPoints,
+            order.id,
+          );
+          redeemAppliedOrderId.current = order.id;
+          setLinkedCustomer((c) =>
+            c ? { ...c, loyaltyPoints: result.remainingPoints } : c,
+          );
+          setRedeemPoints(0);
+        } catch (err) {
+          setUnpaidOrder({ id: order.id, orderNumber: order.orderNumber });
+          throw err instanceof Error ? err : new Error('Loyalty redeem failed');
+        }
+      }
 
       if (input.tender === 'cash') {
         await paymentsApi.payCash(order.id);
@@ -137,8 +247,7 @@ export function PosPage() {
         setUnpaidOrder({ id: order.id, orderNumber: order.orderNumber });
         if (!input.orderId) {
           clearCart();
-          setCustomerName('');
-          setTipAmount(0);
+          resetCustomer();
         }
         throw err;
       }
@@ -181,6 +290,73 @@ export function PosPage() {
       setStatusMessage(err instanceof Error ? err.message : 'Hold failed');
     },
   });
+
+  const lookupMutation = useMutation({
+    mutationFn: async () => {
+      const q = customerPhone.trim();
+      if (!q) throw new Error('Enter a phone number');
+      const matches = await customersApi.search(q);
+      const exact =
+        matches.find((c) => c.phone?.replace(/\D/g, '').endsWith(q.replace(/\D/g, ''))) ??
+        matches[0];
+      if (exact) return exact;
+      const name = customerName.trim() || `Guest ${q.slice(-4)}`;
+      return customersApi.create({ name, phone: q });
+    },
+    onSuccess: (customer) => {
+      setLinkedCustomer(customer);
+      if (customer.name) setCustomerName(customer.name);
+      setRedeemPoints(0);
+      setStatusMessage(
+        `${customer.name} · ${customer.loyaltyPoints} loyalty points`,
+      );
+    },
+    onError: (err) => {
+      setStatusMessage(err instanceof Error ? err.message : 'Customer lookup failed');
+    },
+  });
+
+  const rewardsQuery = useQuery({
+    queryKey: ['loyalty', 'rewards'],
+    queryFn: loyaltyApi.listRewards,
+    enabled: Boolean(linkedCustomer),
+  });
+
+  const redeemRewardMutation = useMutation({
+    mutationFn: (rewardId: string) => {
+      if (!linkedCustomer) throw new Error('Link a customer first');
+      return loyaltyApi.redeemReward(linkedCustomer.id, rewardId);
+    },
+    onSuccess: (result) => {
+      setLinkedCustomer((c) =>
+        c ? { ...c, loyaltyPoints: result.remainingPoints } : c,
+      );
+      if (result.freeMenuItem) {
+        addItem({
+          id: result.freeMenuItem.id,
+          name: `${result.freeMenuItem.name} (reward)`,
+          price: 0,
+        });
+      }
+      setStatusMessage(`Redeemed ${result.reward.name} (−${result.reward.pointsCost} pts)`);
+      queryClient.invalidateQueries({ queryKey: ['loyalty', 'rewards'] });
+    },
+    onError: (err) => {
+      setStatusMessage(err instanceof Error ? err.message : 'Redeem failed');
+    },
+  });
+
+  const affordableRewards = useMemo(() => {
+    const points = linkedCustomer?.loyaltyPoints ?? 0;
+    return (rewardsQuery.data ?? [])
+      .filter((r) => r.isActive)
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        pointsCost: r.pointsCost,
+        affordable: points >= r.pointsCost,
+      }));
+  }, [rewardsQuery.data, linkedCustomer?.loyaltyPoints]);
 
   const resumeHeld = useCallback(
     async (held: HeldOrder) => {
@@ -256,22 +432,31 @@ export function PosPage() {
     navigate('/login');
   }
 
+  function handleAddItem(item: { id: string; name: string; price: number }) {
+    addItem(item);
+    setRecentIds(pushRecentId(item.id));
+    setStatusMessage(`Added ${item.name}`);
+  }
+
+  const emptyMenu = !menuQuery.isLoading && (menuQuery.data?.items?.length ?? 0) === 0;
+
   return (
-    <div className="flex h-screen flex-col bg-bg-primary">
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-white/5 bg-bg-secondary px-4 py-3">
+    <div className="flex h-screen flex-col bg-[radial-gradient(ellipse_at_top,_var(--color-bg-secondary)_0%,_var(--color-bg-primary)_55%)]">
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-white/5 bg-bg-secondary/90 px-4 py-3 backdrop-blur">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-primary font-mono font-bold text-bg-primary">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-primary font-mono font-bold text-bg-primary shadow-md shadow-brand-primary/30">
             C
           </div>
           <div>
-            <p className="font-semibold">{CULLINOS_BRAND.name} POS</p>
+            <p className="font-semibold tracking-tight">{CULLINOS_BRAND.name} POS</p>
             <p className="text-xs text-text-muted">
               {user?.firstName} {user?.lastName}
+              {selectedOutlet ? ` · ${selectedOutlet.name}` : ''}
             </p>
           </div>
         </div>
 
-        <div className="flex-1 px-4">
+        <div className="hidden flex-1 px-4 md:block">
           <SearchBar ref={searchRef} value={search} onChange={setSearch} />
         </div>
 
@@ -307,8 +492,12 @@ export function PosPage() {
         </div>
       </header>
 
+      <div className="border-b border-white/5 px-4 py-2 md:hidden">
+        <SearchBar ref={searchRef} value={search} onChange={setSearch} />
+      </div>
+
       {statusMessage ? (
-        <div className="bg-brand-primary/15 px-4 py-2 text-center text-sm text-brand-primary">
+        <div className="animate-[fadeIn_0.2s_ease] bg-brand-primary/15 px-4 py-2 text-center text-sm font-medium text-brand-primary">
           {statusMessage}
         </div>
       ) : null}
@@ -323,6 +512,8 @@ export function PosPage() {
             <div className="flex flex-1 items-center justify-center text-status-error">
               {menuQuery.error instanceof Error ? menuQuery.error.message : 'Failed to load menu'}
             </div>
+          ) : emptyMenu ? (
+            <ItemGrid items={[]} onAdd={handleAddItem} emptyHint="No menu items yet." />
           ) : (
             <>
               <CategoryTabs
@@ -330,13 +521,30 @@ export function PosPage() {
                 selectedId={selectedCategoryId}
                 onSelect={setSelectedCategoryId}
               />
+              {recentItems.length > 0 && !search && !selectedCategoryId ? (
+                <section className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    Recent
+                  </p>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {recentItems.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleAddItem(item)}
+                        className="shrink-0 rounded-full border border-white/10 bg-bg-card px-4 py-2 text-sm font-medium transition hover:border-brand-primary/40 active:scale-95"
+                      >
+                        {item.name}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
               <div className="min-h-0 flex-1 overflow-y-auto">
                 <ItemGrid
                   items={filteredItems}
-                  onAdd={(item) => {
-                    addItem(item);
-                    setStatusMessage(`Added ${item.name}`);
-                  }}
+                  quantities={quantities}
+                  onAdd={handleAddItem}
                 />
               </div>
             </>
@@ -373,10 +581,33 @@ export function PosPage() {
           counterMode={counterMode}
           customerName={customerName}
           onCustomerNameChange={setCustomerName}
+          customerPhone={customerPhone}
+          onCustomerPhoneChange={setCustomerPhone}
+          onLookupCustomer={() => lookupMutation.mutate()}
+          customerLookupLoading={lookupMutation.isPending}
+          linkedCustomer={linkedCustomer}
+          onClearCustomer={() => {
+            setLinkedCustomer(null);
+            setCustomerPhone('');
+            setRedeemPoints(0);
+          }}
           orderType={orderType}
           onOrderTypeChange={setOrderType}
           tipAmount={tipAmount}
           onTipChange={setTipAmount}
+          rewards={affordableRewards}
+          onRedeemReward={(id) => redeemRewardMutation.mutate(id)}
+          redeemRewardLoading={redeemRewardMutation.isPending}
+          redeemPoints={redeemPoints}
+          onRedeemPointsChange={setRedeemPoints}
+          loyaltySettings={
+            loyaltySettingsQuery.data
+              ? {
+                  minRedeem: loyaltySettingsQuery.data.minRedeem,
+                  redemptionValue: loyaltySettingsQuery.data.redemptionValue,
+                }
+              : null
+          }
         />
       </div>
     </div>

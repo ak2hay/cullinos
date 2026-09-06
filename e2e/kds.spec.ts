@@ -13,5 +13,7 @@ test.describe('KDS', () => {
     const body = await response.json();
     expect(body).toHaveProperty('kitchen');
     expect(body).toHaveProperty('pickupQueue');
+    expect(body).toHaveProperty('allKots');
+    expect(body).toHaveProperty('stations');
   });
 });

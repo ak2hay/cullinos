@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
-import { toPaise } from "../../common/money.util";
+import { toPaise, toRupees } from "../../common/money.util";
 
 function slugify(text: string): string {
   return text
@@ -9,15 +9,22 @@ function slugify(text: string): string {
     .replace(/^-|-$/g, "");
 }
 
+/** Admin/clients send & expect paise; DB stores rupees. */
+function withPaisePrice<T extends { basePrice: unknown }>(item: T) {
+  return { ...item, basePrice: toPaise(item.basePrice as never) };
+}
+
 @Injectable()
 export class MenuService {
   constructor(private prisma: PrismaService) {}
 
   list(orgId: string) {
-    return this.prisma.menuItem.findMany({
-      where: { organizationId: orgId, isActive: true },
-      take: 200,
-    });
+    return this.prisma.menuItem
+      .findMany({
+        where: { organizationId: orgId, isActive: true },
+        take: 200,
+      })
+      .then((items) => items.map(withPaisePrice));
   }
 
   listCategories(orgId: string) {
@@ -80,11 +87,13 @@ export class MenuService {
   }
 
   listItems(orgId: string) {
-    return this.prisma.menuItem.findMany({
-      where: { organizationId: orgId, isActive: true },
-      include: { category: true },
-      orderBy: { sortOrder: "asc" },
-    });
+    return this.prisma.menuItem
+      .findMany({
+        where: { organizationId: orgId, isActive: true },
+        include: { category: true },
+        orderBy: { sortOrder: "asc" },
+      })
+      .then((items) => items.map(withPaisePrice));
   }
 
   async createItem(
@@ -99,20 +108,19 @@ export class MenuService {
     },
   ) {
     const slug = slugify(data.name);
-    const basePrice =
-      data.basePrice >= 100 ? data.basePrice / 100 : data.basePrice;
-    return this.prisma.menuItem.create({
+    const created = await this.prisma.menuItem.create({
       data: {
         organizationId: orgId,
         categoryId: data.categoryId,
         name: data.name,
         slug,
         description: data.description,
-        basePrice,
+        basePrice: toRupees(data.basePrice),
         isVeg: data.isVeg ?? false,
         allergens: data.allergens ?? [],
       },
     });
+    return withPaisePrice(created);
   }
 
   async updateItem(
@@ -137,10 +145,11 @@ export class MenuService {
     const update: Record<string, unknown> = { ...rest };
     if (data.name) update.slug = slugify(data.name);
     if (data.basePrice != null) {
-      update.basePrice = data.basePrice >= 100 ? data.basePrice / 100 : data.basePrice;
+      update.basePrice = toRupees(data.basePrice);
     }
     if (isAvailable != null) update.isActive = isAvailable;
-    return this.prisma.menuItem.update({ where: { id }, data: update });
+    const updated = await this.prisma.menuItem.update({ where: { id }, data: update });
+    return withPaisePrice(updated);
   }
 
   async deleteItem(orgId: string, id: string) {
@@ -216,7 +225,7 @@ export class MenuService {
     });
     if (!item) throw new NotFoundException("Menu item not found");
 
-    const priceRupees = price >= 100 ? price / 100 : price;
+    const priceRupees = toRupees(price);
     return this.prisma.outletMenuPrice.upsert({
       where: {
         outletId_menuItemId_priceType: { outletId, menuItemId, priceType },

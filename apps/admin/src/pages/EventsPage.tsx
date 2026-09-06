@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Button, Input } from '@/components/ui/Form';
+import { Button, Input, PageHeader, Select, useToast } from '@cullinos/ui';
 import { eventsApi, outletsApi } from '@/lib/api';
 
 export function EventsPage() {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [outletId, setOutletId] = useState('');
   const [form, setForm] = useState({
     name: '',
@@ -13,11 +14,10 @@ export function EventsPage() {
     startTime: '11:00',
     endTime: '15:00',
   });
-  const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   function showNotice(type: 'success' | 'error', text: string) {
-    setNotice({ type, text });
-    setTimeout(() => setNotice(null), 5000);
+    if (type === 'success') toast.success(text);
+    else toast.error(text);
   }
 
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
@@ -57,35 +57,17 @@ export function EventsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Events & Locations</h1>
-        <p className="text-sm text-text-secondary">Schedule food truck stops and pop-up locations.</p>
-      </div>
+      <PageHeader
+        title="Events & Locations"
+        description="Schedule food truck stops and pop-up locations."
+      />
 
-      {notice && (
-        <div
-          className={`rounded-lg px-4 py-3 text-sm font-medium ${
-            notice.type === 'success'
-              ? 'bg-green-500/15 text-green-400'
-              : 'bg-red-500/15 text-red-400'
-          }`}
-        >
-          {notice.text}
-        </div>
-      )}
-
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-text-secondary">Outlet</label>
-        <select
-          value={outletId}
-          onChange={(e) => setOutletId(e.target.value)}
-          className="rounded-lg border border-white/10 bg-bg-primary px-3 py-2 text-sm"
-        >
-          {(outletsQuery.data ?? []).map((o) => (
-            <option key={o.id} value={o.id}>{o.name}</option>
-          ))}
-        </select>
-      </div>
+      <Select
+        label="Outlet"
+        options={(outletsQuery.data ?? []).map((o) => ({ value: o.id, label: o.name }))}
+        value={outletId}
+        onChange={(e) => setOutletId(e.target.value)}
+      />
 
       <div className="grid gap-3 rounded-xl border border-white/5 bg-bg-card p-4 sm:grid-cols-2">
         <Input label="Event name" placeholder="Weekend market" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />

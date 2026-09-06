@@ -84,6 +84,16 @@ export class OrdersController {
     return this.service.updateStatus(orgId, id, status);
   }
 
+  @Post(":id/cancel")
+  @RequireModule("orders")
+  cancel(
+    @OrgId() orgId: string,
+    @Param("id") id: string,
+    @Body() body?: { notes?: string },
+  ) {
+    return this.service.cancel(orgId, id, body?.notes);
+  }
+
   @Post(":id/hold")
   @RequireModule("orders")
   hold(@OrgId() orgId: string, @Param("id") id: string) {

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { QuickAddBar } from '@/components/MenuQuickAdd';
-import { Button } from '@/components/ui/Form';
+import { Button } from '@cullinos/ui';
 import { menuApi, ordersApi, posApi, tablesApi, type OrderItem } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 

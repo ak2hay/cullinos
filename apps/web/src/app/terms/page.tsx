@@ -1,5 +1,6 @@
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
+import { BUSINESS_ADDRESS_LINE, BUSINESS_NAP } from '@/lib/business';
 import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
@@ -14,7 +15,7 @@ export default function TermsPage() {
       <Hero
         eyebrow="Legal"
         title="Terms of Service"
-        subtitle="Last updated: August 29, 2026. This is a template — have legal counsel review before production use."
+        subtitle="Last updated: September 6, 2026. This is a template — have legal counsel review before production use."
         primaryCta={{ label: 'Contact us', href: '/contact' }}
         secondaryCta={null}
       />
@@ -28,8 +29,9 @@ export default function TermsPage() {
 
           <h2>2. Service description</h2>
           <p>
-            Cullinos is a subscription-based Restaurant Operating System provided by Rkyves. Features available to
-            your organization depend on your subscription plan and may change as we improve the product.
+            Cullinos is a subscription-based Restaurant Operating System provided by {BUSINESS_NAP.legalName}.
+            Features available to your organization depend on your subscription plan and may change as we improve
+            the product.
           </p>
 
           <h2>3. Subscriptions and billing</h2>
@@ -54,14 +56,15 @@ export default function TermsPage() {
 
           <h2>6. Limitation of liability</h2>
           <p>
-            Cullinos is provided &quot;as is&quot; to the extent permitted by law. Rkyves is not liable for indirect
-            or consequential damages arising from use of the service.
+            Cullinos is provided &quot;as is&quot; to the extent permitted by law. {BUSINESS_NAP.legalName} is not
+            liable for indirect or consequential damages arising from use of the service.
           </p>
 
           <h2>7. Contact</h2>
           <p>
-            Questions about these terms: hello@rkyves.com or our{' '}
-            <a href="/contact">contact form</a>.
+            Questions about these terms:{' '}
+            <a href={`mailto:${BUSINESS_NAP.email}`}>{BUSINESS_NAP.email}</a> or our{' '}
+            <a href="/contact">contact form</a>. Operator: {BUSINESS_NAP.legalName}, {BUSINESS_ADDRESS_LINE}.
           </p>
         </div>
       </Section>

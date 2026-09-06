@@ -1,16 +1,23 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? 'http://localhost:3000';
 
-export function useKitchenSocket(outletId: string | null) {
+export type KitchenSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
+
+export function useKitchenSocket(outletId: string | null): KitchenSocketStatus {
   const queryClient = useQueryClient();
   const socketRef = useRef<Socket | null>(null);
+  const [status, setStatus] = useState<KitchenSocketStatus>('disconnected');
 
   useEffect(() => {
-    if (!outletId) return;
+    if (!outletId) {
+      setStatus('disconnected');
+      return;
+    }
 
+    setStatus('connecting');
     const socket = io(WS_URL, {
       transports: ['websocket', 'polling'],
       withCredentials: true,
@@ -18,7 +25,16 @@ export function useKitchenSocket(outletId: string | null) {
     socketRef.current = socket;
 
     socket.on('connect', () => {
+      setStatus('connected');
       socket.emit('join_outlet', outletId);
+    });
+
+    socket.on('disconnect', () => {
+      setStatus('disconnected');
+    });
+
+    socket.on('connect_error', () => {
+      setStatus('error');
     });
 
     const invalidate = () => {
@@ -36,4 +52,6 @@ export function useKitchenSocket(outletId: string | null) {
       socketRef.current = null;
     };
   }, [outletId, queryClient]);
+
+  return status;
 }

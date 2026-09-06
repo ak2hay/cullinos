@@ -35,4 +35,10 @@ export class UsersController {
   deactivate(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.deactivate(orgId, id);
   }
+
+  @Patch(":id/activate")
+  @RequirePermissions("staff:manage", "org:manage_users")
+  activate(@OrgId() orgId: string, @Param("id") id: string) {
+    return this.service.activate(orgId, id);
+  }
 }

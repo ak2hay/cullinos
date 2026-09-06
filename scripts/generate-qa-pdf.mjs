@@ -17,6 +17,7 @@ const OUT_DIR = join(QA_DIR, 'export', 'pdf');
 const HTML_DIR = join(QA_DIR, 'export', 'html');
 
 const PDF_SOURCES = [
+  { src: 'WHATS_NEW.md', dest: 'Whats_New.pdf', html: 'Whats_New.html' },
   { src: 'TESTER_HANDBOOK.md', dest: 'QA_Tester_Handbook.pdf', html: 'QA_Tester_Handbook.html' },
   { src: 'QUICK_REFERENCE_CARD.md', dest: 'Quick_Reference_Card.pdf', html: 'Quick_Reference_Card.html' },
   { src: 'EMPLOYEE_BRIEF.md', dest: 'Employee_Brief.pdf', html: 'Employee_Brief.html' },

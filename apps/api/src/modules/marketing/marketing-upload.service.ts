@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import * as fs from "fs";
 import * as path from "path";
 import { randomUUID } from "crypto";
+import { StorageService } from "../storage/storage.service";
 
 const ALLOWED_MIMES = new Set([
   "image/png",
@@ -11,18 +12,21 @@ const ALLOWED_MIMES = new Set([
 ]);
 
 const MAX_BYTES = 5 * 1024 * 1024;
+const MARKETING_PREFIX = "marketing";
 
 @Injectable()
 export class MarketingUploadService {
   private uploadDir: string;
   private publicBaseUrl: string;
 
-  constructor() {
+  constructor(private readonly storage: StorageService) {
     this.uploadDir =
       process.env.MARKETING_UPLOAD_DIR ||
       path.resolve(process.cwd(), "../web/public/cms");
     this.publicBaseUrl = process.env.MARKETING_PUBLIC_URL || "/cms";
-    fs.mkdirSync(this.uploadDir, { recursive: true });
+    if (!this.storage.isCloudEnabled()) {
+      fs.mkdirSync(this.uploadDir, { recursive: true });
+    }
   }
 
   validateFile(file: Express.Multer.File) {
@@ -34,10 +38,26 @@ export class MarketingUploadService {
     }
   }
 
-  saveUploadedFile(file: Express.Multer.File, slotKey?: string) {
+  async saveUploadedFile(file: Express.Multer.File, slotKey?: string) {
     this.validateFile(file);
     const ext = path.extname(file.originalname) || this.extFromMime(file.mimetype);
     const filename = slotKey ? `${slotKey}${ext}` : `${randomUUID()}${ext}`;
+
+    if (this.storage.isCloudEnabled()) {
+      const key = `${MARKETING_PREFIX}/${filename}`;
+      const saved = await this.storage.putObject({
+        key,
+        body: file.buffer,
+        contentType: file.mimetype,
+      });
+      return {
+        filename,
+        url: saved.url,
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+      };
+    }
+
     const dest = path.join(this.uploadDir, filename);
     fs.writeFileSync(dest, file.buffer);
     return {
@@ -48,22 +68,48 @@ export class MarketingUploadService {
     };
   }
 
-  copyFromPublicImages(sourceDir: string, slotKey: string, filename: string) {
+  async copyFromPublicImages(sourceDir: string, slotKey: string, filename: string) {
     const src = path.join(sourceDir, filename);
     if (!fs.existsSync(src)) return null;
     const destName = `${slotKey}${path.extname(filename)}`;
+    const mimeType = this.mimeFromExt(path.extname(filename));
+    const body = fs.readFileSync(src);
+
+    if (this.storage.isCloudEnabled()) {
+      const key = `${MARKETING_PREFIX}/${destName}`;
+      const saved = await this.storage.putObject({
+        key,
+        body,
+        contentType: mimeType,
+      });
+      return {
+        filename: destName,
+        url: saved.url,
+        mimeType,
+        sizeBytes: body.length,
+      };
+    }
+
     const dest = path.join(this.uploadDir, destName);
-    fs.copyFileSync(src, dest);
+    fs.writeFileSync(dest, body);
     const stat = fs.statSync(dest);
     return {
       filename: destName,
       url: `${this.publicBaseUrl}/${destName}`,
-      mimeType: this.mimeFromExt(path.extname(filename)),
+      mimeType,
       sizeBytes: stat.size,
     };
   }
 
-  deleteByUrl(url: string) {
+  async deleteByUrl(url: string) {
+    if (this.storage.isCloudEnabled()) {
+      const key = this.storage.keyFromPublicUrl(url);
+      if (key) {
+        await this.storage.deleteObject(key);
+      }
+      return;
+    }
+
     const base = this.publicBaseUrl.replace(/\/$/, "");
     if (!url.startsWith(base)) return;
     const filename = url.slice(base.length + 1);

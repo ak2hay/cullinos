@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { MenuItem } from '@/lib/api';
 import { formatPrice } from '@/lib/api';
-import { Button } from './ui/Form';
+import { Button } from '@cullinos/ui';
 
 export interface ModifierSelection {
   id: string;

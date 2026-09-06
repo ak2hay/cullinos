@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthLayout } from '@/components/auth/AuthLayout';
-import { Button, Input } from '@/components/ui/Form';
+import { Button, Input } from '@cullinos/ui';
 import { authApi, outletsApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 

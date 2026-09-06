@@ -10,8 +10,11 @@ Print this page and keep it at your desk.
 |-----|-----|
 | Super Admin | https://platform.cullinos.com |
 | Admin | https://admin.cullinos.com |
+| Portal POS | https://admin.cullinos.com/pos |
 | Management | https://manage.cullinos.com |
 | Waiter | https://waiter.cullinos.com |
+| POS | https://pos.cullinos.com |
+| KDS | https://kds.cullinos.com |
 | Customer | https://order.cullinos.com/{orgSlug}/{outletSlug} |
 | Marketing | https://cullinos.com |
 | Swagger | https://api.cullinos.com/docs |
@@ -23,9 +26,9 @@ Print this page and keep it at your desk.
 
 | Day | Focus |
 |-----|-------|
-| **1** | Preflight + onboard restaurant + menu + staff |
-| **2** | Waiter orders + guest checkout + optional KDS |
-| **3** | Admin + Management + Super Admin |
+| **1** | Preflight + onboard + menu + tables + Waiter + Cashier |
+| **2** | Waiter + POS + KDS + guest checkout + CDS + Portal POS |
+| **3** | Admin modules (new pages) + Management + Super Admin |
 | **4** | Marketing site + Swagger API |
 
 ---
@@ -33,11 +36,11 @@ Print this page and keep it at your desk.
 ## Minimum test flow
 
 1. Super Admin → **Onboard restaurant** (enterprise plan)
-2. Admin → **Menu** + **Staff** (1 waiter)
-3. Waiter → **Table order**
-4. Admin → **Orders** (verify)
+2. Admin → **Menu** + **Tables** + **Staff** (Waiter + Cashier)
+3. Waiter → **Table order** → KDS verifies KOT
+4. POS / Portal POS → hold / resume / checkout
 5. Customer → **Checkout** in incognito (verify)
-6. TEST_RUN_SHEET → mark all **127 cases**
+6. TEST_RUN_SHEET → mark all **160 cases**
 
 ---
 
@@ -57,14 +60,14 @@ Print this page and keep it at your desk.
 - **Never** put real passwords in Excel or email
 - Use **Incognito** for guest customer tests
 - **QA tenant only** for suspend/reactivate tests
-- Admin Tables/Inventory placeholders are **not bugs**
-- POS/KDS: local only — mark **Blocked** if not set up
+- Banquets / Brands / Guests / Rooms on restaurant → usually **N/A**
+- POS/KDS: use production URLs first
 
 ---
 
 ## Files to return
 
-- TEST_RUN_SHEET.xlsx (all 127 rows filled)
+- TEST_RUN_SHEET.xlsx (all 160 rows filled)
 - BUG_LOG.xlsx (one row per failure)
 - CREDENTIALS_LOG.xlsx (no passwords)
 - evidence/ folder (screenshots)

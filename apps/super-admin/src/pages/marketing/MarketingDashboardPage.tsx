@@ -37,6 +37,7 @@ export function MarketingDashboardPage() {
           { to: '/marketing/pages', label: 'Pages & blocks', desc: 'Structured sections and copy blocks' },
           { to: '/marketing/theme', label: 'Theme', desc: 'Colors, fonts, and brand tokens' },
           { to: '/marketing/pricing', label: 'Pricing cards', desc: 'Marketing pricing display' },
+          { to: '/marketing/testimonials', label: 'Testimonials', desc: 'Customer quotes and social proof' },
           { to: '/marketing/navigation', label: 'Navigation', desc: 'Header nav links' },
           { to: '/marketing/blog', label: 'Blog', desc: 'Posts and cover images' },
           { to: '/marketing/design-lab', label: 'Design lab', desc: 'Presets, prompts, and suggestions' },

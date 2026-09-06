@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { CustomerLayout } from '@/components/layout/CustomerLayout';
-import { Button } from '@/components/ui/Form';
+import { Button } from '@cullinos/ui';
 import { useStorefrontBase } from '@/hooks/useStorefrontBase';
 import { formatPrice } from '@/lib/api';
 import { useCartStore } from '@/stores/cart';

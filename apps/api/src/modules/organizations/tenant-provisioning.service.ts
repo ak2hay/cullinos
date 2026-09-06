@@ -12,6 +12,10 @@ export type ProvisionTenantInput = {
   outletName?: string;
   rkyvesClientId?: string;
   status?: "trial" | "active";
+  /** When true (default), owner must change password on first login. */
+  mustChangePassword?: boolean;
+  businessType?: string;
+  restaurantSize?: string | null;
 };
 
 @Injectable()
@@ -42,6 +46,12 @@ export class TenantProvisioningService {
         rkyvesClientId: input.rkyvesClientId,
         status: orgStatus,
         email: input.adminEmail,
+        ...(input.businessType
+          ? { businessType: input.businessType as never }
+          : {}),
+        ...(input.restaurantSize !== undefined
+          ? { restaurantSize: (input.restaurantSize as never) ?? null }
+          : {}),
         settings: { create: { settings: {} } },
       },
     });
@@ -76,6 +86,7 @@ export class TenantProvisioningService {
         passwordHash,
         name: input.adminName ?? "Owner",
         isSuperAdmin: false,
+        mustChangePassword: input.mustChangePassword !== false,
       },
     });
 

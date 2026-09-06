@@ -65,11 +65,18 @@ export const marketingApi = {
 
   listTestimonials: (status = 'draft') =>
     request<Array<Record<string, unknown>>>(`/super-admin/marketing/testimonials?status=${status}`),
+  createTestimonial: (body: Record<string, unknown>) =>
+    request('/super-admin/marketing/testimonials', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   updateTestimonial: (id: string, body: Record<string, unknown>) =>
     request(`/super-admin/marketing/testimonials/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
+  deleteTestimonial: (id: string) =>
+    request(`/super-admin/marketing/testimonials/${id}`, { method: 'DELETE' }),
 
   listBlog: (status = 'draft') =>
     request<Array<Record<string, unknown>>>(`/super-admin/marketing/blog?status=${status}`),

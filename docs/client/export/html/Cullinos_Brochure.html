@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cullinos Brochure</title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+
+:root {
+  --ink: #0F0F1A;
+  --ink-soft: #2a2a38;
+  --gold: #D4A017;
+  --gold-bright: #F5A623;
+  --gold-dim: #a67c12;
+  --cream: #f7f4ee;
+  --paper: #ffffff;
+  --muted: #5c5c6b;
+  --line: #e6e2d8;
+  --card: #faf8f4;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  margin: 0;
+  font-family: 'DM Sans', Segoe UI, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--paper);
+}
+h1, h2, h3, .display {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  page-break-after: avoid;
+}
+h1 { font-size: 28pt; margin: 0 0 12px; }
+h2 { font-size: 16pt; margin: 28px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--gold); }
+h3 { font-size: 12pt; margin: 18px 0 8px; color: var(--ink-soft); border: none; }
+p { margin: 0 0 10px; }
+a { color: var(--gold-dim); text-decoration: none; }
+ul, ol { margin: 0 0 12px; padding-left: 18px; }
+li { margin-bottom: 4px; }
+strong { font-weight: 600; }
+
+.page { padding: 36px 40px; max-width: 820px; margin: 0 auto; }
+.cover {
+  min-height: 100vh;
+  padding: 48px 48px 40px;
+  background:
+    radial-gradient(ellipse 80% 60% at 100% 0%, rgba(212,160,23,0.22), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 0% 100%, rgba(245,166,35,0.12), transparent 50%),
+    linear-gradient(165deg, #0F0F1A 0%, #1a1a28 55%, #12121c 100%);
+  color: #f5f2ea;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  page-break-after: always;
+}
+.cover h1, .cover h2, .cover .display { color: #f5f2ea; border: none; }
+.mark {
+  width: 56px; height: 56px; border-radius: 14px;
+  background: linear-gradient(135deg, var(--gold), var(--gold-bright));
+  color: var(--ink); font-family: 'Fraunces', Georgia, serif;
+  font-size: 28pt; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  letter-spacing: -1px;
+}
+.eyebrow {
+  display: inline-block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9pt; font-weight: 600; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--gold);
+  margin-bottom: 14px;
+}
+.cover .eyebrow { color: var(--gold-bright); }
+.tagline { font-size: 13pt; color: rgba(245,242,234,0.78); max-width: 420px; margin: 0; }
+.cover-meta { font-size: 9pt; color: rgba(245,242,234,0.55); letter-spacing: 0.04em; }
+.gold { color: var(--gold); }
+.lead { font-size: 12pt; color: var(--muted); max-width: 560px; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0 18px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 14px 0 18px; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  page-break-inside: avoid;
+}
+.card h3 { margin: 0 0 6px; font-size: 11pt; }
+.card p { margin: 0; font-size: 9.5pt; color: var(--muted); }
+.card .kicker {
+  font-size: 8pt; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--gold-dim); margin-bottom: 6px;
+}
+
+.step {
+  display: grid; grid-template-columns: 36px 1fr; gap: 12px;
+  margin: 0 0 14px; page-break-inside: avoid;
+}
+.step-num {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--ink); color: var(--gold);
+  font-weight: 700; font-size: 11pt;
+  display: flex; align-items: center; justify-content: center;
+}
+.step h3 { margin: 2px 0 4px; }
+.step p { margin: 0; color: var(--muted); font-size: 9.5pt; }
+
+table.pretty {
+  width: 100%; border-collapse: collapse; margin: 12px 0 18px;
+  font-size: 9.5pt; page-break-inside: avoid;
+}
+table.pretty th {
+  background: var(--ink); color: var(--gold);
+  text-align: left; padding: 9px 10px; font-weight: 600;
+}
+table.pretty td {
+  padding: 8px 10px; border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+table.pretty tr:nth-child(even) td { background: var(--card); }
+
+.pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 16px; }
+.pill {
+  background: var(--ink); color: #f5f2ea;
+  border-radius: 999px; padding: 6px 12px;
+  font-size: 8.5pt; font-weight: 600; letter-spacing: 0.02em;
+}
+.pill.gold { background: var(--gold); color: var(--ink); }
+
+.banner {
+  background: linear-gradient(120deg, var(--ink), #252536);
+  color: #f5f2ea; border-radius: 14px; padding: 20px 22px;
+  margin: 18px 0; page-break-inside: avoid;
+}
+.banner h3 { color: #f5f2ea; margin: 0 0 6px; }
+.banner p { margin: 0; color: rgba(245,242,234,0.75); font-size: 10pt; }
+.banner .cta { margin-top: 12px; color: var(--gold-bright); font-weight: 700; font-size: 11pt; }
+
+.plan {
+  border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+  page-break-inside: avoid; background: var(--paper);
+}
+.plan.featured {
+  border-color: var(--gold);
+  box-shadow: inset 0 0 0 1px var(--gold);
+  background: linear-gradient(180deg, #fffdf6, #fff);
+}
+.plan .price { font-family: 'Fraunces', Georgia, serif; font-size: 18pt; margin: 4px 0; }
+.plan .price span { font-size: 9pt; color: var(--muted); font-family: 'DM Sans', sans-serif; }
+.plan ul { margin: 8px 0 0; padding-left: 16px; font-size: 9pt; color: var(--muted); }
+
+.footer-bar {
+  margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line);
+  font-size: 8.5pt; color: var(--muted);
+  display: flex; justify-content: space-between; gap: 12px;
+}
+.section-break { page-break-before: always; }
+.muted { color: var(--muted); }
+.small { font-size: 9pt; }
+.hr-gold { border: none; height: 2px; background: linear-gradient(90deg, var(--gold), transparent); margin: 18px 0; }
+
+@media print {
+  .cover { min-height: 100vh; }
+  .page { padding: 28px 32px; }
+  a { color: inherit; }
+}
+</style>
+</head>
+<body>
+
+
+<section class="cover">
+  <div>
+    <div class="mark">C</div>
+    <p class="eyebrow" style="margin-top:28px">Client brochure</p>
+    <h1 class="display" style="font-size:42pt;max-width:520px">One system.<br/>Every service moment.</h1>
+    <p class="tagline">Cullinos is the restaurant operating system for POS, kitchen, floor, online orders, and back office — built for India.</p>
+  </div>
+  <div class="cover-meta">
+    <div style="font-size:14pt;font-family:'Fraunces',Georgia,serif;margin-bottom:6px">Cullinos</div>
+    Restaurant Operating System · by Rkyves<br/>
+    cullinos.com · Mumbai, India
+  </div>
+</section>
+
+<section class="page">
+  <p class="eyebrow">Why Cullinos</p>
+  <h2 style="border:none;margin-top:0">Your food business, running as one</h2>
+  <p class="lead">Stop juggling separate tools for billing, kitchen tickets, QR ordering, and reports. Cullinos connects cashier, kitchen, waiter, guests, and owners on one platform — with GST billing and offline-ready POS &amp; KDS.</p>
+
+  <div class="grid-3">
+    <div class="card"><div class="kicker">GST-ready</div><h3>India billing built in</h3><p>CGST, SGST, and IGST on every invoice — not bolted on later.</p></div>
+    <div class="card"><div class="kicker">Always on</div><h3>Offline POS &amp; KDS</h3><p>Local Gateway keeps service moving when the internet drops.</p></div>
+    <div class="card"><div class="kicker">Grow ready</div><h3>One outlet to chains</h3><p>Same platform from a single cafe to multi-brand franchise.</p></div>
+  </div>
+
+  <h2>What you get</h2>
+  <div class="grid-2">
+    <div class="card"><h3>Point of Sale</h3><p>Touch cashier, holds, takeaway, GST receipts, Razorpay-ready payments.</p></div>
+    <div class="card"><h3>Kitchen Display</h3><p>Live KOTs, station routing, and customer Order Display boards.</p></div>
+    <div class="card"><h3>Waiter &amp; Tables</h3><p>Floor ordering, QR table sessions, and live table maps.</p></div>
+    <div class="card"><h3>Online &amp; QR</h3><p>Branded storefront and scan-to-order — menu synced from Admin.</p></div>
+    <div class="card"><h3>Back office</h3><p>Menu, inventory, recipes, staff, loyalty, delivery, reports, billing.</p></div>
+    <div class="card"><h3>Enterprise</h3><p>Multi-outlet KPIs, stock transfers, franchise, hospitality add-ons.</p></div>
+  </div>
+
+  <h2>Built for your vertical</h2>
+  <div class="pill-row">
+    <span class="pill gold">Restaurants</span>
+    <span class="pill">Cafes</span>
+    <span class="pill">QSR</span>
+    <span class="pill">Food trucks</span>
+    <span class="pill">Bakeries</span>
+    <span class="pill">Cloud kitchens</span>
+    <span class="pill">Catering</span>
+    <span class="pill">Hotels &amp; resorts</span>
+  </div>
+
+  <h2>Plans at a glance</h2>
+  <div class="grid-2">
+    <div class="plan"><div class="kicker" style="font-size:8pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim)">Starter</div><div class="price">₹999 <span>/ month</span></div><p class="small muted">POS, KDS, tables, QR &amp; online ordering</p></div>
+    <div class="plan"><div class="kicker" style="font-size:8pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim)">QSR / Food SMB</div><div class="price">₹1,499 <span>/ month</span></div><p class="small muted">Counter mode, pickup queue, loyalty, production</p></div>
+    <div class="plan featured"><div class="kicker" style="font-size:8pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim)">Professional</div><div class="price">₹2,999 <span>/ month</span></div><p class="small muted">Full ops — inventory, CRM, delivery, up to 3 outlets</p></div>
+    <div class="plan"><div class="kicker" style="font-size:8pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim)">Enterprise / Hospitality</div><div class="price">From ₹9,999 <span>/ month</span></div><p class="small muted">Chains, franchise, analytics, room service &amp; banquets</p></div>
+  </div>
+
+  <div class="banner">
+    <h3>Ready to see Cullinos in your outlet?</h3>
+    <p>Book a walkthrough or start a conversation with the Rkyves team.</p>
+    <div class="cta">cullinos.com/contact · hello@rkyves.com</div>
+  </div>
+  <div class="footer-bar"><span>Cullinos Brochure</span><span>Powered by Rkyves · hello@rkyves.com</span></div>
+</section>
+</body>
+</html>

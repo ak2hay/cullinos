@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { PrismaService } from "../../prisma/prisma.service";
+import { PlatformConfigService } from "../platform-config/platform-config.service";
 import { MarketingUploadService } from "./marketing-upload.service";
 import {
   DEFAULT_MARKETING_THEME_TOKENS,
@@ -19,6 +20,7 @@ export class MarketingService {
     private prisma: PrismaService,
     private upload: MarketingUploadService,
     private jwt: JwtService,
+    private config: PlatformConfigService,
   ) {}
 
   async getSite() {
@@ -58,7 +60,7 @@ export class MarketingService {
   }
 
   async uploadAsset(file: Express.Multer.File, slotKey?: string, alt?: string, userId?: string) {
-    const saved = this.upload.saveUploadedFile(file, slotKey);
+    const saved = await this.upload.saveUploadedFile(file, slotKey);
     return this.prisma.marketingAsset.create({
       data: {
         filename: saved.filename,
@@ -79,7 +81,7 @@ export class MarketingService {
 
   async deleteAsset(id: string) {
     const asset = await this.prisma.marketingAsset.findUnique({ where: { id } });
-    if (asset) this.upload.deleteByUrl(asset.url);
+    if (asset) await this.upload.deleteByUrl(asset.url);
     return this.prisma.marketingAsset.delete({ where: { id } });
   }
 
@@ -496,7 +498,7 @@ export class MarketingService {
       const existing = await this.prisma.marketingAsset.findFirst({ where: { slotKey } });
       if (existing) continue;
 
-      const copied = this.upload.copyFromPublicImages(imagesDir, slotKey, filename);
+      const copied = await this.upload.copyFromPublicImages(imagesDir, slotKey, filename);
       if (!copied) continue;
 
       await this.prisma.marketingAsset.create({
@@ -634,8 +636,8 @@ export class MarketingService {
   }
 
   private async triggerRevalidate() {
-    const url = process.env.MARKETING_REVALIDATE_URL;
-    const secret = process.env.REVALIDATE_SECRET;
+    const url = this.config.get("MARKETING_REVALIDATE_URL");
+    const secret = this.config.get("REVALIDATE_SECRET");
     if (!url || !secret) return;
     try {
       await fetch(url, {

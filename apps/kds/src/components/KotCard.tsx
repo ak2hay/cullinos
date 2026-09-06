@@ -1,9 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { colors } from '@cullinos/ui';
+import { Button, colors } from '@cullinos/ui';
 import type { Kot, KotItemStatus } from '@/lib/api';
 import { kitchenApi } from '@/lib/api';
 import { OrderTimer } from './OrderTimer';
-import { Button } from './ui/Form';
 
 const statusStyles: Record<string, { border: string; badge: string; label: string }> = {
   NEW: {

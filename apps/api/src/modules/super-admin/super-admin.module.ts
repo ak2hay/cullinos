@@ -1,6 +1,9 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../prisma/prisma.module";
+import { AuthModule } from "../auth/auth.module";
+import { MailModule } from "../mail/mail.module";
 import { OrganizationsModule } from "../organizations/organizations.module";
+import { SmsModule } from "../sms/sms.module";
 import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { SuperAdminGuard } from "../marketing/guards/super-admin.guard";
 import { PlanBootstrapService } from "./plan-bootstrap.service";
@@ -8,7 +11,14 @@ import { SuperAdminController } from "./super-admin.controller";
 import { SuperAdminService } from "./super-admin.service";
 
 @Module({
-  imports: [PrismaModule, OrganizationsModule, SubscriptionsModule],
+  imports: [
+    PrismaModule,
+    OrganizationsModule,
+    SubscriptionsModule,
+    MailModule,
+    AuthModule,
+    SmsModule,
+  ],
   controllers: [SuperAdminController],
   providers: [SuperAdminService, SuperAdminGuard, PlanBootstrapService],
   exports: [SuperAdminService],

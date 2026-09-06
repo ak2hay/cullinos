@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { KotCard } from '@/components/KotCard';
 import { StationFilter } from '@/components/StationFilter';
-import { Button, Select } from '@/components/ui/Form';
+import { Button, Select } from '@cullinos/ui';
 import { useKitchenSocket } from '@/hooks/useKitchenSocket';
 import { kitchenApi, outletsApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
@@ -27,7 +27,7 @@ export function KitchenDisplayPage() {
     refetchInterval: 30_000,
   });
 
-  useKitchenSocket(outletId);
+  const socketStatus = useKitchenSocket(outletId);
 
   const kots = useMemo(() => {
     if (!displayData) return [];
@@ -80,6 +80,14 @@ export function KitchenDisplayPage() {
           </Button>
         </div>
       </header>
+
+      {outletId && (socketStatus === 'error' || socketStatus === 'disconnected') ? (
+        <div className="border-b border-status-warning/30 bg-status-warning/10 px-6 py-2 text-sm text-status-warning">
+          {socketStatus === 'error'
+            ? 'Live updates unavailable — connection failed. Showing polled data.'
+            : 'Reconnecting to live updates…'}
+        </div>
+      ) : null}
 
       <main className="flex-1 p-6">
         {!outletId ? (

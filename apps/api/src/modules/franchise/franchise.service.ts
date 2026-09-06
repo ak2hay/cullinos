@@ -1,5 +1,14 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
+
+export interface CreateFranchiseAgreementInput {
+  franchiseeName: string;
+  startDate: Date | string;
+  endDate?: Date | string | null;
+  terms?: Record<string, unknown> | null;
+  outletIds?: string[];
+}
 
 @Injectable()
 export class FranchiseService {
@@ -8,7 +17,37 @@ export class FranchiseService {
   list(orgId: string) {
     return this.prisma.franchiseAgreement.findMany({
       where: { organizationId: orgId },
+      include: { outlets: true },
+      orderBy: { startDate: "desc" },
       take: 200,
+    });
+  }
+
+  async createAgreement(orgId: string, input: CreateFranchiseAgreementInput) {
+    const outletIds = input.outletIds ?? [];
+    if (outletIds.length > 0) {
+      const outlets = await this.prisma.outlet.findMany({
+        where: { id: { in: outletIds }, organizationId: orgId },
+        select: { id: true },
+      });
+      if (outlets.length !== outletIds.length) {
+        throw new BadRequestException("One or more outlets not found for organization");
+      }
+    }
+
+    return this.prisma.franchiseAgreement.create({
+      data: {
+        organizationId: orgId,
+        franchiseeName: input.franchiseeName,
+        startDate: new Date(input.startDate),
+        endDate: input.endDate ? new Date(input.endDate) : null,
+        terms: (input.terms ?? undefined) as Prisma.InputJsonValue | undefined,
+        outlets:
+          outletIds.length > 0
+            ? { create: outletIds.map((outletId) => ({ outletId })) }
+            : undefined,
+      },
+      include: { outlets: true },
     });
   }
 

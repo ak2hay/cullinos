@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/Form';
+import { Button } from '@cullinos/ui';
 
 interface NewOrderModalProps {
   tableName: string;

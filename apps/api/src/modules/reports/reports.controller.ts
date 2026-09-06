@@ -20,4 +20,14 @@ export class ReportsController {
   ) {
     return this.service.smbSummary(orgId, outletId, date);
   }
+
+  @Get("export")
+  @RequireModule("reports")
+  export(
+    @OrgId() orgId: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+  ) {
+    return this.service.export(orgId, from, to);
+  }
 }

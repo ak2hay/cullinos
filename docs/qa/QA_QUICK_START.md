@@ -16,10 +16,12 @@ Cullinos is Rkyves’s restaurant platform. One backend powers several **web app
 | Floor staff | **Waiter** | Take table orders or start QR sessions for guests |
 | Cashier | **POS** | Counter / takeaway billing — https://pos.cullinos.com |
 | Kitchen | **KDS** | Kitchen display — https://kds.cullinos.com |
-| Guest / customer | **Customer** | Order online via QR or link |
+| Guest / customer | **Customer** | Order online via QR or link (guest OK; optional login) |
 | Public | **Marketing site** | cullinos.com — no login |
 
-**Your test setup:** Production environment, **fresh restaurant** created via Super Admin, **one Waiter** staff account for floor tests.
+**Your test setup:** Production environment, **fresh restaurant** created via Super Admin, **one Waiter** and **one Cashier** for floor/POS tests.
+
+Also read **[WHATS_NEW.md](./WHATS_NEW.md)** for features added in this cycle.
 
 ---
 
@@ -37,6 +39,7 @@ Bookmark these. All production testing uses these domains.
 | **Waiter** (floor) | https://waiter.cullinos.com | Waiter staff |
 | **POS** (cashier) | https://pos.cullinos.com | Cashier staff |
 | **KDS** (kitchen) | https://kds.cullinos.com | Kitchen staff |
+| **Admin Portal POS** | https://admin.cullinos.com/pos | Owner / staff with POS access |
 
 ### No login
 
@@ -65,7 +68,12 @@ Bookmark these. All production testing uses these domains.
 3. Items appear on the **same table order** in waiter app and on KDS
 4. Waiter taps **End session** when the table is cleared (old QR stops working)
 
-### Local dev (optional)
+**Pickup / Order Display setup:**
+1. Admin → **Order Display** (`/cds`) — URL is auto-computed with your outlet ID (`/pickup-queue` redirects here).
+2. Copy it and open in another tab, tablet, or TV — no login required for the public board.
+3. Place a takeaway/counter order to see it appear in the queue.
+
+### Local dev (optional fallback)
 
 For development only — production QA uses the URLs above:
 
@@ -73,14 +81,7 @@ For development only — production QA uses the URLs above:
 |-----|-----------|
 | **POS** | http://localhost:5173 |
 | **KDS** | http://localhost:5174 |
-| **KDS Pickup display** | http://localhost:5174/?outletId=YOUR_OUTLET_ID&mode=pickup |
-
-**Pickup Queue local setup (KL-005):**
-1. Start API + Admin as usual.
-2. In a separate terminal: `npm run dev --workspace=apps/kds` (starts KDS on port 5174).
-3. Go to Admin → Pickup Queue — the URL is auto-computed with your outlet ID.
-4. Copy it and open in another tab, tablet, or TV — no login required.
-5. Place a takeaway/counter order to see it appear in the queue.
+| **KDS Order Display** | http://localhost:5174/?outletId=YOUR_OUTLET_ID&mode=pickup |
 
 ---
 
@@ -97,8 +98,8 @@ For development only — production QA uses the URLs above:
 | **Super Admin** | Team lead shares platform login (stored locally in `secrets-export.txt` — **never commit that file**) |
 | **Owner** | Created when Super Admin **onboards** a new restaurant — you choose email/password during onboard |
 | **Waiter (your 1 employee)** | Owner creates in **Admin → Staff** — you set email/password there |
-| **Cashier** *(optional, for POS)* | Same as Waiter — create in Admin → Staff if testing local POS |
-| **Guest customer** | No login — use incognito browser |
+| **Cashier** | Same as Waiter — create in Admin → Staff for POS |
+| **Guest customer** | No login required — use incognito; optional login modal is extra |
 
 ### Credential worksheet (copy & fill in)
 
@@ -199,16 +200,17 @@ Checklist: [README preflight](./README.md#preflight-checklist)
 2. Go to **Setup** (`/onboarding`) — choose business type **Restaurant**  
 3. Complete the wizard (business info, GSTIN test value `27AAAAA0000A1Z5`, etc.)  
 4. **Menu** (`/menu`) — create 2 categories and at least 4 items  
-5. **Staff** (`/staff`) — add your 1 employee as **Waiter**, assign main outlet  
-6. Share waiter login with your employee (securely — not in git)  
+5. **Staff** (`/staff`) — add **Waiter** and **Cashier**, assign main outlet  
+6. **Tables** (`/tables`) — create at least 2 tables (T1, T2)  
+7. Share waiter login with your employee (securely — not in git)  
 
 ### Step 4 — First real test (5 min)
 
 **Employee:** Login to Waiter → select outlet → open a table → add items → confirm order  
 
-**You:** Check **Admin → Orders** — the order should appear  
+**You:** Check **Admin → Orders** — the order should appear; optionally confirm KOT on https://kds.cullinos.com  
 
-If **no tables** show in Waiter: Admin Tables UI is not built yet — create tables via **Swagger** (`POST /api/v1/tables`) or ask your lead. This is a known limitation, not necessarily a bug.
+If **no tables** show in Waiter: create them in Admin → **Tables**, or via Swagger (`POST /api/v1/tables`) if the UI fails.
 
 ---
 
@@ -216,14 +218,15 @@ If **no tables** show in Waiter: Admin Tables UI is not built yet — create tab
 
 | Day | Focus | Document |
 |-----|-------|----------|
-| **1** | Preflight + onboard + menu + staff | This guide + Phase 1 in [Manual Test Plan](./MANUAL_TEST_PLAN.md) |
-| **2** | Waiter orders, guest checkout, KDS | Phase 2 + mark [Test Run Sheet](./TEST_RUN_SHEET.md) |
-| **3** | Admin modules, Management, Super Admin | Phases 3–5 |
+| **1** | Preflight + onboard + menu + tables + staff | This guide + Phase 1 in [Manual Test Plan](./MANUAL_TEST_PLAN.md) |
+| **2** | Waiter, POS, KDS, guest checkout, CDS | Phase 2 + mark [Test Run Sheet](./TEST_RUN_SHEET.md) |
+| **3** | Admin modules (incl. new pages), Management, Super Admin | Phases 3–5 |
 | **4** | Marketing site + API (Swagger) | Phases 6–7 |
 
 Full details: [MANUAL_TEST_PLAN.md](./MANUAL_TEST_PLAN.md)  
-Track pass/fail: [TEST_RUN_SHEET.md](./TEST_RUN_SHEET.md) (127 test cases)  
+Track pass/fail: [TEST_RUN_SHEET.md](./TEST_RUN_SHEET.md) (**160** test cases)  
 Log bugs: [BUG_LOG.md](./BUG_LOG.md)
+What's new: [WHATS_NEW.md](./WHATS_NEW.md)
 
 ---
 
@@ -234,27 +237,44 @@ Log bugs: [BUG_LOG.md](./BUG_LOG.md)
 | Menu | Path | What to check |
 |------|------|---------------|
 | Dashboard | `/` | Revenue, order counts after you place test orders |
+| Portal POS | `/pos` | Hold / resume / checkout (needs POS permission) |
 | Menu | `/menu` | Add/edit categories and items |
 | Orders | `/orders` | All orders from Waiter, Customer, POS |
-| Tables | `/tables` | Phase 2 placeholder — **page loads = Pass** (KL-001); table ops via Waiter app |
-| Inventory | `/inventory` | Phase 2 placeholder — **page loads = Pass** (KL-002); inventory via Swagger |
-| Customers | `/customers` | Loyalty tiers and active coupons — read-only display; see CRM/Loyalty section below |
-| Events | `/events` | Schedule food truck pop-ups; select outlet, fill form, click **Schedule event** |
-| Production | `/production` | Schedule batches, click **Mark complete**; success/error shown inline |
-| Pickup Queue | `/pickup-queue` | Shows KDS pickup URL — copy and open on a tablet/TV (see KL-005 for local setup) |
+| Tables | `/tables` | Create/edit tables — real UI |
+| Inventory | `/inventory` | List / add / adjust stock — real UI |
+| Customers | `/customers` | Loyalty tiers and active coupons — read-only display |
+| Loyalty | `/loyalty` | Dedicated loyalty page |
+| Recipes | `/recipes` | Create and list recipes |
+| Delivery | `/delivery` | Delivery orders list / status |
+| Promo Email | `/promo-email` | Compose / send promo campaigns |
+| Billing | `/billing` | Billing / subscription page |
+| Events | `/events` | Schedule events; select outlet, fill form |
+| Production | `/production` | Schedule batches, mark complete |
+| Banquets | `/banquets` | Often **N/A** on restaurant tenant |
+| Brands | `/brands` | Often **N/A** on restaurant tenant |
+| Guests / Rooms | `/hospitality/*` | Often **N/A** on restaurant tenant |
+| Kitchen Display | `/kds` | Launcher for KDS URL |
+| Order Display | `/cds` | Preparing/Ready board URL (`/pickup-queue` redirects here) |
+| Digital Ordering | `/kiosk` | Kiosk / storefront launcher |
 | Staff | `/staff` | Create waiter/cashier/manager logins |
 | Reports | `/reports` | Revenue, top items |
 | Settings | `/settings` | Org config (JSON) |
 | Setup | `/onboarding` | Initial wizard |
+| Forgot / Change password | `/forgot-password`, `/change-password` | Auth recovery |
 
 ### Super Admin — https://platform.cullinos.com
 
 | Menu | Path | What to check |
 |------|------|---------------|
-| Tenants | `/` | List restaurants, onboard, suspend |
+| Tenants | `/` or `/tenants` | List restaurants, onboard, suspend |
+| Plans | `/plans` | Plan catalog |
 | Subscriptions | `/subscriptions` | Change plan per tenant |
+| Promo Email | `/promo-email` | Platform promo campaigns |
+| Settings | `/settings` | Platform settings |
 | System Health | `/health` | Platform metrics |
 | Marketing | `/marketing/*` | Edit website content (careful on production) |
+| Testimonials | `/marketing/testimonials` | Testimonials editor |
+| Design Lab | `/marketing/design-lab` | Design lab page |
 
 ### Management — https://manage.cullinos.com
 
@@ -274,15 +294,16 @@ Log bugs: [BUG_LOG.md](./BUG_LOG.md)
 
 ### Customer — https://order.cullinos.com/{orgSlug}/{outletSlug}
 
-1. Browse menu (no login)  
-2. Cart → Checkout  
-3. Name + phone → **Pay later** → order placed  
+1. Browse menu (no login required)  
+2. Optional: open customer login modal — should not block guest checkout  
+3. Cart → Checkout  
+4. Name + phone → **Pay later** → order placed  
 
 ---
 
 ## CRM & Loyalty — how to test
 
-The Admin **Customers** page (`/customers`) is a read-only display of loyalty tiers and active coupons. There is no Admin UI to add stamps — stamps are added via API call.
+The Admin **Customers** page (`/customers`) is a read-only display of loyalty tiers and active coupons. Also open **Loyalty** (`/loyalty`). There is no Admin UI to add stamps — stamps are added via API call.
 
 ### What is pre-seeded (demo org)
 
@@ -316,9 +337,9 @@ The Admin **Customers** page (`/customers`) is a read-only display of loyalty ti
 
 ---
 
-## Local setup (optional)
+## Local setup (optional fallback)
 
-Only needed for **POS** and **KDS** testing on production API.
+Only needed if production POS/KDS URLs are unavailable.
 
 **Prerequisites:** Node.js, repo cloned, `npm install`
 
@@ -348,8 +369,8 @@ Get `outletId` from Admin Settings, Swagger, or your credential worksheet.
 
 | Problem | What to do |
 |---------|------------|
-| No tables in Waiter | Create via Swagger — Admin Tables page is not ready yet |
-| POS/KDS URL not on internet | Expected — run locally (see above) |
+| No tables in Waiter | Create in Admin → Tables (or Swagger if UI fails) |
+| Banquets / Brands / Guests / Rooms missing | Expected on restaurant tenant — mark N/A |
 | Management comparison empty | Add a second outlet via API, or mark test Blocked |
 | Pay now fails on Customer | Razorpay may not be configured — use Pay later |
 | Login “Failed to fetch” | Frontends must point to `api.cullinos.com` — tell your lead if prod is misconfigured |
@@ -377,8 +398,11 @@ PRODUCTION PORTALS
 ──────────────────────────────────────────────────
 Super Admin   https://platform.cullinos.com
 Admin         https://admin.cullinos.com
+Portal POS    https://admin.cullinos.com/pos
 Management    https://manage.cullinos.com
 Waiter        https://waiter.cullinos.com
+POS           https://pos.cullinos.com
+KDS           https://kds.cullinos.com
 Customer      https://order.cullinos.com/{orgSlug}/{outletSlug}
 Marketing     https://cullinos.com
 Swagger       https://api.cullinos.com/docs
@@ -387,11 +411,11 @@ Health        https://api.cullinos.com/api/v1/health
 TEST ORDER
 ──────────────────────────────────────────────────
 1. Super Admin → Onboard (enterprise plan)
-2. Admin → Menu + Staff (1 waiter)
-3. Waiter → Table order
-4. Admin → Orders (verify)
+2. Admin → Menu + Tables + Staff (Waiter + Cashier)
+3. Waiter → Table order → KDS verifies
+4. POS / Portal POS → checkout
 5. Customer → Checkout incognito (verify)
-6. TEST_RUN_SHEET → mark all 127 cases
+6. TEST_RUN_SHEET → mark all 160 cases
 
 NEVER commit real passwords to git.
 ```

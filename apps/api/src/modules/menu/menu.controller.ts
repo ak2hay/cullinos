@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -42,6 +44,7 @@ export class MenuController {
   }
 
   @Delete("categories/:id")
+  @HttpCode(HttpStatus.NO_CONTENT)
   @RequireModule("menu")
   deleteCategory(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.deleteCategory(orgId, id);
@@ -70,6 +73,7 @@ export class MenuController {
   }
 
   @Delete("items/:id")
+  @HttpCode(HttpStatus.NO_CONTENT)
   @RequireModule("menu")
   deleteItem(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.deleteItem(orgId, id);
@@ -98,6 +102,7 @@ export class MenuController {
   }
 
   @Delete("schedules/:id")
+  @HttpCode(HttpStatus.NO_CONTENT)
   @RequireModule("menu")
   deleteSchedule(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.deleteSchedule(orgId, id);

@@ -1,32 +1,30 @@
 /**
- * Public customer-facing pickup queue display.
- * Accessed via /?outletId=...&mode=pickup — no login required.
- * Shows orders that are confirmed, preparing, or ready for counter / takeaway.
+ * Public customer-facing pickup / CDS display.
+ * Accessed via /?outletId=...&mode=pickup|cds — no login required.
+ * McD-style board: huge order numbers, Preparing | Ready columns.
  */
 
 import { useEffect, useState } from 'react';
 import { DEFAULT_API_BASE } from '@cullinos/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? DEFAULT_API_BASE;
+const POLL_MS = 5_000;
 
 interface PickupOrder {
   id: string;
   orderNumber: string;
-  status: 'confirmed' | 'preparing' | 'ready' | string;
-  type: string;
+  pickupCode?: string | null;
+  status: string;
+  type?: string;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  confirmed: 'Preparing',
-  preparing: 'Preparing',
-  ready: 'Ready for Pickup',
-};
+function displayCode(order: PickupOrder): string {
+  return order.pickupCode || order.orderNumber;
+}
 
-const STATUS_COLORS: Record<string, string> = {
-  confirmed: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-  preparing: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
-  ready: 'bg-green-500/20 text-green-300 border-green-500/30',
-};
+function normalizeStatus(status: string): string {
+  return status.toLowerCase();
+}
 
 async function fetchPickupQueue(outletId: string): Promise<PickupOrder[]> {
   const res = await fetch(`${API_BASE}/public/orders/pickup-queue?outletId=${outletId}`);
@@ -52,82 +50,92 @@ export function PickupDisplayPage({ outletId }: { outletId: string }) {
 
   useEffect(() => {
     void load();
-    const interval = setInterval(() => void load(), 15_000);
+    const interval = setInterval(() => void load(), POLL_MS);
     return () => clearInterval(interval);
   }, [outletId]);
 
-  const preparing = orders.filter((o) => ['confirmed', 'preparing'].includes(o.status));
-  const ready = orders.filter((o) => o.status === 'ready');
+  const preparing = orders.filter((o) =>
+    ['confirmed', 'preparing'].includes(normalizeStatus(o.status)),
+  );
+  const ready = orders.filter((o) => normalizeStatus(o.status) === 'ready');
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-950 p-6 text-white">
-      <header className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight text-white">Order Status</h1>
-        {lastUpdated && (
+    <div className="flex min-h-screen flex-col bg-[radial-gradient(ellipse_at_top,_#1a1a2e_0%,_#0a0a12_60%)] p-6 text-white md:p-10">
+      <header className="mb-10 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-primary">
+            Cullinos
+          </p>
+          <h1 className="text-4xl font-bold tracking-tight md:text-5xl">Order Status</h1>
+        </div>
+        {lastUpdated ? (
           <p className="text-sm text-gray-500">Updated {lastUpdated.toLocaleTimeString()}</p>
-        )}
+        ) : null}
       </header>
 
-      {error && (
-        <div className="mb-4 rounded-lg bg-red-500/15 px-4 py-3 text-sm text-red-400">{error}</div>
-      )}
+      {error ? (
+        <div className="mb-6 rounded-lg bg-red-500/15 px-4 py-3 text-sm text-red-400">{error}</div>
+      ) : null}
 
       {orders.length === 0 && !error ? (
         <div className="flex flex-1 items-center justify-center">
-          <p className="text-xl text-gray-500">No active orders right now.</p>
+          <p className="text-2xl text-gray-500">No active orders</p>
         </div>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Preparing column */}
+        <div className="grid flex-1 gap-8 lg:grid-cols-2 lg:gap-12">
           <div>
-            <h2 className="mb-4 text-lg font-semibold text-yellow-400">
-              🔥 Preparing ({preparing.length})
+            <h2 className="mb-6 border-b border-yellow-500/30 pb-3 text-2xl font-semibold uppercase tracking-widest text-yellow-400 md:text-3xl">
+              Preparing
+              <span className="ml-3 text-lg font-normal text-yellow-500/70">
+                ({preparing.length})
+              </span>
             </h2>
-            <div className="space-y-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               {preparing.map((order) => (
                 <div
                   key={order.id}
-                  className="flex items-center justify-between rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-6 py-4"
+                  className="flex items-center justify-center rounded-2xl border border-yellow-500/25 bg-yellow-500/10 px-4 py-8"
                 >
-                  <span className="text-2xl font-bold tracking-widest text-white">
-                    #{order.orderNumber}
+                  <span className="text-5xl font-black tracking-wider text-white md:text-6xl">
+                    {displayCode(order)}
                   </span>
-                  <span className="text-sm text-yellow-300">Preparing…</span>
                 </div>
               ))}
-              {preparing.length === 0 && (
-                <p className="text-sm text-gray-600">No orders preparing.</p>
-              )}
+              {preparing.length === 0 ? (
+                <p className="col-span-full text-lg text-gray-600">—</p>
+              ) : null}
             </div>
           </div>
 
-          {/* Ready column */}
           <div>
-            <h2 className="mb-4 text-lg font-semibold text-green-400">
-              ✅ Ready for Pickup ({ready.length})
+            <h2 className="mb-6 border-b border-green-500/40 pb-3 text-2xl font-semibold uppercase tracking-widest text-green-400 md:text-3xl">
+              Ready
+              <span className="ml-3 text-lg font-normal text-green-500/70">({ready.length})</span>
             </h2>
-            <div className="space-y-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               {ready.map((order) => (
                 <div
                   key={order.id}
-                  className="flex items-center justify-between rounded-xl border border-green-500/30 bg-green-500/15 px-6 py-4"
+                  className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-green-400/50 bg-green-500/20 px-4 py-8"
                 >
-                  <span className="text-2xl font-bold tracking-widest text-white">
-                    #{order.orderNumber}
+                  <span className="text-5xl font-black tracking-wider text-white md:text-6xl">
+                    {displayCode(order)}
                   </span>
-                  <span className="text-sm font-semibold text-green-300">COLLECT NOW</span>
+                  <span className="text-sm font-semibold uppercase tracking-widest text-green-300">
+                    Collect
+                  </span>
                 </div>
               ))}
-              {ready.length === 0 && (
-                <p className="text-sm text-gray-600">No orders ready yet.</p>
-              )}
+              {ready.length === 0 ? (
+                <p className="col-span-full text-lg text-gray-600">—</p>
+              ) : null}
             </div>
           </div>
         </div>
       )}
 
-      <footer className="mt-auto pt-8 text-center text-xs text-gray-700">
-        Auto-refreshes every 15 seconds
+      <footer className="mt-auto pt-10 text-center text-xs text-gray-700">
+        Auto-refreshes every 5 seconds
       </footer>
     </div>
   );

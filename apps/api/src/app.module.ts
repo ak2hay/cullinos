@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "./prisma/prisma.module";
+import { PlatformConfigModule } from "./modules/platform-config/platform-config.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { BrandsModule } from "./modules/brands/brands.module";
@@ -29,6 +30,7 @@ import { GuestsModule } from "./modules/guests/guests.module";
 import { RoomsModule } from "./modules/rooms/rooms.module";
 import { BanquetsModule } from "./modules/banquets/banquets.module";
 import { FranchiseModule } from "./modules/franchise/franchise.module";
+import { HospitalityModule } from "./modules/hospitality/hospitality.module";
 import { StorefrontModule } from "./modules/storefront/storefront.module";
 import { StaffModule } from "./modules/staff/staff.module";
 import { ReportsModule } from "./modules/reports/reports.module";
@@ -44,11 +46,15 @@ import { InternalModule } from "./modules/internal/internal.module";
 import { MarketingModule } from "./modules/marketing/marketing.module";
 import { EventsModule } from "./modules/events/events.module";
 import { ProductionModule } from "./modules/production/production.module";
+import { StorageModule } from "./modules/storage/storage.module";
+import { PromoModule } from "./modules/promo/promo.module";
 import { HealthController } from "./health.controller";
 
 @Module({
   imports: [
     PrismaModule,
+    PlatformConfigModule,
+    StorageModule,
     AuthModule,
     OrganizationsModule,
     BrandsModule,
@@ -78,6 +84,7 @@ import { HealthController } from "./health.controller";
     RoomsModule,
     BanquetsModule,
     FranchiseModule,
+    HospitalityModule,
     StorefrontModule,
     StaffModule,
     ReportsModule,
@@ -93,6 +100,7 @@ import { HealthController } from "./health.controller";
     MarketingModule,
     EventsModule,
     ProductionModule,
+    PromoModule,
   ],
   controllers: [HealthController],
 })

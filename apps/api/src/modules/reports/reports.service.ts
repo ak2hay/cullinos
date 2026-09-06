@@ -89,4 +89,64 @@ export class ReportsService {
       expiringInventory: expiringSoon,
     };
   }
+
+  /** Export-friendly order summary rows for a date range (CSV-ish JSON). */
+  async export(orgId: string, from?: string, to?: string) {
+    const fromDate = from ? new Date(from) : new Date();
+    fromDate.setHours(0, 0, 0, 0);
+    const toDate = to ? new Date(to) : new Date(fromDate);
+    toDate.setHours(23, 59, 59, 999);
+    if (!to) {
+      // default: single day from `from` (or today)
+      toDate.setTime(fromDate.getTime());
+      toDate.setHours(23, 59, 59, 999);
+    }
+
+    const orders = await this.prisma.order.findMany({
+      where: {
+        organizationId: orgId,
+        createdAt: { gte: fromDate, lte: toDate },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 5000,
+      select: {
+        id: true,
+        orderNumber: true,
+        outletId: true,
+        status: true,
+        type: true,
+        source: true,
+        subtotal: true,
+        taxTotal: true,
+        discountTotal: true,
+        tipAmount: true,
+        total: true,
+        createdAt: true,
+        completedAt: true,
+      },
+    });
+
+    const rows = orders.map((o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      outletId: o.outletId,
+      status: o.status,
+      type: o.type,
+      source: o.source,
+      subtotal: Number(o.subtotal),
+      taxTotal: Number(o.taxTotal),
+      discountTotal: Number(o.discountTotal),
+      tipAmount: Number(o.tipAmount),
+      total: Number(o.total),
+      createdAt: o.createdAt.toISOString(),
+      completedAt: o.completedAt?.toISOString() ?? null,
+    }));
+
+    return {
+      from: fromDate.toISOString().slice(0, 10),
+      to: toDate.toISOString().slice(0, 10),
+      count: rows.length,
+      rows,
+    };
+  }
 }

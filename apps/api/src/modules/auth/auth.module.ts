@@ -7,6 +7,7 @@ import { JwtAuthGuard } from "../../common/jwt-auth.guard";
 import { SuperAdminGuard } from "../../common/super-admin.guard";
 import { PermissionsGuard } from "../../common/guards/permissions.guard";
 import { EntitlementGuard } from "../../common/entitlement.guard";
+import { MailModule } from "../mail/mail.module";
 
 const jwtModule = JwtModule.register({
   global: true,
@@ -15,7 +16,7 @@ const jwtModule = JwtModule.register({
 }) as DynamicModule;
 
 @Module({
-  imports: [jwtModule],
+  imports: [jwtModule, MailModule],
   controllers: [AuthController],
   providers: [
     AuthService,

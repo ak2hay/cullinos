@@ -6,6 +6,10 @@ export type JwtPayload = {
   organizationId: string;
   email: string;
   isSuperAdmin?: boolean;
+  /** Present when a super-admin is acting as a tenant user. */
+  impersonation?: boolean;
+  impersonatedBy?: string;
+  permissions?: string[];
 };
 
 export async function hashPassword(password: string): Promise<string> {

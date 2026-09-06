@@ -2,8 +2,10 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   BUSINESS_TYPES,
+  RESTAURANT_SIZES,
   isAdminNavPathVisible,
   type BusinessType,
+  type RestaurantSize,
 } from '@cullinos/shared';
 import { organizationsApi } from '@/lib/api';
 
@@ -11,6 +13,13 @@ function parseBusinessType(value: string | null | undefined): BusinessType | nul
   if (!value) return null;
   return (BUSINESS_TYPES as readonly string[]).includes(value)
     ? (value as BusinessType)
+    : null;
+}
+
+function parseRestaurantSize(value: string | null | undefined): RestaurantSize | null {
+  if (!value) return null;
+  return (RESTAURANT_SIZES as readonly string[]).includes(value)
+    ? (value as RestaurantSize)
     : null;
 }
 
@@ -25,10 +34,11 @@ export function BusinessTypeRoute({ children }: { children: React.ReactNode }) {
   if (isLoading) return null;
 
   const businessType = parseBusinessType(org?.businessType);
+  const restaurantSize = parseRestaurantSize(org?.restaurantSize);
   const path = `/${location.pathname.split('/').filter(Boolean)[0] ?? ''}`;
   const normalized = path === '/' ? '/' : path;
 
-  if (!isAdminNavPathVisible(businessType, normalized)) {
+  if (!isAdminNavPathVisible(businessType, normalized, restaurantSize)) {
     return <Navigate to="/" replace />;
   }
 

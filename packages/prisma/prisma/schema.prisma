@@ -28,6 +28,22 @@ enum UserStatus {
   invited
 }
 
+enum EmailOtpPurpose {
+  login_2fa
+  password_reset
+}
+
+enum EmailCampaignScope {
+  org_customers
+  platform_owners
+}
+
+enum EmailCampaignStatus {
+  sending
+  sent
+  failed
+}
+
 enum SubscriptionStatus {
   trial
   active
@@ -203,6 +219,12 @@ enum BusinessType {
   catering
 }
 
+enum RestaurantSize {
+  small
+  medium
+  large
+}
+
 enum OperatingMode {
   full_service
   counter
@@ -224,12 +246,13 @@ enum ProductionBatchStatus {
 // ─── Multi-tenant core ───────────────────────────────────────────────────────
 
 model Organization {
-  id              String       @id @default(cuid())
+  id              String          @id @default(cuid())
   name            String
-  slug            String       @unique
-  rkyvesClientId  String?      @unique @map("rkyves_client_id")
-  businessType    BusinessType @default(restaurant) @map("business_type")
-  status          OrgStatus    @default(trial)
+  slug            String          @unique
+  rkyvesClientId  String?         @unique @map("rkyves_client_id")
+  businessType    BusinessType    @default(restaurant) @map("business_type")
+  restaurantSize  RestaurantSize? @map("restaurant_size")
+  status          OrgStatus       @default(trial)
   gstin           String?
   pan             String?
   email           String?
@@ -271,6 +294,8 @@ model Organization {
   guests              Guest[]
   franchiseAgreements FranchiseAgreement[]
   analyticsSnapshots  AnalyticsSnapshot[]
+  emailCampaigns      EmailCampaign[]
+  loyaltyRewards      LoyaltyReward[]
 
   @@map("organizations")
 }
@@ -369,11 +394,12 @@ model User {
   passwordHash   String     @map("password_hash")
   name           String
   phone          String?
-  status         UserStatus @default(active)
-  isSuperAdmin   Boolean    @default(false) @map("is_super_admin")
-  lastLoginAt    DateTime?  @map("last_login_at")
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @updatedAt @map("updated_at")
+  status             UserStatus @default(active)
+  isSuperAdmin       Boolean    @default(false) @map("is_super_admin")
+  mustChangePassword Boolean    @default(false) @map("must_change_password")
+  lastLoginAt        DateTime?  @map("last_login_at")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userRoles    UserRole[]
@@ -491,7 +517,7 @@ model AuditLog {
   createdAt      DateTime @default(now()) @map("created_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User?        @relation(fields: [userId], references: [id])
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, createdAt])
   @@map("audit_logs")
@@ -595,6 +621,19 @@ model FeatureFlag {
   @@map("feature_flags")
 }
 
+/// Platform-wide secrets/config (super-admin). DB value overrides env when set.
+model PlatformSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  valueEnc  String?  @map("value_enc")
+  value     String?
+  isSecret  Boolean  @default(false) @map("is_secret")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by")
+
+  @@map("platform_settings")
+}
+
 // ─── Menu engine ─────────────────────────────────────────────────────────────
 
 model MenuCategory {
@@ -647,6 +686,7 @@ model MenuItem {
   outletPrices   OutletMenuPrice[]
   orderItems     OrderItem[]
   recipe         Recipe?
+  loyaltyRewards LoyaltyReward[]
 
   @@unique([organizationId, slug])
   @@map("menu_items")
@@ -725,7 +765,7 @@ model ComboItem {
   quantity   Int    @default(1)
 
   combo    Combo    @relation(fields: [comboId], references: [id], onDelete: Cascade)
-  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
 
   @@map("combo_items")
 }
@@ -841,6 +881,8 @@ model Order {
   organizationId String      @map("organization_id")
   outletId       String      @map("outlet_id")
   orderNumber    String      @map("order_number")
+  /// Customer-facing 6-char pickup / receipt code (QR ticket). Null on legacy rows.
+  pickupCode     String?     @map("pickup_code")
   type           OrderType   @default(dine_in)
   source         OrderSource @default(pos)
   status         OrderStatus @default(draft)
@@ -859,6 +901,7 @@ model Order {
   scheduledPickupAt DateTime? @map("scheduled_pickup_at")
   idempotencyKey String?     @unique @map("idempotency_key")
   metadata       Json?
+  readyAt        DateTime?   @map("ready_at")
   completedAt    DateTime?   @map("completed_at")
   createdAt      DateTime    @default(now()) @map("created_at")
   updatedAt      DateTime    @updatedAt @map("updated_at")
@@ -868,7 +911,7 @@ model Order {
   table        Table?          @relation(fields: [tableId], references: [id])
   tableSession TableSession?   @relation(fields: [tableSessionId], references: [id])
   customer     Customer?       @relation(fields: [customerId], references: [id])
-  createdBy    User?           @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  createdBy    User?           @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   items        OrderItem[]
   timeline     OrderTimeline[]
   discounts    OrderDiscount[]
@@ -879,6 +922,7 @@ model Order {
   deliveryOrder DeliveryOrder?
 
   @@unique([outletId, orderNumber])
+  @@unique([outletId, pickupCode])
   @@index([organizationId, status, createdAt])
   @@map("orders")
 }
@@ -1078,8 +1122,8 @@ model CashierShift {
   openedAt    DateTime    @default(now()) @map("opened_at")
   closedAt    DateTime?   @map("closed_at")
 
-  outlet        Outlet         @relation(fields: [outletId], references: [id])
-  user          User           @relation(fields: [userId], references: [id])
+  outlet        Outlet         @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   cashMovements CashMovement[]
 
   @@map("cashier_shifts")
@@ -1304,6 +1348,7 @@ model Customer {
   loyaltyTransactions LoyaltyTransaction[]
   couponUsages CouponUsage[]
 
+  @@unique([organizationId, phone])
   @@map("customers")
 }
 
@@ -1330,6 +1375,24 @@ model LoyaltyTransaction {
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@map("loyalty_transactions")
+}
+
+/** Catalog reward — e.g. free cold drink for 100 points. */
+model LoyaltyReward {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  pointsCost     Int      @map("points_cost")
+  menuItemId     String?  @map("menu_item_id")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  menuItem     MenuItem?    @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, isActive])
+  @@map("loyalty_rewards")
 }
 
 model Coupon {
@@ -1501,8 +1564,8 @@ model FranchiseOutlet {
   franchiseAgreementId String @map("franchise_agreement_id")
   outletId             String @map("outlet_id")
 
-  franchiseAgreement FranchiseAgreement @relation(fields: [franchiseAgreementId], references: [id])
-  outlet             Outlet             @relation(fields: [outletId], references: [id])
+  franchiseAgreement FranchiseAgreement @relation(fields: [franchiseAgreementId], references: [id], onDelete: Cascade)
+  outlet             Outlet             @relation(fields: [outletId], references: [id], onDelete: Cascade)
 
   @@unique([franchiseAgreementId, outletId])
   @@map("franchise_outlets")
@@ -1925,4 +1988,56 @@ model ProductionBatch {
 
   @@index([outletId, scheduledFor])
   @@map("production_batches")
+}
+
+model EmailOtp {
+  id             String          @id @default(cuid())
+  email          String
+  userId         String?         @map("user_id")
+  purpose        EmailOtpPurpose
+  codeHash       String          @map("code_hash")
+  challengeToken String          @unique @map("challenge_token")
+  attempts       Int             @default(0)
+  expiresAt      DateTime        @map("expires_at")
+  consumedAt     DateTime?       @map("consumed_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  @@index([email, purpose])
+  @@index([challengeToken])
+  @@map("email_otps")
+}
+
+model PhoneOtp {
+  id             String   @id @default(cuid())
+  phone          String
+  organizationId String   @map("organization_id")
+  codeHash       String   @map("code_hash")
+  challengeToken String   @unique @map("challenge_token")
+  attempts       Int      @default(0)
+  expiresAt      DateTime @map("expires_at")
+  consumedAt     DateTime? @map("consumed_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([phone, organizationId])
+  @@index([challengeToken])
+  @@map("phone_otps")
+}
+
+model EmailCampaign {
+  id               String              @id @default(cuid())
+  scope            EmailCampaignScope
+  organizationId   String?             @map("organization_id")
+  createdByUserId  String              @map("created_by_user_id")
+  subject          String
+  body             String
+  recipientCount   Int                 @default(0) @map("recipient_count")
+  sentCount        Int                 @default(0) @map("sent_count")
+  failedCount      Int                 @default(0) @map("failed_count")
+  status           EmailCampaignStatus @default(sending)
+  createdAt        DateTime            @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@map("email_campaigns")
 }

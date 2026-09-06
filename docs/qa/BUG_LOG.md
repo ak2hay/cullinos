@@ -39,7 +39,7 @@ Update counts as issues are found and closed.
 | High | Major feature broken; workaround difficult | KOT never appears; checkout fails |
 | Medium | Feature partially broken | Wrong totals, UI glitch with workaround |
 | Low | Cosmetic or minor inconvenience | Typo, alignment issue |
-| Known limitation | Documented gap, not a defect | Admin Tables placeholder |
+| Known limitation | Documented gap, not a defect | Razorpay pay-now without keys |
 
 ---
 
@@ -200,12 +200,13 @@ Record expected gaps so they are not filed as defects.
 
 | ID | Module | Description | Documented in plan |
 |----|--------|-------------|-------------------|
-| KL-001 | Admin Tables | Phase 2 placeholder UI — table ops via Waiter app | Yes |
-| KL-002 | Admin Inventory | Phase 2 placeholder UI — inventory APIs via Swagger/Management | Yes |
-| KL-003 | POS/KDS | Web apps at pos/kds.cullinos.com (DNS required) | Yes |
+| KL-003 | POS/KDS DNS | If pos/kds.cullinos.com unreachable, use local fallback or mark Blocked | Yes |
 | KL-004 | Razorpay | Pay-now requires production payment keys | Yes |
-| KL-005 | Admin Pickup Queue | Local testing requires KDS running on port 5174 (`npm run dev --workspace=apps/kds`) | Yes |
+| KL-005 | Order Display / CDS | Prefer Admin `/cds` launcher; local KDS `?mode=pickup` only as fallback | Yes |
 | KL-006 | Production — stock deduction | Stock deducts only when batch is linked to a recipe with ingredients; batches without a recipe are still marked complete | Yes |
+| KL-007 | Business-type nav | Banquets / Brands / Guests / Rooms hidden on restaurant tenant — mark N/A | Yes |
+
+~~KL-001 Admin Tables placeholder~~ and ~~KL-002 Admin Inventory placeholder~~ are **retired** — those UIs are real features now.
 
 ---
 

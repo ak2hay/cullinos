@@ -35,6 +35,10 @@ export function MarketingImage({
     ? className.replace('object-cover', 'object-contain p-3')
     : className ?? 'object-contain p-3';
 
+  if (!fill && (width == null || height == null)) {
+    throw new Error(`MarketingImage "${imageKey}" requires width and height when fill is not set`);
+  }
+
   if (useNextImage) {
     return (
       <Image
@@ -42,8 +46,8 @@ export function MarketingImage({
         alt={alt}
         className={className}
         fill={fill}
-        width={width}
-        height={height}
+        width={fill ? undefined : width}
+        height={fill ? undefined : height}
         priority={priority}
         sizes={sizes}
       />
@@ -56,6 +60,8 @@ export function MarketingImage({
       <img
         src={src}
         alt={alt}
+        width={width ?? 800}
+        height={height ?? 450}
         className={`absolute inset-0 h-full w-full ${containClass}`}
         loading={priority ? 'eager' : 'lazy'}
       />
@@ -68,8 +74,8 @@ export function MarketingImage({
       src={src}
       alt={alt}
       className={containClass}
-      width={width ?? 400}
-      height={height ?? 280}
+      width={width}
+      height={height}
       loading={priority ? 'eager' : 'lazy'}
     />
   );

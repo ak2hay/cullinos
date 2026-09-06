@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { CULLINOS_BRAND } from '@cullinos/shared';
 import { useMemo } from 'react';
 import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
+import { BUSINESS_ADDRESS_LINE, BUSINESS_NAP, MAPS_EMBED_QUERY } from '@/lib/business';
 
 const fallbackColumns = [
   {
@@ -31,7 +32,7 @@ const fallbackColumns = [
     links: [
       { href: '/contact', label: 'Get in touch' },
       { href: '/about', label: 'About us' },
-      { href: 'mailto:hello@rkyves.com', label: 'hello@rkyves.com' },
+      { href: `mailto:${BUSINESS_NAP.email}`, label: BUSINESS_NAP.email },
     ],
   },
 ];
@@ -44,7 +45,7 @@ const socialLinks = [
 
 export function MarketingFooter() {
   const cms = useMarketingCms();
-  const contactEmail = cms.site?.contactEmail ?? 'hello@rkyves.com';
+  const contactEmail = cms.site?.contactEmail ?? BUSINESS_NAP.email;
 
   const columns = useMemo(() => {
     const footerItems = cms.navItems.filter(
@@ -100,12 +101,18 @@ export function MarketingFooter() {
 
           <div className="overflow-hidden rounded-2xl border border-border bg-bg-card shadow-card">
             <iframe
-              title="Cullinos office location"
-              src="https://maps.google.com/maps?q=Mumbai%2C%20India&z=12&output=embed"
+              title={`${BUSINESS_NAP.brand} office location — ${BUSINESS_ADDRESS_LINE}`}
+              src={`https://maps.google.com/maps?q=${MAPS_EMBED_QUERY}&z=12&output=embed`}
               className="h-44 w-full border-0"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             />
+            <p className="border-t border-border-light px-4 py-3 text-xs text-text-muted">
+              {BUSINESS_NAP.legalName} · {BUSINESS_ADDRESS_LINE} ·{' '}
+              <a href={`mailto:${contactEmail}`} className="text-brand-gold hover:underline">
+                {contactEmail}
+              </a>
+            </p>
           </div>
         </div>
 
@@ -125,6 +132,9 @@ export function MarketingFooter() {
           <div className="text-right">
             <p className="text-sm text-text-muted">
               © {new Date().getFullYear()} {CULLINOS_BRAND.name}. {CULLINOS_BRAND.poweredBy}
+            </p>
+            <p className="mt-1 text-xs text-text-muted">
+              {BUSINESS_NAP.legalName} · {BUSINESS_ADDRESS_LINE}
             </p>
             <div className="mt-2 flex gap-4 text-xs text-text-muted">
               <Link href="/privacy" className="transition hover:text-text-primary">

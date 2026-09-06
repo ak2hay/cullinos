@@ -9,8 +9,11 @@ test.describe('Super Admin', () => {
       password: e2eEnv.superAdminPassword,
     });
 
-    await expect(page.getByRole('heading', { name: /tenants/i })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: /dashboard/i })).toBeVisible({ timeout: 20_000 });
     await assertNoErrorBanner(page);
+
+    await page.goto('/tenants');
+    await expect(page.getByRole('heading', { name: /tenants/i })).toBeVisible({ timeout: 15_000 });
 
     await page.goto('/health');
     await expect(page.getByRole('heading', { name: /system health/i })).toBeVisible({

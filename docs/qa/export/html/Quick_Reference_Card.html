@@ -40,12 +40,24 @@
 <td><a href="https://admin.cullinos.com">https://admin.cullinos.com</a></td>
 </tr>
 <tr>
+<td>Portal POS</td>
+<td><a href="https://admin.cullinos.com/pos">https://admin.cullinos.com/pos</a></td>
+</tr>
+<tr>
 <td>Management</td>
 <td><a href="https://manage.cullinos.com">https://manage.cullinos.com</a></td>
 </tr>
 <tr>
 <td>Waiter</td>
 <td><a href="https://waiter.cullinos.com">https://waiter.cullinos.com</a></td>
+</tr>
+<tr>
+<td>POS</td>
+<td><a href="https://pos.cullinos.com">https://pos.cullinos.com</a></td>
+</tr>
+<tr>
+<td>KDS</td>
+<td><a href="https://kds.cullinos.com">https://kds.cullinos.com</a></td>
 </tr>
 <tr>
 <td>Customer</td>
@@ -75,15 +87,15 @@
 </thead>
 <tbody><tr>
 <td><strong>1</strong></td>
-<td>Preflight + onboard restaurant + menu + staff</td>
+<td>Preflight + onboard + menu + tables + Waiter + Cashier</td>
 </tr>
 <tr>
 <td><strong>2</strong></td>
-<td>Waiter orders + guest checkout + optional KDS</td>
+<td>Waiter + POS + KDS + guest checkout + CDS + Portal POS</td>
 </tr>
 <tr>
 <td><strong>3</strong></td>
-<td>Admin + Management + Super Admin</td>
+<td>Admin modules (new pages) + Management + Super Admin</td>
 </tr>
 <tr>
 <td><strong>4</strong></td>
@@ -94,11 +106,11 @@
 <h2 id="minimum-test-flow">Minimum test flow</h2>
 <ol>
 <li>Super Admin → <strong>Onboard restaurant</strong> (enterprise plan)</li>
-<li>Admin → <strong>Menu</strong> + <strong>Staff</strong> (1 waiter)</li>
-<li>Waiter → <strong>Table order</strong></li>
-<li>Admin → <strong>Orders</strong> (verify)</li>
+<li>Admin → <strong>Menu</strong> + <strong>Tables</strong> + <strong>Staff</strong> (Waiter + Cashier)</li>
+<li>Waiter → <strong>Table order</strong> → KDS verifies KOT</li>
+<li>POS / Portal POS → hold / resume / checkout</li>
 <li>Customer → <strong>Checkout</strong> in incognito (verify)</li>
-<li>TEST_RUN_SHEET → mark all <strong>127 cases</strong></li>
+<li>TEST_RUN_SHEET → mark all <strong>160 cases</strong></li>
 </ol>
 <hr>
 <h2 id="result-codes">Result codes</h2>
@@ -132,13 +144,13 @@
 <li><strong>Never</strong> put real passwords in Excel or email</li>
 <li>Use <strong>Incognito</strong> for guest customer tests</li>
 <li><strong>QA tenant only</strong> for suspend/reactivate tests</li>
-<li>Admin Tables/Inventory placeholders are <strong>not bugs</strong></li>
-<li>POS/KDS: local only — mark <strong>Blocked</strong> if not set up</li>
+<li>Banquets / Brands / Guests / Rooms on restaurant → usually <strong>N/A</strong></li>
+<li>POS/KDS: use production URLs first</li>
 </ul>
 <hr>
 <h2 id="files-to-return">Files to return</h2>
 <ul>
-<li>TEST_RUN_SHEET.xlsx (all 127 rows filled)</li>
+<li>TEST_RUN_SHEET.xlsx (all 160 rows filled)</li>
 <li>BUG_LOG.xlsx (one row per failure)</li>
 <li>CREDENTIALS_LOG.xlsx (no passwords)</li>
 <li>evidence/ folder (screenshots)</li>

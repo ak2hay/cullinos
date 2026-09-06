@@ -71,6 +71,10 @@ export class CreateOrderDto {
   notes?: string;
 
   @IsOptional()
+  @IsString()
+  scheduledPickupAt?: string;
+
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)

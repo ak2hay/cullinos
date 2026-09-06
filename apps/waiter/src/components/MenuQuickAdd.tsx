@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { MenuItem, OrderItem } from '@/lib/api';
-import { Button } from './ui/Form';
+import { Button } from '@cullinos/ui';
 
 interface MenuQuickAddProps {
   items: MenuItem[];

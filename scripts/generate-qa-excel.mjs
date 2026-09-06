@@ -44,7 +44,12 @@ const TEST_CASES = [
   { id: 'TC-1.3-04', phase: '1.3 Test data', case: 'Create staff account — role Waiter', expected: 'Waiter account created' },
   { id: 'TC-1.3-05', phase: '1.3 Test data', case: 'Assign waiter to main outlet', expected: 'Outlet assigned' },
   { id: 'TC-1.3-06', phase: '1.3 Test data', case: 'Settings page shows correct businessType', expected: 'businessType correct' },
-  { id: 'TC-1.3-07', phase: '1.3 Test data', case: 'Tables created via API if Waiter grid empty', expected: 'Tables exist for Waiter' },
+  { id: 'TC-1.3-07', phase: '1.3 Test data', case: 'Create 2+ tables via Admin → Tables', expected: 'Tables exist for Waiter' },
+  { id: 'TC-1.3-08', phase: '1.3 Test data', case: 'Create staff account — role Cashier (for POS)', expected: 'Cashier account created' },
+  // Phase 1.4
+  { id: 'TC-1.4-01', phase: '1.4 Auth', case: 'Admin forgot-password page loads and accepts email', expected: 'Form accepts email' },
+  { id: 'TC-1.4-02', phase: '1.4 Auth', case: 'Super Admin forgot-password page loads and accepts email', expected: 'Form accepts email' },
+  { id: 'TC-1.4-03', phase: '1.4 Auth', case: 'Change-password page reachable after owner login', expected: 'Page loads' },
   // Phase 2.1
   { id: 'TC-2.1-01', phase: '2.1 Waiter', case: 'Employee login at waiter.cullinos.com', expected: 'Login succeeds' },
   { id: 'TC-2.1-02', phase: '2.1 Waiter', case: 'Main outlet selectable', expected: 'Outlet loads' },
@@ -52,11 +57,13 @@ const TEST_CASES = [
   { id: 'TC-2.1-04', phase: '2.1 Waiter', case: 'Open table — menu loads', expected: 'Menu items load' },
   { id: 'TC-2.1-05', phase: '2.1 Waiter', case: 'Add 2+ items to order', expected: 'Items in cart' },
   { id: 'TC-2.1-06', phase: '2.1 Waiter', case: 'Confirm order — success with order number', expected: 'Order confirmed' },
-  { id: 'TC-2.1-07', phase: '2.1 Waiter', case: 'KDS local shows KOT within ~5s poll', expected: 'KOT on KDS' },
+  { id: 'TC-2.1-07', phase: '2.1 Waiter', case: 'KDS at kds.cullinos.com shows KOT within ~5s', expected: 'KOT on KDS' },
   { id: 'TC-2.1-08', phase: '2.1 Waiter', case: 'Admin Orders lists dine-in order', expected: 'Order in Admin list' },
   { id: 'TC-2.1-09', phase: '2.1 Waiter', case: 'Order total matches items ordered', expected: 'Total correct' },
+  { id: 'TC-2.1-10', phase: '2.1 Waiter', case: 'Show QR to customers — session link works', expected: 'Guest session opens' },
+  { id: 'TC-2.1-11', phase: '2.1 Waiter', case: 'End session — guest link expires on refresh', expected: 'Session expired' },
   // Phase 2.2
-  { id: 'TC-2.2-01', phase: '2.2 POS', case: 'POS local app starts against prod API', expected: 'POS loads on localhost:5173' },
+  { id: 'TC-2.2-01', phase: '2.2 POS', case: 'POS loads at pos.cullinos.com', expected: 'POS loads' },
   { id: 'TC-2.2-02', phase: '2.2 POS', case: 'Cashier login succeeds', expected: 'POS session active' },
   { id: 'TC-2.2-03', phase: '2.2 POS', case: 'Add items — cart subtotal correct', expected: 'Subtotal correct' },
   { id: 'TC-2.2-04', phase: '2.2 POS', case: 'Set order type takeaway', expected: 'Takeaway selected' },
@@ -74,11 +81,20 @@ const TEST_CASES = [
   { id: 'TC-2.3-08', phase: '2.3 Customer', case: 'Admin Orders shows online/QR source order', expected: 'Online order listed' },
   { id: 'TC-2.3-09', phase: '2.3 Customer', case: 'QR table param ?table=T1 binds table', expected: 'Table bound if exists' },
   { id: 'TC-2.3-10', phase: '2.3 Customer', case: 'Pay now Razorpay flow', expected: 'Payment completes or N/A' },
+  { id: 'TC-2.3-11', phase: '2.3 Customer', case: 'Customer login modal opens without blocking guest checkout', expected: 'Modal OK; guest checkout works' },
   // Phase 2.4
-  { id: 'TC-2.4-01', phase: '2.4 Pickup', case: 'Admin Pickup Queue page loads', expected: 'Page loads' },
-  { id: 'TC-2.4-02', phase: '2.4 Pickup', case: 'KDS pickup URL copyable and opens', expected: 'Pickup display loads' },
-  { id: 'TC-2.4-03', phase: '2.4 Pickup', case: 'Order appears in Preparing column', expected: 'Order in Preparing' },
-  { id: 'TC-2.4-04', phase: '2.4 Pickup', case: 'Order moves to Ready when marked', expected: 'Order in Ready' },
+  { id: 'TC-2.4-01', phase: '2.4 CDS', case: 'Admin Order Display (/cds) page loads', expected: 'Page loads' },
+  { id: 'TC-2.4-02', phase: '2.4 CDS', case: 'CDS / KDS pickup URL copyable and opens', expected: 'Display loads' },
+  { id: 'TC-2.4-03', phase: '2.4 CDS', case: 'Order appears in Preparing column', expected: 'Order in Preparing' },
+  { id: 'TC-2.4-04', phase: '2.4 CDS', case: 'Order moves to Ready when marked', expected: 'Order in Ready' },
+  // Phase 2.5
+  { id: 'TC-2.5-01', phase: '2.5 Portal POS', case: 'Owner opens Admin /pos with POS permission', expected: 'Portal POS loads' },
+  { id: 'TC-2.5-02', phase: '2.5 Portal POS', case: 'Add items — cart subtotal correct', expected: 'Subtotal correct' },
+  { id: 'TC-2.5-03', phase: '2.5 Portal POS', case: 'Hold and resume order in Portal POS', expected: 'Cart restored' },
+  { id: 'TC-2.5-04', phase: '2.5 Portal POS', case: 'Checkout confirms order from Portal POS', expected: 'Order confirmed' },
+  // Phase 2.6
+  { id: 'TC-2.6-01', phase: '2.6 Kiosk', case: 'Admin Digital Ordering (/kiosk) page loads', expected: 'Page loads' },
+  { id: 'TC-2.6-02', phase: '2.6 Kiosk', case: 'Launcher shows usable storefront / kiosk URL', expected: 'URL usable' },
   // Phase 3
   { id: 'TC-3-01', phase: '3 Admin', case: 'Dashboard loads with KPI cards', expected: 'KPI cards visible' },
   { id: 'TC-3-02', phase: '3 Admin', case: 'Dashboard revenue reflects test orders', expected: 'Revenue non-zero' },
@@ -87,21 +103,35 @@ const TEST_CASES = [
   { id: 'TC-3-05', phase: '3 Admin', case: 'Menu — toggle item availability', expected: 'Availability toggled' },
   { id: 'TC-3-06', phase: '3 Admin', case: 'Orders — all Phase 2 orders visible', expected: 'All orders listed' },
   { id: 'TC-3-07', phase: '3 Admin', case: 'Orders — status and source correct', expected: 'Status/source correct' },
-  { id: 'TC-3-08', phase: '3 Admin', case: 'Tables page loads (Phase 2 placeholder)', expected: 'Page loads' },
-  { id: 'TC-3-09', phase: '3 Admin', case: 'Inventory page loads (Phase 2 placeholder)', expected: 'Page loads' },
+  { id: 'TC-3-08', phase: '3 Admin', case: 'Tables — create table via Admin UI', expected: 'Table created' },
+  { id: 'TC-3-09', phase: '3 Admin', case: 'Inventory — list/view stock items', expected: 'Stock list loads' },
   { id: 'TC-3-10', phase: '3 Admin', case: 'Customers — loyalty tiers list loads', expected: 'Tiers listed' },
   { id: 'TC-3-11', phase: '3 Admin', case: 'Customers — coupons list loads', expected: 'Coupons listed' },
   { id: 'TC-3-12', phase: '3 Admin', case: 'Events — create new event', expected: 'Event created' },
   { id: 'TC-3-13', phase: '3 Admin', case: 'Events — event appears in list', expected: 'Event in list' },
   { id: 'TC-3-14', phase: '3 Admin', case: 'Production — schedule batch (if applicable)', expected: 'Batch scheduled or N/A' },
   { id: 'TC-3-15', phase: '3 Admin', case: 'Production — complete batch (if applicable)', expected: 'Batch completed or N/A' },
-  { id: 'TC-3-16', phase: '3 Admin', case: 'Pickup Queue — URL includes correct outletId', expected: 'outletId in URL' },
+  { id: 'TC-3-16', phase: '3 Admin', case: 'Order Display launcher — URL includes correct outletId', expected: 'outletId in URL' },
   { id: 'TC-3-17', phase: '3 Admin', case: 'Staff — employee listed', expected: 'Waiter visible' },
   { id: 'TC-3-18', phase: '3 Admin', case: 'Reports — revenue section loads', expected: 'Revenue section loads' },
   { id: 'TC-3-19', phase: '3 Admin', case: 'Reports — top items non-empty after orders', expected: 'Top items listed' },
   { id: 'TC-3-20', phase: '3 Admin', case: 'Settings — save valid JSON config', expected: 'Config saved' },
   { id: 'TC-3-21', phase: '3 Admin', case: 'Settings — invalid JSON shows error', expected: 'Error shown' },
   { id: 'TC-3-22', phase: '3 Admin', case: 'Logout and re-login persists session', expected: 'Re-login works' },
+  { id: 'TC-3-23', phase: '3 Admin', case: 'Recipes — create recipe', expected: 'Recipe created' },
+  { id: 'TC-3-24', phase: '3 Admin', case: 'Recipes — recipe appears in list', expected: 'Recipe listed' },
+  { id: 'TC-3-25', phase: '3 Admin', case: 'Loyalty page loads', expected: 'Page loads' },
+  { id: 'TC-3-26', phase: '3 Admin', case: 'Delivery page loads (list/status)', expected: 'Page loads' },
+  { id: 'TC-3-27', phase: '3 Admin', case: 'Promo Email page loads', expected: 'Page loads' },
+  { id: 'TC-3-28', phase: '3 Admin', case: 'Promo Email — compose draft or send without crash', expected: 'No crash' },
+  { id: 'TC-3-29', phase: '3 Admin', case: 'Billing page loads', expected: 'Page loads' },
+  { id: 'TC-3-30', phase: '3 Admin', case: 'Kitchen Display launcher opens usable KDS URL', expected: 'KDS URL usable' },
+  { id: 'TC-3-31', phase: '3 Admin', case: 'Inventory — add or adjust stock item', expected: 'Stock updated' },
+  { id: 'TC-3-32', phase: '3 Admin', case: 'Staff without POS_ACCESS denied or redirected from /pos', expected: 'Access denied/redirect' },
+  { id: 'TC-3-33', phase: '3 Admin', case: 'Banquets page (N/A on restaurant tenant)', expected: 'N/A or page loads' },
+  { id: 'TC-3-34', phase: '3 Admin', case: 'Brands page (N/A on restaurant tenant)', expected: 'N/A or page loads' },
+  { id: 'TC-3-35', phase: '3 Admin', case: 'Guests page (N/A on restaurant tenant)', expected: 'N/A or page loads' },
+  { id: 'TC-3-36', phase: '3 Admin', case: 'Rooms page (N/A on restaurant tenant)', expected: 'N/A or page loads' },
   // Phase 4
   { id: 'TC-4-01', phase: '4 Management', case: 'Owner login at manage.cullinos.com', expected: 'Management loads' },
   { id: 'TC-4-02', phase: '4 Management', case: 'Overview dashboard loads KPIs', expected: 'KPIs visible' },
@@ -126,6 +156,12 @@ const TEST_CASES = [
   { id: 'TC-5-12', phase: '5 Super Admin', case: 'Marketing Media library loads', expected: 'Library loads' },
   { id: 'TC-5-13', phase: '5 Super Admin', case: 'Suspend QA tenant — owner login blocked', expected: 'Owner blocked' },
   { id: 'TC-5-14', phase: '5 Super Admin', case: 'Reactivate QA tenant — owner login works', expected: 'Owner can login' },
+  { id: 'TC-5-15', phase: '5 Super Admin', case: 'Plans page loads', expected: 'Page loads' },
+  { id: 'TC-5-16', phase: '5 Super Admin', case: 'Promo Email page loads', expected: 'Page loads' },
+  { id: 'TC-5-17', phase: '5 Super Admin', case: 'Marketing Testimonials editor loads', expected: 'Editor loads' },
+  { id: 'TC-5-18', phase: '5 Super Admin', case: 'Marketing Design Lab loads', expected: 'Page loads' },
+  { id: 'TC-5-19', phase: '5 Super Admin', case: 'Platform Settings page loads', expected: 'Page loads' },
+  { id: 'TC-5-20', phase: '5 Super Admin', case: 'Super Admin forgot-password page loads', expected: 'Page loads' },
   // Phase 6
   { id: 'TC-6-01', phase: '6 Marketing', case: 'Home page loads with hero and nav', expected: 'Home loads' },
   { id: 'TC-6-02', phase: '6 Marketing', case: 'Features page loads', expected: 'Features loads' },
@@ -245,7 +281,7 @@ async function buildTestRunSheet() {
     'All Critical/High failures logged in BUG_LOG',
     'Credentials Log completed (no passwords in files)',
     'Known limitations separated from open bugs',
-    'All 127 test cases marked Pass/Fail/Blocked/N/A',
+    `All ${TEST_CASES.length} test cases marked Pass/Fail/Blocked/N/A`,
   ].forEach((item) => signOff.addRow({ item, yn: '' }));
   signOff.addRow({});
   signOff.addRow({ item: 'Tester signature', yn: '' });
@@ -323,7 +359,7 @@ async function buildBugLog() {
     ['High', 'Major feature broken; workaround difficult', 'KOT never appears; checkout fails'],
     ['Medium', 'Feature partially broken', 'Wrong totals, UI glitch with workaround'],
     ['Low', 'Cosmetic or minor inconvenience', 'Typo, alignment issue'],
-    ['Known limitation', 'Documented gap, not a defect', 'Admin Tables placeholder'],
+    ['Known limitation', 'Documented gap, not a defect', 'Razorpay pay-now without keys'],
   ].forEach((row) => defs.addRow({ severity: row[0], definition: row[1], example: row[2] }));
 
   const known = wb.addWorksheet('Known limitations');
@@ -334,11 +370,11 @@ async function buildBugLog() {
   ];
   styleHeader(known.getRow(1));
   [
-    ['KL-001', 'Admin Tables', 'Phase 2 placeholder UI — use Waiter + Swagger'],
-    ['KL-002', 'Admin Inventory', 'Phase 2 placeholder UI — use Swagger'],
-    ['KL-003', 'POS/KDS', 'Local apps only on production'],
+    ['KL-003', 'POS/KDS DNS', 'If pos/kds URLs down, use local fallback or Blocked'],
     ['KL-004', 'Razorpay', 'Pay-now requires keys — use Pay later'],
-    ['KL-005', 'Gateway sync', 'Requires Electron app on outlet LAN'],
+    ['KL-005', 'Order Display', 'Prefer Admin /cds launcher'],
+    ['KL-006', 'Production stock', 'Stock deducts only with recipe-linked batches'],
+    ['KL-007', 'Business-type nav', 'Banquets/Brands/Guests/Rooms N/A on restaurant'],
   ].forEach(([id, module, desc]) => known.addRow({ id, module, desc }));
 
   return wb;
@@ -401,8 +437,8 @@ async function buildCredentialsLog() {
     ['Menu data', 'Item 3', ''],
     ['Menu data', 'Item 4', ''],
     ['', '', ''],
-    ['Tables (API)', 'Table T1 ID', ''],
-    ['Tables (API)', 'Table T2 ID', ''],
+    ['Tables (Admin)', 'Table T1 ID', ''],
+    ['Tables (Admin)', 'Table T2 ID', ''],
     ['', '', ''],
     ['Orders placed', 'Dine-in order ID', ''],
     ['Orders placed', 'Online order ID', ''],
@@ -425,8 +461,8 @@ async function buildCredentialsLog() {
 async function main() {
   mkdirSync(OUT_DIR, { recursive: true });
 
-  if (TEST_CASES.length !== 127) {
-    console.warn(`Warning: expected 127 test cases, found ${TEST_CASES.length}`);
+  if (TEST_CASES.length !== 160) {
+    console.warn(`Warning: expected 160 test cases, found ${TEST_CASES.length}`);
   }
 
   const testWb = await buildTestRunSheet();

@@ -1,32 +1,50 @@
-export const cullinosTheme = {
-  colors: {
-    charcoal: "#0F0F1A",
-    charcoalLight: "#1A1A2E",
-    amber: "#D4A017",
-    amberLight: "#E8B84A",
-    white: "#FFFFFF",
-    muted: "#888888",
-    border: "#2A2A3E",
-    success: "#22C55E",
-    error: "#EF4444",
-    warning: "#F59E0B",
-  },
-  fonts: {
-    sans: "Inter, system-ui, sans-serif",
-    mono: "JetBrains Mono, monospace",
-  },
-};
+export {
+  colors,
+  productColors,
+  platformColors,
+  typography,
+  spacing,
+  borderRadius,
+  productTheme,
+  platformTheme,
+  cullinosTheme,
+} from './theme';
 
-export { colors, typography, borderRadius } from './theme';
+export { cn } from './utils';
 
-export const poweredByRkyves = "Powered by Rkyves";
+export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from './components/Button';
+export { Field, controlClassName, fieldId, type FieldProps } from './components/Field';
+export { Input, type InputProps } from './components/Input';
+export { Select, type SelectProps, type SelectOption } from './components/Select';
+export { Textarea, type TextareaProps } from './components/Textarea';
+export { Alert, ErrorBanner, type AlertProps, type AlertVariant } from './components/Alert';
+export {
+  ToastProvider,
+  useToast,
+  type ToastItem,
+  type ToastVariant,
+} from './components/Toast';
+export { PageHeader, type PageHeaderProps } from './components/PageHeader';
+export { EmptyState } from './components/EmptyState';
+export {
+  DataTable,
+  type DataTableProps,
+  type DataTableColumn,
+} from './components/DataTable';
+export {
+  NavSection,
+  type NavSectionDef,
+  type NavSectionItem,
+} from './components/NavSection';
+
+export const poweredByRkyves = 'Powered by Rkyves';
 
 export function formatOrderNumber(num: string | number): string {
-  return String(num).padStart(4, "0");
+  return String(num).padStart(4, '0');
 }
 
-export function formatCurrency(amount: number, currency = "INR"): string {
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency }).format(amount);
+export function formatCurrency(amount: number, currency = 'INR'): string {
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(amount);
 }
 
 export interface PortalDevShellProps {
@@ -41,56 +59,56 @@ export interface PortalDevShellProps {
 export function portalDevShellStyles() {
   return {
     page: {
-      minHeight: "100vh",
-      background: cullinosTheme.colors.charcoal,
-      color: cullinosTheme.colors.white,
-      fontFamily: cullinosTheme.fonts.sans,
-      padding: "clamp(1rem, 4vw, 2rem)",
-      boxSizing: "border-box" as const,
+      minHeight: '100vh',
+      background: '#0F0F1A',
+      color: '#FFFFFF',
+      fontFamily: 'Inter, system-ui, sans-serif',
+      padding: 'clamp(1rem, 4vw, 2rem)',
+      boxSizing: 'border-box' as const,
     },
     header: {
-      borderBottom: `1px solid ${cullinosTheme.colors.border}`,
-      paddingBottom: "1rem",
-      marginBottom: "clamp(1rem, 4vw, 2rem)",
+      borderBottom: '1px solid #2A2A3E',
+      paddingBottom: '1rem',
+      marginBottom: 'clamp(1rem, 4vw, 2rem)',
     },
     title: {
-      color: cullinosTheme.colors.amber,
+      color: '#D4A017',
       margin: 0,
-      fontSize: "clamp(1.5rem, 5vw, 2rem)",
+      fontSize: 'clamp(1.5rem, 5vw, 2rem)',
     },
     subtitle: {
-      color: cullinosTheme.colors.muted,
-      margin: "0.5rem 0 0",
-      fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
+      color: '#6B7280',
+      margin: '0.5rem 0 0',
+      fontSize: 'clamp(0.875rem, 2.5vw, 1rem)',
     },
     card: {
-      background: cullinosTheme.colors.charcoalLight,
-      border: `1px solid ${cullinosTheme.colors.border}`,
-      borderRadius: "12px",
-      padding: "clamp(1rem, 4vw, 2rem)",
-      maxWidth: "640px",
+      background: '#1A1A2E',
+      border: '1px solid #2A2A3E',
+      borderRadius: '12px',
+      padding: 'clamp(1rem, 4vw, 2rem)',
+      maxWidth: '640px',
     },
     muted: {
-      color: cullinosTheme.colors.muted,
-      marginTop: "1rem",
-      fontSize: "0.875rem",
+      color: '#6B7280',
+      marginTop: '1rem',
+      fontSize: '0.875rem',
       lineHeight: 1.6,
     },
     code: {
-      fontFamily: cullinosTheme.fonts.mono,
-      wordBreak: "break-all" as const,
+      fontFamily: 'JetBrains Mono, monospace',
+      wordBreak: 'break-all' as const,
     },
     footer: {
-      marginTop: "clamp(1.5rem, 5vw, 3rem)",
-      color: cullinosTheme.colors.muted,
-      fontSize: "0.875rem",
+      marginTop: 'clamp(1.5rem, 5vw, 3rem)',
+      color: '#6B7280',
+      fontSize: '0.875rem',
     },
   };
 }
 
 export function getPortalDevShellCopy(props: PortalDevShellProps) {
-  const apiHost = props.apiHost ?? "localhost:3000";
-  const version = props.version ?? "0.1.0";
+  const apiHost = props.apiHost ?? 'localhost:3000';
+  const version = props.version ?? '0.1.0';
   return {
     statusLine: `Development shell — will connect to the Cullinos API at ${apiHost} when fully wired.`,
     versionLine: `Cullinos v${version}`,

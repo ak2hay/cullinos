@@ -1,16 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Button, Input } from '@/components/ui/Form';
-import { outletsApi, rolesApi, usersApi } from '@/lib/api';
+import { Button, Input } from '@cullinos/ui';
+import { PERMISSIONS, hasAnyPermission } from '@cullinos/shared';
+import { outletsApi, rolesApi, usersApi, type StaffUser } from '@/lib/api';
+import { useAuthStore } from '@/stores/auth';
 
 const STAFF_ROLES = [
   { slug: 'waiter', label: 'Waiter — floor ordering' },
   { slug: 'cashier', label: 'Cashier — POS' },
+  { slug: 'kitchen', label: 'Kitchen — KDS display' },
   { slug: 'manager', label: 'Manager — operations' },
 ];
 
+function isOwner(user: StaffUser) {
+  return user.roles.some((r) => r.slug === 'owner');
+}
+
 export function StaffPage() {
   const queryClient = useQueryClient();
+  const permissions = useAuthStore((s) => s.permissions);
+  const canManageStaff = hasAnyPermission(permissions, [
+    PERMISSIONS.STAFF_MANAGE,
+    PERMISSIONS.ORG_MANAGE_USERS,
+  ]);
   const [showForm, setShowForm] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,6 +64,37 @@ export function StaffPage() {
     },
   });
 
+  const deactivateMutation = useMutation({
+    mutationFn: usersApi.deactivate,
+    onSuccess: () => {
+      setMessage('Staff member removed. They can no longer sign in.');
+      setError(null);
+      queryClient.invalidateQueries({ queryKey: ['staff', 'users'] });
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+      setMessage(null);
+    },
+  });
+
+  const activateMutation = useMutation({
+    mutationFn: usersApi.activate,
+    onSuccess: () => {
+      setMessage('Staff member activated.');
+      setError(null);
+      queryClient.invalidateQueries({ queryKey: ['staff', 'users'] });
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+      setMessage(null);
+    },
+  });
+
+  function handleRemove(user: StaffUser) {
+    if (!window.confirm(`Remove ${user.name}? They will no longer be able to sign in.`)) return;
+    deactivateMutation.mutate(user.id);
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -62,12 +105,19 @@ export function StaffPage() {
             by the owner — Cullinos does not auto-provision floor or kitchen users.
           </p>
         </div>
-        <Button onClick={() => setShowForm((v) => !v)}>
+        <Button onClick={() => setShowForm((v) => !v)} disabled={!canManageStaff}>
           {showForm ? 'Cancel' : 'Add staff member'}
         </Button>
       </div>
 
-      {showForm ? (
+      {message && !showForm ? (
+        <p className="text-sm text-status-success">{message}</p>
+      ) : null}
+      {error && !showForm ? (
+        <p className="text-sm text-status-error">{error}</p>
+      ) : null}
+
+      {showForm && canManageStaff ? (
         <section className="rounded-xl border border-white/5 bg-bg-card p-6">
           <h2 className="font-medium">New staff account</h2>
           <form
@@ -163,33 +213,63 @@ export function StaffPage() {
               <th className="px-4 py-3 font-medium">Role</th>
               <th className="px-4 py-3 font-medium">Outlets</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-text-muted">
+                <td colSpan={6} className="px-4 py-8 text-center text-text-muted">
                   Loading staff…
                 </td>
               </tr>
             ) : (
-              staff.map((user) => (
-                <tr key={user.id} className="border-b border-white/5">
-                  <td className="px-4 py-3 font-medium">{user.name}</td>
-                  <td className="px-4 py-3 text-text-secondary">{user.email}</td>
-                  <td className="px-4 py-3 capitalize">
-                    {user.roles.map((r) => r.name).join(', ') || '—'}
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary">
-                    {user.outlets.map((o) => o.name).join(', ') || '—'}
-                  </td>
-                  <td className="px-4 py-3 capitalize">{user.status}</td>
-                </tr>
-              ))
+              staff.map((user) => {
+                const owner = isOwner(user);
+                const inactive = user.status === 'inactive';
+                return (
+                  <tr key={user.id} className="border-b border-white/5">
+                    <td className="px-4 py-3 font-medium">{user.name}</td>
+                    <td className="px-4 py-3 text-text-secondary">{user.email}</td>
+                    <td className="px-4 py-3 capitalize">
+                      {user.roles.map((r) => r.name).join(', ') || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary">
+                      {user.outlets.map((o) => o.name).join(', ') || '—'}
+                    </td>
+                    <td className="px-4 py-3 capitalize">{user.status}</td>
+                    <td className="px-4 py-3">
+                      {owner ? (
+                        <span className="text-text-muted">Owner</span>
+                      ) : !canManageStaff ? (
+                        <span className="text-text-muted">—</span>
+                      ) : inactive ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => activateMutation.mutate(user.id)}
+                          loading={activateMutation.isPending}
+                        >
+                          Activate
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => handleRemove(user)}
+                          loading={deactivateMutation.isPending}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
             )}
             {!isLoading && staff.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-text-muted">
+                <td colSpan={6} className="px-4 py-8 text-center text-text-muted">
                   No staff accounts yet. Add your first team member above.
                 </td>
               </tr>

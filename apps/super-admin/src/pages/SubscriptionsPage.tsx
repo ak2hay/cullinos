@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { superAdminApi } from '@/lib/api';
 
 export function SubscriptionsPage() {
@@ -8,10 +9,17 @@ export function SubscriptionsPage() {
   const [planSlug, setPlanSlug] = useState('enterprise');
   const [status, setStatus] = useState('ACTIVE');
   const [message, setMessage] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState('');
+  const [q, setQ] = useState('');
+
+  useEffect(() => {
+    const t = setTimeout(() => setQ(searchInput.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['super-admin', 'organizations', 1],
-    queryFn: () => superAdminApi.listOrganizations(1, 50),
+    queryKey: ['super-admin', 'organizations', 'subs', q],
+    queryFn: () => superAdminApi.listOrganizations(1, 100, { q: q || undefined }),
   });
 
   const { data: plans = [] } = useQuery({
@@ -20,8 +28,15 @@ export function SubscriptionsPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ orgId, planSlug: slug, status: s }: { orgId: string; planSlug: string; status: string }) =>
-      superAdminApi.manageSubscription(orgId, { planSlug: slug, status: s }),
+    mutationFn: ({
+      orgId,
+      planSlug: slug,
+      status: s,
+    }: {
+      orgId: string;
+      planSlug: string;
+      status: string;
+    }) => superAdminApi.manageSubscription(orgId, { planSlug: slug, status: s }),
     onSuccess: () => {
       setMessage('Subscription updated successfully.');
       queryClient.invalidateQueries({ queryKey: ['super-admin', 'organizations'] });
@@ -32,7 +47,11 @@ export function SubscriptionsPage() {
   const collectMutation = useMutation({
     mutationFn: (orgId: string) => superAdminApi.collectSubscription(orgId),
     onSuccess: (result) => {
-      setMessage(result.shortUrl ? `Razorpay checkout ready: ${result.shortUrl}` : 'Razorpay subscription created.');
+      setMessage(
+        result.shortUrl
+          ? `Razorpay checkout ready: ${result.shortUrl}`
+          : 'Razorpay subscription created.',
+      );
       queryClient.invalidateQueries({ queryKey: ['super-admin', 'organizations'] });
       if (result.shortUrl) {
         window.open(result.shortUrl, '_blank', 'noopener,noreferrer');
@@ -48,16 +67,33 @@ export function SubscriptionsPage() {
       <div>
         <h1 className="text-2xl font-semibold">Subscription management</h1>
         <p className="mt-1 text-text-secondary">
-          Update plan and subscription status for tenant organizations.
+          Search tenants, update plans, and collect Razorpay payments.
         </p>
       </div>
+
+      {message ? (
+        <div className="rounded-xl border border-white/10 bg-bg-card px-4 py-3 text-sm text-text-secondary">
+          {message}
+          <button type="button" className="ml-3 text-xs underline" onClick={() => setMessage(null)}>
+            Dismiss
+          </button>
+        </div>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-white/5 bg-bg-card p-6">
           <h2 className="font-medium">Select tenant</h2>
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search name, slug, email…"
+            className="mt-3 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
+          />
           <ul className="mt-4 max-h-96 divide-y divide-white/5 overflow-y-auto">
             {isLoading ? (
               <li className="py-4 text-sm text-text-muted">Loading…</li>
+            ) : (data?.data ?? []).length === 0 ? (
+              <li className="py-4 text-sm text-text-muted">No tenants found.</li>
             ) : (
               (data?.data ?? []).map((tenant) => (
                 <li key={tenant.id}>
@@ -75,6 +111,9 @@ export function SubscriptionsPage() {
                     <p className="font-medium">{tenant.name}</p>
                     <p className="text-xs text-text-muted">
                       {tenant.plan ?? 'No plan'} · {tenant.subscriptionStatus ?? '—'}
+                      {tenant.mrrContribution
+                        ? ` · ₹${tenant.mrrContribution}/mo`
+                        : ''}
                     </p>
                   </button>
                 </li>
@@ -101,98 +140,89 @@ export function SubscriptionsPage() {
                   <dd>{selected.outletCount}</dd>
                 </div>
                 <div>
-                  <dt className="text-text-muted">Users</dt>
-                  <dd>{selected.userCount}</dd>
+                  <dt className="text-text-muted">MRR contribution</dt>
+                  <dd>₹{selected.mrrContribution ?? 0}</dd>
                 </div>
-                <div className="col-span-2">
-                  <dt className="text-text-muted">Created</dt>
-                  <dd>{new Date(selected.createdAt).toLocaleDateString()}</dd>
+                <div>
+                  <dt className="text-text-muted">Grace until</dt>
+                  <dd>
+                    {selected.graceUntil
+                      ? new Date(selected.graceUntil).toLocaleDateString()
+                      : '—'}
+                  </dd>
                 </div>
-                <div className="col-span-2">
-                  <dt className="text-text-muted">Trial ends</dt>
-                  <dd>{selected.trialEndsAt ? new Date(selected.trialEndsAt).toLocaleDateString() : '—'}</dd>
+                <div>
+                  <dt className="text-text-muted">Last payment id</dt>
+                  <dd className="truncate font-mono text-xs">
+                    {selected.lastRazorpayPaymentId ?? '—'}
+                  </dd>
                 </div>
               </dl>
 
-              <button
-                type="button"
-                disabled={collectMutation.isPending}
-                onClick={() => {
-                  setMessage(null);
-                  collectMutation.mutate(selected.id);
-                }}
-                className="rounded-lg border border-brand-primary/40 bg-brand-primary/15 px-4 py-2.5 text-sm font-medium text-brand-primary hover:bg-brand-primary/25 disabled:opacity-60"
+              <Link
+                to={`/tenants/${selected.id}`}
+                className="inline-block text-sm text-brand-primary hover:underline"
               >
-                {collectMutation.isPending ? 'Creating Razorpay subscription…' : 'Collect / convert to paid'}
-              </button>
-              {selected.checkoutUrl ? (
-                <p className="text-xs text-text-muted">
-                  Checkout:{' '}
-                  <a href={selected.checkoutUrl} className="text-brand-primary underline" target="_blank" rel="noreferrer">
-                    {selected.checkoutUrl}
-                  </a>
-                </p>
-              ) : null}
+                Open tenant detail →
+              </Link>
 
-              <form
-                className="space-y-4 border-t border-white/5 pt-4"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setMessage(null);
-                  updateMutation.mutate({ orgId: selected.id, planSlug, status });
-                }}
-              >
-                <h3 className="font-medium">Update subscription</h3>
-                <label className="block">
-                  <span className="text-sm text-text-secondary">Plan</span>
-                  <select
-                    value={planSlug}
-                    onChange={(e) => setPlanSlug(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
-                  >
-                    {plans.map((plan) => (
-                      <option key={plan.id} value={plan.slug}>
-                        {plan.name} ({plan.slug})
-                      </option>
-                    ))}
-                    {plans.length === 0 ? (
-                      <>
-                        <option value="starter">Starter</option>
-                        <option value="professional">Professional</option>
-                        <option value="enterprise">Enterprise</option>
-                      </>
-                    ) : null}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-sm text-text-secondary">Status</span>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
-                  >
-                    <option value="ACTIVE">Active</option>
-                    <option value="TRIAL">Trial</option>
-                    <option value="PAST_DUE">Past due</option>
-                    <option value="CANCELLED">Cancelled</option>
-                  </select>
-                </label>
-                {message ? (
-                  <p className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm">
-                    {message}
-                  </p>
-                ) : null}
-                <button
-                  type="submit"
-                  disabled={updateMutation.isPending}
-                  className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-medium hover:bg-brand-primary-dark disabled:opacity-60"
+              <label className="block text-sm">
+                <span className="text-text-muted">Plan</span>
+                <select
+                  value={planSlug}
+                  onChange={(e) => setPlanSlug(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
                 >
-                  {updateMutation.isPending ? 'Saving…' : 'Save subscription'}
+                  {plans.map((p) => (
+                    <option key={p.id} value={p.slug}>
+                      {p.name} (₹{p.priceMonthly})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-sm">
+                <span className="text-text-muted">Subscription status</span>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
+                >
+                  {['TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'CANCELLED'].map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={updateMutation.isPending}
+                  onClick={() =>
+                    updateMutation.mutate({
+                      orgId: selected.id,
+                      planSlug,
+                      status,
+                    })
+                  }
+                  className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary disabled:opacity-60"
+                >
+                  {updateMutation.isPending ? 'Saving…' : 'Update subscription'}
                 </button>
-              </form>
+                <button
+                  type="button"
+                  disabled={collectMutation.isPending}
+                  onClick={() => collectMutation.mutate(selected.id)}
+                  className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
+                >
+                  {collectMutation.isPending ? 'Creating…' : 'Collect payment'}
+                </button>
+              </div>
             </div>
           ) : (
-            <p className="mt-4 text-sm text-text-muted">Select a tenant to view details and manage subscription.</p>
+            <p className="mt-4 text-sm text-text-muted">Select a tenant to manage billing.</p>
           )}
         </section>
       </div>

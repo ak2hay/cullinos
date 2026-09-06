@@ -3,6 +3,8 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CartPage } from '@/pages/CartPage';
 import { CheckoutPage } from '@/pages/CheckoutPage';
+import { KioskPage } from '@/pages/KioskPage';
+import { LoyaltyPortalPage } from '@/pages/LoyaltyPortalPage';
 import { MenuPage } from '@/pages/MenuPage';
 import { sessionsApi, storefrontApi } from '@/lib/api';
 import { useSessionStore } from '@/stores/session';
@@ -101,6 +103,22 @@ export default function App() {
         element={
           <StorefrontBootstrap>
             <CheckoutPage />
+          </StorefrontBootstrap>
+        }
+      />
+      <Route
+        path="/:orgSlug/:outletSlug/loyalty"
+        element={
+          <StorefrontBootstrap>
+            <LoyaltyPortalPage />
+          </StorefrontBootstrap>
+        }
+      />
+      <Route
+        path="/:orgSlug/:outletSlug/kiosk"
+        element={
+          <StorefrontBootstrap>
+            <KioskPage />
           </StorefrontBootstrap>
         }
       />

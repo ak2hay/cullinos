@@ -1,24 +1,46 @@
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { createHmac, timingSafeEqual } from "crypto";
 import Razorpay from "razorpay";
+import { PlatformConfigService } from "../platform-config/platform-config.service";
 
 export type RazorpayNotes = Record<string, string>;
 
+const RAZORPAY_KEYS = [
+  "RAZORPAY_KEY_ID",
+  "RAZORPAY_KEY_SECRET",
+  "RAZORPAY_WEBHOOK_SECRET",
+];
+
 @Injectable()
-export class RazorpayClient {
+export class RazorpayClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RazorpayClient.name);
   private instance: Razorpay | null = null;
+  private unsub?: () => void;
+
+  constructor(private readonly config: PlatformConfigService) {}
+
+  onModuleInit() {
+    this.unsub = this.config.onChange((keys) => {
+      if (keys.some((k) => RAZORPAY_KEYS.includes(k))) {
+        this.instance = null;
+      }
+    });
+  }
+
+  onModuleDestroy() {
+    this.unsub?.();
+  }
 
   keyId(): string | undefined {
-    return process.env.RAZORPAY_KEY_ID || undefined;
+    return this.config.get("RAZORPAY_KEY_ID") || undefined;
   }
 
   secret(): string | undefined {
-    return process.env.RAZORPAY_KEY_SECRET || undefined;
+    return this.config.get("RAZORPAY_KEY_SECRET") || undefined;
   }
 
   webhookSecret(): string | undefined {
-    return process.env.RAZORPAY_WEBHOOK_SECRET || undefined;
+    return this.config.get("RAZORPAY_WEBHOOK_SECRET") || undefined;
   }
 
   isConfigured(): boolean {

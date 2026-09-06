@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post } from "@nestjs/common";
 import { OrgId, RequireModule } from "../../common/decorators";
 import { InventoryService } from "./inventory.service";
 
@@ -17,6 +17,12 @@ export class InventoryController {
     return this.service.listItems(orgId);
   }
 
+  @Get("low-stock")
+  @RequireModule("inventory")
+  lowStock(@OrgId() orgId: string) {
+    return this.service.lowStock(orgId);
+  }
+
   @Post("items")
   @RequireModule("inventory")
   createItem(
@@ -32,6 +38,16 @@ export class InventoryController {
     },
   ) {
     return this.service.createItem(orgId, body);
+  }
+
+  @Post("items/:id/adjust")
+  @RequireModule("inventory")
+  adjust(
+    @OrgId() orgId: string,
+    @Param("id") id: string,
+    @Body() body: { quantity: number; type: "in" | "out" | "waste"; notes?: string },
+  ) {
+    return this.service.adjust(orgId, id, body);
   }
 
   @Post("transfers")

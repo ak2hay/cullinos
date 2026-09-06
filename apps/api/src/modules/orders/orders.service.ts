@@ -2,6 +2,9 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Inject,
+  forwardRef,
+  Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WebsocketGateway } from "../../websocket/websocket.gateway";
@@ -10,7 +13,9 @@ import {
   mapOrderToClient,
   resolveOrderItems,
 } from "../../common/order-items.util";
+import { generatePickupCode } from "../../common/pickup-code.util";
 import { fromApiStatus } from "../../common/status.util";
+import { LoyaltyService } from "../loyalty/loyalty.service";
 
 type TaxLineResult = { name: string; rate: number; amount: number; type?: string };
 
@@ -49,7 +54,13 @@ type CreateOrderDto = {
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService, private ws: WebsocketGateway) {}
+  constructor(
+    private prisma: PrismaService,
+    private ws: WebsocketGateway,
+    @Optional()
+    @Inject(forwardRef(() => LoyaltyService))
+    private loyalty?: LoyaltyService,
+  ) {}
 
   async list(
     orgId: string,
@@ -123,6 +134,7 @@ export class OrdersService {
 
     const count = await this.prisma.order.count({ where: { outletId: dto.outletId } });
     const orderNumber = String(count + 1).padStart(4, "0");
+    const pickupCode = await this.allocatePickupCode(dto.outletId);
 
     const subtotal = resolvedItems.reduce(
       (s, i) => s + i.unitPrice * i.quantity,
@@ -144,6 +156,7 @@ export class OrdersService {
         organizationId: orgId,
         outletId: dto.outletId,
         orderNumber,
+        pickupCode,
         type: type as never,
         source: source as never,
         status: initialStatus as never,
@@ -297,11 +310,21 @@ export class OrdersService {
   }
 
   async updateStatus(orgId: string, orderId: string, status: string) {
+    const apiStatus = fromApiStatus(status);
+    const existing = await this.prisma.order.findFirst({
+      where: { id: orderId, organizationId: orgId },
+      select: { status: true, readyAt: true },
+    });
+    if (!existing) throw new NotFoundException("Order not found");
+
     const order = await this.prisma.order.update({
       where: { id: orderId, organizationId: orgId },
       data: {
-        status: fromApiStatus(status) as never,
-        completedAt: fromApiStatus(status) === "completed" ? new Date() : undefined,
+        status: apiStatus as never,
+        ...(apiStatus === "ready" && existing.status !== "ready"
+          ? { readyAt: new Date() }
+          : {}),
+        completedAt: apiStatus === "completed" ? new Date() : undefined,
         timeline: {
           create: { event: "order.status_changed", metadata: { status } },
         },
@@ -310,9 +333,45 @@ export class OrdersService {
     });
     const mapped = mapOrderToClient(order);
     this.ws.emitToOutlet(order.outletId, "order.updated", mapped);
-    if (fromApiStatus(status) === "ready") {
+    if (apiStatus === "ready") {
       this.ws.emitToOutlet(order.outletId, "order.ready", mapped);
     }
+    if (apiStatus === "completed" && this.loyalty) {
+      const total = Number(order.total ?? 0);
+      await this.loyalty.earnForOrder(orgId, order.id, order.customerId, total);
+    }
+    return mapped;
+  }
+
+  /** Cancel order (refund stub — marks cancelled and appends notes). */
+  async cancel(orgId: string, orderId: string, notes?: string) {
+    const existing = await this.prisma.order.findFirst({
+      where: { id: orderId, organizationId: orgId },
+    });
+    if (!existing) throw new NotFoundException("Order not found");
+    if (["completed", "cancelled", "voided"].includes(existing.status)) {
+      throw new BadRequestException(`Cannot cancel order in status ${existing.status}`);
+    }
+
+    const refundNote = notes?.trim() || "Cancelled / refund stub";
+    const mergedNotes = [existing.notes, refundNote].filter(Boolean).join("\n");
+
+    const order = await this.prisma.order.update({
+      where: { id: orderId, organizationId: orgId },
+      data: {
+        status: "cancelled",
+        notes: mergedNotes,
+        timeline: {
+          create: {
+            event: "order.cancelled",
+            metadata: { notes: refundNote },
+          },
+        },
+      },
+      include: { items: true },
+    });
+    const mapped = mapOrderToClient(order);
+    this.ws.emitToOutlet(order.outletId, "order.updated", mapped);
     return mapped;
   }
 
@@ -339,12 +398,38 @@ export class OrdersService {
   }
 
   async getPickupQueue(orgId: string, outletId: string) {
+    const READY_TTL_MS = 10 * 60 * 1000;
+    const cutoff = new Date(Date.now() - READY_TTL_MS);
+
+    // Auto-advance Ready orders that have been on the board longer than 10 minutes.
+    await this.prisma.order.updateMany({
+      where: {
+        organizationId: orgId,
+        outletId,
+        status: "ready",
+        OR: [
+          { readyAt: { lt: cutoff } },
+          { readyAt: null, updatedAt: { lt: cutoff } },
+        ],
+      },
+      data: { status: "served" },
+    });
+
     const orders = await this.prisma.order.findMany({
       where: {
         organizationId: orgId,
         outletId,
-        status: { in: ["confirmed", "preparing", "ready"] },
-        type: { in: ["takeaway", "qr", "online"] },
+        type: { in: ["takeaway", "qr", "online", "dine_in"] },
+        OR: [
+          { status: { in: ["confirmed", "preparing"] } },
+          {
+            status: "ready",
+            OR: [
+              { readyAt: { gte: cutoff } },
+              { readyAt: null, updatedAt: { gte: cutoff } },
+            ],
+          },
+        ],
       },
       orderBy: { createdAt: "asc" },
       take: 50,
@@ -403,6 +488,18 @@ export class OrdersService {
       },
       include: { items: true },
     });
+  }
+
+  private async allocatePickupCode(outletId: string): Promise<string> {
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const code = generatePickupCode();
+      const existing = await this.prisma.order.findFirst({
+        where: { outletId, pickupCode: code },
+        select: { id: true },
+      });
+      if (!existing) return code;
+    }
+    throw new BadRequestException("Could not allocate pickup code");
   }
 
   private normalizeSource(source?: string) {

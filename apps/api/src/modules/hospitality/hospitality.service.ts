@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { BanquetStatus, RoomStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 
@@ -10,47 +11,43 @@ export interface CreateGuestInput {
   name: string;
   phone?: string;
   email?: string;
-  roomNumber?: string;
-  checkInAt?: Date;
-  notes?: string;
+  documentType?: string;
+  documentNumber?: string;
 }
 
 export interface UpdateGuestInput {
   name?: string;
   phone?: string;
   email?: string;
-  roomNumber?: string;
-  checkInAt?: Date;
-  checkOutAt?: Date;
-  notes?: string;
+  documentType?: string;
+  documentNumber?: string;
 }
 
 export interface CreateRoomInput {
   outletId: string;
+  roomTypeId: string;
   number: string;
-  floor?: string;
-  type?: string;
+  floor?: number;
 }
 
 export interface UpdateRoomInput {
-  floor?: string;
-  type?: string;
-  status?: string;
-  isActive?: boolean;
+  floor?: number;
+  status?: RoomStatus | string;
 }
 
 export interface RoomPostingInput {
-  orderId: string;
   roomId: string;
+  guestId: string;
   amount: number;
+  checkIn?: Date;
 }
 
 export interface CreateBanquetEventInput {
-  outletId: string;
-  name: string;
+  banquetId: string;
+  guestId: string;
   eventDate: Date;
   guestCount: number;
-  notes?: string;
+  total?: number;
 }
 
 @Injectable()
@@ -63,15 +60,17 @@ export class HospitalityService {
   // --- Guests ---
 
   async findAllGuests(organizationId: string) {
-    return this.prisma.client.guest.findMany({
+    return this.prisma.guest.findMany({
       where: { organizationId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { name: 'asc' },
+      take: 200,
     });
   }
 
   async findGuest(id: string, organizationId: string) {
-    const guest = await this.prisma.client.guest.findFirst({
+    const guest = await this.prisma.guest.findFirst({
       where: { id, organizationId },
+      include: { roomPostings: true, banquetBookings: true },
     });
     if (!guest) throw new NotFoundException('Guest not found');
     return guest;
@@ -82,7 +81,7 @@ export class HospitalityService {
     userId: string,
     input: CreateGuestInput,
   ) {
-    const guest = await this.prisma.client.guest.create({
+    const guest = await this.prisma.guest.create({
       data: { organizationId, ...input },
     });
 
@@ -104,7 +103,7 @@ export class HospitalityService {
     input: UpdateGuestInput,
   ) {
     await this.findGuest(id, organizationId);
-    const guest = await this.prisma.client.guest.update({
+    const guest = await this.prisma.guest.update({
       where: { id },
       data: input,
     });
@@ -122,10 +121,23 @@ export class HospitalityService {
 
   async checkOutGuest(id: string, organizationId: string, userId: string) {
     await this.findGuest(id, organizationId);
-    const guest = await this.prisma.client.guest.update({
-      where: { id },
-      data: { checkOutAt: new Date() },
+
+    const openPostings = await this.prisma.roomPosting.findMany({
+      where: { guestId: id, checkOut: null },
     });
+
+    if (openPostings.length > 0) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.roomPosting.updateMany({
+          where: { guestId: id, checkOut: null },
+          data: { checkOut: new Date() },
+        });
+        await tx.room.updateMany({
+          where: { id: { in: openPostings.map((p) => p.roomId) } },
+          data: { status: RoomStatus.available },
+        });
+      });
+    }
 
     await this.audit.log({
       organizationId,
@@ -135,15 +147,20 @@ export class HospitalityService {
       entityId: id,
     });
 
-    return guest;
+    return this.findGuest(id, organizationId);
   }
 
   // --- Rooms ---
 
-  async findAllRooms(outletId: string) {
-    return this.prisma.client.room.findMany({
-      where: { outletId },
+  async findAllRooms(outletId: string, organizationId: string) {
+    return this.prisma.room.findMany({
+      where: {
+        ...(outletId ? { outletId } : {}),
+        outlet: { organizationId },
+      },
+      include: { roomType: true },
       orderBy: { number: 'asc' },
+      take: 200,
     });
   }
 
@@ -152,17 +169,33 @@ export class HospitalityService {
     userId: string,
     input: CreateRoomInput,
   ) {
-    const room = await this.prisma.client.room.create({
-      data: input,
+    const outlet = await this.prisma.outlet.findFirst({
+      where: { id: input.outletId, organizationId },
+    });
+    if (!outlet) throw new NotFoundException('Outlet not found');
+
+    const roomType = await this.prisma.roomType.findUnique({
+      where: { id: input.roomTypeId },
+    });
+    if (!roomType) throw new NotFoundException('Room type not found');
+
+    const room = await this.prisma.room.create({
+      data: {
+        outletId: input.outletId,
+        roomTypeId: input.roomTypeId,
+        number: input.number,
+        floor: input.floor,
+      },
+      include: { roomType: true },
     });
 
     await this.audit.log({
       organizationId,
       userId,
-      outletId: input.outletId,
       action: 'ROOM_CREATED',
       entityType: 'Room',
       entityId: room.id,
+      metadata: { outletId: input.outletId },
     });
 
     return room;
@@ -174,21 +207,29 @@ export class HospitalityService {
     userId: string,
     input: UpdateRoomInput,
   ) {
-    const room = await this.prisma.client.room.findUnique({ where: { id } });
+    const room = await this.prisma.room.findFirst({
+      where: { id, outlet: { organizationId } },
+    });
     if (!room) throw new NotFoundException('Room not found');
 
-    const updated = await this.prisma.client.room.update({
+    const updated = await this.prisma.room.update({
       where: { id },
-      data: input,
+      data: {
+        ...(input.floor !== undefined ? { floor: input.floor } : {}),
+        ...(input.status
+          ? { status: input.status as RoomStatus }
+          : {}),
+      },
+      include: { roomType: true },
     });
 
     await this.audit.log({
       organizationId,
       userId,
-      outletId: room.outletId,
       action: 'ROOM_UPDATED',
       entityType: 'Room',
       entityId: id,
+      metadata: { outletId: room.outletId },
     });
 
     return updated;
@@ -201,41 +242,36 @@ export class HospitalityService {
     userId: string,
     input: RoomPostingInput,
   ) {
-    const order = await this.prisma.client.order.findFirst({
-      where: { id: input.orderId, organizationId },
+    const guest = await this.prisma.guest.findFirst({
+      where: { id: input.guestId, organizationId },
     });
-    if (!order) throw new NotFoundException('Order not found');
+    if (!guest) throw new NotFoundException('Guest not found');
 
-    const room = await this.prisma.client.room.findUnique({
-      where: { id: input.roomId },
+    const room = await this.prisma.room.findFirst({
+      where: { id: input.roomId, outlet: { organizationId } },
     });
     if (!room) throw new NotFoundException('Room not found');
 
-    const existing = await this.prisma.client.roomPosting.findUnique({
-      where: { orderId: input.orderId },
+    const open = await this.prisma.roomPosting.findFirst({
+      where: { roomId: input.roomId, checkOut: null },
     });
-    if (existing) {
-      throw new BadRequestException('Order already posted to a room');
+    if (open) {
+      throw new BadRequestException('Room already has an open posting');
     }
 
-    const posting = await this.prisma.client.$transaction(async (tx) => {
+    const posting = await this.prisma.$transaction(async (tx) => {
       const created = await tx.roomPosting.create({
         data: {
-          orderId: input.orderId,
           roomId: input.roomId,
+          guestId: input.guestId,
           amount: input.amount,
-          status: 'POSTED',
+          checkIn: input.checkIn ?? new Date(),
         },
-      });
-
-      await tx.order.update({
-        where: { id: input.orderId },
-        data: { roomId: input.roomId, guestId: order.guestId },
       });
 
       await tx.room.update({
         where: { id: input.roomId },
-        data: { status: 'OCCUPIED' },
+        data: { status: RoomStatus.occupied },
       });
 
       return created;
@@ -244,11 +280,10 @@ export class HospitalityService {
     await this.audit.log({
       organizationId,
       userId,
-      outletId: order.outletId,
       action: 'ROOM_POSTING_CREATED',
       entityType: 'RoomPosting',
       entityId: posting.id,
-      newValue: { roomId: input.roomId, amount: input.amount },
+      metadata: { roomId: input.roomId, amount: input.amount },
     });
 
     return posting;
@@ -259,37 +294,53 @@ export class HospitalityService {
     organizationId: string,
     userId: string,
   ) {
-    const posting = await this.prisma.client.roomPosting.findUnique({
+    const posting = await this.prisma.roomPosting.findUnique({
       where: { id },
-      include: { order: true, room: true },
+      include: { room: { include: { outlet: true } }, guest: true },
     });
-    if (!posting || posting.order.organizationId !== organizationId) {
+    if (
+      !posting ||
+      posting.room.outlet.organizationId !== organizationId ||
+      posting.guest.organizationId !== organizationId
+    ) {
       throw new NotFoundException('Room posting not found');
     }
 
-    const updated = await this.prisma.client.roomPosting.update({
-      where: { id },
-      data: { status: 'SETTLED', settledAt: new Date() },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const settled = await tx.roomPosting.update({
+        where: { id },
+        data: { checkOut: new Date() },
+      });
+      await tx.room.update({
+        where: { id: posting.roomId },
+        data: { status: RoomStatus.available },
+      });
+      return settled;
     });
 
     await this.audit.log({
       organizationId,
       userId,
-      outletId: posting.order.outletId,
       action: 'ROOM_POSTING_SETTLED',
       entityType: 'RoomPosting',
       entityId: id,
+      metadata: { outletId: posting.room.outletId },
     });
 
     return updated;
   }
 
-  // --- Banquet Events ---
+  // --- Banquet Events (bookings) ---
 
-  async findBanquetEvents(outletId: string) {
-    return this.prisma.client.banquetEvent.findMany({
-      where: { outletId },
+  async findBanquetEvents(organizationId: string, banquetId?: string) {
+    return this.prisma.banquetBooking.findMany({
+      where: {
+        banquet: { organizationId },
+        ...(banquetId ? { banquetId } : {}),
+      },
+      include: { banquet: true, guest: true },
       orderBy: { eventDate: 'asc' },
+      take: 200,
     });
   }
 
@@ -298,16 +349,32 @@ export class HospitalityService {
     userId: string,
     input: CreateBanquetEventInput,
   ) {
-    const event = await this.prisma.client.banquetEvent.create({
-      data: input,
+    const banquet = await this.prisma.banquet.findFirst({
+      where: { id: input.banquetId, organizationId },
+    });
+    if (!banquet) throw new NotFoundException('Banquet not found');
+
+    const guest = await this.prisma.guest.findFirst({
+      where: { id: input.guestId, organizationId },
+    });
+    if (!guest) throw new NotFoundException('Guest not found');
+
+    const event = await this.prisma.banquetBooking.create({
+      data: {
+        banquetId: input.banquetId,
+        guestId: input.guestId,
+        eventDate: input.eventDate,
+        guestCount: input.guestCount,
+        total: input.total ?? 0,
+      },
+      include: { banquet: true, guest: true },
     });
 
     await this.audit.log({
       organizationId,
       userId,
-      outletId: input.outletId,
       action: 'BANQUET_EVENT_CREATED',
-      entityType: 'BanquetEvent',
+      entityType: 'BanquetBooking',
       entityId: event.id,
     });
 
@@ -320,24 +387,24 @@ export class HospitalityService {
     userId: string,
     status: string,
   ) {
-    const event = await this.prisma.client.banquetEvent.findUnique({
-      where: { id },
+    const event = await this.prisma.banquetBooking.findFirst({
+      where: { id, banquet: { organizationId } },
     });
     if (!event) throw new NotFoundException('Banquet event not found');
 
-    const updated = await this.prisma.client.banquetEvent.update({
+    const updated = await this.prisma.banquetBooking.update({
       where: { id },
-      data: { status },
+      data: { status: status as BanquetStatus },
+      include: { banquet: true, guest: true },
     });
 
     await this.audit.log({
       organizationId,
       userId,
-      outletId: event.outletId,
       action: 'BANQUET_EVENT_UPDATED',
-      entityType: 'BanquetEvent',
+      entityType: 'BanquetBooking',
       entityId: id,
-      newValue: { status },
+      metadata: { status },
     });
 
     return updated;

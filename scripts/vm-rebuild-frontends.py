@@ -78,19 +78,27 @@ def main() -> int:
     if code != 0:
         print("Web container rebuild failed.", file=sys.stderr)
 
-    frontends = (ROOT / "infrastructure" / "nginx" / "cullinos-frontends.conf").read_text(
-        encoding="utf-8"
-    ).replace("\r\n", "\n")
-    sftp = ssh.open_sftp()
-    with sftp.file("/etc/nginx/sites-available/cullinos-frontends.conf", "w") as f:
-        f.write(frontends)
-    sftp.close()
-
-    run(
+    # Keep live HTTPS (certbot) if already present — do not replace with HTTP-only template.
+    _, nginx_check, _ = run(
         ssh,
-        "ln -sf /etc/nginx/sites-available/cullinos-frontends.conf "
-        "/etc/nginx/sites-enabled/cullinos-frontends.conf && nginx -t && systemctl reload nginx",
+        "grep -q 'listen 443 ssl' /etc/nginx/sites-available/cullinos-frontends.conf "
+        "&& echo has_ssl || echo no_ssl",
     )
+    if "has_ssl" not in nginx_check:
+        frontends = (ROOT / "infrastructure" / "nginx" / "cullinos-frontends.conf").read_text(
+            encoding="utf-8"
+        ).replace("\r\n", "\n")
+        sftp = ssh.open_sftp()
+        with sftp.file("/etc/nginx/sites-available/cullinos-frontends.conf", "w") as f:
+            f.write(frontends)
+        sftp.close()
+        run(
+            ssh,
+            "ln -sf /etc/nginx/sites-available/cullinos-frontends.conf "
+            "/etc/nginx/sites-enabled/cullinos-frontends.conf && nginx -t && systemctl reload nginx",
+        )
+    else:
+        print("Leaving existing HTTPS nginx frontend config in place.")
 
     _, health, _ = run(ssh, "curl -sf http://127.0.0.1:3000/api/v1/health || true", timeout=60)
     print("\n=== Frontend redeploy complete ===")

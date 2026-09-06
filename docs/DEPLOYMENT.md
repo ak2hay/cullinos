@@ -74,6 +74,13 @@ DNS: point all subdomains A → `95.135.254.46` (disable Cloudflare proxy during
 
 SSL: automated by `scripts/remote-deploy.py` via certbot after DNS propagates.
 
+### Marketing site ops (SEO / security)
+
+1. **Cloudflare Turnstile** — Create a widget for `cullinos.com`, set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` on the `web` container.
+2. **Cloudflare Web Analytics** — Enable free Web Analytics for the zone; set `NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN`.
+3. **Bot / spend protection** — nginx `limit_req` is configured in [`cullinos-frontends.conf`](../infrastructure/nginx/cullinos-frontends.conf) (10 r/s site-wide, 1 r/s on `/api/contact`). In Cloudflare (free tier): enable Bot Fight Mode, add a rate-limit rule on `/api/contact`, and set billing alerts with your VPS provider.
+4. **NAP consistency** — Public contact is `hello@rkyves.com` + Mumbai, India until a street address/phone is published. Keep Google Business Profile matched to [`apps/web/src/lib/business.ts`](../apps/web/src/lib/business.ts).
+
 ### Build frontends locally
 
 ```bash
@@ -86,6 +93,9 @@ Env baked in at build time:
 ```
 VITE_API_URL=https://api.cullinos.com/api/v1
 VITE_WS_URL=https://api.cullinos.com
+VITE_CUSTOMER_URL=https://order.cullinos.com
+VITE_KDS_URL=https://kds.cullinos.com
+VITE_POS_URL=https://pos.cullinos.com
 ```
 
 ## POS & KDS (browser)

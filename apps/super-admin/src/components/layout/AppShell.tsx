@@ -1,19 +1,46 @@
 import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { RKYVES_BRAND } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
-const navItems = [
-  { to: '/', label: 'Tenants', end: true },
+const navItems: Array<{
+  to: string;
+  label: string;
+  end?: boolean;
+  children?: Array<{ to: string; label: string }>;
+}> = [
+  { to: '/', label: 'Dashboard', end: true },
+  { to: '/tenants', label: 'Tenants' },
+  { to: '/plans', label: 'Plans' },
   { to: '/subscriptions', label: 'Subscriptions' },
+  { to: '/promo-email', label: 'Promo email' },
+  { to: '/settings', label: 'Settings' },
   { to: '/health', label: 'System health' },
-  { to: '/marketing', label: 'Marketing CMS' },
+  {
+    to: '/marketing',
+    label: 'Marketing CMS',
+    children: [
+      { to: '/marketing', label: 'Overview' },
+      { to: '/marketing/media', label: 'Media' },
+      { to: '/marketing/hero', label: 'Hero' },
+      { to: '/marketing/pages', label: 'Pages' },
+      { to: '/marketing/theme', label: 'Theme' },
+      { to: '/marketing/pricing', label: 'Pricing' },
+      { to: '/marketing/testimonials', label: 'Testimonials' },
+      { to: '/marketing/navigation', label: 'Navigation' },
+      { to: '/marketing/blog', label: 'Blog' },
+      { to: '/marketing/design-lab', label: 'Design lab' },
+    ],
+  },
 ];
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const admin = useAuthStore((s) => s.admin);
   const logout = useAuthStore((s) => s.logout);
+  const marketingOpen =
+    location.pathname.startsWith('/marketing') || location.pathname === '/marketing';
 
   function handleLogout() {
     logout();
@@ -36,23 +63,45 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         <p className="mt-3 text-xs text-text-muted">{RKYVES_BRAND.product} tenant operations</p>
       </div>
 
-      <nav className="flex-1 space-y-1 p-3">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              `block rounded-lg px-3 py-2.5 text-sm transition ${
-                isActive
-                  ? 'bg-white/10 font-medium text-text-primary'
-                  : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
-              }`
-            }
-          >
-            {item.label}
-          </NavLink>
+          <div key={item.to}>
+            <NavLink
+              to={item.to}
+              end={item.end}
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                `block rounded-lg px-3 py-2.5 text-sm transition ${
+                  isActive || (item.children && marketingOpen)
+                    ? 'bg-brand-primary/15 font-medium text-brand-primary'
+                    : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
+                }`
+              }
+            >
+              {item.label}
+            </NavLink>
+            {item.children && marketingOpen ? (
+              <div className="ml-3 mt-1 space-y-0.5 border-l border-white/10 pl-2">
+                {item.children.map((child) => (
+                  <NavLink
+                    key={child.to}
+                    to={child.to}
+                    end={child.to === '/marketing'}
+                    onClick={onNavigate}
+                    className={({ isActive }) =>
+                      `block rounded-md px-2 py-1.5 text-xs transition ${
+                        isActive
+                          ? 'bg-white/5 font-medium text-brand-primary'
+                          : 'text-text-muted hover:text-text-primary'
+                      }`
+                    }
+                  >
+                    {child.label}
+                  </NavLink>
+                ))}
+              </div>
+            ) : null}
+          </div>
         ))}
       </nav>
 

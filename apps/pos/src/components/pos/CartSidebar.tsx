@@ -7,6 +7,13 @@ interface UnpaidTicket {
   orderNumber: string;
 }
 
+export interface PosCustomer {
+  id: string;
+  name: string;
+  phone: string | null;
+  loyaltyPoints: number;
+}
+
 interface CartSidebarProps {
   onCash: () => void;
   onOnline: () => void;
@@ -20,10 +27,22 @@ interface CartSidebarProps {
   counterMode?: boolean;
   customerName?: string;
   onCustomerNameChange?: (name: string) => void;
+  customerPhone?: string;
+  onCustomerPhoneChange?: (phone: string) => void;
+  onLookupCustomer?: () => void;
+  customerLookupLoading?: boolean;
+  linkedCustomer?: PosCustomer | null;
+  onClearCustomer?: () => void;
   orderType?: 'takeaway' | 'dine_in';
   onOrderTypeChange?: (type: 'takeaway' | 'dine_in') => void;
   tipAmount?: number;
   onTipChange?: (tip: number) => void;
+  rewards?: Array<{ id: string; name: string; pointsCost: number; affordable: boolean }>;
+  onRedeemReward?: (rewardId: string) => void;
+  redeemRewardLoading?: boolean;
+  redeemPoints?: number;
+  onRedeemPointsChange?: (points: number) => void;
+  loyaltySettings?: { minRedeem: number; redemptionValue: number } | null;
 }
 
 export function CartSidebar({
@@ -39,10 +58,22 @@ export function CartSidebar({
   counterMode = false,
   customerName = '',
   onCustomerNameChange,
+  customerPhone = '',
+  onCustomerPhoneChange,
+  onLookupCustomer,
+  customerLookupLoading,
+  linkedCustomer,
+  onClearCustomer,
   orderType = 'takeaway',
   onOrderTypeChange,
   tipAmount = 0,
   onTipChange,
+  rewards = [],
+  onRedeemReward,
+  redeemRewardLoading,
+  redeemPoints = 0,
+  onRedeemPointsChange,
+  loyaltySettings = null,
 }: CartSidebarProps) {
   const lines = useCartStore((s) => s.lines);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
@@ -50,23 +81,42 @@ export function CartSidebar({
   const subtotal = useCartStore((s) => s.subtotal());
   const itemCount = useCartStore((s) => s.itemCount());
   const [tenderOpen, setTenderOpen] = useState(false);
+  const canCharge = lines.length > 0 && !checkoutLoading;
+  const tipPaise = tipAmount ? tipAmount * 100 : 0;
+  const discountPaise =
+    redeemPoints > 0 && loyaltySettings
+      ? Math.round(redeemPoints * loyaltySettings.redemptionValue * 100)
+      : 0;
+  const duePaise = Math.max(0, subtotal + tipPaise - discountPaise);
 
   return (
-    <aside className="flex w-full shrink-0 flex-col border-l border-white/5 bg-bg-secondary lg:w-96">
-      <div className="border-b border-white/5 px-5 py-4">
-        <h2 className="text-lg font-semibold">Current order</h2>
-        <p className="text-sm text-text-muted">{itemCount} items</p>
+    <aside className="flex w-full shrink-0 flex-col border-t border-white/5 bg-bg-secondary lg:w-[26rem] lg:border-l lg:border-t-0">
+      <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
+        <div>
+          <h2 className="text-lg font-semibold">Current order</h2>
+          <p className="text-sm text-text-muted">
+            {itemCount} {itemCount === 1 ? 'item' : 'items'}
+          </p>
+        </div>
+        {itemCount > 0 ? (
+          <span className="rounded-full bg-brand-primary/15 px-3 py-1 font-mono text-sm font-semibold text-brand-primary">
+            {formatMoney(duePaise)}
+          </span>
+        ) : null}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {lines.length === 0 ? (
-          <p className="py-8 text-center text-text-muted">Tap items to add to cart</p>
+          <div className="flex h-full min-h-[8rem] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/10 bg-bg-primary/40 px-4 py-8 text-center">
+            <p className="text-sm font-medium text-text-secondary">Cart is empty</p>
+            <p className="text-xs text-text-muted">Tap menu items to build the order</p>
+          </div>
         ) : (
           <ul className="space-y-2">
             {lines.map((line) => (
               <li
                 key={line.menuItemId}
-                className="rounded-xl border border-white/5 bg-bg-card p-3"
+                className="rounded-xl border border-white/5 bg-bg-card/90 p-3 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-medium leading-tight">{line.name}</p>
@@ -112,23 +162,107 @@ export function CartSidebar({
       <div className="space-y-3 border-t border-white/5 p-4">
         {counterMode ? (
           <div className="space-y-2">
+            <div className="flex gap-2">
+              <input
+                type="tel"
+                placeholder="Phone (loyalty)"
+                value={customerPhone}
+                onChange={(e) => onCustomerPhoneChange?.(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    onLookupCustomer?.();
+                  }
+                }}
+                className="min-w-0 flex-1 rounded-xl border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+              />
+              <button
+                type="button"
+                disabled={customerLookupLoading || !customerPhone.trim()}
+                onClick={onLookupCustomer}
+                className="shrink-0 rounded-xl border border-white/10 bg-bg-elevated px-3 text-sm font-medium disabled:opacity-40"
+              >
+                {customerLookupLoading ? '…' : 'Find'}
+              </button>
+            </div>
+            {linkedCustomer ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between rounded-xl border border-brand-primary/30 bg-brand-primary/10 px-3 py-2 text-sm">
+                  <div>
+                    <p className="font-medium">{linkedCustomer.name}</p>
+                    <p className="text-xs text-brand-primary">
+                      {linkedCustomer.loyaltyPoints} pts wallet
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onClearCustomer}
+                    className="text-xs text-text-muted hover:text-text-primary"
+                  >
+                    Clear
+                  </button>
+                </div>
+                {linkedCustomer.loyaltyPoints > 0 ? (
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-text-muted">
+                      Redeem points
+                      {loyaltySettings ? ` (min ${loyaltySettings.minRedeem})` : ''}
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={linkedCustomer.loyaltyPoints}
+                      value={redeemPoints || ''}
+                      onChange={(e) =>
+                        onRedeemPointsChange?.(Math.max(0, Number(e.target.value) || 0))
+                      }
+                      placeholder="0"
+                      className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
+                    />
+                    {redeemPoints > 0 && loyaltySettings ? (
+                      <p className="text-xs text-text-muted">
+                        ≈ ₹{(redeemPoints * loyaltySettings.redemptionValue).toFixed(0)} off ·
+                        balance after: {linkedCustomer.loyaltyPoints - redeemPoints} pts
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {rewards.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-text-muted">Redeem rewards</p>
+                    {rewards.map((reward) => (
+                      <button
+                        key={reward.id}
+                        type="button"
+                        disabled={!reward.affordable || redeemRewardLoading}
+                        onClick={() => onRedeemReward?.(reward.id)}
+                        className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-left text-xs disabled:opacity-40"
+                      >
+                        <span>{reward.name}</span>
+                        <span className="font-mono text-brand-primary">{reward.pointsCost} pts</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <input
               type="text"
               placeholder="Name on order"
               value={customerName}
               onChange={(e) => onCustomerNameChange?.(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
+              className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
             />
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {(['takeaway', 'dine_in'] as const).map((type) => (
                 <button
                   key={type}
                   type="button"
                   onClick={() => onOrderTypeChange?.(type)}
-                  className={`flex-1 rounded-lg border px-2 py-2 text-xs font-medium ${
+                  className={`rounded-xl border px-2 py-3 text-sm font-semibold transition active:scale-[0.98] ${
                     orderType === type
-                      ? 'border-brand-primary bg-brand-primary/15 text-brand-primary'
-                      : 'border-white/10 text-text-muted'
+                      ? 'border-brand-primary bg-brand-primary text-bg-primary shadow-md shadow-brand-primary/20'
+                      : 'border-white/10 bg-bg-elevated text-text-secondary'
                   }`}
                 >
                   {type === 'takeaway' ? 'Pickup' : 'Eat in'}
@@ -136,22 +270,28 @@ export function CartSidebar({
               ))}
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-xs text-text-muted">Tip (₹)</label>
+              <label className="shrink-0 text-xs text-text-muted">Tip (₹)</label>
               <input
                 type="number"
                 min={0}
                 value={tipAmount || ''}
                 onChange={(e) => onTipChange?.(Number(e.target.value) || 0)}
-                className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
+                className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
               />
             </div>
           </div>
         ) : null}
 
+        {discountPaise > 0 ? (
+          <div className="flex items-center justify-between text-sm text-text-muted">
+            <span>Loyalty discount</span>
+            <span className="font-mono">−{formatMoney(discountPaise)}</span>
+          </div>
+        ) : null}
         <div className="flex items-center justify-between text-lg">
           <span className="text-text-secondary">Subtotal</span>
           <span className="font-mono font-semibold text-brand-primary">
-            {formatMoney(subtotal + (tipAmount ? tipAmount * 100 : 0))}
+            {formatMoney(duePaise)}
           </span>
         </div>
 
@@ -181,14 +321,14 @@ export function CartSidebar({
 
         <button
           type="button"
-          disabled={lines.length === 0 || checkoutLoading}
+          disabled={!canCharge}
           onClick={() => setTenderOpen(true)}
-          className="h-14 w-full rounded-xl bg-brand-primary text-lg font-bold text-bg-primary transition active:scale-[0.98] disabled:opacity-40"
+          className="h-14 w-full rounded-2xl bg-brand-primary text-lg font-bold text-bg-primary shadow-lg shadow-brand-primary/20 transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
         >
           {checkoutLoading ? 'Processing…' : 'Charge'}
         </button>
 
-        {tenderOpen && lines.length > 0 ? (
+        {tenderOpen && canCharge ? (
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button } from '@/components/ui/Form';
+import { Button } from '@cullinos/ui';
 import { subscriptionsApi } from '@/lib/api';
 
 function formatDate(value: string | null) {

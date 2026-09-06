@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cullinos Product Overview</title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+
+:root {
+  --ink: #0F0F1A;
+  --ink-soft: #2a2a38;
+  --gold: #D4A017;
+  --gold-bright: #F5A623;
+  --gold-dim: #a67c12;
+  --cream: #f7f4ee;
+  --paper: #ffffff;
+  --muted: #5c5c6b;
+  --line: #e6e2d8;
+  --card: #faf8f4;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  margin: 0;
+  font-family: 'DM Sans', Segoe UI, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--paper);
+}
+h1, h2, h3, .display {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  page-break-after: avoid;
+}
+h1 { font-size: 28pt; margin: 0 0 12px; }
+h2 { font-size: 16pt; margin: 28px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--gold); }
+h3 { font-size: 12pt; margin: 18px 0 8px; color: var(--ink-soft); border: none; }
+p { margin: 0 0 10px; }
+a { color: var(--gold-dim); text-decoration: none; }
+ul, ol { margin: 0 0 12px; padding-left: 18px; }
+li { margin-bottom: 4px; }
+strong { font-weight: 600; }
+
+.page { padding: 36px 40px; max-width: 820px; margin: 0 auto; }
+.cover {
+  min-height: 100vh;
+  padding: 48px 48px 40px;
+  background:
+    radial-gradient(ellipse 80% 60% at 100% 0%, rgba(212,160,23,0.22), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 0% 100%, rgba(245,166,35,0.12), transparent 50%),
+    linear-gradient(165deg, #0F0F1A 0%, #1a1a28 55%, #12121c 100%);
+  color: #f5f2ea;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  page-break-after: always;
+}
+.cover h1, .cover h2, .cover .display { color: #f5f2ea; border: none; }
+.mark {
+  width: 56px; height: 56px; border-radius: 14px;
+  background: linear-gradient(135deg, var(--gold), var(--gold-bright));
+  color: var(--ink); font-family: 'Fraunces', Georgia, serif;
+  font-size: 28pt; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  letter-spacing: -1px;
+}
+.eyebrow {
+  display: inline-block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9pt; font-weight: 600; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--gold);
+  margin-bottom: 14px;
+}
+.cover .eyebrow { color: var(--gold-bright); }
+.tagline { font-size: 13pt; color: rgba(245,242,234,0.78); max-width: 420px; margin: 0; }
+.cover-meta { font-size: 9pt; color: rgba(245,242,234,0.55); letter-spacing: 0.04em; }
+.gold { color: var(--gold); }
+.lead { font-size: 12pt; color: var(--muted); max-width: 560px; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0 18px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 14px 0 18px; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  page-break-inside: avoid;
+}
+.card h3 { margin: 0 0 6px; font-size: 11pt; }
+.card p { margin: 0; font-size: 9.5pt; color: var(--muted); }
+.card .kicker {
+  font-size: 8pt; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--gold-dim); margin-bottom: 6px;
+}
+
+.step {
+  display: grid; grid-template-columns: 36px 1fr; gap: 12px;
+  margin: 0 0 14px; page-break-inside: avoid;
+}
+.step-num {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--ink); color: var(--gold);
+  font-weight: 700; font-size: 11pt;
+  display: flex; align-items: center; justify-content: center;
+}
+.step h3 { margin: 2px 0 4px; }
+.step p { margin: 0; color: var(--muted); font-size: 9.5pt; }
+
+table.pretty {
+  width: 100%; border-collapse: collapse; margin: 12px 0 18px;
+  font-size: 9.5pt; page-break-inside: avoid;
+}
+table.pretty th {
+  background: var(--ink); color: var(--gold);
+  text-align: left; padding: 9px 10px; font-weight: 600;
+}
+table.pretty td {
+  padding: 8px 10px; border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+table.pretty tr:nth-child(even) td { background: var(--card); }
+
+.pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 16px; }
+.pill {
+  background: var(--ink); color: #f5f2ea;
+  border-radius: 999px; padding: 6px 12px;
+  font-size: 8.5pt; font-weight: 600; letter-spacing: 0.02em;
+}
+.pill.gold { background: var(--gold); color: var(--ink); }
+
+.banner {
+  background: linear-gradient(120deg, var(--ink), #252536);
+  color: #f5f2ea; border-radius: 14px; padding: 20px 22px;
+  margin: 18px 0; page-break-inside: avoid;
+}
+.banner h3 { color: #f5f2ea; margin: 0 0 6px; }
+.banner p { margin: 0; color: rgba(245,242,234,0.75); font-size: 10pt; }
+.banner .cta { margin-top: 12px; color: var(--gold-bright); font-weight: 700; font-size: 11pt; }
+
+.plan {
+  border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+  page-break-inside: avoid; background: var(--paper);
+}
+.plan.featured {
+  border-color: var(--gold);
+  box-shadow: inset 0 0 0 1px var(--gold);
+  background: linear-gradient(180deg, #fffdf6, #fff);
+}
+.plan .price { font-family: 'Fraunces', Georgia, serif; font-size: 18pt; margin: 4px 0; }
+.plan .price span { font-size: 9pt; color: var(--muted); font-family: 'DM Sans', sans-serif; }
+.plan ul { margin: 8px 0 0; padding-left: 16px; font-size: 9pt; color: var(--muted); }
+
+.footer-bar {
+  margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line);
+  font-size: 8.5pt; color: var(--muted);
+  display: flex; justify-content: space-between; gap: 12px;
+}
+.section-break { page-break-before: always; }
+.muted { color: var(--muted); }
+.small { font-size: 9pt; }
+.hr-gold { border: none; height: 2px; background: linear-gradient(90deg, var(--gold), transparent); margin: 18px 0; }
+
+@media print {
+  .cover { min-height: 100vh; }
+  .page { padding: 28px 32px; }
+  a { color: inherit; }
+}
+</style>
+</head>
+<body>
+
+
+<section class="cover">
+  <div>
+    <div class="mark">C</div>
+    <p class="eyebrow" style="margin-top:28px">Product overview</p>
+    <h1 class="display" style="font-size:42pt;max-width:520px">What Cullinos is — and everything we offer</h1>
+    <p class="tagline">A complete guide to the Cullinos Restaurant Operating System: apps, features, verticals, and plans.</p>
+  </div>
+  <div class="cover-meta">
+    <div style="font-size:14pt;font-family:'Fraunces',Georgia,serif;margin-bottom:6px">Cullinos</div>
+    Restaurant Operating System · by Rkyves<br/>
+    For decision makers · cullinos.com
+  </div>
+</section>
+
+<section class="page">
+  <p class="eyebrow">The product</p>
+  <h2 style="border:none;margin-top:0">Cullinos is your food business OS</h2>
+  <p class="lead">Cullinos is a multi-app platform from <strong>Rkyves</strong>. One backend powers POS, kitchen displays, waiter floor service, guest QR/online ordering, owner Admin, and multi-outlet Management — so every role works from the same live data.</p>
+
+  <div class="banner">
+    <h3>“One login for cashier, kitchen, online orders, production, and reports.”</h3>
+    <p>GST + offline capability built in. Scales from a single counter to hotel and franchise networks.</p>
+  </div>
+
+  <h2>The Cullinos apps</h2>
+  <table class="pretty">
+    <thead><tr><th>App</th><th>Who uses it</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Admin</strong><br/><span class="small muted">admin.cullinos.com</span></td><td>Owner / manager</td><td>Menu, staff, inventory, recipes, loyalty, delivery, reports, billing, launchers, Portal POS</td></tr>
+      <tr><td><strong>POS</strong><br/><span class="small muted">pos.cullinos.com</span></td><td>Cashier</td><td>Counter &amp; takeaway billing, holds, GST receipts, payments</td></tr>
+      <tr><td><strong>KDS</strong><br/><span class="small muted">kds.cullinos.com</span></td><td>Kitchen</td><td>Live kitchen tickets; Order Display (preparing / ready) mode</td></tr>
+      <tr><td><strong>Waiter</strong><br/><span class="small muted">waiter.cullinos.com</span></td><td>Floor staff</td><td>Table map, table-side orders, QR guest sessions</td></tr>
+      <tr><td><strong>Customer</strong><br/><span class="small muted">order.cullinos.com</span></td><td>Guests</td><td>QR dine-in &amp; online storefront (guest checkout; optional login)</td></tr>
+      <tr><td><strong>Management</strong><br/><span class="small muted">manage.cullinos.com</span></td><td>Multi-outlet ops</td><td>Network KPIs, outlet comparison, stock transfer, franchise</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="section-break">Feature catalogue</h2>
+
+  <h3>Front of house</h3>
+  <div class="grid-2">
+    <div class="card"><h3>Point of Sale</h3><p>Fast checkout, modifiers, holds, takeaway, GST-compliant receipts.</p></div>
+    <div class="card"><h3>Portal POS</h3><p>Full cashier experience inside Admin for QSR / counter teams.</p></div>
+    <div class="card"><h3>Waiter app</h3><p>Mobile table-side ordering and live table status.</p></div>
+    <div class="card"><h3>Table management</h3><p>Create tables, capacities, and floor visibility in Admin.</p></div>
+    <div class="card"><h3>Kitchen Display (KDS)</h3><p>Route KOTs, track prep, mark items ready.</p></div>
+    <div class="card"><h3>Order Display (CDS)</h3><p>Customer-facing preparing / ready board for pickup counters.</p></div>
+  </div>
+
+  <h3>Customer channels</h3>
+  <div class="grid-2">
+    <div class="card"><h3>QR dine-in ordering</h3><p>Guests scan a table session QR and order into the same ticket.</p></div>
+    <div class="card"><h3>Online storefront</h3><p>Branded ordering link for pickup and delivery.</p></div>
+    <div class="card"><h3>Digital Ordering / kiosk</h3><p>Admin launcher for kiosk and storefront URLs.</p></div>
+    <div class="card"><h3>Customer login</h3><p>Optional account login without blocking guest checkout.</p></div>
+  </div>
+
+  <h3>Back office</h3>
+  <div class="grid-2">
+    <div class="card"><h3>Menu management</h3><p>Categories, items, pricing, availability, modifiers.</p></div>
+    <div class="card"><h3>Inventory</h3><p>Stock levels, adjustments, and outlet stock visibility.</p></div>
+    <div class="card"><h3>Recipes &amp; costing</h3><p>Link ingredients to dishes for production and cost control.</p></div>
+    <div class="card"><h3>Production &amp; batches</h3><p>Schedule and complete production batches.</p></div>
+    <div class="card"><h3>Staff &amp; permissions</h3><p>Roles (owner, waiter, cashier, …) with route-level access.</p></div>
+    <div class="card"><h3>Reports &amp; analytics</h3><p>Revenue, top items, and outlet performance.</p></div>
+    <div class="card"><h3>Billing &amp; GST</h3><p>Tax-ready bills and subscription billing page.</p></div>
+    <div class="card"><h3>Settings &amp; onboarding</h3><p>Business type wizard, GSTIN, order types, org config.</p></div>
+  </div>
+
+  <h3>Growth &amp; engagement</h3>
+  <div class="grid-2">
+    <div class="card"><h3>CRM / Customers</h3><p>Customer profiles, tiers, and coupon visibility.</p></div>
+    <div class="card"><h3>Loyalty</h3><p>Stamp cards, points, and rewards programs.</p></div>
+    <div class="card"><h3>Promo Email</h3><p>Compose and send promotional campaigns to guests.</p></div>
+    <div class="card"><h3>Delivery</h3><p>Track and manage delivery orders from Admin.</p></div>
+    <div class="card"><h3>Events</h3><p>Schedule pop-ups and event-driven pre-orders.</p></div>
+    <div class="card"><h3>Coupons</h3><p>Discount codes applied at customer checkout.</p></div>
+  </div>
+
+  <h3>Enterprise &amp; hospitality</h3>
+  <div class="grid-2">
+    <div class="card"><h3>Multi-outlet management</h3><p>Consolidated KPIs and outlet comparison.</p></div>
+    <div class="card"><h3>Stock transfer</h3><p>Move inventory between outlets.</p></div>
+    <div class="card"><h3>Multi-brand</h3><p>Cloud kitchen / brand catalogue support.</p></div>
+    <div class="card"><h3>Franchise tools</h3><p>Franchisee visibility for chain operators.</p></div>
+    <div class="card"><h3>Banquets</h3><p>Banquet and large-event workflows.</p></div>
+    <div class="card"><h3>Guests &amp; Rooms</h3><p>Hospitality guest profiles and room service posting.</p></div>
+  </div>
+
+  <h2 class="section-break">Who we serve</h2>
+  <table class="pretty">
+    <thead><tr><th>Vertical</th><th>How Cullinos fits</th></tr></thead>
+    <tbody>
+      <tr><td>Restaurants</td><td>Tables, waiter, QR dine-in, KDS, full back office</td></tr>
+      <tr><td>Cafes &amp; QSR</td><td>Counter POS, pickup queue / Order Display, loyalty</td></tr>
+      <tr><td>Food trucks &amp; pop-ups</td><td>Mobile-friendly POS, events, quick service</td></tr>
+      <tr><td>Bakeries</td><td>Production batches, recipes, pre-orders</td></tr>
+      <tr><td>Cloud kitchens</td><td>Multi-brand menus, delivery-centric ops</td></tr>
+      <tr><td>Catering</td><td>Events, pre-orders, production planning</td></tr>
+      <tr><td>Hotels &amp; resorts</td><td>Room service, rooms, banquets (Hospitality / Enterprise)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Plans &amp; offerings</h2>
+  <p class="muted small">List prices for India (INR). Custom enterprise quotes available.</p>
+  <table class="pretty">
+    <thead><tr><th>Plan</th><th>From</th><th>Best for</th><th>Highlights</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Starter</strong></td><td>₹999/mo</td><td>Single outlet launch</td><td>POS, KDS, tables, QR + online ordering, reports</td></tr>
+      <tr><td><strong>QSR / Food SMB</strong></td><td>₹1,499/mo</td><td>Cafes, trucks, counters</td><td>+ counter mode, pickup queue, loyalty, production</td></tr>
+      <tr><td><strong>Professional</strong></td><td>₹2,999/mo</td><td>Growing restaurants</td><td>+ inventory, CRM, delivery, up to 3 outlets</td></tr>
+      <tr><td><strong>Enterprise</strong></td><td>₹9,999/mo</td><td>Chains &amp; franchise</td><td>+ multi-outlet, multi-brand, franchise, analytics, API</td></tr>
+      <tr><td><strong>Hospitality</strong></td><td>₹14,999/mo</td><td>Hotels &amp; resorts</td><td>+ room service, room posting, banquet, PMS-ready</td></tr>
+    </tbody>
+  </table>
+
+  <div class="banner">
+    <h3>Next step</h3>
+    <p>See the live product at cullinos.com · Request a demo via contact · Or ask for the User Manual after onboarding.</p>
+    <div class="cta">hello@rkyves.com · Mumbai, India</div>
+  </div>
+  <div class="footer-bar"><span>Cullinos Product Overview</span><span>Powered by Rkyves · hello@rkyves.com</span></div>
+</section>
+</body>
+</html>

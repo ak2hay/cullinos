@@ -83,24 +83,6 @@ export default defineConfig({
 `,
   );
 
-  const vercelPath = path.join(appDir, 'vercel.json');
-  if (fs.existsSync(vercelPath) || ['admin', 'management', 'super-admin', 'waiter', 'customer'].includes(portal.name)) {
-    fs.writeFileSync(
-      vercelPath,
-      JSON.stringify(
-        {
-          $schema: 'https://openapi.vercel.sh/vercel.json',
-          buildCommand: `cd ../.. && npx turbo run build --filter=@cullinos/${portal.name}`,
-          outputDirectory: 'dist',
-          installCommand: 'cd ../.. && npm ci',
-          framework: 'vite',
-          rewrites: [{ source: '/(.*)', destination: '/index.html' }],
-        },
-        null,
-        2,
-      ) + '\n',
-    );
-  }
 }
 
 console.log('Fixed', portals.length, 'portal apps');

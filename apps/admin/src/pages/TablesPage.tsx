@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Button, Input } from '@/components/ui/Form';
+import { Button, Input } from '@cullinos/ui';
 import { tablesApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
@@ -15,7 +15,11 @@ export function TablesPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: tables = [], isLoading } = useQuery({
+  const {
+    data: tables = [],
+    isLoading,
+    error: tablesError,
+  } = useQuery({
     queryKey: ['tables', outletId],
     queryFn: () => tablesApi.listByOutlet(outletId!),
     enabled: !!outletId,
@@ -115,6 +119,11 @@ export function TablesPage() {
 
       {!showForm && error ? <p className="text-sm text-status-error">{error}</p> : null}
       {!showForm && message ? <p className="text-sm text-status-success">{message}</p> : null}
+      {tablesError ? (
+        <p className="text-sm text-status-error">
+          {tablesError instanceof Error ? tablesError.message : 'Failed to load tables'}
+        </p>
+      ) : null}
 
       <section className="overflow-hidden rounded-xl border border-white/5 bg-bg-card">
         <table className="w-full text-left text-sm">
@@ -157,8 +166,29 @@ export function TablesPage() {
                       ))}
                     </select>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-text-muted">
-                    {table.qrCode ?? '—'}
+                  <td className="px-4 py-3">
+                    {table.qrCode ? (
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(table.qrCode)}`}
+                          alt={`QR for ${table.name}`}
+                          width={56}
+                          height={56}
+                          className="rounded bg-white p-0.5"
+                        />
+                        <a
+                          href={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(table.qrCode)}`}
+                          download={`table-${table.name}-qr.png`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-brand-primary hover:underline"
+                        >
+                          Download
+                        </a>
+                      </div>
+                    ) : (
+                      <span className="text-text-muted">—</span>
+                    )}
                   </td>
                 </tr>
               ))

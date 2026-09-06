@@ -1,5 +1,5 @@
 import { Outlet, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/Form';
+import { Button } from '@cullinos/ui';
 import { useWaiterSocket } from '@/hooks/useWaiterSocket';
 import { useAuthStore } from '@/stores/auth';
 

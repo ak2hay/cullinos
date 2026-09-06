@@ -110,6 +110,7 @@ export interface OutletMenuItem {
 export interface Order {
   id: string;
   orderNumber: string;
+  pickupCode?: string | null;
   status: OrderStatus;
   totalAmount: number;
 }
@@ -182,6 +183,7 @@ export const posApi = {
       items: QuickOrderItem[];
       autoConfirm?: boolean;
       type?: string;
+      customerId?: string;
       customerName?: string;
       tipAmount?: number;
       notes?: string;
@@ -210,6 +212,7 @@ export const ordersApi = {
       outletId: string;
       source: 'POS';
       items: QuickOrderItem[];
+      customerId?: string;
     },
     idempotencyKey?: string,
   ) =>
@@ -227,6 +230,62 @@ export const ordersApi = {
 
   resume: (orderId: string) =>
     apiRequest<Order>(`/orders/${orderId}/resume`, { method: 'POST' }),
+};
+
+export interface PosCustomer {
+  id: string;
+  name: string;
+  phone: string | null;
+  loyaltyPoints: number;
+}
+
+export const customersApi = {
+  search: (q: string) =>
+    apiRequest<PosCustomer[]>(`/customers?q=${encodeURIComponent(q)}`),
+  create: (data: { name: string; phone?: string }) =>
+    apiRequest<PosCustomer>('/customers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+};
+
+export interface LoyaltySettings {
+  pointsPerCurrency: number;
+  redemptionValue: number;
+  minRedeem: number;
+  stampCardEnabled: boolean;
+}
+
+export interface LoyaltyReward {
+  id: string;
+  name: string;
+  pointsCost: number;
+  menuItemId: string | null;
+  isActive: boolean;
+  menuItem?: { id: string; name: string } | null;
+}
+
+export const loyaltyApi = {
+  getSettings: () => apiRequest<LoyaltySettings>('/loyalty/settings'),
+  listRewards: () => apiRequest<LoyaltyReward[]>('/loyalty/rewards'),
+  redeemReward: (customerId: string, rewardId: string) =>
+    apiRequest<{
+      remainingPoints: number;
+      freeMenuItem: { id: string; name: string; unitPrice: number } | null;
+      reward: { name: string; pointsCost: number };
+    }>(`/loyalty/customers/${customerId}/redeem-reward`, {
+      method: 'POST',
+      body: JSON.stringify({ rewardId }),
+    }),
+  redeem: (customerId: string, points: number, orderId?: string) =>
+    apiRequest<{
+      pointsRedeemed: number;
+      discountAmount: number;
+      remainingPoints: number;
+    }>(`/loyalty/customers/${customerId}/redeem`, {
+      method: 'POST',
+      body: JSON.stringify({ points, orderId }),
+    }),
 };
 
 export { CULLINOS_BRAND };

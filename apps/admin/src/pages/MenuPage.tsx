@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Button, Input } from '@/components/ui/Form';
+import { Button, Input, PageHeader, useToast } from '@cullinos/ui';
 import { menuApi, type MenuCategory, type MenuItem } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 
 export function MenuPage() {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<'categories' | 'items'>('categories');
   const [categoryForm, setCategoryForm] = useState({ name: '', description: '' });
   const [itemForm, setItemForm] = useState({
@@ -16,11 +17,10 @@ export function MenuPage() {
   });
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-  const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   function showNotice(type: 'success' | 'error', text: string) {
-    setNotice({ type, text });
-    setTimeout(() => setNotice(null), 4000);
+    if (type === 'success') toast.success(text);
+    else toast.error(text);
   }
 
   const categoriesQuery = useQuery({
@@ -95,41 +95,28 @@ export function MenuPage() {
 
   return (
     <div className="space-y-6">
-      {notice && (
-        <div
-          className={`rounded-lg px-4 py-3 text-sm font-medium ${
-            notice.type === 'success'
-              ? 'bg-green-500/15 text-green-400'
-              : 'bg-red-500/15 text-red-400'
-          }`}
-        >
-          {notice.text}
-        </div>
-      )}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Menu</h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            Manage categories and menu items.
-          </p>
-        </div>
-        <div className="flex rounded-lg border border-white/10 bg-bg-card p-1">
-          {(['categories', 'items'] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`rounded-md px-4 py-2 text-sm capitalize transition ${
-                activeTab === tab
-                  ? 'bg-brand-primary text-bg-primary'
-                  : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PageHeader
+        title="Menu"
+        description="Manage categories and menu items."
+        actions={
+          <div className="flex rounded-lg border border-white/10 bg-bg-card p-1">
+            {(['categories', 'items'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`rounded-md px-4 py-2 text-sm capitalize transition ${
+                  activeTab === tab
+                    ? 'bg-brand-primary text-bg-primary'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {activeTab === 'categories' ? (
         <div className="grid gap-6 lg:grid-cols-2">

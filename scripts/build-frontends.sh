@@ -7,9 +7,12 @@ cd "$ROOT"
 
 export VITE_API_URL="${VITE_API_URL:-https://api.cullinos.com/api/v1}"
 export VITE_WS_URL="${VITE_WS_URL:-https://api.cullinos.com}"
+export VITE_CUSTOMER_URL="${VITE_CUSTOMER_URL:-https://order.cullinos.com}"
+export VITE_KDS_URL="${VITE_KDS_URL:-https://kds.cullinos.com}"
+export VITE_POS_URL="${VITE_POS_URL:-https://pos.cullinos.com}"
 export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.cullinos.com/api/v1}"
 
-echo "Building frontends with VITE_API_URL=$VITE_API_URL"
+echo "Building frontends with VITE_API_URL=$VITE_API_URL VITE_CUSTOMER_URL=$VITE_CUSTOMER_URL VITE_KDS_URL=$VITE_KDS_URL"
 
 echo ">>> Building shared packages"
 npm run build -w @cullinos/shared -w @cullinos/ui

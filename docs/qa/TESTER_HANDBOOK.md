@@ -2,15 +2,17 @@
 
 **For new testers.** Read Sections 1–2 first, then follow the day-by-day checklists. Mark results in your Excel Test Run Sheet.
 
+Also read **[WHATS_NEW.md](./WHATS_NEW.md)** for features added in this QA cycle.
+
 ---
 
 ## How to use this handbook
 
 | Step | Action |
 |------|--------|
-| 1 | Read Sections 1–2 below |
+| 1 | Read Sections 1–2 below and What's New |
 | 2 | Open `CREDENTIALS_LOG.xlsx` — save a copy named `CREDENTIALS_RUN-YYYYMMDD.xlsx` |
-| 3 | **Day 1:** health checks → Super Admin onboard → Admin wizard → menu + 1 waiter staff |
+| 3 | **Day 1:** health checks → Super Admin onboard → Admin wizard → menu + tables + Waiter + Cashier |
 | 4 | Open `TEST_RUN_SHEET.xlsx` — mark each test **Pass / Fail / Blocked / N/A** the same day you run it |
 | 5 | Any **Fail** → add a row in `BUG_LOG.xlsx` + save a screenshot in your `evidence/` folder |
 | 6 | **Days 2–4:** follow the day checklists in order |
@@ -25,15 +27,15 @@ Cullinos is a restaurant software platform made by Rkyves. One backend powers se
 | Who uses it | Website name | What they do |
 |-------------|--------------|--------------|
 | Rkyves platform team | **Super Admin** | Create restaurants, manage subscriptions |
-| Restaurant owner | **Admin** | Menu, staff, orders, reports, settings |
+| Restaurant owner | **Admin** | Menu, staff, orders, reports, settings, Portal POS |
 | Multi-outlet chains | **Management** | Compare outlets, stock transfers |
 | Floor staff | **Waiter** | Take table orders |
-| Cashier | **POS** *(local only)* | Counter / takeaway billing |
-| Kitchen | **KDS** *(local only)* | See kitchen tickets |
-| Guest customer | **Customer** | Order online (no login) |
+| Cashier | **POS** | Counter / takeaway billing — https://pos.cullinos.com |
+| Kitchen | **KDS** | Kitchen tickets — https://kds.cullinos.com |
+| Guest customer | **Customer** | Order online (guest OK; optional login) |
 | Public visitors | **Marketing site** | cullinos.com — no login |
 
-**Your job:** Test all **127 test cases** on **production** using a **fresh test restaurant** you create on Day 1.
+**Your job:** Test all **160 test cases** on **production** using a **fresh test restaurant** you create on Day 1.
 
 ---
 
@@ -45,17 +47,19 @@ Cullinos is a restaurant software platform made by Rkyves. One backend powers se
 - **Incognito / private window** — for guest customer tests (Ctrl+Shift+N in Chrome)
 - **Screenshot tool** — Windows: Win+Shift+S
 - **Excel** — to fill in Test Run Sheet, Bug Log, Credentials Log
-- **Folder for evidence** — e.g. `RUN-20260902/evidence/` for bug screenshots
+- **Folder for evidence** — e.g. `RUN-20260906/evidence/` for bug screenshots
 
 ### Files from your team lead
 
-You should receive these 5 files:
+You should receive these files:
 
-1. `QA_Tester_Handbook.pdf` (this document)
-2. `Quick_Reference_Card.pdf`
-3. `TEST_RUN_SHEET.xlsx`
-4. `BUG_LOG.xlsx`
-5. `CREDENTIALS_LOG.xlsx`
+1. `Whats_New.pdf` — new features in this cycle
+2. `QA_Tester_Handbook.pdf` (this document)
+3. `Quick_Reference_Card.pdf`
+4. `Employee_Brief.pdf`
+5. `TEST_RUN_SHEET.xlsx`
+6. `BUG_LOG.xlsx`
+7. `CREDENTIALS_LOG.xlsx`
 
 ### Access from your team lead
 
@@ -67,8 +71,11 @@ You should receive these 5 files:
 |-----|-----|
 | Super Admin | https://platform.cullinos.com |
 | Admin (owner) | https://admin.cullinos.com |
+| Admin Portal POS | https://admin.cullinos.com/pos |
 | Management | https://manage.cullinos.com |
 | Waiter | https://waiter.cullinos.com |
+| POS | https://pos.cullinos.com |
+| KDS | https://kds.cullinos.com |
 | Customer storefront | https://order.cullinos.com/{orgSlug}/{outletSlug} |
 | Marketing site | https://cullinos.com |
 | Swagger (API docs) | https://api.cullinos.com/docs |
@@ -87,12 +94,14 @@ Replace `{orgSlug}` and `{outletSlug}` with values from Day 1 setup.
 | **Outlet** | One restaurant location (branch) |
 | **Org / Tenant** | The restaurant business account |
 | **KOT** | Kitchen Order Ticket — order sent to kitchen |
+| **CDS** | Customer / Order Display — preparing & ready board |
+| **Portal POS** | Counter POS inside Admin at `/pos` |
 | **JWT / Token** | Secret login key used by API tools (Swagger) |
 | **Incognito** | Private browser window — acts like a guest with no saved login |
 | **Pass** | Feature works as expected |
 | **Fail** | Wrong behavior — you **must** log a bug |
-| **Blocked** | Cannot test (missing access, tool not installed) |
-| **N/A** | Not applicable (e.g. payment not configured) |
+| **Blocked** | Cannot test (missing access, DNS, etc.) |
+| **N/A** | Not applicable (e.g. payment not configured, business-type gated page) |
 | **Swagger** | Web page to test backend API directly |
 | **Enterprise plan** | Highest plan — unlocks all modules for testing |
 
@@ -104,18 +113,18 @@ Replace `{orgSlug}` and `{outletSlug}` with values from Day 1 setup.
 |------|-------------|
 | **Pass** | Works exactly as this handbook describes |
 | **Fail** | Wrong behavior, error, or missing feature → log in BUG_LOG.xlsx |
-| **Blocked** | You cannot run the test (no Super Admin access, POS not installed) |
-| **N/A** | Test does not apply (Razorpay pay-now without keys, only 1 outlet for comparison tests) |
+| **Blocked** | You cannot run the test (no Super Admin access, POS URL down) |
+| **N/A** | Test does not apply (Razorpay without keys, Banquets on restaurant tenant, only 1 outlet for comparison) |
 
 ---
 
 ## 5. Day 1 — Setup (Phases 0 and 1)
 
-**Goal:** Confirm production works, create a test restaurant, add menu and staff.
+**Goal:** Confirm production works, create a test restaurant, add menu, tables, and staff.
 
 **Time:** ~6–8 hours  
 **Apps:** Super Admin, Admin  
-**Excel tests:** TC-0-01 through TC-1.3-07
+**Excel tests:** TC-0-01 through TC-1.4-03
 
 ### Morning — Preflight (Phase 0)
 
@@ -127,7 +136,7 @@ Replace `{orgSlug}` and `{outletSlug}` with values from Day 1 setup.
    - **Expected:** Swagger API docs page loads → mark TC-0-03 **Pass**
 4. Go to https://platform.cullinos.com — login with Super Admin credentials from team lead  
    - **Expected:** Dashboard loads → mark TC-0-04 **Pass**
-5. Create a folder for this run (e.g. `RUN-20260902/`) and copy your Excel files there  
+5. Create a folder for this run (e.g. `RUN-20260906/`) and copy your Excel files there  
    - Mark TC-0-05 **Pass**
 6. Open a second browser window in **Incognito** mode — keep it ready for Day 2  
    - Mark TC-0-06 **Pass**
@@ -149,7 +158,7 @@ Replace `{orgSlug}` and `{outletSlug}` with values from Day 1 setup.
 
 1. Go to https://admin.cullinos.com — login with owner credentials → TC-1.2-01 **Pass**
 2. Go to **Setup** (`/onboarding`) if not redirected → TC-1.2-02 **Pass**
-3. Select business type: **Restaurant** → TC-1.2-03 **Pass**
+3. Select business type: **Restaurant** (prefer **medium** or **large** size if asked, so Inventory / Loyalty / Recipes / Delivery appear) → TC-1.2-03 **Pass**
 4. Complete wizard steps:
    - Business info: name, GSTIN test value `27AAAAA0000A1Z5`
    - Follow remaining steps (menu, tables, tax, staff guidance)
@@ -157,11 +166,18 @@ Replace `{orgSlug}` and `{outletSlug}` with values from Day 1 setup.
 5. Go to **Menu** (`/menu`):
    - Create **2 categories** → TC-1.3-01, TC-1.3-02 **Pass**
    - Create **4 or more items** with different prices → TC-1.3-03 **Pass**
-6. Go to **Staff** (`/staff`):
-   - Click **Add staff member**
-   - Name, email, password, role: **Waiter**, assign main outlet → TC-1.3-04, TC-1.3-05 **Pass**
-7. Go to **Settings** (`/settings`) — confirm businessType is correct → TC-1.3-06 **Pass**
-8. **If Waiter will need tables (Day 2):** If Admin Tables page is empty, create tables via Swagger (see Section 9) → TC-1.3-07 **Pass** or **N/A** if tables already exist
+6. Go to **Tables** (`/tables`):
+   - Create at least **2 tables** (e.g. T1, T2) → TC-1.3-07 **Pass**
+7. Go to **Staff** (`/staff`):
+   - Add **Waiter**, assign main outlet → TC-1.3-04, TC-1.3-05 **Pass**
+   - Add **Cashier**, assign main outlet → TC-1.3-08 **Pass**
+8. Go to **Settings** (`/settings`) — confirm businessType is correct → TC-1.3-06 **Pass**
+
+### Auth recovery (Phase 1.4)
+
+1. Log out → open https://admin.cullinos.com/forgot-password — enter owner email → TC-1.4-01 **Pass** (page accepts email; mailbox delivery optional)
+2. Open https://platform.cullinos.com/forgot-password — enter Super Admin email → TC-1.4-02 **Pass**
+3. Log in as owner → open `/change-password` → TC-1.4-03 **Pass** (page loads; changing password optional)
 
 **End of Day 1:** All Phase 0 and Phase 1 rows marked in Excel. Credentials Log filled (no real passwords — use "PM entry #" only).
 
@@ -169,35 +185,35 @@ Replace `{orgSlug}` and `{outletSlug}` with values from Day 1 setup.
 
 ## 6. Day 2 — Orders (Phase 2)
 
-**Goal:** Test real order flows — waiter, customer, optional KDS/POS.  
+**Goal:** Test real order flows — waiter, POS, KDS, customer, CDS, Portal POS.  
 **Time:** ~6–8 hours  
-**Apps:** Waiter, Customer (incognito), Admin, optional local KDS/POS  
-**Excel tests:** TC-2.1-01 through TC-2.4-04
+**Apps:** Waiter, POS, KDS, Customer (incognito), Admin  
+**Excel tests:** TC-2.1-01 through TC-2.6-02
 
 ### 6.1 Waiter dine-in order (TC-2.1-xx)
 
 1. Go to https://waiter.cullinos.com — login as Waiter staff → TC-2.1-01 **Pass**
 2. Select main outlet → TC-2.1-02 **Pass**
 3. Check table grid shows tables → TC-2.1-03 **Pass**  
-   - If no tables: use Swagger to create tables (Section 9) or mark **Blocked** and tell team lead
+   - If no tables: create them in Admin → Tables, or mark **Blocked** and tell team lead
 4. Tap/open a table — menu should load → TC-2.1-04 **Pass**
 5. Add 2 or more items → TC-2.1-05 **Pass**
 6. Confirm order — note the order number → TC-2.1-06 **Pass**
-7. **Optional KDS:** If team lead set up local KDS (`http://localhost:5174?outletId=YOUR_OUTLET_ID`), check KOT appears within ~5 seconds → TC-2.1-07 **Pass** or **Blocked**
+7. Open https://kds.cullinos.com (kitchen login) — KOT appears within ~5 seconds → TC-2.1-07 **Pass** or **Blocked** if KDS URL unavailable
 8. In Admin → **Orders** (`/orders`) — find the dine-in order → TC-2.1-08 **Pass**
 9. Verify order total matches items → TC-2.1-09 **Pass**
+10. On a table: **Show QR to customers** — open link in phone/incognito → TC-2.1-10 **Pass**
+11. Waiter **End session** — refresh guest link → expired → TC-2.1-11 **Pass**
 
-### 6.2 POS counter — local only (TC-2.2-xx)
+### 6.2 POS counter — production (TC-2.2-xx)
 
-Only if team lead installed local POS. Otherwise mark all TC-2.2-xx as **Blocked**.
+1. Open https://pos.cullinos.com — login as Cashier → TC-2.2-01, TC-2.2-02 **Pass**
+2. Add items, check cart subtotal → TC-2.2-03 **Pass**
+3. Set order type to takeaway → TC-2.2-04 **Pass**
+4. Hold order, then resume it → TC-2.2-05, TC-2.2-06 **Pass**
+5. Checkout (quick order) → TC-2.2-07 **Pass**
 
-1. Open http://localhost:5173 — login as Cashier (create in Admin → Staff if needed)
-2. Add items, check cart subtotal
-3. Set order type to takeaway
-4. Hold order, then resume it
-5. Checkout (quick order)
-
-Mark each step Pass/Fail/Blocked in Excel.
+If POS URL is down, mark **Blocked** (local fallback is optional — see Section 10).
 
 ### 6.3 Guest online order (TC-2.3-xx)
 
@@ -212,21 +228,33 @@ Use **Incognito** window — you are a customer with no login.
 7. Admin → Orders — online/QR order visible → TC-2.3-08 **Pass**
 8. Retry storefront with `?table=T1` on URL if table T1 exists → TC-2.3-09 **Pass** or **N/A**
 9. **Pay now (Razorpay):** Mark TC-2.3-10 **N/A** unless team lead confirms payment keys are configured
+10. Open **customer login** control/modal — opens without blocking guest checkout → TC-2.3-11 **Pass**
 
-### 6.4 Pickup queue (TC-2.4-xx)
+### 6.4 Order Display / CDS (TC-2.4-xx)
 
-1. Admin → **Pickup Queue** (`/pickup-queue`) — page loads → TC-2.4-01 **Pass**
-2. Copy KDS pickup URL and open it → TC-2.4-02 **Pass** or **Blocked** if no local KDS
+1. Admin → **Order Display** (`/cds`) — page loads → TC-2.4-01 **Pass**  
+   (`/pickup-queue` redirects here — that is expected)
+2. Copy display URL and open it → TC-2.4-02 **Pass** or **Blocked**
 3. Place a counter/online order — appears in Preparing → TC-2.4-03 **Pass** or **N/A**
 4. Mark ready — moves to Ready column → TC-2.4-04 **Pass** or **N/A**
 
-For restaurant-only setup, pickup tests may be **N/A**.
+### 6.5 Admin Portal POS (TC-2.5-xx)
+
+1. As owner, open https://admin.cullinos.com/pos → TC-2.5-01 **Pass**
+2. Add items — subtotal correct → TC-2.5-02 **Pass**
+3. Hold and resume → TC-2.5-03 **Pass**
+4. Checkout confirms → TC-2.5-04 **Pass**
+
+### 6.6 Digital Ordering launcher (TC-2.6-xx)
+
+1. Admin → **Digital Ordering** (`/kiosk`) → TC-2.6-01 **Pass**
+2. Launcher shows a usable storefront / kiosk URL → TC-2.6-02 **Pass**
 
 ---
 
 ## 7. Day 3 — Back office and platform (Phases 3, 4, 5)
 
-**Goal:** Test Admin modules, Management, Super Admin.  
+**Goal:** Test Admin modules (including new pages), Management, Super Admin.  
 **Time:** ~6–8 hours  
 **Apps:** Admin, Management, Super Admin
 
@@ -239,18 +267,29 @@ Login as **Owner** at https://admin.cullinos.com. Visit each page and verify:
 | Dashboard | `/` | KPI cards load; revenue reflects Day 2 orders |
 | Menu | `/menu` | Edit price, create item, toggle availability |
 | Orders | `/orders` | All Day 2 orders visible with correct status/source |
-| Tables | `/tables` | Page loads (placeholder UI — **not a bug**) |
-| Inventory | `/inventory` | Page loads (placeholder UI — **not a bug**) |
-| Customers | `/customers` | Loyalty tiers and coupons lists load (see §7.4 for stamp/coupon testing) |
+| Tables | `/tables` | Create/edit a table (real UI) |
+| Inventory | `/inventory` | List stock; add or adjust an item |
+| Customers | `/customers` | Loyalty tiers and coupons lists load (see §7.4) |
+| Loyalty | `/loyalty` | Page loads |
+| Recipes | `/recipes` | Create recipe; appears in list |
+| Delivery | `/delivery` | Page / list loads |
+| Promo Email | `/promo-email` | Page loads; compose draft or send without crash |
+| Billing | `/billing` | Page loads |
 | Events | `/events` | Create event; appears in list |
 | Production | `/production` | Schedule/complete batch if applicable, else **N/A** |
-| Pickup Queue | `/pickup-queue` | URL includes correct outletId |
-| Staff | `/staff` | Waiter employee listed |
+| Kitchen Display | `/kds` | Launcher opens usable KDS URL |
+| Order Display | `/cds` | URL includes correct outletId |
+| Digital Ordering | `/kiosk` | Storefront URL shown |
+| Banquets | `/banquets` | **N/A** on restaurant tenant (or Pass if visible) |
+| Brands | `/brands` | **N/A** on restaurant tenant |
+| Guests | `/hospitality/guests` | **N/A** on restaurant tenant |
+| Rooms | `/hospitality/rooms` | **N/A** on restaurant tenant |
+| Staff | `/staff` | Waiter + Cashier listed; Waiter without POS denied `/pos` |
 | Reports | `/reports` | Revenue and top items (non-empty after orders) |
 | Settings | `/settings` | Save valid JSON; invalid JSON shows error |
 | Login | `/login` | Logout and re-login works |
 
-Mark TC-3-01 through TC-3-22 in Excel.
+Mark TC-3-01 through TC-3-36 in Excel.
 
 ### 7.2 Enterprise Management (TC-4-xx)
 
@@ -265,7 +304,7 @@ Login as **Owner** at https://manage.cullinos.com.
 
 ### 7.4 CRM & Loyalty (TC-3-xx)
 
-**Background:** The Admin Customers page is read-only — it displays loyalty tiers and active coupons. There is no UI button to add stamps; stamps are added via API (Swagger).
+**Background:** The Admin Customers page is read-only — it displays loyalty tiers and active coupons. There is no UI button to add stamps; stamps are added via API (Swagger). Also open Admin **Loyalty** (`/loyalty`) for TC-3-25.
 
 **Pre-seeded data (demo org):**
 - Loyalty tier: Stamp Card — 10 stamps = 100 points = free drink reward
@@ -273,7 +312,7 @@ Login as **Owner** at https://manage.cullinos.com.
 
 **Stamp test steps:**
 1. Place an order via the Customer app so a customer record exists.
-2. Open Swagger at `https://api.cullinos.com/docs` (or `http://localhost:3000/docs` locally).
+2. Open Swagger at `https://api.cullinos.com/docs`.
 3. Click **Authorize** — paste your owner Bearer token.
 4. `GET /api/v1/customers` → find the customer `id` from the response.
 5. `POST /api/v1/loyalty/customers/{customerId}/stamp` — execute 10 times.
@@ -294,8 +333,12 @@ Login at https://platform.cullinos.com. **Use QA test tenant only** for destruct
 1. Find QA tenant in list → TC-5-01 **Pass**
 2. Subscriptions — change plan for QA tenant → TC-5-02, TC-5-03 **Pass**
 3. System Health — metrics load → TC-5-04 **Pass**
-4. Marketing section — open each editor (Hero, Pages, Theme, Pricing, Navigation, Blog, Media) → TC-5-05 through TC-5-12 **Pass**
-5. **Destructive (QA tenant only):**
+4. **Plans** (`/plans`) → TC-5-15 **Pass**
+5. **Promo Email** (`/promo-email`) → TC-5-16 **Pass**
+6. **Settings** (`/settings`) → TC-5-19 **Pass**
+7. Marketing section — open each editor (Hero, Pages, Theme, Pricing, Navigation, Blog, Media, Testimonials, Design Lab) → TC-5-05 through TC-5-12, TC-5-17, TC-5-18 **Pass**
+8. Logged out: `/forgot-password` → TC-5-20 **Pass**
+9. **Destructive (QA tenant only):**
    - Suspend tenant — owner cannot login to Admin → TC-5-13 **Pass**
    - Reactivate tenant — owner can login again → TC-5-14 **Pass**
 
@@ -338,11 +381,13 @@ Mark TC-6-01 through TC-6-16. Contact form: submit is OK, or graceful error with
 
 See **Section 9 — Swagger mini-guide** below. Run each API check and mark TC-7-01 through TC-7-14.
 
+Recipes, Delivery, and Hospitality also have Admin UIs — Swagger is still a valid smoke path.
+
 ---
 
 ## 9. Swagger mini-guide (for Day 4)
 
-Swagger lets you test backend features that have no website UI yet.
+Swagger lets you test backend features and create data when needed.
 
 ### Step A — Get your login token (JWT)
 
@@ -382,7 +427,9 @@ Swagger lets you test backend features that have no website UI yet.
 
 Write HTTP status codes in the **Notes** column of your Test Run Sheet.
 
-### Step D — Create tables via Swagger (if Waiter has no tables)
+### Step D — Create tables via Swagger (fallback only)
+
+Prefer Admin → **Tables**. Use Swagger only if the UI fails:
 
 1. With Swagger authorized (Step B), find **Tables** → `POST /api/v1/tables`
 2. Click **Try it out**
@@ -395,15 +442,14 @@ Write HTTP status codes in the **Notes** column of your Test Run Sheet.
    }
    ```
 4. Click **Execute** — expect HTTP 201
-5. Repeat for T2 if needed
 
 Get `outletId` from CREDENTIALS_LOG or Admin Settings.
 
 ---
 
-## 10. Optional — Local POS and KDS
+## 10. Optional — Local POS and KDS fallback
 
-POS and KDS are **not** on the public internet. Ask your team lead to help set these up, or mark POS/KDS tests as **Blocked**.
+Production URLs are preferred (`pos.cullinos.com`, `kds.cullinos.com`). Use local only if production apps are down and your team lead asks you to.
 
 **Only if Node.js and the project are installed on your PC:**
 
@@ -420,7 +466,7 @@ set VITE_WS_URL=https://api.cullinos.com
 npm run dev --workspace=@cullinos/kds
 ```
 
-- POS: http://localhost:5173 (login as **Cashier** — create in Admin → Staff)
+- POS: http://localhost:5173 (login as **Cashier**)
 - KDS: http://localhost:5174?outletId=**YOUR_OUTLET_ID**
 
 ---
@@ -431,13 +477,13 @@ Do **not** file these as defects. Mark test **N/A** or note "Known limitation" i
 
 | Item | Why |
 |------|-----|
-| Admin Tables page | Placeholder UI — use Waiter + Swagger for tables |
-| Admin Inventory page | Placeholder UI — use Swagger for inventory |
-| POS/KDS on production URLs | Local apps only — run on your PC or mark Blocked |
 | Razorpay pay-now | Needs payment keys — use Pay later instead |
-| Gateway offline sync | Needs Electron app on restaurant LAN |
+| Banquets / Brands / Guests / Rooms | Hidden for restaurant business type — mark N/A |
 | Outlet comparison with 1 outlet | Needs 2+ outlets — mark N/A or add outlet via API |
-| Staff password reset in UI | May not exist — note if missing, do not fail unless spec says otherwise |
+| Gateway offline sync | Needs Electron app on restaurant LAN |
+| Marketing CMS publish | Do not publish to live site without team lead approval |
+
+**No longer limitations:** Admin Tables, Admin Inventory, and hosted POS/KDS are real features — failures there are bugs.
 
 ---
 
@@ -476,7 +522,7 @@ When any test is **Fail**:
 
 Before sending work to your team lead:
 
-- [ ] All 127 test cases marked Pass / Fail / Blocked / N/A in TEST_RUN_SHEET.xlsx
+- [ ] All 160 test cases marked Pass / Fail / Blocked / N/A in TEST_RUN_SHEET.xlsx
 - [ ] Summary sheet counts look correct
 - [ ] Every **Fail** has a row in BUG_LOG.xlsx
 - [ ] CREDENTIALS_LOG.xlsx filled (no real passwords)
@@ -488,7 +534,7 @@ Before sending work to your team lead:
 
 ## 14. Need help?
 
-1. Check the **Quick Reference Card** (1-page PDF)
+1. Check the **Quick Reference Card** (1-page PDF) and **What's New**
 2. Ask your team lead for Super Admin access or outlet IDs
 3. Mark tests **Blocked** if you are stuck — do not guess Pass/Fail
 4. Read `EMPLOYEE_BRIEF.pdf` for job expectations and rules

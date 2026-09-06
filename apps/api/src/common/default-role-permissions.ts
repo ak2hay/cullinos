@@ -21,10 +21,13 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "outlet:read", "menu:read", "order:read", "order:create", "order:update",
     "pos:access", "table:read", "customer:read",
   ],
+  kitchen: [
+    "kitchen:read", "kitchen:update", "order:read", "menu:read",
+  ],
 };
 
-export const SYSTEM_ROLE_SLUGS = ["owner", "manager", "waiter", "cashier"] as const;
+export const SYSTEM_ROLE_SLUGS = ["owner", "manager", "waiter", "cashier", "kitchen"] as const;
 
 export type SystemRoleSlug = (typeof SYSTEM_ROLE_SLUGS)[number];
 
-export const STAFF_CREATABLE_ROLES: SystemRoleSlug[] = ["manager", "waiter", "cashier"];
+export const STAFF_CREATABLE_ROLES: SystemRoleSlug[] = ["manager", "waiter", "cashier", "kitchen"];

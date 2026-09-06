@@ -1,21 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Button, Input } from '@/components/ui/Form';
+import { Button, Input, PageHeader, useToast } from '@cullinos/ui';
 import { outletsApi, productionApi } from '@/lib/api';
 
 export function ProductionPage() {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [form, setForm] = useState({
     name: '',
     plannedQty: '24',
     scheduledFor: '',
     batchNumber: '',
   });
-  const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   function showNotice(type: 'success' | 'error', text: string) {
-    setNotice({ type, text });
-    setTimeout(() => setNotice(null), 5000);
+    if (type === 'success') toast.success(text);
+    else toast.error(text);
   }
 
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
@@ -59,22 +59,10 @@ export function ProductionPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Production</h1>
-        <p className="text-sm text-text-secondary">Daily bake sheets, batch planning, and stock deduction.</p>
-      </div>
-
-      {notice && (
-        <div
-          className={`rounded-lg px-4 py-3 text-sm font-medium ${
-            notice.type === 'success'
-              ? 'bg-green-500/15 text-green-400'
-              : 'bg-red-500/15 text-red-400'
-          }`}
-        >
-          {notice.text}
-        </div>
-      )}
+      <PageHeader
+        title="Production"
+        description="Daily bake sheets, batch planning, and stock deduction."
+      />
 
       <div className="rounded-xl border border-white/5 bg-bg-card p-5">
         <h2 className="mb-4 font-semibold">Schedule new batch</h2>

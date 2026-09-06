@@ -1,5 +1,7 @@
 import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
+import { BUSINESS_NAP } from '@/lib/business';
+import { verifyTurnstileToken } from '@/lib/turnstile';
 
 interface ContactPayload {
   name?: string;
@@ -11,6 +13,7 @@ interface ContactPayload {
   plan?: string;
   message?: string;
   website?: string;
+  'cf-turnstile-response'?: string;
 }
 
 const rateLimit = new Map<string, { count: number; resetAt: number }>();
@@ -30,6 +33,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    const turnstileOk = await verifyTurnstileToken(body['cf-turnstile-response'], ip);
+    if (!turnstileOk) {
+      return NextResponse.json({ error: 'Security check failed. Please try again.' }, { status: 400 });
+    }
+
     const { name, business, email, message } = body;
 
     if (!name?.trim() || !business?.trim() || !email?.trim() || !message?.trim()) {
@@ -41,7 +49,7 @@ export async function POST(request: Request) {
     }
 
     const apiKey = process.env.RESEND_API_KEY;
-    const toEmail = process.env.CONTACT_TO_EMAIL ?? 'hello@rkyves.com';
+    const toEmail = process.env.CONTACT_TO_EMAIL ?? BUSINESS_NAP.email;
     const fromEmail = process.env.CONTACT_FROM_EMAIL ?? 'onboarding@resend.dev';
 
     const text = [

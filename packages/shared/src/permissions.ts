@@ -157,3 +157,24 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
     PERMISSIONS.ORDER_READ,
   ],
 };
+
+export function hasPermission(
+  permissions: string[],
+  permission: Permission | string,
+): boolean {
+  return permissions.includes(permission);
+}
+
+export function hasAnyPermission(
+  permissions: string[],
+  required: Array<Permission | string>,
+): boolean {
+  return required.some((p) => permissions.includes(p));
+}
+
+export function hasAllPermissions(
+  permissions: string[],
+  required: Array<Permission | string>,
+): boolean {
+  return required.every((p) => permissions.includes(p));
+}

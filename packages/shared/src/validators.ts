@@ -66,6 +66,7 @@ export const createOrderSchema = z.object({
   items: z.array(createOrderItemSchema).min(1),
   notes: z.string().optional(),
   orderType: z.enum(['DINE_IN', 'TAKEAWAY', 'DELIVERY', 'ROOM_SERVICE']).optional(),
+  scheduledPickupAt: z.string().datetime().optional(),
 });
 
 export const paginationSchema = z.object({

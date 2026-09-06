@@ -20,6 +20,10 @@ MIGRATIONS = [
     "20260830000000_marketing_cms",
     "20260830120000_food_business_verticals",
     "20260903200000_razorpay_billing",
+    "20260904150000_must_change_password",
+    "20260905180000_restaurant_size",
+    "20260905190000_phone_otp_customer_phone",
+    "20260905193000_platform_settings",
 ]
 
 
@@ -99,7 +103,9 @@ def main() -> int:
     print("Pushing schema (no force-reset)...")
     code, _, _ = run(
         ssh,
-        prisma_cmd("db push --schema=packages/prisma/prisma/schema.prisma"),
+        prisma_cmd(
+            "db push --accept-data-loss --schema=packages/prisma/prisma/schema.prisma"
+        ),
         timeout=600,
     )
     if code != 0:

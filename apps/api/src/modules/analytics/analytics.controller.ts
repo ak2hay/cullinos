@@ -12,7 +12,7 @@ export class AnalyticsController {
   }
 
   @Get("daily")
-  @RequireModule("analytics")
+  @RequireModule("reports")
   daily(
     @OrgId() orgId: string,
     @Query("date") date?: string,

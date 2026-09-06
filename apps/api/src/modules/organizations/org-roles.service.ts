@@ -11,6 +11,7 @@ const ROLE_LABELS: Record<SystemRoleSlug, string> = {
   manager: "Manager",
   waiter: "Waiter",
   cashier: "Cashier",
+  kitchen: "Kitchen",
 };
 
 @Injectable()

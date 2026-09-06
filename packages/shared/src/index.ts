@@ -5,5 +5,6 @@ export * from './validators';
 export * from './permissions';
 export * from './features';
 export * from './business-types';
+export * from './portal';
 export * from './marketing-cms';
 export * from './marketing';

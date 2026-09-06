@@ -26,6 +26,7 @@ export class OutletsService {
         outlets.map((outlet) => ({
           id: outlet.id,
           name: outlet.name,
+          slug: outlet.slug,
           code: outlet.code,
           city: outlet.city,
           brandId: outlet.brandId,
