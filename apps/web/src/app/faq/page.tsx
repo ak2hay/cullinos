@@ -25,13 +25,14 @@ export default function FaqPage() {
           <p>
             Cullinos can present GST on bills using the standard Indian GST line types{' '}
             <strong>CGST</strong>, <strong>SGST</strong>, and <strong>IGST</strong> (matching the{' '}
-            <code>GST_TYPES</code> values in our tax-engine package). Which lines appear depends on how tax is
-            configured for your organization and whether a sale is treated as intra-state or inter-state.
+            <code>GST_TYPES</code> values in our tax-engine package). Which lines apply depends on whether a
+            sale is treated as intra-state or inter-state; exact rates and wiring are still evolving in the
+            product.
           </p>
           <p>
-            We do not publish specific GST rates here. Rates and filing obligations are set by applicable law and
-            your tax settings — Cullinos is software for displaying and calculating configured tax lines, not a
-            substitute for a chartered accountant or tax advisor.
+            We do not publish specific GST rates here. Rates and filing obligations are set by applicable law
+            and your advisor — this page is a marketing stub about line types, not a substitute for a
+            chartered accountant or tax advisor.
           </p>
           <p className="text-sm text-text-muted">
             Stub FAQ — not tax advice. Have counsel or a tax professional review before relying on this for
