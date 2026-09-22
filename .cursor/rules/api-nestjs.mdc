@@ -1,0 +1,13 @@
+---
+description: NestJS API conventions for Cullinos backend
+globs: apps/api/**/*
+alwaysApply: false
+---
+
+# API (NestJS)
+
+- Modules live under `apps/api/src/modules/`. Reuse guards, org-scope utils, and existing DTO patterns.
+- Enforce tenant isolation on every org-scoped controller/service.
+- Prefer additive changes; keep webhook signature verification intact for payments/aggregators.
+- Colocate tests as `*.test.ts` near critical utilities/modules.
+- Super-admin auth is separate from org JWT—do not mix strategies.

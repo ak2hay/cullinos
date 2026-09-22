@@ -1,0 +1,12 @@
+---
+description: Flutter Guest and Waiter mobile conventions
+globs: apps/guest/**/*,apps/waiter_mobile/**/*
+alwaysApply: false
+---
+
+# Flutter mobile
+
+- Guest: marketplace + QR/outlet ordering; deep links via `guest.cullinos.com`.
+- Waiter: floor ops for phone and tablet—preserve responsive layouts.
+- Align with guest/waiter API modules; do not embed production Firebase secrets in source.
+- Document manual test notes for QA under ticket handoff when changing flows.

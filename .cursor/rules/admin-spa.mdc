@@ -1,0 +1,12 @@
+---
+description: Admin and related React SPA patterns
+globs: apps/admin/**/*,apps/management/**/*,apps/super-admin/**/*,apps/pos/**/*,apps/kds/**/*
+alwaysApply: false
+---
+
+# Admin / ops SPAs
+
+- Follow existing AppShell, auth store, and `lib/api` patterns in each app.
+- Brand: charcoal `#0F0F1A`, amber `#D4A017`. Prefer existing Tailwind tokens over new palette.
+- Do not invent API shapes—align with NestJS controllers.
+- Portal POS and payments UIs must respect tenant payment credential model.
