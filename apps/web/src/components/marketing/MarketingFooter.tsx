@@ -15,6 +15,7 @@ const fallbackColumns = [
       { href: '/pricing', label: 'Pricing' },
       { href: '/integrations', label: 'Integrations' },
       { href: '/blog', label: 'Blog' },
+      { href: '/faq', label: 'FAQ' },
     ],
   },
   {
