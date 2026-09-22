@@ -10,5 +10,10 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  build: {
+    commonjsOptions: {
+      include: [/node_modules/, /packages\/shared/],
+    },
+  },
   server: { port: 5182 },
 });
