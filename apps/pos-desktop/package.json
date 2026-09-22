@@ -2,12 +2,13 @@
   "name": "@cullinos/pos-desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "Cullinos POS — Windows desktop app (online)",
+  "description": "Cullinos POS \u2014 Windows desktop app (online)",
   "main": "electron/main.cjs",
   "scripts": {
     "build:app": "npx cross-env VITE_DESKTOP=true VITE_API_URL=https://api.cullinos.com/api/v1 npm run build -w @cullinos/pos",
-    "build": "npm run build:app && npx --no-install electron-builder --win --config electron-builder.json",
-    "start": "electron ."
+    "build": "npm run build:app",
+    "start": "electron .",
+    "build:win": "npm run build:app && npx --no-install electron-builder --win --config electron-builder.json"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
