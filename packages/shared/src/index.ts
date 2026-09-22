@@ -8,3 +8,6 @@ export * from './business-types';
 export * from './portal';
 export * from './marketing-cms';
 export * from './marketing';
+
+// Explicit named re-export for Vite/Rollup (CJS __exportStar is often invisible to named imports).
+export { DEFAULT_API_BASE } from './constants';

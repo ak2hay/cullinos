@@ -8,6 +8,10 @@ export const CULLINOS_BRAND = {
 export const API_VERSION = 'v1';
 export const API_PREFIX = `/api/${API_VERSION}`;
 
+/** Default API base URL for Vite apps (overridable via VITE_API_URL). */
+export const DEFAULT_API_BASE = 'http://localhost:3000/api/v1';
+
+
 export const DEFAULT_CURRENCY = 'INR';
 export const DEFAULT_TIMEZONE = 'Asia/Kolkata';
 export const DEFAULT_LANGUAGE = 'en';
