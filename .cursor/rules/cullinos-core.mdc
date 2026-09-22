@@ -1,0 +1,13 @@
+---
+description: Cullinos core company rules—multi-tenant, GST, branching, secrets, Rkyves bot team
+alwaysApply: true
+---
+
+# Cullinos core
+
+- Multi-tenant: scope by `organizationId` (and outlet when required). Never leak cross-tenant data.
+- Do not invent GST/tax or payment behavior—cite `packages/tax-engine` and `apps/api` payments modules. Tenant Razorpay/Cashfree ≠ platform SaaS billing env.
+- Branch model: `feature/*` → `develop` → `main`. PR to `develop` for integration; never force-push protected branches.
+- Never commit `.env`, `secrets-export.txt`, or credentials. Prefer docs over guessing.
+- Product/architecture truth: `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, `CONTRIBUTING.md`.
+- Rkyves Grok Bot employee OS: `docs/rkyves-team/`, skills in `.grok/skills/`, handoffs in `HANDOFF.md`. Human approves merge/deploy/customer send.

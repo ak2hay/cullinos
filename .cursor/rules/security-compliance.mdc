@@ -1,0 +1,12 @@
+---
+description: Security and compliance expectations for Cullinos
+globs: "**/auth/**/*,**/privacy/**/*,**/payments/**/*,**/*security*,Rkyves_Security_Compliance_Master_Requirements.md,docs/security-compliance/**/*"
+alwaysApply: false
+---
+
+# Security
+
+- Reference `Rkyves_Security_Compliance_Master_Requirements.md` and `docs/security-compliance/`.
+- Preserve Turnstile/login backoff, JWT secret handling, and PII redaction utilities.
+- Payment webhooks must verify signatures; never log full card/PII payloads.
+- Flag IDOR/BOLA risks when adding endpoints that accept ids without org checks.

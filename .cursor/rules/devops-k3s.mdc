@@ -1,0 +1,12 @@
+---
+description: CI/CD, Docker, and k3s deployment rules
+globs: .github/**/*,Dockerfile*,infrastructure/**/*,docker-compose*.yml,docs/DEPLOYMENT.md,docs/BACKUP_ROLLBACK.md
+alwaysApply: false
+---
+
+# DevOps / deploy
+
+- Images via GHCR; staging from `develop`, production from `main`—see `docs/DEPLOYMENT.md`.
+- Prefer GitHub Actions CD over legacy `scripts/remote-deploy.py`.
+- Always include rollback notes (`docs/BACKUP_ROLLBACK.md`) in deploy-related changes.
+- Never weaken `security.yml` checks without an explicit human decision recorded in the PR.
