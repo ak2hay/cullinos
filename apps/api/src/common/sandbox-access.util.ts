@@ -3,7 +3,7 @@ export const TENANT_ENV_SANDBOX = 0;
 export const TENANT_ENV_LIVE = 1;
 
 export type SandboxOrgFlags = {
-  environmentClass: number;
+  environmentClass?: number;
   sandboxSkipEmailOtp?: boolean;
   sandboxSkipSmsOtp?: boolean;
   sandboxRelaxPassword?: boolean;
