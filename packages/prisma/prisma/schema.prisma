@@ -303,6 +303,12 @@ model Organization {
   currency        String    @default("INR")
   logoUrl            String?   @map("logo_url")
   razorpayCustomerId String?   @map("razorpay_customer_id")
+  /// 0 = Sandbox (QA/demo), 1 = Live (real customers). Default Live.
+  environmentClass   Int       @default(1) @map("environment_class")
+  /// Honored only when environmentClass = 0
+  sandboxSkipEmailOtp  Boolean @default(true) @map("sandbox_skip_email_otp")
+  sandboxSkipSmsOtp    Boolean @default(true) @map("sandbox_skip_sms_otp")
+  sandboxRelaxPassword Boolean @default(true) @map("sandbox_relax_password")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -2829,4 +2835,19 @@ model PromoDisplaySlide {
 
   @@index([outletId, isActive, sortOrder])
   @@map("promo_display_slides")
+}
+
+/// Audit log for Super Admin restricted SQL console (SELECT-only).
+model SuperAdminSqlAudit {
+  id         String   @id @default(cuid())
+  actorEmail String   @map("actor_email")
+  sqlPreview String   @map("sql_preview")
+  rowCount   Int?     @map("row_count")
+  durationMs Int?     @map("duration_ms")
+  success    Boolean
+  error      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("super_admin_sql_audits")
 }

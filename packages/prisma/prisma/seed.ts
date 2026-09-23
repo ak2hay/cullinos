@@ -1695,13 +1695,24 @@ async function main() {
   // ── Demo restaurant (local / explicit SEED_DEMO=true only) ───────────────
   const org = await prisma.organization.upsert({
     where: { slug: "demo-restaurant" },
-    update: { status: "active", businessType: "restaurant" },
+    update: {
+      status: "active",
+      businessType: "restaurant",
+      environmentClass: 0,
+      sandboxSkipEmailOtp: true,
+      sandboxSkipSmsOtp: true,
+      sandboxRelaxPassword: true,
+    },
     create: {
       name: "Demo Restaurant",
       slug: "demo-restaurant",
       businessType: "restaurant",
       status: "active",
       email: "demo@cullinos.com",
+      environmentClass: 0,
+      sandboxSkipEmailOtp: true,
+      sandboxSkipSmsOtp: true,
+      sandboxRelaxPassword: true,
       settings: { create: { settings: { setupCompleted: true } } },
     },
   });
@@ -1852,13 +1863,23 @@ async function main() {
   for (const demo of foodBusinessDemos) {
     const demoOrg = await prisma.organization.upsert({
       where: { slug: demo.slug },
-      update: { businessType: demo.businessType },
+      update: {
+        businessType: demo.businessType,
+        environmentClass: 0,
+        sandboxSkipEmailOtp: true,
+        sandboxSkipSmsOtp: true,
+        sandboxRelaxPassword: true,
+      },
       create: {
         name: demo.name,
         slug: demo.slug,
         businessType: demo.businessType,
         status: "active",
         email: `${demo.slug}@cullinos.com`,
+        environmentClass: 0,
+        sandboxSkipEmailOtp: true,
+        sandboxSkipSmsOtp: true,
+        sandboxRelaxPassword: true,
         settings: {
           create: { settings: { businessType: demo.businessType, setupCompleted: true } },
         },

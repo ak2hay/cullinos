@@ -32,6 +32,7 @@ import { SuperAdminGuard } from "../marketing/guards/super-admin.guard";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
 import { Msg91Service } from "../sms/msg91.service";
 import { SuperAdminService } from "./super-admin.service";
+import { LabsSqlDto, UpdateOrgEnvironmentDto } from "./dto/super-admin.dto";
 
 class SuperAdminLoginDto {
   @IsEmail()
@@ -270,6 +271,24 @@ export class SuperAdminController {
   @Get("organizations/:id")
   getOrganization(@Param("id") id: string) {
     return this.service.getOrganization(id);
+  }
+
+  @Patch("organizations/:id/environment")
+  updateOrganizationEnvironment(
+    @Param("id") id: string,
+    @Body() body: UpdateOrgEnvironmentDto,
+  ) {
+    return this.service.updateOrganizationEnvironment(id, body);
+  }
+
+  @Post("labs/sql")
+  runLabsSql(@Body() body: LabsSqlDto, @CurrentUser() user: JwtPayload) {
+    return this.service.runLabsSql(body.sql, user.email);
+  }
+
+  @Get("labs/sql-audits")
+  listLabsSqlAudits(@Query("limit") limit?: string) {
+    return this.service.listLabsSqlAudits(Number(limit) || 50);
   }
 
   @Get("organizations/:id/users")

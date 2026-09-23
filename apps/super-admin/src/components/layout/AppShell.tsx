@@ -11,6 +11,7 @@ const navItems: Array<{
 }> = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/tenants', label: 'Tenants' },
+  { to: '/labs', label: 'Tenant labs' },
   { to: '/plans', label: 'Plans' },
   { to: '/subscriptions', label: 'Subscriptions' },
   {

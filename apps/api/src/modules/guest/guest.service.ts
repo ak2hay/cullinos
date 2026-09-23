@@ -23,10 +23,6 @@ import { newUnsubscribeToken } from "../privacy/privacy.crypto";
 import { LoyaltyService } from "../loyalty/loyalty.service";
 import { FirebaseAdminService } from "./firebase-admin.service";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
-import {
-  isOtpTemporarilyDisabled,
-  SMS_OTP_TEMPORARILY_DISABLED_MESSAGE,
-} from "../../common/otp-gate.util";
 
 function hashCode(code: string): string {
   return createHash("sha256").update(code).digest("hex");
@@ -58,12 +54,6 @@ export class GuestService {
     private platformConfig: PlatformConfigService,
   ) {}
 
-  private assertSmsOtpEnabled(): void {
-    if (isOtpTemporarilyDisabled(this.platformConfig.get("AUTH_SMS_OTP_DISABLED_UNTIL"))) {
-      throw new ServiceUnavailableException(SMS_OTP_TEMPORARILY_DISABLED_MESSAGE);
-    }
-  }
-
   private normalizeGuestPhone(rawPhone?: string): string {
     if (!rawPhone?.trim()) {
       throw new BadRequestException("phone is required");
@@ -93,7 +83,6 @@ export class GuestService {
   }
 
   async requestOtp(rawPhone?: string) {
-    this.assertSmsOtpEnabled();
     const phone = this.normalizeGuestPhone(rawPhone);
 
     const otp = String(randomInt(100000, 999999));
@@ -212,7 +201,6 @@ export class GuestService {
   }
 
   async widgetSendOtp(rawPhone?: string) {
-    this.assertSmsOtpEnabled();
     if (!this.msg91.isWidgetConfigured()) {
       throw new ServiceUnavailableException(
         "MSG91 OTP Widget is not configured on the server",
@@ -236,7 +224,6 @@ export class GuestService {
   }
 
   async widgetRetryOtp(reqId?: string) {
-    this.assertSmsOtpEnabled();
     const id = reqId?.trim();
     if (!id) throw new BadRequestException("reqId is required");
     if (!this.msg91.isWidgetConfigured()) {

@@ -95,6 +95,10 @@ export interface Tenant {
   email: string | null;
   status?: string;
   isActive: boolean;
+  environmentClass?: number;
+  sandboxSkipEmailOtp?: boolean;
+  sandboxSkipSmsOtp?: boolean;
+  sandboxRelaxPassword?: boolean;
   plan: string | null;
   priceMonthly?: number;
   mrrContribution?: number;
@@ -128,6 +132,10 @@ export interface TenantDetail {
   country: string;
   timezone: string;
   currency: string;
+  environmentClass: number;
+  sandboxSkipEmailOtp: boolean;
+  sandboxSkipSmsOtp: boolean;
+  sandboxRelaxPassword: boolean;
   createdAt: string;
   updatedAt: string;
   counts: { users: number; outlets: number; orders: number };
@@ -281,7 +289,6 @@ export type PlatformSettingsField = {
   source: ConfigSource;
   value?: string | null;
   masked?: string | null;
-  control?: 'otp_gate';
 };
 
 export type PlatformSettingsGroup = {
@@ -362,6 +369,54 @@ export const superAdminApi = {
 
   getOrganization: (id: string) =>
     apiRequest<TenantDetail>(`/super-admin/organizations/${id}`),
+
+  updateOrganizationEnvironment: (
+    id: string,
+    payload: {
+      environmentClass: number;
+      sandboxSkipEmailOtp?: boolean;
+      sandboxSkipSmsOtp?: boolean;
+      sandboxRelaxPassword?: boolean;
+    },
+  ) =>
+    apiRequest<{
+      id: string;
+      name: string;
+      slug: string;
+      status: string;
+      environmentClass: number;
+      sandboxSkipEmailOtp: boolean;
+      sandboxSkipSmsOtp: boolean;
+      sandboxRelaxPassword: boolean;
+    }>(`/super-admin/organizations/${id}/environment`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  runLabsSql: (sql: string) =>
+    apiRequest<{
+      columns: string[];
+      rows: Record<string, unknown>[];
+      truncated: boolean;
+      durationMs: number;
+    }>('/super-admin/labs/sql', {
+      method: 'POST',
+      body: JSON.stringify({ sql }),
+    }),
+
+  listLabsSqlAudits: (limit = 50) =>
+    apiRequest<
+      Array<{
+        id: string;
+        actorEmail: string;
+        sqlPreview: string;
+        rowCount: number | null;
+        durationMs: number | null;
+        success: boolean;
+        error: string | null;
+        createdAt: string;
+      }>
+    >(`/super-admin/labs/sql-audits?limit=${limit}`),
 
   getOrganizationWallet: (id: string) =>
     apiRequest<{

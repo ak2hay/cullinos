@@ -15,6 +15,17 @@ import { MailService } from "../mail/mail.service";
 import { Msg91Service } from "../sms/msg91.service";
 import { TenantProvisioningService } from "../organizations/tenant-provisioning.service";
 import { SaasBillingService } from "../subscriptions/saas-billing.service";
+import {
+  TENANT_ENV_LIVE,
+  TENANT_ENV_SANDBOX,
+  sandboxAllowsRelaxedPassword,
+} from "../../common/sandbox-access.util";
+import {
+  LABS_SQL_MAX_ROWS,
+  LABS_SQL_PREVIEW_CHARS,
+  LABS_SQL_TIMEOUT_MS,
+  assertSelectOnlySql,
+} from "./labs-sql.util";
 
 type OrgListFilters = {
   q?: string;
@@ -134,6 +145,10 @@ export class SuperAdminService {
     email: string | null;
     status: string;
     createdAt: Date;
+    environmentClass: number;
+    sandboxSkipEmailOtp: boolean;
+    sandboxSkipSmsOtp: boolean;
+    sandboxRelaxPassword: boolean;
     subscriptions: Array<{
       status: string;
       trialEndsAt: Date | null;
@@ -155,6 +170,10 @@ export class SuperAdminService {
       email: org.email,
       status: org.status,
       isActive: org.status === "active" || org.status === "trial",
+      environmentClass: org.environmentClass,
+      sandboxSkipEmailOtp: org.sandboxSkipEmailOtp,
+      sandboxSkipSmsOtp: org.sandboxSkipSmsOtp,
+      sandboxRelaxPassword: org.sandboxRelaxPassword,
       plan: sub?.plan?.slug ?? null,
       priceMonthly,
       mrrContribution:
@@ -241,6 +260,10 @@ export class SuperAdminService {
       country: org.country,
       timezone: org.timezone,
       currency: org.currency,
+      environmentClass: org.environmentClass,
+      sandboxSkipEmailOtp: org.sandboxSkipEmailOtp,
+      sandboxSkipSmsOtp: org.sandboxSkipSmsOtp,
+      sandboxRelaxPassword: org.sandboxRelaxPassword,
       createdAt: org.createdAt.toISOString(),
       updatedAt: org.updatedAt.toISOString(),
       counts: org._count,
@@ -320,7 +343,7 @@ export class SuperAdminService {
       where: { id: user.id },
       data: {
         passwordHash: await hashPassword(temporaryPassword),
-        mustChangePassword: true,
+        mustChangePassword: !sandboxAllowsRelaxedPassword(user.organization),
       },
     });
 
@@ -1111,5 +1134,159 @@ export class SuperAdminService {
         unreadNotifications,
       },
     };
+  }
+
+  async updateOrganizationEnvironment(
+    id: string,
+    body: {
+      environmentClass: number;
+      sandboxSkipEmailOtp?: boolean;
+      sandboxSkipSmsOtp?: boolean;
+      sandboxRelaxPassword?: boolean;
+    },
+  ) {
+    const org = await this.prisma.organization.findUnique({ where: { id } });
+    if (!org) throw new NotFoundException("Organization not found");
+
+    const environmentClass = Number(body.environmentClass);
+    if (
+      environmentClass !== TENANT_ENV_SANDBOX &&
+      environmentClass !== TENANT_ENV_LIVE
+    ) {
+      throw new BadRequestException("environmentClass must be 0 (Sandbox) or 1 (Live)");
+    }
+
+    const data: Prisma.OrganizationUpdateInput = {
+      environmentClass,
+    };
+
+    if (environmentClass === TENANT_ENV_SANDBOX) {
+      if (body.sandboxSkipEmailOtp !== undefined) {
+        data.sandboxSkipEmailOtp = body.sandboxSkipEmailOtp;
+      }
+      if (body.sandboxSkipSmsOtp !== undefined) {
+        data.sandboxSkipSmsOtp = body.sandboxSkipSmsOtp;
+      }
+      if (body.sandboxRelaxPassword !== undefined) {
+        data.sandboxRelaxPassword = body.sandboxRelaxPassword;
+      }
+    }
+
+    const updated = await this.prisma.organization.update({
+      where: { id },
+      data,
+    });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      slug: updated.slug,
+      status: updated.status,
+      environmentClass: updated.environmentClass,
+      sandboxSkipEmailOtp: updated.sandboxSkipEmailOtp,
+      sandboxSkipSmsOtp: updated.sandboxSkipSmsOtp,
+      sandboxRelaxPassword: updated.sandboxRelaxPassword,
+    };
+  }
+
+  async runLabsSql(sqlRaw: string, actorEmail: string) {
+    const preview = sqlRaw.trim().slice(0, LABS_SQL_PREVIEW_CHARS);
+    const started = Date.now();
+    let sql: string;
+    try {
+      sql = assertSelectOnlySql(sqlRaw);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await this.prisma.superAdminSqlAudit.create({
+        data: {
+          actorEmail: actorEmail || "unknown",
+          sqlPreview: preview,
+          success: false,
+          error: message,
+          durationMs: Date.now() - started,
+        },
+      });
+      throw err;
+    }
+
+    const limitedSql = `SELECT * FROM (${sql}) AS labs_q LIMIT ${LABS_SQL_MAX_ROWS + 1}`;
+
+    try {
+      const rows = await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRawUnsafe(
+            `SET LOCAL statement_timeout = '${LABS_SQL_TIMEOUT_MS}'`,
+          );
+          return tx.$queryRawUnsafe<Record<string, unknown>[]>(limitedSql);
+        },
+        { timeout: LABS_SQL_TIMEOUT_MS + 2_000 },
+      );
+
+      const truncated = rows.length > LABS_SQL_MAX_ROWS;
+      const limited = truncated ? rows.slice(0, LABS_SQL_MAX_ROWS) : rows;
+      const durationMs = Date.now() - started;
+      const columns =
+        limited.length > 0
+          ? Object.keys(limited[0]!)
+          : [];
+
+      const serialized = limited.map((row) => {
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(row)) {
+          if (typeof v === "bigint") out[k] = v.toString();
+          else if (v instanceof Date) out[k] = v.toISOString();
+          else if (v != null && typeof v === "object") out[k] = v;
+          else out[k] = v;
+        }
+        return out;
+      });
+
+      await this.prisma.superAdminSqlAudit.create({
+        data: {
+          actorEmail: actorEmail || "unknown",
+          sqlPreview: preview,
+          rowCount: serialized.length,
+          durationMs,
+          success: true,
+        },
+      });
+
+      return {
+        columns,
+        rows: serialized,
+        truncated,
+        durationMs,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await this.prisma.superAdminSqlAudit.create({
+        data: {
+          actorEmail: actorEmail || "unknown",
+          sqlPreview: preview,
+          success: false,
+          error: message.slice(0, 2000),
+          durationMs: Date.now() - started,
+        },
+      });
+      throw new BadRequestException(message);
+    }
+  }
+
+  async listLabsSqlAudits(limit = 50) {
+    const take = Math.min(Math.max(limit, 1), 100);
+    const audits = await this.prisma.superAdminSqlAudit.findMany({
+      orderBy: { createdAt: "desc" },
+      take,
+    });
+    return audits.map((a) => ({
+      id: a.id,
+      actorEmail: a.actorEmail,
+      sqlPreview: a.sqlPreview,
+      rowCount: a.rowCount,
+      durationMs: a.durationMs,
+      success: a.success,
+      error: a.error,
+      createdAt: a.createdAt.toISOString(),
+    }));
   }
 }

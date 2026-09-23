@@ -21,6 +21,7 @@ import { SettingsPage } from '@/pages/SettingsPage';
 import { SubscriptionsPage } from '@/pages/SubscriptionsPage';
 import { TenantDetailPage } from '@/pages/TenantDetailPage';
 import { TenantsPage } from '@/pages/TenantsPage';
+import { LabsPage } from '@/pages/LabsPage';
 import { BlogEditorPage } from '@/pages/marketing/BlogEditorPage';
 import { DesignLabPage } from '@/pages/marketing/DesignLabPage';
 import { HeroEditorPage } from '@/pages/marketing/HeroEditorPage';
@@ -71,6 +72,7 @@ export default function App() {
         <Route index element={<DashboardPage />} />
         <Route path="tenants" element={<TenantsPage />} />
         <Route path="tenants/:id" element={<TenantDetailPage />} />
+        <Route path="labs" element={<LabsPage />} />
         <Route path="plans" element={<PlansPage />} />
         <Route path="subscriptions" element={<SubscriptionsPage />} />
         <Route path="promo-email" element={<PromoEmailPage />} />

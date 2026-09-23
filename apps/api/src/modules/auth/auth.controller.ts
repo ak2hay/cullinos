@@ -29,7 +29,7 @@ class ChangePasswordDto {
   currentPassword!: string;
 
   @IsString()
-  @MinLength(8)
+  @MinLength(6)
   @MaxLength(128)
   newPassword!: string;
 }
@@ -86,7 +86,7 @@ class ResetPasswordDto {
   otp!: string;
 
   @IsString()
-  @MinLength(8)
+  @MinLength(6)
   @MaxLength(128)
   newPassword!: string;
 }

@@ -156,8 +156,19 @@ export function TenantDetailPage() {
             ← Tenants
           </Link>
           <h1 className="mt-2 text-2xl font-semibold">{org.name}</h1>
-          <p className="mt-1 text-text-secondary">
-            {org.slug} · {org.status}
+          <p className="mt-1 flex flex-wrap items-center gap-2 text-text-secondary">
+            <span>
+              {org.slug} · {org.status}
+            </span>
+            <span
+              className={`rounded px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide ${
+                org.environmentClass === 0
+                  ? 'border border-status-warning/40 bg-status-warning/10 text-status-warning'
+                  : 'border border-status-success/30 bg-status-success/10 text-status-success'
+              }`}
+            >
+              {org.environmentClass === 0 ? 'Sandbox' : 'Live'}
+            </span>
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

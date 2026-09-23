@@ -27,10 +27,7 @@ import {
   shouldFailPhoneOtpWhenUnsent,
 } from "./phone-otp-request.util";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
-import {
-  isOtpTemporarilyDisabled,
-  SMS_OTP_TEMPORARILY_DISABLED_MESSAGE,
-} from "../../common/otp-gate.util";
+import { sandboxAllowsSmsOtpSkip } from "../../common/sandbox-access.util";
 
 function hashCode(code: string): string {
   return createHash("sha256").update(code).digest("hex");
@@ -47,12 +44,6 @@ export class CustomerAuthController {
     private platformConfig: PlatformConfigService,
   ) {}
 
-  private assertSmsOtpEnabled(): void {
-    if (isOtpTemporarilyDisabled(this.platformConfig.get("AUTH_SMS_OTP_DISABLED_UNTIL"))) {
-      throw new ServiceUnavailableException(SMS_OTP_TEMPORARILY_DISABLED_MESSAGE);
-    }
-  }
-
   @Public()
   @Get("otp/widget-config")
   widgetConfig() {
@@ -67,7 +58,6 @@ export class CustomerAuthController {
   @Public()
   @Post("otp/request")
   async requestOtp(@Body() body: { phone?: string; orgId?: string; organizationId?: string }) {
-    this.assertSmsOtpEnabled();
     const orgId = body.orgId ?? body.organizationId;
     const rawPhone = body.phone?.trim();
     if (!orgId || !rawPhone) {
@@ -84,7 +74,7 @@ export class CustomerAuthController {
       throw new BadRequestException("Invalid phone number");
     }
 
-    const otp = String(randomInt(100000, 999999));
+    const otp = sandboxAllowsSmsOtpSkip(org) ? "000000" : String(randomInt(100000, 999999));
     const challengeToken = randomBytes(24).toString("hex");
     const ttl = this.msg91.otpTtlSeconds();
     const expiresAt = new Date(Date.now() + ttl * 1000);
@@ -98,6 +88,18 @@ export class CustomerAuthController {
         expiresAt,
       },
     });
+
+    if (sandboxAllowsSmsOtpSkip(org)) {
+      return {
+        challengeToken,
+        expiresIn: ttl,
+        sent: true,
+        provider: "sandbox",
+        debugOtp: otp,
+        noticeVersion: DPDP_NOTICE_VERSION,
+        purpose: DPDP_PURPOSES.ACCOUNT_AUTH,
+      };
+    }
 
     const send = await this.msg91.sendOtp(phone, otp);
 

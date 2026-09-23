@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assertProductionSecurityConfig } from "../../common/cors.util";
-import { isOtpTemporarilyDisabled } from "../../common/otp-gate.util";
+import { sandboxAllowsEmailOtpSkip } from "../../common/sandbox-access.util";
 
 describe("auth OTP skip flag", () => {
   it("blocks AUTH_SKIP_EMAIL_OTP in production via assertProductionSecurityConfig", () => {
@@ -21,9 +21,6 @@ describe("auth OTP skip flag", () => {
     process.env.AUTH_SKIP_EMAIL_OTP = "false";
 
     const isEmailOtpSkipped = (): boolean => {
-      if (isOtpTemporarilyDisabled(process.env.AUTH_EMAIL_OTP_DISABLED_UNTIL)) {
-        return true;
-      }
       if (process.env.NODE_ENV === "production") return false;
       const raw = (process.env.AUTH_SKIP_EMAIL_OTP ?? "").trim().toLowerCase();
       return raw === "true" || raw === "1" || raw === "yes";
@@ -35,20 +32,16 @@ describe("auth OTP skip flag", () => {
     else process.env.AUTH_SKIP_EMAIL_OTP = prevSkip;
   });
 
-  it("skips email OTP when AUTH_EMAIL_OTP_DISABLED_UNTIL is in the future (incl. production)", () => {
-    const until = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-    const prevNode = process.env.NODE_ENV;
-    process.env.NODE_ENV = "production";
-
-    const isEmailOtpSkipped = (): boolean => {
-      if (isOtpTemporarilyDisabled(until)) return true;
-      if (process.env.NODE_ENV === "production") return false;
-      return false;
+  it("sandbox org can skip email OTP even in production", () => {
+    const org = {
+      environmentClass: 0,
+      sandboxSkipEmailOtp: true,
+      sandboxSkipSmsOtp: true,
+      sandboxRelaxPassword: true,
     };
-
-    expect(isEmailOtpSkipped()).toBe(true);
-
-    if (prevNode === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = prevNode;
+    expect(sandboxAllowsEmailOtpSkip(org)).toBe(true);
+    expect(
+      sandboxAllowsEmailOtpSkip({ ...org, environmentClass: 1 }),
+    ).toBe(false);
   });
 });

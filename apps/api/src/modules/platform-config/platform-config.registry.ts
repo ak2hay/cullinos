@@ -11,14 +11,10 @@ export type ConfigGroupId =
   | "guest_app"
   | "billing";
 
-export type ConfigKeyControl = "otp_gate";
-
 export type ConfigKeyDef = {
   key: string;
   isSecret: boolean;
   label: string;
-  /** Special UI control in Super Admin settings (default: text input). */
-  control?: ConfigKeyControl;
 };
 
 export type ConfigGroupDef = {
@@ -41,12 +37,6 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
       { key: "SMTP_PASS", isSecret: true, label: "Password" },
       { key: "SMTP_FROM_EMAIL", isSecret: false, label: "From email (transactional)" },
       { key: "SMTP_FROM_NAME", isSecret: false, label: "From name" },
-      {
-        key: "AUTH_EMAIL_OTP_DISABLED_UNTIL",
-        isSecret: false,
-        label: "Email OTP",
-        control: "otp_gate",
-      },
       {
         key: "SMTP_MARKETING_FROM_EMAIL",
         isSecret: false,
@@ -156,12 +146,6 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
         key: "MSG91_OTP_TTL_SECONDS",
         isSecret: false,
         label: "OTP TTL (seconds)",
-      },
-      {
-        key: "AUTH_SMS_OTP_DISABLED_UNTIL",
-        isSecret: false,
-        label: "SMS OTP",
-        control: "otp_gate",
       },
     ],
   },

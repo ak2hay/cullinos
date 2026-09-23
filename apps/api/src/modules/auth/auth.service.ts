@@ -23,9 +23,12 @@ import {
   staffPhoneLookupVariants,
 } from "../../common/phone.util";
 import {
-  isOtpTemporarilyDisabled,
-  SMS_OTP_TEMPORARILY_DISABLED_MESSAGE,
-} from "../../common/otp-gate.util";
+  assertPasswordLength,
+  sandboxAllowsEmailOtpSkip,
+  sandboxAllowsRelaxedPassword,
+  sandboxAllowsSmsOtpSkip,
+  type SandboxOrgFlags,
+} from "../../common/sandbox-access.util";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const OTP_MAX_ATTEMPTS = 5;
@@ -62,21 +65,12 @@ export class AuthService {
     private provisioning: TenantProvisioningService,
   ) {}
 
-  private isEmailOtpSkipped(): boolean {
-    // Timed disable (super-admin gate) works in all environments including production.
-    if (isOtpTemporarilyDisabled(this.config.get("AUTH_EMAIL_OTP_DISABLED_UNTIL"))) {
-      return true;
-    }
-    // Legacy permanent skip: never in production (boot also blocks AUTH_SKIP_EMAIL_OTP=true).
+  /** Email MFA skip: sandbox org flag, or legacy AUTH_SKIP_EMAIL_OTP outside production. */
+  private isEmailOtpSkippedForOrg(org?: SandboxOrgFlags | null): boolean {
+    if (sandboxAllowsEmailOtpSkip(org)) return true;
     if (process.env.NODE_ENV === "production") return false;
     const raw = (this.config.get("AUTH_SKIP_EMAIL_OTP") ?? "").trim().toLowerCase();
     return raw === "true" || raw === "1" || raw === "yes";
-  }
-
-  private assertSmsOtpEnabled(): void {
-    if (isOtpTemporarilyDisabled(this.config.get("AUTH_SMS_OTP_DISABLED_UNTIL"))) {
-      throw new BadRequestException(SMS_OTP_TEMPORARILY_DISABLED_MESSAGE);
-    }
   }
 
   private failKey(email: string, ip?: string): string {
@@ -203,7 +197,7 @@ export class AuthService {
       ip,
     });
 
-    if (this.isEmailOtpSkipped()) {
+    if (this.isEmailOtpSkippedForOrg(user.organization)) {
       return this.issueLoginResponse(user);
     }
 
@@ -213,14 +207,14 @@ export class AuthService {
 
   /** Shared entry for other modules (e.g. super-admin login). */
   async startLoginOtp(userId: string, email: string) {
-    if (this.isEmailOtpSkipped()) {
-      const user = await this.prisma.user.findFirst({
-        where: { id: userId, status: "active" },
-        include: { organization: true },
-      });
-      if (!user) {
-        throw new UnauthorizedException("Invalid credentials");
-      }
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, status: "active" },
+      include: { organization: true },
+    });
+    if (!user) {
+      throw new UnauthorizedException("Invalid credentials");
+    }
+    if (this.isEmailOtpSkippedForOrg(user.organization)) {
       return this.issueLoginResponse(user);
     }
 
@@ -261,12 +255,6 @@ export class AuthService {
   }
 
   async forgotPassword(email: string) {
-    if (this.isEmailOtpSkipped()) {
-      throw new BadRequestException(
-        "Password reset email is temporarily disabled. Contact your administrator.",
-      );
-    }
-
     const user = await this.prisma.user.findFirst({
       where: {
         email: { equals: email.trim().toLowerCase(), mode: "insensitive" },
@@ -312,10 +300,6 @@ export class AuthService {
   }
 
   async resetPassword(email: string, otp: string, newPassword: string) {
-    if (newPassword.length < 8 || newPassword.length > 128) {
-      throw new BadRequestException("New password must be 8–128 characters");
-    }
-
     const normalizedEmail = email.trim().toLowerCase();
     const pending = await this.prisma.emailOtp.findFirst({
       where: {
@@ -352,10 +336,14 @@ export class AuthService {
         email: { equals: normalizedEmail, mode: "insensitive" },
         status: "active",
       },
+      include: { organization: true },
     });
     if (!user) {
       throw new BadRequestException("Invalid or expired code");
     }
+
+    const lengthErr = assertPasswordLength(newPassword, user.organization);
+    if (lengthErr) throw new BadRequestException(lengthErr);
 
     const passwordHash = await hashPassword(newPassword);
     await this.prisma.user.update({
@@ -367,16 +355,18 @@ export class AuthService {
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { organization: true },
+    });
     if (!user || user.status !== "active") {
       throw new UnauthorizedException("Invalid credentials");
     }
     if (!(await verifyPassword(currentPassword, user.passwordHash))) {
       throw new BadRequestException("Current password is incorrect");
     }
-    if (newPassword.length < 8 || newPassword.length > 128) {
-      throw new BadRequestException("New password must be 8–128 characters");
-    }
+    const lengthErr = assertPasswordLength(newPassword, user.organization);
+    if (lengthErr) throw new BadRequestException(lengthErr);
     if (currentPassword === newPassword) {
       throw new BadRequestException("New password must be different from the current password");
     }
@@ -553,7 +543,14 @@ export class AuthService {
       mustChangePassword: boolean;
       lastLoginAt: Date | null;
       createdAt: Date;
-      organization: { name: string; slug: string };
+      organization: {
+        name: string;
+        slug: string;
+        environmentClass?: number;
+        sandboxSkipEmailOtp?: boolean;
+        sandboxSkipSmsOtp?: boolean;
+        sandboxRelaxPassword?: boolean;
+      };
     },
   ) {
     const permissions = await this.getUserPermissions(user.id);
@@ -570,6 +567,10 @@ export class AuthService {
           orderBy: { outletId: "asc" },
         });
     const defaultOutletId = defaultOu?.outletId ?? anyOu?.outletId ?? null;
+
+    const mustChangePassword = sandboxAllowsRelaxedPassword(user.organization)
+      ? false
+      : user.mustChangePassword;
 
     const token = this.jwt.sign({
       sub: user.id,
@@ -610,7 +611,7 @@ export class AuthService {
         organizationName: user.organization.name,
         organizationSlug: user.organization.slug,
         isSuperAdmin: user.isSuperAdmin,
-        mustChangePassword: user.mustChangePassword,
+        mustChangePassword,
         defaultOutletId,
       },
       permissions,
@@ -624,7 +625,6 @@ export class AuthService {
 
   /** Staff waiter primary login: phone + SMS OTP (MSG91). */
   async requestStaffPhoneOtp(rawPhone: string) {
-    this.assertSmsOtpEnabled();
     const phone = this.msg91.normalizePhone(rawPhone);
     if (phone.length < 10) {
       throw new BadRequestException("Invalid phone number");
@@ -673,6 +673,10 @@ export class AuthService {
       await this.prisma.user
         .update({ where: { id: user.id }, data: { phone: canonical } })
         .catch(() => undefined);
+    }
+
+    if (sandboxAllowsSmsOtpSkip(user.organization)) {
+      return this.issueLoginResponse(user);
     }
 
     const otp = String(randomInt(100000, 999999));
