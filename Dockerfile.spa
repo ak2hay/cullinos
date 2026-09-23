@@ -15,6 +15,8 @@ ARG VITE_WS_URL=https://api.cullinos.com
 ARG VITE_KDS_URL=https://kds.cullinos.com
 ARG VITE_POS_URL=https://pos.cullinos.com
 ARG VITE_GUEST_APP_URL=https://guest.cullinos.com
+ARG VITE_ADMIN_URL=https://admin.cullinos.com
+ARG VITE_MARKETING_WEB_URL=https://cullinos.com
 
 WORKDIR /app
 
@@ -24,7 +26,9 @@ ENV VITE_API_URL=$VITE_API_URL \
     VITE_WS_URL=$VITE_WS_URL \
     VITE_KDS_URL=$VITE_KDS_URL \
     VITE_POS_URL=$VITE_POS_URL \
-    VITE_GUEST_APP_URL=$VITE_GUEST_APP_URL
+    VITE_GUEST_APP_URL=$VITE_GUEST_APP_URL \
+    VITE_ADMIN_URL=$VITE_ADMIN_URL \
+    VITE_MARKETING_WEB_URL=$VITE_MARKETING_WEB_URL
 
 COPY package.json package-lock.json .npmrc ./
 COPY apps ./apps
@@ -33,12 +37,18 @@ COPY turbo.json tsconfig.base.json ./
 COPY infrastructure/www ./infrastructure/www
 
 # Landings are static HTML — skip npm build
+# SPA builds must bake VITE_API_URL (Chrome blocks loopback → "Failed to fetch")
 RUN if [ "$APP_NAME" = "guest-landing" ] || [ "$APP_NAME" = "waiter-landing" ]; then \
       mkdir -p /out && cp -r "infrastructure/www/${APP_NAME}/." /out/; \
     else \
-      npm ci --include=dev \
+      if [ -z "$VITE_API_URL" ]; then echo "ERROR: VITE_API_URL is empty" >&2; exit 1; fi \
+        && npm ci --include=dev \
         && npm run build -w @cullinos/shared -w @cullinos/ui \
         && npm run build -w "@cullinos/${APP_NAME}" \
+        && if ! grep -R --include='*.js' --include='*.mjs' --include='*.html' -F "$VITE_API_URL" "apps/${APP_NAME}/dist" >/dev/null 2>&1; then \
+             echo "ERROR: apps/${APP_NAME}/dist does not contain VITE_API_URL=$VITE_API_URL" >&2; \
+             exit 1; \
+           fi \
         && mkdir -p /out && cp -r "apps/${APP_NAME}/dist/." /out/; \
     fi
 

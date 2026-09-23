@@ -1,8 +1,11 @@
-import { DEFAULT_API_BASE } from '@cullinos/shared';
+import { resolveViteApiBase } from '@cullinos/shared';
 import type { ApiError } from '@cullinos/shared';
 import { useAuthStore } from '../stores/auth';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? DEFAULT_API_BASE;
+const API_BASE = resolveViteApiBase({
+  viteApiUrl: import.meta.env.VITE_API_URL,
+  isProd: import.meta.env.PROD,
+});
 
 export class ApiRequestError extends Error {
   constructor(
@@ -1041,5 +1044,7 @@ export const RKYVES_BRAND = {
   tagline: 'Platform administration',
 } as const;
 
-export const ADMIN_APP_URL =
-  import.meta.env.VITE_ADMIN_URL?.replace(/\/$/, '') ?? 'http://localhost:5173';
+export const ADMIN_APP_URL = (
+  import.meta.env.VITE_ADMIN_URL?.trim() ||
+  (import.meta.env.PROD ? 'https://admin.cullinos.com' : 'http://localhost:5173')
+).replace(/\/$/, '');

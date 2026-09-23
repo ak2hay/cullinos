@@ -9,6 +9,8 @@ export VITE_API_URL="${VITE_API_URL:-https://api.cullinos.com/api/v1}"
 export VITE_WS_URL="${VITE_WS_URL:-https://api.cullinos.com}"
 export VITE_KDS_URL="${VITE_KDS_URL:-https://kds.cullinos.com}"
 export VITE_POS_URL="${VITE_POS_URL:-https://pos.cullinos.com}"
+export VITE_ADMIN_URL="${VITE_ADMIN_URL:-https://admin.cullinos.com}"
+export VITE_MARKETING_WEB_URL="${VITE_MARKETING_WEB_URL:-https://cullinos.com}"
 export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.cullinos.com/api/v1}"
 
 

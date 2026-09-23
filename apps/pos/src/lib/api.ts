@@ -1,14 +1,17 @@
 import {
   CULLINOS_BRAND,
-  DEFAULT_API_BASE,
   mapStaffLoginResponse,
+  resolveViteApiBase,
   type ApiStaffLoginResponse,
   type StaffAuthResponse,
 } from '@cullinos/shared';
 import type { ApiError, OrderStatus } from '@cullinos/shared';
 import { useAuthStore } from '../stores/auth';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? DEFAULT_API_BASE;
+const API_BASE = resolveViteApiBase({
+  viteApiUrl: import.meta.env.VITE_API_URL,
+  isProd: import.meta.env.PROD,
+});
 
 export class ApiRequestError extends Error {
   constructor(

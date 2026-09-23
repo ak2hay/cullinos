@@ -4,9 +4,12 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { DEFAULT_API_BASE } from '@cullinos/shared';
+import { resolveViteApiBase } from '@cullinos/shared';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? DEFAULT_API_BASE;
+const API_BASE = resolveViteApiBase({
+  viteApiUrl: import.meta.env.VITE_API_URL,
+  isProd: import.meta.env.PROD,
+});
 const HEARTBEAT_MS = 60_000;
 
 async function sendHeartbeat(orgSlug: string, outletSlug: string) {

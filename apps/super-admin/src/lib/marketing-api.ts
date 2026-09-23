@@ -1,7 +1,10 @@
-import { DEFAULT_API_BASE } from '@cullinos/shared';
+import { resolveViteApiBase } from '@cullinos/shared';
 import { useAuthStore } from '../stores/auth';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? DEFAULT_API_BASE;
+const API_BASE = resolveViteApiBase({
+  viteApiUrl: import.meta.env.VITE_API_URL,
+  isProd: import.meta.env.PROD,
+});
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = useAuthStore.getState().accessToken;
@@ -135,4 +138,7 @@ export const MARKETING_IMAGE_SLOTS = [
   'flowCloud',
 ] as const;
 
-export const MARKETING_WEB_URL = import.meta.env.VITE_MARKETING_WEB_URL ?? 'http://localhost:5180';
+export const MARKETING_WEB_URL = (
+  import.meta.env.VITE_MARKETING_WEB_URL?.trim() ||
+  (import.meta.env.PROD ? 'https://cullinos.com' : 'http://localhost:5180')
+).replace(/\/$/, '');

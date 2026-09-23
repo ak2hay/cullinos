@@ -6,10 +6,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
-import { DEFAULT_API_BASE } from '@cullinos/shared';
+import { resolveViteApiBase } from '@cullinos/shared';
 import { useAuthStore } from '@/stores/auth';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? DEFAULT_API_BASE;
+const API_BASE = resolveViteApiBase({
+  viteApiUrl: import.meta.env.VITE_API_URL,
+  isProd: import.meta.env.PROD,
+});
 const WS_URL = import.meta.env.VITE_WS_URL ?? 'http://localhost:3000';
 
 interface ReceiptOrder {

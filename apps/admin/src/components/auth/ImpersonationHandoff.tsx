@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { resolveViteApiBase } from '@cullinos/shared';
 import { decodeJwtPayload, useAuthStore } from '@/stores/auth';
 
-const API_BASE =
-  import.meta.env.VITE_API_URL ??
-  (import.meta.env.DEV ? 'http://localhost:3000/api/v1' : '/api/v1');
+const API_BASE = resolveViteApiBase({
+  viteApiUrl: import.meta.env.VITE_API_URL,
+  isProd: import.meta.env.PROD,
+});
 
 /**
  * Consumes ?impersonationCode= (opaque handoff) — JWT is never placed in the URL.

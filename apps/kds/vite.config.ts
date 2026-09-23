@@ -3,15 +3,20 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-export default defineConfig({
-  build: { sourcemap: false },
-  base: process.env.VITE_DESKTOP === "true" ? "./" : "/",
-  plugins: [tailwindcss(), react()],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "src"),
-      "@cullinos/shared": path.resolve(__dirname, "../../packages/shared/src/index.ts"),
+export default defineConfig(({ command }) => {
+  if (command === "build" && !process.env.VITE_API_URL?.trim()) {
+    throw new Error("VITE_API_URL must be set for production builds");
+  }
+  return {
+    build: { sourcemap: false },
+    base: process.env.VITE_DESKTOP === "true" ? "./" : "/",
+    plugins: [tailwindcss(), react()],
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "src"),
+        "@cullinos/shared": path.resolve(__dirname, "../../packages/shared/src/index.ts"),
+      },
     },
-  },
-  server: { port: 5174 },
+    server: { port: 5174 },
+  };
 });

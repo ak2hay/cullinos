@@ -1,5 +1,22 @@
 export const DEFAULT_API_BASE = 'http://localhost:3000/api/v1';
 
+/**
+ * Resolve the Vite SPA API base URL.
+ * Dev may fall back to localhost; production must bake `VITE_API_URL` at build time
+ * (otherwise Chrome blocks loopback and the UI shows "Failed to fetch").
+ */
+export function resolveViteApiBase(options: {
+  viteApiUrl: string | undefined;
+  isProd: boolean;
+}): string {
+  const trimmed = options.viteApiUrl?.trim();
+  if (trimmed) return trimmed;
+  if (options.isProd) {
+    throw new Error('VITE_API_URL must be set for production builds');
+  }
+  return DEFAULT_API_BASE;
+}
+
 export interface ApiStaffLoginResponse {
   token: string;
   user: {
