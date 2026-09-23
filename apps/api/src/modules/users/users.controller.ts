@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
 import { OrgId } from "../../common/decorators";
 import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { UsersService } from "./users.service";
@@ -25,6 +25,8 @@ export class UsersController {
       name: string;
       roleSlug: string;
       outletIds?: string[];
+      defaultOutletId?: string;
+      phone?: string;
     },
   ) {
     return this.service.createStaffUser(orgId, body);
@@ -40,5 +42,11 @@ export class UsersController {
   @RequirePermissions("staff:manage", "org:manage_users")
   activate(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.activate(orgId, id);
+  }
+
+  @Delete(":id")
+  @RequirePermissions("staff:manage", "org:manage_users")
+  remove(@OrgId() orgId: string, @Param("id") id: string) {
+    return this.service.remove(orgId, id);
   }
 }

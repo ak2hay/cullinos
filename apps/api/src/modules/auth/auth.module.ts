@@ -8,15 +8,19 @@ import { SuperAdminGuard } from "../../common/super-admin.guard";
 import { PermissionsGuard } from "../../common/guards/permissions.guard";
 import { EntitlementGuard } from "../../common/entitlement.guard";
 import { MailModule } from "../mail/mail.module";
+import { AuditModule } from "../audit/audit.module";
+import { SmsModule } from "../sms/sms.module";
+import { OrganizationsModule } from "../organizations/organizations.module";
+import { getJwtSecret } from "../../common/jwt-secret.util";
 
 const jwtModule = JwtModule.register({
   global: true,
-  secret: process.env.JWT_SECRET || "dev-secret",
+  secret: getJwtSecret(),
   signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || "7d") as "7d" },
 }) as DynamicModule;
 
 @Module({
-  imports: [jwtModule, MailModule],
+  imports: [jwtModule, MailModule, AuditModule, SmsModule, OrganizationsModule],
   controllers: [AuthController],
   providers: [
     AuthService,

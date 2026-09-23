@@ -104,14 +104,14 @@ async function main() {
   }
 
   // Seed super admin
-  const superAdminPassword = await bcrypt.hash('superadmin123', 12);
+  const superAdminPassword = await bcrypt.hash('Missyou@1', 12);
   await prisma.superAdmin.upsert({
-    where: { email: 'admin@rkyves.com' },
+    where: { email: 'akshrkd@gmail.com' },
     update: {},
     create: {
-      email: 'admin@rkyves.com',
+      email: 'akshrkd@gmail.com',
       passwordHash: superAdminPassword,
-      name: 'Rkyves Admin',
+      name: 'Platform Super Admin',
     },
   });
 

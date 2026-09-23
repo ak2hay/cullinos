@@ -58,12 +58,24 @@ export class OrgRolesService {
   }
 
   async assignRole(userId: string, organizationId: string, roleSlug: SystemRoleSlug) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { organizationId: true },
+    });
+    if (!user || user.organizationId !== organizationId) {
+      throw new Error("Cannot assign role across organizations");
+    }
+
     const role = await this.prisma.role.findFirst({
       where: { organizationId, slug: roleSlug },
     });
     if (!role) {
       throw new Error(`Role not found: ${roleSlug}`);
     }
+    if (role.organizationId !== organizationId) {
+      throw new Error("Role does not belong to organization");
+    }
+
     await this.prisma.userRole.upsert({
       where: { userId_roleId: { userId, roleId: role.id } },
       update: {},
@@ -71,12 +83,43 @@ export class OrgRolesService {
     });
   }
 
-  async assignOutlets(userId: string, outletIds: string[]) {
-    for (const outletId of outletIds) {
-      await this.prisma.outletUser.upsert({
-        where: { userId_outletId: { userId, outletId } },
-        update: {},
-        create: { userId, outletId },
+  async assignOutlets(
+    userId: string,
+    outletIds: string[],
+    defaultOutletId?: string | null,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { organizationId: true },
+    });
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const outlets = await this.prisma.outlet.findMany({
+      where: {
+        id: { in: outletIds },
+        organizationId: user.organizationId,
+      },
+      select: { id: true },
+    });
+    if (outlets.length !== outletIds.length) {
+      throw new Error("Cannot assign outlets from another organization");
+    }
+
+    const defaultId =
+      defaultOutletId && outlets.some((o) => o.id === defaultOutletId)
+        ? defaultOutletId
+        : outlets[0]?.id;
+
+    await this.prisma.outletUser.deleteMany({ where: { userId } });
+    for (const outlet of outlets) {
+      await this.prisma.outletUser.create({
+        data: {
+          userId,
+          outletId: outlet.id,
+          isDefault: outlet.id === defaultId,
+        },
       });
     }
   }

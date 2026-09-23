@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { cn } from '../utils';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'success' | 'warning';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'success' | 'warning' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -19,6 +19,7 @@ const variants: Record<ButtonVariant, string> = {
   ghost: 'text-text-secondary hover:text-text-primary hover:bg-white/5 disabled:opacity-60',
   success: 'bg-status-ready text-bg-primary hover:opacity-90 disabled:opacity-60',
   warning: 'bg-status-preparing text-bg-primary hover:opacity-90 disabled:opacity-60',
+  danger: 'bg-status-error text-white hover:opacity-90 disabled:opacity-60',
 };
 
 const sizes: Record<ButtonSize, string> = {
@@ -40,6 +41,7 @@ export function Button({
     <button
       className={cn(
         'inline-flex items-center justify-center rounded-lg font-medium transition-colors',
+        'active:scale-[0.98] duration-[var(--duration-fast)]',
         variants[variant],
         sizes[size],
         className,

@@ -15,9 +15,14 @@ type RazorpayCheckoutOptions = {
   modal?: { ondismiss?: () => void };
 };
 
+type RazorpayInstance = {
+  open: () => void;
+  on: (event: 'payment.failed', handler: (response: { error?: { description?: string } }) => void) => void;
+};
+
 declare global {
   interface Window {
-    Razorpay?: new (options: RazorpayCheckoutOptions) => { open: () => void };
+    Razorpay?: new (options: RazorpayCheckoutOptions) => RazorpayInstance;
   }
 }
 
@@ -63,6 +68,10 @@ export async function openRazorpayCheckout(options: {
       modal: {
         ondismiss: () => reject(new Error('Payment cancelled')),
       },
+    });
+    checkout.on('payment.failed', (response) => {
+      const detail = response?.error?.description?.trim();
+      reject(new Error(detail || 'Payment failed'));
     });
     checkout.open();
   });

@@ -6,6 +6,9 @@ import {
 import { BanquetStatus, RoomStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { ConsentService } from '../privacy/consent.service';
+import { GuestPrivacyService } from '../privacy/guest-privacy.service';
+import { DPDP_PURPOSES } from '../privacy/privacy.constants';
 
 export interface CreateGuestInput {
   name: string;
@@ -55,25 +58,36 @@ export class HospitalityService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly consent: ConsentService,
+    private readonly guestPrivacy: GuestPrivacyService,
   ) {}
 
   // --- Guests ---
 
   async findAllGuests(organizationId: string) {
-    return this.prisma.guest.findMany({
-      where: { organizationId },
+    const guests = await this.prisma.guest.findMany({
+      where: { organizationId, anonymizedAt: null },
       orderBy: { name: 'asc' },
       take: 200,
     });
+    return guests.map((g) => this.guestPrivacy.presentGuest(g, 'masked'));
   }
 
   async findGuest(id: string, organizationId: string) {
     const guest = await this.prisma.guest.findFirst({
-      where: { id, organizationId },
+      where: { id, organizationId, anonymizedAt: null },
       include: { roomPostings: true, banquetBookings: true },
     });
     if (!guest) throw new NotFoundException('Guest not found');
-    return guest;
+
+    await this.audit.log({
+      organizationId,
+      action: 'guest_pii_read',
+      entityType: 'Guest',
+      entityId: id,
+    });
+
+    return this.guestPrivacy.presentGuest(guest, 'full');
   }
 
   async createGuest(
@@ -82,8 +96,39 @@ export class HospitalityService {
     input: CreateGuestInput,
   ) {
     const guest = await this.prisma.guest.create({
-      data: { organizationId, ...input },
+      data: {
+        organizationId,
+        name: input.name,
+        phone: input.phone,
+        email: input.email,
+        documentType: input.documentType,
+        documentNumber: this.guestPrivacy.prepareDocumentForStorage(
+          input.documentNumber,
+        ),
+      },
     });
+
+    await this.consent.record({
+      organizationId,
+      subjectType: 'guest',
+      subjectId: guest.id,
+      purpose: DPDP_PURPOSES.SERVICE,
+      granted: true,
+      source: 'hospitality_checkin',
+      actorUserId: userId,
+    });
+
+    if (input.documentNumber?.trim()) {
+      await this.consent.record({
+        organizationId,
+        subjectType: 'guest',
+        subjectId: guest.id,
+        purpose: DPDP_PURPOSES.HOSPITALITY_ID,
+        granted: true,
+        source: 'hospitality_checkin',
+        actorUserId: userId,
+      });
+    }
 
     await this.audit.log({
       organizationId,
@@ -93,7 +138,7 @@ export class HospitalityService {
       entityId: guest.id,
     });
 
-    return guest;
+    return this.guestPrivacy.presentGuest(guest, 'full');
   }
 
   async updateGuest(
@@ -105,8 +150,34 @@ export class HospitalityService {
     await this.findGuest(id, organizationId);
     const guest = await this.prisma.guest.update({
       where: { id },
-      data: input,
+      data: {
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.phone !== undefined ? { phone: input.phone } : {}),
+        ...(input.email !== undefined ? { email: input.email } : {}),
+        ...(input.documentType !== undefined
+          ? { documentType: input.documentType }
+          : {}),
+        ...(input.documentNumber !== undefined
+          ? {
+              documentNumber: this.guestPrivacy.prepareDocumentForStorage(
+                input.documentNumber,
+              ),
+            }
+          : {}),
+      },
     });
+
+    if (input.documentNumber?.trim()) {
+      await this.consent.record({
+        organizationId,
+        subjectType: 'guest',
+        subjectId: id,
+        purpose: DPDP_PURPOSES.HOSPITALITY_ID,
+        granted: true,
+        source: 'hospitality_update',
+        actorUserId: userId,
+      });
+    }
 
     await this.audit.log({
       organizationId,
@@ -116,7 +187,7 @@ export class HospitalityService {
       entityId: id,
     });
 
-    return guest;
+    return this.guestPrivacy.presentGuest(guest, 'full');
   }
 
   async checkOutGuest(id: string, organizationId: string, userId: string) {

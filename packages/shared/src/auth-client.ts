@@ -8,6 +8,7 @@ export interface ApiStaffLoginResponse {
     name: string;
     organizationId: string;
     organizationName: string;
+    organizationSlug?: string;
     isSuperAdmin: boolean;
     mustChangePassword?: boolean;
     firstName?: string;
@@ -36,6 +37,8 @@ export interface StaffAuthUser {
   lastLoginAt: string | null;
   createdAt: string;
   mustChangePassword: boolean;
+  organizationName?: string;
+  organizationSlug?: string;
 }
 
 export interface StaffAuthResponse {
@@ -47,7 +50,10 @@ export interface StaffAuthResponse {
 }
 
 export function mapStaffLoginResponse(raw: ApiStaffLoginResponse): StaffAuthResponse {
-  const nameParts = raw.user.name.trim().split(/\s+/);
+  if (!raw?.user) {
+    throw new Error('Login response missing user');
+  }
+  const nameParts = (raw.user.name ?? '').trim().split(/\s+/).filter(Boolean);
   return {
     accessToken: raw.accessToken ?? raw.token,
     refreshToken: raw.refreshToken ?? '',
@@ -64,6 +70,8 @@ export function mapStaffLoginResponse(raw: ApiStaffLoginResponse): StaffAuthResp
       lastLoginAt: raw.user.lastLoginAt ?? null,
       createdAt: raw.user.createdAt ?? new Date().toISOString(),
       mustChangePassword: raw.user.mustChangePassword === true,
+      organizationName: raw.user.organizationName,
+      organizationSlug: raw.user.organizationSlug,
     },
     permissions: raw.permissions ?? [],
   };

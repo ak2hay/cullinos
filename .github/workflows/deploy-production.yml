@@ -1,0 +1,124 @@
+name: Deploy Production
+
+on:
+  workflow_run:
+    workflows: ["Build Images"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag / digest to deploy (default: latest)"
+        required: false
+        default: latest
+      skip_migrate:
+        description: "Skip Prisma db push"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set image tag
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.image_tag }}"
+          if [ -z "$TAG" ]; then TAG=latest; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.29.0
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Ensure namespace and GHCR pull secret
+        env:
+          PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+        run: |
+          kubectl create namespace production --dry-run=client -o yaml | kubectl apply -f -
+          TOKEN="${PULL_TOKEN:-${{ secrets.GITHUB_TOKEN }}}"
+          kubectl create secret docker-registry ghcr-pull \
+            --docker-server=ghcr.io \
+            --docker-username="${{ github.actor }}" \
+            --docker-password="$TOKEN" \
+            --namespace=production \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Apply Kustomize overlay
+        run: kubectl apply -k infrastructure/k8s/overlays/production
+
+      - name: Set image tags and pull secret
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          NS=production
+          for d in api web spa-admin spa-management spa-super-admin spa-pos spa-kds spa-guest-landing spa-waiter-landing; do
+            case "$d" in
+              api) IMG=ghcr.io/ak2hay/cullinos-api; CTR=api ;;
+              web) IMG=ghcr.io/ak2hay/cullinos-web; CTR=web ;;
+              spa-admin) IMG=ghcr.io/ak2hay/cullinos-spa-admin; CTR=nginx ;;
+              spa-management) IMG=ghcr.io/ak2hay/cullinos-spa-management; CTR=nginx ;;
+              spa-super-admin) IMG=ghcr.io/ak2hay/cullinos-spa-super-admin; CTR=nginx ;;
+              spa-pos) IMG=ghcr.io/ak2hay/cullinos-spa-pos; CTR=nginx ;;
+              spa-kds) IMG=ghcr.io/ak2hay/cullinos-spa-kds; CTR=nginx ;;
+              spa-guest-landing) IMG=ghcr.io/ak2hay/cullinos-spa-guest-landing; CTR=nginx ;;
+              spa-waiter-landing) IMG=ghcr.io/ak2hay/cullinos-spa-waiter-landing; CTR=nginx ;;
+            esac
+            kubectl -n "$NS" set image "deployment/$d" "$CTR=$IMG:$TAG"
+            kubectl -n "$NS" patch "deployment/$d" --type=strategic \
+              -p '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"ghcr-pull"}]}}}}'
+          done
+
+      - name: Apply app secrets
+        env:
+          APP_SECRETS: ${{ secrets.PRODUCTION_APP_SECRETS_ENV }}
+        run: |
+          if [ -z "$APP_SECRETS" ]; then
+            echo "PRODUCTION_APP_SECRETS_ENV not set — leaving existing cullinos-secrets"
+            exit 0
+          fi
+          printf '%s\n' "$APP_SECRETS" > /tmp/secrets.env
+          kubectl -n production create secret generic cullinos-secrets \
+            --from-env-file=/tmp/secrets.env \
+            --dry-run=client -o yaml | kubectl apply -f -
+          rm -f /tmp/secrets.env
+
+      - name: Wait for Postgres and API
+        run: |
+          kubectl -n production wait --for=condition=ready pod -l app=postgres --timeout=180s
+          kubectl -n production rollout status deployment/api --timeout=300s
+
+      - name: Prisma db push
+        if: ${{ github.event.inputs.skip_migrate != 'true' }}
+        run: |
+          kubectl -n production exec deploy/api -- \
+            npx prisma db push --schema=packages/prisma/prisma/schema.prisma --skip-generate
+
+      - name: Smoke health
+        run: |
+          kubectl -n production run "smoke-$RANDOM" --rm -i --restart=Never --image=curlimages/curl:8.5.0 -- \
+            curl -sf http://api/api/v1/health
+
+      - name: External smoke (optional)
+        continue-on-error: true
+        run: curl -sf https://api.cullinos.com/api/v1/health || true

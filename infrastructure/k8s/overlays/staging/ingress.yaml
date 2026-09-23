@@ -1,0 +1,112 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cullinos
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  tls:
+    - secretName: cullinos-staging-tls
+      hosts:
+        - staging-api.cullinos.com
+        - staging-admin.cullinos.com
+        - staging-manage.cullinos.com
+        - staging-platform.cullinos.com
+        - staging-pos.cullinos.com
+        - staging-kds.cullinos.com
+        - staging-guest.cullinos.com
+        - staging-waiter.cullinos.com
+        - staging.cullinos.com
+  rules:
+    - host: staging-api.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 80
+    - host: staging-admin.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-admin
+                port:
+                  number: 80
+    - host: staging-manage.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-management
+                port:
+                  number: 80
+    - host: staging-platform.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-super-admin
+                port:
+                  number: 80
+    - host: staging-pos.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-pos
+                port:
+                  number: 80
+    - host: staging-kds.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-kds
+                port:
+                  number: 80
+    - host: staging-guest.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-guest-landing
+                port:
+                  number: 80
+    - host: staging-waiter.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-waiter-landing
+                port:
+                  number: 80
+    - host: staging.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80

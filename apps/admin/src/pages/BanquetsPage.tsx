@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Button, Input, PageHeader, useToast } from '@cullinos/ui';
+import { Button, Input, PageHeader, PhoneField, useToast } from '@cullinos/ui';
 import { banquetsApi } from '@/lib/api';
 import { formatDate, formatMoney } from '@/lib/format';
 
@@ -174,11 +174,11 @@ export function BanquetsPage() {
             value={booking.guestName}
             onChange={(e) => setBooking({ ...booking, guestName: e.target.value })}
           />
-          <Input
-            label="Guest phone"
-            value={booking.guestPhone}
-            onChange={(e) => setBooking({ ...booking, guestPhone: e.target.value })}
-          />
+            <PhoneField
+              label="Guest phone"
+              value={booking.guestPhone}
+              onChange={(guestPhone) => setBooking({ ...booking, guestPhone })}
+            />
           <Input
             label="Guest count"
             type="number"

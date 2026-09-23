@@ -68,6 +68,7 @@ export async function apiRequest<T>(
 export interface LoginPayload {
   email: string;
   password: string;
+  captchaToken?: string;
 }
 
 export interface AuthResponse extends StaffAuthResponse {}
@@ -107,12 +108,24 @@ export interface OutletMenuItem {
   isAvailable: boolean;
 }
 
+export interface OrderItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  notes?: string | null;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
   pickupCode?: string | null;
   status: OrderStatus;
   totalAmount: number;
+  subtotal?: number;
+  customerName?: string | null;
+  notes?: string | null;
+  items?: OrderItem[];
 }
 
 export interface CashPaymentResult {
@@ -120,14 +133,19 @@ export interface CashPaymentResult {
   orderId: string;
   paymentId?: string;
   alreadyPaid?: boolean;
+  remaining?: number;
+  paidAmount?: number;
 }
 
 export interface OnlineIntent {
-  provider: string;
+  provider: 'razorpay' | 'cashfree' | string;
   orderId: string;
   paymentId: string;
   keyId?: string;
-  razorpayOrderId: string;
+  razorpayOrderId?: string;
+  cashfreeOrderId?: string;
+  paymentSessionId?: string;
+  mode?: 'sandbox' | 'production';
   amount: number;
   amountPaise: number;
   currency: string;
@@ -135,22 +153,29 @@ export interface OnlineIntent {
 }
 
 export const paymentsApi = {
-  payCash: (orderId: string) =>
+  payCash: (orderId: string, amount?: number) =>
     apiRequest<CashPaymentResult>('/payments/cash', {
       method: 'POST',
-      body: JSON.stringify({ orderId }),
+      body: JSON.stringify({ orderId, amount }),
     }),
 
-  createIntent: (orderId: string) =>
+  getBalance: (orderId: string) =>
+    apiRequest<{ orderId: string; total: number; remaining: number; paid: number }>(
+      `/payments/orders/${orderId}/balance`,
+    ),
+
+  createIntent: (orderId: string, amount?: number, provider?: 'razorpay' | 'cashfree') =>
     apiRequest<OnlineIntent>('/payments/online/intent', {
       method: 'POST',
-      body: JSON.stringify({ orderId }),
+      body: JSON.stringify({ orderId, amount, provider }),
     }),
 
   verify: (payload: {
-    razorpayOrderId: string;
-    razorpayPaymentId: string;
-    razorpaySignature: string;
+    provider?: 'razorpay' | 'cashfree';
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    razorpaySignature?: string;
+    cashfreeOrderId?: string;
   }) =>
     apiRequest<{ success: boolean; orderId: string }>('/payments/online/verify', {
       method: 'POST',
@@ -204,9 +229,28 @@ export const posApi = {
 
   resumeOrder: (orderId: string) =>
     apiRequest<Order>(`/pos/orders/${orderId}/resume`, { method: 'POST' }),
+
+  getOpenShift: (outletId: string) =>
+    apiRequest<{ id: string; openedAt: string; openingCash: number; status: string } | null>(
+      `/pos/shifts/open?outletId=${encodeURIComponent(outletId)}`,
+    ),
+
+  openShift: (outletId: string, openingCash = 0) =>
+    apiRequest('/pos/shifts/open', {
+      method: 'POST',
+      body: JSON.stringify({ outletId, openingCash }),
+    }),
+
+  closeShift: (shiftId: string, closingCash?: number) =>
+    apiRequest(`/pos/shifts/${shiftId}/close`, {
+      method: 'POST',
+      body: JSON.stringify({ closingCash }),
+    }),
 };
 
 export const ordersApi = {
+  get: (id: string) => apiRequest<Order>(`/orders/${id}`),
+
   create: (
     payload: {
       outletId: string;
@@ -230,6 +274,27 @@ export const ordersApi = {
 
   resume: (orderId: string) =>
     apiRequest<Order>(`/orders/${orderId}/resume`, { method: 'POST' }),
+
+  applyDiscount: (
+    orderId: string,
+    payload: { discountAmount?: number; reason?: string; couponCode?: string },
+  ) =>
+    apiRequest<Order>(`/orders/${orderId}/discount`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  split: (orderId: string, itemIds: string[]) =>
+    apiRequest<{ original: Order; split: Order }>(`/orders/${orderId}/split`, {
+      method: 'POST',
+      body: JSON.stringify({ itemIds }),
+    }),
+
+  sendEbill: (orderId: string, channel: 'email' | 'sms') =>
+    apiRequest<{ success: boolean; channel: string }>(`/orders/${orderId}/ebill`, {
+      method: 'POST',
+      body: JSON.stringify({ channel }),
+    }),
 };
 
 export interface PosCustomer {
@@ -286,6 +351,14 @@ export const loyaltyApi = {
       method: 'POST',
       body: JSON.stringify({ points, orderId }),
     }),
+};
+
+export const feedbackApi = {
+  surveyLink: (orderId: string) =>
+    apiRequest<{ url: string; surveyToken: string; orderNumber: string }>(
+      `/feedback/orders/${orderId}/survey-link`,
+      { method: 'POST' },
+    ),
 };
 
 export { CULLINOS_BRAND };

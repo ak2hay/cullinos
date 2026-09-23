@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Cullinos QA Quick Start</title>
+  <style>
+  body { font-family: Segoe UI, Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: #1a1a1a; max-width: 920px; margin: 0 auto; padding: 20px 28px; }
+  h1 { color: #0F0F1A; border-bottom: 3px solid #D4A017; padding-bottom: 8px; font-size: 20pt; page-break-after: avoid; }
+  h2 { color: #0F0F1A; margin-top: 1.35em; font-size: 13.5pt; border-left: 4px solid #D4A017; padding-left: 10px; page-break-after: avoid; }
+  h3 { color: #222; font-size: 11.5pt; margin-top: 1.1em; page-break-after: avoid; }
+  h4 { color: #333; font-size: 10.5pt; page-break-after: avoid; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0 14px; font-size: 9pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: left; vertical-align: top; }
+  th { background: #D4A017; color: #0F0F1A; font-weight: 600; }
+  tr:nth-child(even) { background: #faf8f2; }
+  code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 8.5pt; font-family: Consolas, monospace; }
+  pre { background: #1a1a1a; color: #f5f5f5; padding: 12px 14px; border-radius: 6px; overflow-x: auto; font-size: 8.5pt; white-space: pre-wrap; border-left: 4px solid #D4A017; }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  blockquote { border-left: 3px solid #D4A017; margin: 0 0 12px; padding: 6px 12px; color: #444; background: #faf8f2; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 18px 0; }
+  a { color: #0a5a8a; text-decoration: none; }
+  ul, ol { margin: 6px 0 12px; padding-left: 1.4em; }
+  li { margin: 3px 0; }
+  input[type="checkbox"] { margin-right: 6px; }
+  @media print {
+    body { padding: 0; }
+    h2, h3 { page-break-after: avoid; }
+    pre, table { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body><h1 id="cullinos-qa--quick-start-guide">Cullinos QA — Quick Start Guide</h1>
+<p><strong>For new testers.</strong> Read this first, then use the detailed <a href="./MANUAL_TEST_PLAN.md">Manual Test Plan</a> and <a href="../sheets/TEST_RUN_SHEET.md">Test Run Sheet</a>.</p>
+<hr>
+<h2 id="what-is-cullinos">What is Cullinos?</h2>
+<p>Cullinos is Rkyves’s restaurant platform. One backend powers several <strong>web apps</strong>, each for a different job:</p>
+<table>
+<thead>
+<tr>
+<th>Who uses it</th>
+<th>App</th>
+<th>What they do</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Rkyves platform team</td>
+<td><strong>Super Admin</strong></td>
+<td>Onboard restaurants, manage subscriptions</td>
+</tr>
+<tr>
+<td>Restaurant owner / manager</td>
+<td><strong>Admin</strong></td>
+<td>Menu, staff, orders, reports, settings</td>
+</tr>
+<tr>
+<td>Multi-outlet chains</td>
+<td><strong>Management</strong></td>
+<td>Compare outlets, stock transfers, franchise</td>
+</tr>
+<tr>
+<td>Floor staff</td>
+<td><strong>Waiter</strong></td>
+<td>Take table orders or start QR sessions for guests</td>
+</tr>
+<tr>
+<td>Cashier</td>
+<td><strong>POS</strong></td>
+<td>Counter / takeaway billing — <a href="https://pos.cullinos.com">https://pos.cullinos.com</a></td>
+</tr>
+<tr>
+<td>Kitchen</td>
+<td><strong>KDS</strong></td>
+<td>Kitchen display — <a href="https://kds.cullinos.com">https://kds.cullinos.com</a></td>
+</tr>
+<tr>
+<td>Guest / customer</td>
+<td><strong>Cullinos App</strong></td>
+<td>Order online via QR or link (guest OK; optional login)</td>
+</tr>
+<tr>
+<td>Public</td>
+<td><strong>Marketing site</strong></td>
+<td>cullinos.com — no login</td>
+</tr>
+</tbody></table>
+<p><strong>Your test setup:</strong> Production environment, <strong>fresh restaurant</strong> created via Super Admin, <strong>one Waiter</strong> and <strong>one Cashier</strong> for floor/POS tests.</p>
+<p>Also read <strong><a href="./WHATS_NEW.md">WHATS_NEW.md</a></strong> for features added in this cycle.</p>
+<p><strong>Full click-by-click guide:</strong> <a href="./COMPLETE_FEATURE_TEST_GUIDE.md">COMPLETE_FEATURE_TEST_GUIDE.md</a> — every portal, page, and major action.</p>
+<hr>
+<h2 id="portal-urls-production">Portal URLs (Production)</h2>
+<p>Bookmark these. All production testing uses these domains.</p>
+<h3 id="main-apps-login-required">Main apps (login required)</h3>
+<table>
+<thead>
+<tr>
+<th>App</th>
+<th>URL</th>
+<th>Who logs in</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Super Admin</strong></td>
+<td><a href="https://platform.cullinos.com">https://platform.cullinos.com</a></td>
+<td>Platform ops (Rkyves)</td>
+</tr>
+<tr>
+<td><strong>Admin</strong> (owner dashboard)</td>
+<td><a href="https://admin.cullinos.com">https://admin.cullinos.com</a></td>
+<td>Restaurant owner</td>
+</tr>
+<tr>
+<td><strong>Management</strong> (chains)</td>
+<td><a href="https://manage.cullinos.com">https://manage.cullinos.com</a></td>
+<td>Owner (Enterprise plan)</td>
+</tr>
+<tr>
+<td><strong>Cullinos Waiter</strong> (floor)</td>
+<td>Android app (Play Store)</td>
+<td>Waiter staff</td>
+</tr>
+<tr>
+<td><strong>POS</strong> (cashier)</td>
+<td><a href="https://pos.cullinos.com">https://pos.cullinos.com</a></td>
+<td>Cashier staff</td>
+</tr>
+<tr>
+<td><strong>KDS</strong> (kitchen)</td>
+<td><a href="https://kds.cullinos.com">https://kds.cullinos.com</a></td>
+<td>Kitchen staff</td>
+</tr>
+<tr>
+<td><strong>Admin Portal POS</strong></td>
+<td><a href="https://admin.cullinos.com/pos">https://admin.cullinos.com/pos</a></td>
+<td>Owner / staff with POS access</td>
+</tr>
+</tbody></table>
+<h3 id="no-login">No login</h3>
+<table>
+<thead>
+<tr>
+<th>App</th>
+<th>URL</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Cullinos App</strong></td>
+<td><a href="https://guest.cullinos.com/%60%7BorgSlug%7D%60/%60%7BoutletSlug%7D%60">https://guest.cullinos.com/`{orgSlug}`/`{outletSlug}`</a></td>
+<td>Replace slugs after tenant is created</td>
+</tr>
+<tr>
+<td><strong>QR session link</strong></td>
+<td><code>…?session={token}</code></td>
+<td>Generated by waiter — expires when session ends</td>
+</tr>
+<tr>
+<td><strong>Marketing website</strong></td>
+<td><a href="https://cullinos.com">https://cullinos.com</a></td>
+<td>Public pages</td>
+</tr>
+</tbody></table>
+<p><strong>Example storefront</strong> (demo org — do not use for your QA run if testing fresh tenant):</p>
+<p><code>https://guest.cullinos.com/demo-restaurant/main-outlet</code></p>
+<h3 id="api--developer-tools">API &amp; developer tools</h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>URL</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>API health</td>
+<td><a href="https://api.cullinos.com/api/v1/health">https://api.cullinos.com/api/v1/health</a></td>
+<td>Quick “is API up?” check</td>
+</tr>
+<tr>
+<td>API DB health</td>
+<td><a href="https://api.cullinos.com/api/v1/health/db">https://api.cullinos.com/api/v1/health/db</a></td>
+<td>Database connectivity</td>
+</tr>
+<tr>
+<td><strong>Swagger (API docs)</strong></td>
+<td><a href="https://api.cullinos.com/docs">https://api.cullinos.com/docs</a></td>
+<td>Test API-only features, create tables if needed</td>
+</tr>
+</tbody></table>
+<h3 id="qr-table-ordering-waiter-→-guest">QR table ordering (waiter → guest)</h3>
+<ol>
+<li>Waiter opens <strong>Cullinos Waiter</strong> (Android) → tap a table → <strong>Show QR to customers</strong></li>
+<li>Guest scans QR (or opens copied link) → adds items → checkout</li>
+<li>Items appear on the <strong>same table order</strong> in waiter app and on KDS</li>
+<li>Waiter taps <strong>End session</strong> when the table is cleared (old QR stops working)</li>
+</ol>
+<p><strong>Pickup / Order Display setup:</strong></p>
+<ol>
+<li>Admin → <strong>Displays</strong> (<code>/displays</code>) — copy CDS / Pickup URL (legacy <code>/cds</code> and <code>/pickup-queue</code> redirect here).</li>
+<li>Copy it and open in another tab, tablet, or TV — no login required for the public board.</li>
+<li>Place a takeaway/counter order to see it appear in the queue.</li>
+</ol>
+<h3 id="local-dev-optional-fallback">Local dev (optional fallback)</h3>
+<p>For development only — production QA uses the URLs above:</p>
+<table>
+<thead>
+<tr>
+<th>App</th>
+<th>Local URL</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>POS</strong></td>
+<td><a href="http://localhost:5173">http://localhost:5173</a></td>
+</tr>
+<tr>
+<td><strong>KDS</strong></td>
+<td><a href="http://localhost:5174">http://localhost:5174</a></td>
+</tr>
+<tr>
+<td><strong>KDS Order Display</strong></td>
+<td><a href="http://localhost:5174/?outletId=YOUR_OUTLET_ID&mode=pickup">http://localhost:5174/?outletId=YOUR_OUTLET_ID&amp;mode=pickup</a></td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="credentials--fill-this-in-before-testing">Credentials — fill this in before testing</h2>
+<blockquote>
+<p><strong>Important:</strong> Do <strong>not</strong> put real passwords in files you commit to git.<br>Ask your team lead for production passwords, or use a password manager.<br>Copy this section into <code>docs/qa/runs/RUN-YYYYMMDD/CREDENTIALS_LOG.md</code> and fill it there (that folder is gitignored).</p>
+</blockquote>
+<h3 id="where-passwords-come-from">Where passwords come from</h3>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>How you get login</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Super Admin</strong></td>
+<td>Team lead shares platform login (stored locally in <code>secrets-export.txt</code> — <strong>never commit that file</strong>)</td>
+</tr>
+<tr>
+<td><strong>Owner</strong></td>
+<td>Created when Super Admin <strong>onboards</strong> a new restaurant — you choose email/password during onboard</td>
+</tr>
+<tr>
+<td><strong>Waiter (your 1 employee)</strong></td>
+<td>Owner creates in <strong>Admin → Staff</strong> — you set email/password there</td>
+</tr>
+<tr>
+<td><strong>Cashier</strong></td>
+<td>Same as Waiter — create in Admin → Staff for POS</td>
+</tr>
+<tr>
+<td><strong>Guest customer</strong></td>
+<td>No login required — use incognito; optional login modal is extra</td>
+</tr>
+</tbody></table>
+<h3 id="credential-worksheet-copy--fill-in">Credential worksheet (copy &amp; fill in)</h3>
+<pre><code>RUN ID:          RUN-YYYYMMDD
+Tester name:     
+Date:            
+
+── PLATFORM (Rkyves) ──────────────────────────
+Super Admin URL:   https://platform.cullinos.com
+Super Admin email: ___________________________
+Password:          (password manager / ask team lead)
+
+── QA RESTAURANT (created this run) ───────────
+Restaurant name:   e.g. QA Test Kitchen
+Org slug:          ___________________________  ← needed for storefront URL
+Outlet name:       e.g. Main Outlet
+Outlet slug:       ___________________________
+Outlet ID:         ___________________________  ← needed for KDS URL
+Plan:              enterprise
+
+Owner URL:         https://admin.cullinos.com
+Owner email:       ___________________________
+Owner password:    (password manager)
+
+Storefront URL:    https://guest.cullinos.com/{orgSlug}/{outletSlug}
+
+── STAFF (1 employee) ─────────────────────────
+Name:              ___________________________
+Role:              Waiter
+Waiter URL:        https://waiter.cullinos.com
+Email:             ___________________________
+Password:          (password manager)
+
+── OPTIONAL ───────────────────────────────────
+Cashier email:     ___________________________  (only if testing POS)
+Management URL:    https://manage.cullinos.com  (login as owner)
+</code></pre>
+<h3 id="demo-credentials-local-dev-only--not-for-production-qa">Demo credentials (local dev only — NOT for production QA)</h3>
+<p>If you run the app <strong>locally</strong> with <code>npm run db:seed</code>, these demo accounts exist:</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Email</th>
+<th>Password</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Super Admin</td>
+<td><code>akshrkd@gmail.com</code></td>
+<td><code>Missyou@1</code></td>
+</tr>
+<tr>
+<td>Owner</td>
+<td><code>owner@cullinos.com</code></td>
+<td><code>demo1234</code></td>
+</tr>
+</tbody></table>
+<p>Local app ports: API <code>3000</code>, Admin <code>5181</code>, etc. — Waiter is Flutter <code>apps/waiter_mobile</code>; see root <a href="../../README.md">README.md</a>.</p>
+<p><strong>Production QA uses a fresh tenant</strong>, not these demo accounts.</p>
+<hr>
+<h2 id="who-tests-what">Who tests what?</h2>
+<p>One QA person switches roles; one employee tests Waiter only.</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Person</th>
+<th>App</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Super Admin</td>
+<td>You</td>
+<td>platform.cullinos.com</td>
+<td>Day 1 — onboard restaurant</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>You</td>
+<td>admin.cullinos.com</td>
+<td>Day 1–4 — setup, admin, reports</td>
+</tr>
+<tr>
+<td>Waiter</td>
+<td>Your employee</td>
+<td>Cullinos Waiter Android</td>
+<td>Day 2 — table orders</td>
+</tr>
+<tr>
+<td>Guest</td>
+<td>You (incognito)</td>
+<td>guest.cullinos.com/...</td>
+<td>Day 2 — online checkout</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>You</td>
+<td>manage.cullinos.com</td>
+<td>Day 3 — chain features</td>
+</tr>
+</tbody></table>
+<p>You need <strong>two browsers</strong>: normal window (staff/owner) + <strong>incognito</strong> (guest customer).</p>
+<hr>
+<h2 id="start-testing-in-30-minutes">Start testing in 30 minutes</h2>
+<h3 id="step-1--preflight-5-min">Step 1 — Preflight (5 min)</h3>
+<p>Open in browser and confirm each works:</p>
+<ol>
+<li><a href="https://api.cullinos.com/api/v1/health">https://api.cullinos.com/api/v1/health</a> → should show healthy JSON  </li>
+<li><a href="https://api.cullinos.com/api/v1/health/db">https://api.cullinos.com/api/v1/health/db</a> → database OK  </li>
+<li><a href="https://platform.cullinos.com">https://platform.cullinos.com</a> → Super Admin login page loads</li>
+</ol>
+<p>Checklist: <a href="./README.md#preflight-checklist">README preflight</a></p>
+<h3 id="step-2--create-qa-restaurant-10-min">Step 2 — Create QA restaurant (10 min)</h3>
+<ol>
+<li>Login to <strong>Super Admin</strong>  </li>
+<li>Click <strong>Onboard restaurant</strong>  </li>
+<li>Fill in:<ul>
+<li>Restaurant name: <code>QA Test Kitchen</code> (or unique name)</li>
+<li>First outlet: <code>Main Outlet</code></li>
+<li>Plan: <strong><code>enterprise</code></strong></li>
+<li>Owner name, email, password (save in password manager)</li>
+</ul>
+</li>
+<li>Copy the success message — it has the Admin URL and owner email  </li>
+<li>Write <strong>org slug</strong> and <strong>outlet slug</strong> in your credential worksheet</li>
+</ol>
+<h3 id="step-3--owner-setup-10-min">Step 3 — Owner setup (10 min)</h3>
+<ol>
+<li>Login to <strong>Admin</strong> with owner credentials  </li>
+<li>Go to <strong>Setup</strong> (<code>/onboarding</code>) — choose business type <strong>Restaurant</strong>  </li>
+<li>Complete the wizard (business info, GSTIN test value <code>27AAAAA0000A1Z5</code>, etc.)  </li>
+<li><strong>Menu</strong> (<code>/menu</code>) — create 2 categories and at least 4 items  </li>
+<li><strong>Staff</strong> (<code>/staff</code>) — add <strong>Waiter</strong> and <strong>Cashier</strong>, assign main outlet  </li>
+<li><strong>Tables</strong> (<code>/tables</code>) — create at least 2 tables (T1, T2)  </li>
+<li>Share waiter login with your employee (securely — not in git)</li>
+</ol>
+<h3 id="step-4--first-real-test-5-min">Step 4 — First real test (5 min)</h3>
+<p><strong>Employee:</strong> Login to Waiter → select outlet → open a table → add items → confirm order  </p>
+<p><strong>You:</strong> Check <strong>Admin → Orders</strong> — the order should appear; optionally confirm KOT on <a href="https://kds.cullinos.com">https://kds.cullinos.com</a>  </p>
+<p>If <strong>no tables</strong> show in Waiter: create them in Admin → <strong>Tables</strong>, or via Swagger (<code>POST /api/v1/tables</code>) if the UI fails.</p>
+<hr>
+<h2 id="what-to-test-next-4-day-plan">What to test next (4-day plan)</h2>
+<table>
+<thead>
+<tr>
+<th>Day</th>
+<th>Focus</th>
+<th>Document</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>1</strong></td>
+<td>Preflight + onboard + menu + tables + staff</td>
+<td>This guide + Phase 1 in <a href="./MANUAL_TEST_PLAN.md">Manual Test Plan</a></td>
+</tr>
+<tr>
+<td><strong>2</strong></td>
+<td>Waiter, POS, KDS, guest checkout, CDS</td>
+<td>Phase 2 + mark <a href="../sheets/TEST_RUN_SHEET.md">Test Run Sheet</a></td>
+</tr>
+<tr>
+<td><strong>3</strong></td>
+<td>Admin modules (incl. new pages), Management, Super Admin</td>
+<td>Phases 3–5</td>
+</tr>
+<tr>
+<td><strong>4</strong></td>
+<td>Marketing site + API (Swagger)</td>
+<td>Phases 6–7</td>
+</tr>
+</tbody></table>
+<p>Full details: <a href="./MANUAL_TEST_PLAN.md">MANUAL_TEST_PLAN.md</a><br>Track pass/fail: <a href="../sheets/TEST_RUN_SHEET.md">TEST_RUN_SHEET.md</a> (<strong>190</strong> test cases)<br>Click-paths: <a href="./COMPLETE_FEATURE_TEST_GUIDE.md">COMPLETE_FEATURE_TEST_GUIDE.md</a><br>Log bugs: <a href="../sheets/BUG_LOG.md">BUG_LOG.md</a>
+What&#39;s new: <a href="./WHATS_NEW.md">WHATS_NEW.md</a></p>
+<hr>
+<h2 id="app-cheat-sheet--what-each-page-does">App cheat sheet — what each page does</h2>
+<h3 id="admin-owner--httpsadmincullinoscom">Admin (owner) — <a href="https://admin.cullinos.com">https://admin.cullinos.com</a></h3>
+<table>
+<thead>
+<tr>
+<th>Menu</th>
+<th>Path</th>
+<th>What to check</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dashboard</td>
+<td><code>/</code></td>
+<td>Revenue, order counts after you place test orders</td>
+</tr>
+<tr>
+<td>Portal POS</td>
+<td><code>/pos</code></td>
+<td>Hold / resume / checkout (needs POS permission)</td>
+</tr>
+<tr>
+<td>Menu</td>
+<td><code>/menu</code></td>
+<td>Add/edit categories, items, combos, schedules, outlet prices</td>
+</tr>
+<tr>
+<td>Orders</td>
+<td><code>/orders</code></td>
+<td>All orders from Waiter, Guest, POS</td>
+</tr>
+<tr>
+<td>Tables</td>
+<td><code>/tables</code></td>
+<td>Create/edit tables — real UI</td>
+</tr>
+<tr>
+<td>Reservations</td>
+<td><code>/reservations</code></td>
+<td>Bookings + public book link</td>
+</tr>
+<tr>
+<td>Inventory</td>
+<td><code>/inventory</code></td>
+<td>List / add / adjust stock — real UI</td>
+</tr>
+<tr>
+<td>Customers</td>
+<td><code>/customers</code></td>
+<td>Create / search customers</td>
+</tr>
+<tr>
+<td>Loyalty</td>
+<td><code>/loyalty</code></td>
+<td>Settings, tiers, rewards</td>
+</tr>
+<tr>
+<td>Coupons</td>
+<td><code>/coupons</code></td>
+<td>Create / deactivate coupons</td>
+</tr>
+<tr>
+<td>Recipes</td>
+<td><code>/recipes</code></td>
+<td>Create and list recipes</td>
+</tr>
+<tr>
+<td>Purchasing / Suppliers</td>
+<td><code>/purchasing</code>, <code>/suppliers</code></td>
+<td>Draft PO, GRN, supplier directory</td>
+</tr>
+<tr>
+<td>Central kitchen</td>
+<td><code>/central-kitchen</code></td>
+<td>Often N/A until multi-outlet</td>
+</tr>
+<tr>
+<td>Delivery</td>
+<td><code>/delivery</code></td>
+<td>Zones / delivery orders</td>
+</tr>
+<tr>
+<td>Aggregators</td>
+<td><code>/aggregators</code></td>
+<td>Swiggy / Zomato connect</td>
+</tr>
+<tr>
+<td>Payments</td>
+<td><code>/payments</code></td>
+<td>Razorpay / Cashfree keys</td>
+</tr>
+<tr>
+<td>App listing</td>
+<td><code>/marketplace</code></td>
+<td>Cullinos App listing</td>
+</tr>
+<tr>
+<td>Guest banners</td>
+<td><code>/guest-banners</code></td>
+<td>App banners</td>
+</tr>
+<tr>
+<td>SMS campaigns</td>
+<td><code>/sms-campaigns</code></td>
+<td>MSG91 SMS (needs wallet)</td>
+</tr>
+<tr>
+<td>Billing</td>
+<td><code>/billing</code></td>
+<td>Billing / subscription page</td>
+</tr>
+<tr>
+<td>Events</td>
+<td><code>/events</code></td>
+<td>Schedule events; select outlet, fill form</td>
+</tr>
+<tr>
+<td>Production</td>
+<td><code>/production</code></td>
+<td>Schedule batches, mark complete</td>
+</tr>
+<tr>
+<td>Banquets</td>
+<td><code>/banquets</code></td>
+<td>Often <strong>N/A</strong> on restaurant tenant</td>
+</tr>
+<tr>
+<td>Brands</td>
+<td><code>/brands</code></td>
+<td>Often <strong>N/A</strong> on restaurant tenant</td>
+</tr>
+<tr>
+<td>Guests / Rooms</td>
+<td><code>/hospitality/*</code></td>
+<td>Often <strong>N/A</strong> on restaurant tenant</td>
+</tr>
+<tr>
+<td>Displays</td>
+<td><code>/displays</code></td>
+<td>KDS / CDS / Pickup / Promo URLs (legacy <code>/kds</code> <code>/cds</code> redirect here)</td>
+</tr>
+<tr>
+<td>Digital Ordering</td>
+<td><code>/kiosk</code></td>
+<td>Kiosk / storefront launcher</td>
+</tr>
+<tr>
+<td>Staff</td>
+<td><code>/staff</code></td>
+<td>Create waiter/cashier/manager logins</td>
+</tr>
+<tr>
+<td>Reports</td>
+<td><code>/reports</code></td>
+<td>Revenue, top items, Export</td>
+</tr>
+<tr>
+<td>Settings</td>
+<td><code>/settings</code></td>
+<td>Form: restaurant details, order types, locations, tax, devices</td>
+</tr>
+<tr>
+<td>Setup</td>
+<td><code>/onboarding</code></td>
+<td>Initial wizard (seeds sample categories on Complete setup)</td>
+</tr>
+<tr>
+<td>Forgot / Change password</td>
+<td><code>/forgot-password</code>, <code>/change-password</code></td>
+<td>Auth recovery</td>
+</tr>
+</tbody></table>
+<p><strong>Note:</strong> There is no Admin “Demo data” button. Sample menu categories come from <strong>Complete setup</strong>. Promo Email is on <strong>Super Admin</strong> only.</p>
+<h3 id="super-admin--httpsplatformcullinoscom">Super Admin — <a href="https://platform.cullinos.com">https://platform.cullinos.com</a></h3>
+<table>
+<thead>
+<tr>
+<th>Menu</th>
+<th>Path</th>
+<th>What to check</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Tenants</td>
+<td><code>/</code> or <code>/tenants</code></td>
+<td>List restaurants, onboard, suspend, impersonate</td>
+</tr>
+<tr>
+<td>Plans</td>
+<td><code>/plans</code></td>
+<td>Plan catalog</td>
+</tr>
+<tr>
+<td>Subscriptions</td>
+<td><code>/subscriptions</code></td>
+<td>Change plan per tenant</td>
+</tr>
+<tr>
+<td>Promo Email</td>
+<td><code>/promo-email</code></td>
+<td>Platform promo campaigns (not in Admin)</td>
+</tr>
+<tr>
+<td>Cullinos App / Guest Ops</td>
+<td><code>/guest-ops/*</code></td>
+<td>Marketplace, discover, banners, push, offers, reviews, users, analytics, runtime</td>
+</tr>
+<tr>
+<td>Settings</td>
+<td><code>/settings</code></td>
+<td>Platform settings</td>
+</tr>
+<tr>
+<td>System Health</td>
+<td><code>/health</code></td>
+<td>Platform metrics</td>
+</tr>
+<tr>
+<td>Marketing</td>
+<td><code>/marketing/*</code></td>
+<td>Edit website content (careful on production)</td>
+</tr>
+<tr>
+<td>Testimonials</td>
+<td><code>/marketing/testimonials</code></td>
+<td>Testimonials editor</td>
+</tr>
+<tr>
+<td>Design Lab</td>
+<td><code>/marketing/design-lab</code></td>
+<td>Design lab page</td>
+</tr>
+</tbody></table>
+<h3 id="management--httpsmanagecullinoscom">Management — <a href="https://manage.cullinos.com">https://manage.cullinos.com</a></h3>
+<table>
+<thead>
+<tr>
+<th>Menu</th>
+<th>Path</th>
+<th>What to check</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Overview</td>
+<td><code>/</code></td>
+<td>Multi-outlet KPIs</td>
+</tr>
+<tr>
+<td>Reports</td>
+<td><code>/reports</code></td>
+<td>Network reports</td>
+</tr>
+<tr>
+<td>Comparison</td>
+<td><code>/comparison</code></td>
+<td>Needs 2+ outlets</td>
+</tr>
+<tr>
+<td>Stock Transfer</td>
+<td><code>/stock-transfer</code></td>
+<td>Needs 2+ outlets</td>
+</tr>
+<tr>
+<td>Franchise</td>
+<td><code>/franchise</code></td>
+<td>Franchise list</td>
+</tr>
+</tbody></table>
+<h3 id="cullinos-waiter--android-app">Cullinos Waiter — Android app</h3>
+<ol>
+<li>Login → pick outlet  </li>
+<li>Tap a table  </li>
+<li>Add menu items → confirm → order goes to kitchen</li>
+</ol>
+<h3 id="cullinos-app-guest--deep-link--android">Cullinos App (Guest) — deep link / Android</h3>
+<p>Use <code>https://guest.cullinos.com/o/{orgSlug}/{outletSlug}</code> (or the Android app).</p>
+<ol>
+<li>Browse menu (guest OK)  </li>
+<li>Optional: phone OTP / Google login  </li>
+<li>Cart → Checkout (auth required for checkout)  </li>
+<li>Pay later or UPI → order placed  </li>
+<li>Also test: Home, Explore, Scan, Offers, Profile, Kiosk mode</li>
+</ol>
+<p>Full steps: <a href="./COMPLETE_FEATURE_TEST_GUIDE.md">COMPLETE_FEATURE_TEST_GUIDE.md</a> chapter 10.  </p>
+<hr>
+<h2 id="crm--loyalty--how-to-test">CRM &amp; Loyalty — how to test</h2>
+<p>The Admin <strong>Customers</strong> page (<code>/customers</code>) is a read-only display of loyalty tiers and active coupons. Also open <strong>Loyalty</strong> (<code>/loyalty</code>). There is no Admin UI to add stamps — stamps are added via API call.</p>
+<h3 id="what-is-pre-seeded-demo-org">What is pre-seeded (demo org)</h3>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Loyalty tier</td>
+<td>Stamp Card — 10 stamps = 100 loyalty points = free drink</td>
+</tr>
+<tr>
+<td>Coupon</td>
+<td><code>WELCOME10</code> — 10% off, minimum order ₹200</td>
+</tr>
+</tbody></table>
+<h3 id="step-by-step-loyalty-test">Step-by-step loyalty test</h3>
+<ol>
+<li><strong>Place an order</strong> as a guest customer (Customer app → checkout) so a customer record is created.</li>
+<li><strong>Find the customer ID</strong>: open Swagger (<code>/docs</code>) → <code>GET /api/v1/customers</code> → Authorise with owner Bearer token → Execute. Copy the <code>id</code> from the response.</li>
+<li><strong>Add stamps</strong> via Swagger → <code>POST /api/v1/loyalty/customers/{customerId}/stamp</code> — execute it 10 times.</li>
+<li>After 10 stamps the system automatically adds 100 loyalty points and resets the stamp count.</li>
+<li><strong>Verify on Admin Customers page</strong>: tier list and coupon list load without error → <strong>Pass</strong>.</li>
+</ol>
+<h3 id="step-by-step-coupon-test">Step-by-step coupon test</h3>
+<ol>
+<li>Add items to cart in the Customer app (total ≥ ₹200).</li>
+<li>At checkout, enter coupon code <strong><code>WELCOME10</code></strong> in the coupon field.</li>
+<li>Verify 10% discount is applied to the total.</li>
+<li>Complete the order.</li>
+</ol>
+<h3 id="test-case-results">Test case results</h3>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Expected</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Admin Customers page loads</td>
+<td>Tier list + coupon list visible</td>
+<td>Pass/Fail</td>
+</tr>
+<tr>
+<td>Coupon <code>WELCOME10</code> applies at checkout</td>
+<td>10% discount on orders ≥ ₹200</td>
+<td>Pass/Fail</td>
+</tr>
+<tr>
+<td>Stamp endpoint reachable via Swagger</td>
+<td>HTTP 200, stamp count increments</td>
+<td>Pass/Fail</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="local-setup-optional-fallback">Local setup (optional fallback)</h2>
+<p>Only needed if production POS/KDS URLs are unavailable.</p>
+<p><strong>Prerequisites:</strong> Node.js, repo cloned, <code>npm install</code></p>
+<pre><code class="language-bash"># Terminal 1 — POS (cashier)
+cd a:\cullinos
+set VITE_API_URL=https://api.cullinos.com/api/v1
+set VITE_WS_URL=https://api.cullinos.com
+npm run dev --workspace=@cullinos/pos
+
+# Terminal 2 — KDS (kitchen)
+set VITE_API_URL=https://api.cullinos.com/api/v1
+set VITE_WS_URL=https://api.cullinos.com
+npm run dev --workspace=@cullinos/kds
+</code></pre>
+<p>Then open:</p>
+<ul>
+<li>POS: <a href="http://localhost:5173">http://localhost:5173</a> (login as <strong>Cashier</strong> — create in Admin → Staff)  </li>
+<li>KDS: <a href="http://localhost:5174?outletId=**YOUR_OUTLET_ID">http://localhost:5174?outletId=**YOUR_OUTLET_ID</a>**</li>
+</ul>
+<p>Get <code>outletId</code> from Admin Settings, Swagger, or your credential worksheet.</p>
+<hr>
+<h2 id="common-issues-not-bugs">Common issues (not bugs)</h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>No tables in Waiter</td>
+<td>Create in Admin → Tables (or Swagger if UI fails)</td>
+</tr>
+<tr>
+<td>Banquets / Brands / Guests / Rooms missing</td>
+<td>Expected on restaurant tenant — mark N/A</td>
+</tr>
+<tr>
+<td>Management comparison empty</td>
+<td>Add a second outlet via API, or mark test Blocked</td>
+</tr>
+<tr>
+<td>Pay now fails on Customer</td>
+<td>Razorpay may not be configured — use Pay later</td>
+</tr>
+<tr>
+<td>Login “Failed to fetch”</td>
+<td>Frontends must point to <code>api.cullinos.com</code> — tell your lead if prod is misconfigured</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="files-you-will-use-daily">Files you will use daily</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>This guide</strong></td>
+<td>URLs, credentials worksheet, first-day steps</td>
+</tr>
+<tr>
+<td><a href="./MANUAL_TEST_PLAN.md">MANUAL_TEST_PLAN.md</a></td>
+<td>Full workflows and expected results</td>
+</tr>
+<tr>
+<td><a href="../sheets/TEST_RUN_SHEET.md">TEST_RUN_SHEET.md</a></td>
+<td>Mark Pass / Fail / Blocked / N/A per test</td>
+</tr>
+<tr>
+<td><a href="../sheets/BUG_LOG.md">BUG_LOG.md</a></td>
+<td>Record every failure with steps to reproduce</td>
+</tr>
+<tr>
+<td><a href="../sheets/CREDENTIALS_LOG.md">CREDENTIALS_LOG.md</a></td>
+<td>Detailed credential template for each run</td>
+</tr>
+</tbody></table>
+<p><strong>Per run:</strong> copy templates to <code>docs/qa/runs/RUN-YYYYMMDD/</code> (private, not committed).</p>
+<hr>
+<h2 id="quick-reference-card-print-or-pin">Quick reference card (print or pin)</h2>
+<pre><code>PRODUCTION PORTALS
+──────────────────────────────────────────────────
+Super Admin   https://platform.cullinos.com
+Admin         https://admin.cullinos.com
+Portal POS    https://admin.cullinos.com/pos
+Management    https://manage.cullinos.com
+Waiter        Cullinos Waiter Android app
+POS           https://pos.cullinos.com
+KDS           https://kds.cullinos.com
+Customer      https://guest.cullinos.com/{orgSlug}/{outletSlug}
+Marketing     https://cullinos.com
+Swagger       https://api.cullinos.com/docs
+Health        https://api.cullinos.com/api/v1/health
+
+TEST ORDER
+──────────────────────────────────────────────────
+1. Super Admin → Onboard (enterprise plan)
+2. Admin → Menu + Tables + Staff (Waiter + Cashier)
+3. Waiter → Table order → KDS verifies
+4. POS / Portal POS → checkout
+5. Customer → Checkout incognito (verify)
+6. TEST_RUN_SHEET → mark all 190 cases
+
+NEVER commit real passwords to git.
+</code></pre>
+<hr>
+<h2 id="need-help">Need help?</h2>
+<ol>
+<li>Read <a href="./MANUAL_TEST_PLAN.md">MANUAL_TEST_PLAN.md</a> for the phase you&#39;re on  </li>
+<li>Check <a href="../../ARCHITECTURE.md">ARCHITECTURE.md</a> for how apps connect  </li>
+<li>Ask your team lead for Super Admin access and tenant slugs  </li>
+<li>Log blockers in <a href="../sheets/BUG_LOG.md">BUG_LOG.md</a> with screenshots</li>
+</ol>
+</body>
+</html>

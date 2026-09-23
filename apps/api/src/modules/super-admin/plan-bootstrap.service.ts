@@ -11,7 +11,7 @@ const DEFAULT_PLANS = [
     priceYearly: 29990,
     maxOutlets: 1,
     maxTerminals: 2,
-    modules: ["pos", "kds", "admin", "menu", "orders", "tables", "billing", "tax", "settings", "reports", "analytics"],
+    modules: ["pos", "kds", "admin", "menu", "orders", "tables", "billing", "tax", "settings", "reports", "analytics", "sms"],
   },
   {
     slug: "qsr",
@@ -38,6 +38,7 @@ const DEFAULT_PLANS = [
       "settings",
       "reports",
       "analytics",
+      "sms",
     ],
   },
   {
@@ -68,6 +69,7 @@ const DEFAULT_PLANS = [
       "settings",
       "reports",
       "analytics",
+      "sms",
     ],
   },
   {
@@ -101,6 +103,7 @@ const DEFAULT_PLANS = [
       "production",
       "settings",
       "reports",
+      "sms",
     ],
   },
 ] as const;

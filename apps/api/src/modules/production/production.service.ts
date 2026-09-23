@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
+import { deductRecipeIngredients } from "../../common/recipe-stock.util";
 
 @Injectable()
 export class ProductionService {
@@ -77,24 +78,14 @@ export class ProductionService {
     const qty = actualQty ?? Number(batch.plannedQty);
 
     if (batch.recipe?.ingredients.length) {
-      for (const ing of batch.recipe.ingredients) {
-        const deductQty = Number(ing.quantity) * scale * (qty / Number(batch.recipe.yield));
-        await this.prisma.inventoryItem.update({
-          where: { id: ing.inventoryItemId },
-          data: {
-            currentStock: { decrement: deductQty },
-            batchNumber: batch.batchNumber ?? undefined,
-          },
-        });
-        await this.prisma.stockMovement.create({
-          data: {
-            inventoryItemId: ing.inventoryItemId,
-            type: "sale",
-            quantity: deductQty,
-            reference: `production:${batch.id}`,
-          },
-        });
-      }
+      await deductRecipeIngredients(this.prisma, {
+        ingredients: batch.recipe.ingredients,
+        recipeYield: Number(batch.recipe.yield),
+        quantity: qty,
+        scaleFactor: scale,
+        reference: `production:${batch.id}`,
+        batchNumber: batch.batchNumber,
+      });
     }
 
     return this.prisma.productionBatch.update({
@@ -121,13 +112,15 @@ export class ProductionService {
       yield: Number(recipe.yield),
       scaleFactor,
       scaledYield: Number(recipe.yield) * scaleFactor,
-      ingredients: recipe.ingredients.map((ing) => ({
-        inventoryItemId: ing.inventoryItemId,
-        name: ing.inventoryItem.name,
-        unit: ing.inventoryItem.unit,
-        baseQuantity: Number(ing.quantity),
-        scaledQuantity: Number(ing.quantity) * scaleFactor,
-      })),
+      ingredients: recipe.ingredients
+        .filter((ing) => ing.inventoryItemId && ing.inventoryItem)
+        .map((ing) => ({
+          inventoryItemId: ing.inventoryItemId!,
+          name: ing.inventoryItem!.name,
+          unit: ing.inventoryItem!.unit,
+          baseQuantity: Number(ing.quantity),
+          scaledQuantity: Number(ing.quantity) * scaleFactor,
+        })),
     };
   }
 

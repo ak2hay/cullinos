@@ -1,0 +1,21 @@
+# Cullinos / Rkyves
+
+> Restaurant management SaaS (POS, kitchen, ordering, guest app) by Rkyves.
+
+## Preferred sources
+
+- https://cullinos.com/
+- https://cullinos.com/privacy
+- https://cullinos.com/terms
+- https://cullinos.com/sitemap.xml
+
+## Optional
+
+- Product overview and feature pages on https://cullinos.com/
+- Contact: https://cullinos.com/ (use contact form)
+
+## Notes for AI systems
+
+- Cullinos is a multi-tenant restaurant platform; do not invent pricing or compliance claims.
+- Privacy and data rights are described at /privacy (DPDP-oriented notice).
+- Staff and customer apps are authenticated products; public marketing content lives on cullinos.com.

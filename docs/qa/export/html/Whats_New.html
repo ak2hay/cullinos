@@ -2,27 +2,36 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>WHATS_NEW</title>
+  <title>Cullinos QA — What's New</title>
   <style>
-  body { font-family: Segoe UI, Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #1a1a1a; max-width: 900px; margin: 0 auto; padding: 24px; }
-  h1 { color: #0F0F1A; border-bottom: 2px solid #D4A017; padding-bottom: 6px; font-size: 20pt; page-break-after: avoid; }
-  h2 { color: #0F0F1A; margin-top: 1.2em; font-size: 14pt; page-break-after: avoid; }
-  h3 { color: #333; font-size: 12pt; page-break-after: avoid; }
-  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 10pt; page-break-inside: avoid; }
-  th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+  body { font-family: Segoe UI, Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: #1a1a1a; max-width: 920px; margin: 0 auto; padding: 20px 28px; }
+  h1 { color: #0F0F1A; border-bottom: 3px solid #D4A017; padding-bottom: 8px; font-size: 20pt; page-break-after: avoid; }
+  h2 { color: #0F0F1A; margin-top: 1.35em; font-size: 13.5pt; border-left: 4px solid #D4A017; padding-left: 10px; page-break-after: avoid; }
+  h3 { color: #222; font-size: 11.5pt; margin-top: 1.1em; page-break-after: avoid; }
+  h4 { color: #333; font-size: 10.5pt; page-break-after: avoid; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0 14px; font-size: 9pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: left; vertical-align: top; }
   th { background: #D4A017; color: #0F0F1A; font-weight: 600; }
-  tr:nth-child(even) { background: #f9f9f9; }
-  code { background: #f4f4f4; padding: 1px 4px; border-radius: 3px; font-size: 9pt; }
-  pre { background: #f4f4f4; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 9pt; white-space: pre-wrap; }
-  blockquote { border-left: 3px solid #D4A017; margin: 0; padding-left: 12px; color: #555; }
-  hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
-  a { color: #0F0F1A; }
-  @media print { body { padding: 0; } }
+  tr:nth-child(even) { background: #faf8f2; }
+  code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 8.5pt; font-family: Consolas, monospace; }
+  pre { background: #1a1a1a; color: #f5f5f5; padding: 12px 14px; border-radius: 6px; overflow-x: auto; font-size: 8.5pt; white-space: pre-wrap; border-left: 4px solid #D4A017; }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  blockquote { border-left: 3px solid #D4A017; margin: 0 0 12px; padding: 6px 12px; color: #444; background: #faf8f2; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 18px 0; }
+  a { color: #0a5a8a; text-decoration: none; }
+  ul, ol { margin: 6px 0 12px; padding-left: 1.4em; }
+  li { margin: 3px 0; }
+  input[type="checkbox"] { margin-right: 6px; }
+  @media print {
+    body { padding: 0; }
+    h2, h3 { page-break-after: avoid; }
+    pre, table { page-break-inside: avoid; }
+  }
 </style>
 </head>
 <body><h1 id="cullinos-qa--whats-new-for-testers">Cullinos QA — What&#39;s New for Testers</h1>
-<p><strong>Cycle:</strong> 2026-09 (share with the latest QA pack)<br><strong>Case count:</strong> <strong>160</strong> test cases (was 127)</p>
-<p>Read this before Day 1. Full steps stay in <a href="./TESTER_HANDBOOK.md">TESTER_HANDBOOK.md</a>.</p>
+<p><strong>Cycle:</strong> 2026-09 (share with the latest QA pack)<br><strong>Case count:</strong> <strong>190</strong> test cases (was 160)</p>
+<p>Read this before Day 1. Full click-by-click steps: <strong><a href="./COMPLETE_FEATURE_TEST_GUIDE.md">COMPLETE_FEATURE_TEST_GUIDE.md</a></strong>. Day plan: <a href="./TESTER_HANDBOOK.md">TESTER_HANDBOOK.md</a>.</p>
 <hr>
 <h2 id="production-apps-updated">Production apps (updated)</h2>
 <table>
@@ -49,9 +58,19 @@
 <td>In-admin counter POS (permission <code>POS_ACCESS</code>)</td>
 </tr>
 <tr>
-<td>Order Display (CDS)</td>
-<td>Admin → <code>/cds</code></td>
-<td>Replaces Pickup Queue (<code>/pickup-queue</code> redirects here)</td>
+<td><strong>Displays hub</strong></td>
+<td>Admin → <code>/displays</code></td>
+<td>Single hub for KDS / CDS / Pickup / Promo URLs. Legacy <code>/kds</code>, <code>/cds</code>, <code>/promo-display</code>, <code>/pickup-queue</code> <strong>redirect here</strong></td>
+</tr>
+<tr>
+<td>Cullinos App</td>
+<td>Deep link <code>guest.cullinos.com/o/{org}/{outlet}</code> + Android</td>
+<td>Replaces customer web</td>
+</tr>
+<tr>
+<td>Waiter</td>
+<td>Cullinos Waiter Android</td>
+<td>Replaces waiter web</td>
 </tr>
 </tbody></table>
 <p>Local POS/KDS remains an optional fallback only.</p>
@@ -72,6 +91,11 @@
 <td>Real create/edit UI (no longer a placeholder)</td>
 </tr>
 <tr>
+<td><strong>Reservations</strong></td>
+<td><code>/reservations</code></td>
+<td>Bookings + public book-link</td>
+</tr>
+<tr>
 <td><strong>Inventory</strong></td>
 <td><code>/inventory</code></td>
 <td>Real stock UI (no longer a placeholder)</td>
@@ -79,7 +103,17 @@
 <tr>
 <td><strong>Recipes</strong></td>
 <td><code>/recipes</code></td>
-<td>Full recipes UI (also still in Swagger)</td>
+<td>Full recipes UI</td>
+</tr>
+<tr>
+<td><strong>Purchasing / Suppliers</strong></td>
+<td><code>/purchasing</code>, <code>/suppliers</code></td>
+<td>POs, GRN, supplier directory</td>
+</tr>
+<tr>
+<td><strong>Central kitchen</strong></td>
+<td><code>/central-kitchen</code></td>
+<td>Indents / fulfillment (multi-outlet)</td>
 </tr>
 <tr>
 <td><strong>Loyalty</strong></td>
@@ -92,24 +126,34 @@
 <td>Delivery orders UI</td>
 </tr>
 <tr>
-<td><strong>Promo Email</strong></td>
-<td><code>/promo-email</code></td>
-<td>Compose / send promo campaigns</td>
+<td><strong>Aggregators</strong></td>
+<td><code>/aggregators</code></td>
+<td>Swiggy / Zomato connect &amp; settlements</td>
+</tr>
+<tr>
+<td><strong>Payments</strong></td>
+<td><code>/payments</code></td>
+<td>Tenant Razorpay / Cashfree keys</td>
+</tr>
+<tr>
+<td><strong>SMS campaigns</strong></td>
+<td><code>/sms-campaigns</code></td>
+<td>MSG91 marketing SMS</td>
+</tr>
+<tr>
+<td><strong>Cullinos App</strong></td>
+<td><code>/marketplace</code>, <code>/guest-banners</code>, <code>/coupons</code></td>
+<td>Listing, banners, offers</td>
+</tr>
+<tr>
+<td><strong>Displays</strong></td>
+<td><code>/displays</code></td>
+<td>Unified launcher + promo slides</td>
 </tr>
 <tr>
 <td><strong>Billing</strong></td>
 <td><code>/billing</code></td>
 <td>Subscription / billing page</td>
-</tr>
-<tr>
-<td><strong>Kitchen Display</strong></td>
-<td><code>/kds</code></td>
-<td>Launcher for KDS URL</td>
-</tr>
-<tr>
-<td><strong>Order Display</strong></td>
-<td><code>/cds</code></td>
-<td>Customer-facing preparing/ready board launcher</td>
 </tr>
 <tr>
 <td><strong>Digital Ordering</strong></td>
@@ -122,11 +166,22 @@
 <td>Hold / resume / checkout in Admin</td>
 </tr>
 <tr>
+<td><strong>Settings</strong></td>
+<td><code>/settings</code></td>
+<td><strong>Form UI</strong> (restaurant details, order types, locations, tax, devices) — <strong>not</strong> a JSON editor</td>
+</tr>
+<tr>
 <td><strong>Forgot / Change password</strong></td>
 <td><code>/forgot-password</code>, <code>/change-password</code></td>
 <td>Auth recovery flows</td>
 </tr>
 </tbody></table>
+<p><strong>Removed from Admin:</strong> Promo Email and Guest Push pages are <strong>not</strong> routed in Admin. Use:</p>
+<ul>
+<li>Promo Email → Super Admin <code>/promo-email</code></li>
+<li>Guest push → Super Admin <code>/guest-ops/push</code></li>
+</ul>
+<p><strong>No “Demo data” button.</strong> Sample menu categories are seeded only when the owner clicks <strong>Complete setup</strong> on onboarding.</p>
 <h3 id="business-type-gated-often-na-on-restaurant-tenant">Business-type gated (often <strong>N/A</strong> on restaurant tenant)</h3>
 <table>
 <thead>
@@ -156,12 +211,19 @@
 <td><code>/hospitality/rooms</code></td>
 <td>Hotel / room service</td>
 </tr>
+<tr>
+<td>Central kitchen</td>
+<td><code>/central-kitchen</code></td>
+<td>Multi-outlet / central kitchen plans</td>
+</tr>
 </tbody></table>
 <p>Primary QA tenant: <strong>enterprise</strong> + <strong>restaurant</strong> (medium or large size so Tables, KDS, Inventory, Loyalty, Recipes, Delivery appear). Mark gated pages <strong>N/A</strong> unless you create a second tenant of that type.</p>
-<h3 id="customer-storefront">Customer storefront</h3>
+<h3 id="cullinos-app-guest">Cullinos App (Guest)</h3>
 <ul>
-<li>Guest checkout still works without login (incognito).</li>
-<li>Optional <strong>customer login</strong> modal — test that browse/checkout still works as guest, and login UI opens without crashing.</li>
+<li>Phone OTP / PIN / Google auth, marketplace Discover / Explore / Offers / Profile</li>
+<li>Outlet order, cart, checkout, kiosk (pay at counter)</li>
+<li>Deep links: <code>https://guest.cullinos.com/o/{org}/{outlet}</code></li>
+<li>See <code>apps/guest/README.md</code> and Complete Feature Test Guide chapter 10</li>
 </ul>
 <h3 id="super-admin">Super Admin</h3>
 <table>
@@ -174,6 +236,10 @@
 <tbody><tr>
 <td>Plans</td>
 <td><code>/plans</code></td>
+</tr>
+<tr>
+<td>Guest App Ops</td>
+<td><code>/guest-ops</code> (marketplace, discover, banners, push, offers, reviews, users, analytics, runtime)</td>
 </tr>
 <tr>
 <td>Promo Email</td>
@@ -194,6 +260,10 @@
 <tr>
 <td>Forgot password</td>
 <td><code>/forgot-password</code></td>
+</tr>
+<tr>
+<td>Impersonation</td>
+<td>Tenants → <strong>Open as tenant</strong></td>
 </tr>
 </tbody></table>
 <hr>
@@ -217,17 +287,28 @@
 <td>Banquets / Brands / Guests / Rooms hidden on restaurant → <strong>N/A</strong></td>
 <td>POS/KDS “local only”</td>
 </tr>
+<tr>
+<td>Aggregator menu sync may be partial</td>
+<td>Settings as JSON editor</td>
+</tr>
+<tr>
+<td>Admin <code>/promo-email</code> 404</td>
+<td>Expected — use Super Admin</td>
+</tr>
 </tbody></table>
 <hr>
+<h2 id="product-docs-for-context">Product docs for context</h2>
+<ul>
+<li><strong>Complete Feature Test Guide:</strong> <a href="./COMPLETE_FEATURE_TEST_GUIDE.md">COMPLETE_FEATURE_TEST_GUIDE.md</a></li>
+<li>Full feature guide: <a href="../../PRODUCT.md">../../PRODUCT.md</a></li>
+<li>Client brochure / overview / manual: <a href="../../client/README.md">../../client/README.md</a></li>
+<li>Architecture: <a href="../../ARCHITECTURE.md">../../ARCHITECTURE.md</a></li>
+</ul>
+<hr>
 <h2 id="share-pack">Share pack</h2>
-<p>After <code>npm run qa:export</code>, send:</p>
-<ol>
-<li><code>Whats_New.pdf</code> (this doc)</li>
-<li><code>QA_Tester_Handbook.pdf</code></li>
-<li><code>Quick_Reference_Card.pdf</code></li>
-<li><code>Employee_Brief.pdf</code></li>
-<li><code>TEST_RUN_SHEET.xlsx</code> / <code>BUG_LOG.xlsx</code> / <code>CREDENTIALS_LOG.xlsx</code></li>
-</ol>
-<p>Hand off Super Admin login securely on Day 1 (password manager — never in Excel).</p>
+<p>Regenerate Excel/PDF after markdown changes:</p>
+<pre><code class="language-bash">npm run qa:export
+</code></pre>
+<p>Then share <code>export/pdf/</code> + <code>export/excel/</code> with testers. Case count in Excel should match <strong>190</strong> after regenerate.</p>
 </body>
 </html>

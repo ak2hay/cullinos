@@ -92,7 +92,68 @@ export class AnalyticsService {
     };
   }
 
-  async outletComparison(orgId: string, params: { date?: string; brandId?: string }) {
+  async trend(orgId: string, params: { outletId?: string; days?: number }) {
+    const days = Math.min(Math.max(params.days ?? 7, 1), 90);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    const start = new Date();
+    start.setDate(start.getDate() - (days - 1));
+    start.setHours(0, 0, 0, 0);
+
+    const orders = await this.prisma.order.findMany({
+      where: {
+        organizationId: orgId,
+        createdAt: { gte: start, lte: end },
+        ...(params.outletId ? { outletId: params.outletId } : {}),
+      },
+      select: { createdAt: true, total: true, status: true },
+    });
+
+    const map = new Map<string, { revenue: number; orders: number }>();
+    for (let i = 0; i < days; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      map.set(d.toISOString().slice(0, 10), { revenue: 0, orders: 0 });
+    }
+
+    const completedStatuses = new Set([
+      "completed",
+      "confirmed",
+      "preparing",
+      "ready",
+      "served",
+    ]);
+    for (const order of orders) {
+      const key = order.createdAt.toISOString().slice(0, 10);
+      const row = map.get(key);
+      if (!row) continue;
+      row.orders += 1;
+      if (completedStatuses.has(order.status)) {
+        row.revenue += Number(order.total);
+      }
+    }
+
+    return {
+      from: start.toISOString().slice(0, 10),
+      to: end.toISOString().slice(0, 10),
+      days: [...map.entries()].map(([date, row]) => ({
+        date,
+        revenue: toPaise(row.revenue),
+        orders: row.orders,
+      })),
+    };
+  }
+
+  async outletComparison(
+    orgId: string,
+    params: {
+      date?: string;
+      brandId?: string;
+      city?: string;
+      zone?: string;
+      state?: string;
+    },
+  ) {
     const date = params.date ? new Date(params.date) : new Date();
     const start = new Date(date);
     start.setHours(0, 0, 0, 0);
@@ -103,6 +164,9 @@ export class AnalyticsService {
       where: {
         organizationId: orgId,
         ...(params.brandId ? { brandId: params.brandId } : {}),
+        ...(params.city ? { city: params.city } : {}),
+        ...(params.zone ? { zone: params.zone } : {}),
+        ...(params.state ? { state: params.state } : {}),
       },
     });
 
@@ -120,6 +184,9 @@ export class AnalyticsService {
         return {
           outletId: outlet.id,
           outletName: outlet.name,
+          city: outlet.city,
+          zone: outlet.zone,
+          state: outlet.state,
           revenue: toPaise(revenue),
           orders: count,
           averageOrderValue: toPaise(count > 0 ? revenue / count : 0),
@@ -128,5 +195,19 @@ export class AnalyticsService {
     );
 
     return results.sort((a, b) => b.revenue - a.revenue);
+  }
+
+  async outletGeoFilters(orgId: string, brandId?: string) {
+    const outlets = await this.prisma.outlet.findMany({
+      where: {
+        organizationId: orgId,
+        ...(brandId ? { brandId } : {}),
+      },
+      select: { city: true, zone: true, state: true },
+    });
+    const cities = [...new Set(outlets.map((o) => o.city).filter(Boolean))].sort();
+    const zones = [...new Set(outlets.map((o) => o.zone).filter(Boolean))].sort();
+    const states = [...new Set(outlets.map((o) => o.state).filter(Boolean))].sort();
+    return { cities, zones, states };
   }
 }

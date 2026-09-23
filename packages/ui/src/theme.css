@@ -8,6 +8,7 @@
   --color-bg-secondary: #1a1a2e;
   --color-bg-card: #16213e;
   --color-bg-elevated: #1f2937;
+  --color-bg-overlay: rgba(0, 0, 0, 0.65);
   --color-text-primary: #f9fafb;
   --color-text-secondary: #9ca3af;
   --color-text-muted: #6b7280;
@@ -26,5 +27,14 @@
   --color-table-cleaning: #6b7280;
   --color-table-billing: #3b82f6;
   --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.45);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 220ms;
+  --surface-gradient: radial-gradient(1200px 600px at 10% -10%, rgba(212, 160, 23, 0.08), transparent 55%),
+    radial-gradient(900px 500px at 90% 0%, rgba(22, 33, 62, 0.9), transparent 50%);
 }

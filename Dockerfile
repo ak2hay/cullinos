@@ -23,6 +23,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+LABEL org.opencontainers.image.title="cullinos-api" \
+      org.opencontainers.image.source="https://github.com/ak2hay/cullinos"
+
 RUN apk add --no-cache openssl \
   && addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 cullinos

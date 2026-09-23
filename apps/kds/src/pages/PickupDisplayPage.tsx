@@ -1,14 +1,14 @@
 /**
  * Public customer-facing pickup / CDS display.
- * Accessed via /?outletId=...&mode=pickup|cds — no login required.
- * McD-style board: huge order numbers, Preparing | Ready columns.
+ * Accessed via /?orgSlug=...&outletSlug=...&mode=pickup|cds — no login required.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_API_BASE } from '@cullinos/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? DEFAULT_API_BASE;
 const POLL_MS = 5_000;
+const HEARTBEAT_MS = 60_000;
 
 interface PickupOrder {
   id: string;
@@ -26,20 +26,44 @@ function normalizeStatus(status: string): string {
   return status.toLowerCase();
 }
 
-async function fetchPickupQueue(outletId: string): Promise<PickupOrder[]> {
-  const res = await fetch(`${API_BASE}/public/orders/pickup-queue?outletId=${outletId}`);
+/** Send heartbeat to the API so the admin hub can track this display as online. */
+async function sendHeartbeat(orgSlug: string, outletSlug: string, mode: string) {
+  try {
+    await fetch(`${API_BASE}/public/promo-display/heartbeat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orgSlug, outletSlug, mode }),
+    });
+  } catch {
+    // best-effort
+  }
+}
+
+async function fetchPickupQueue(orgSlug: string, outletSlug: string): Promise<PickupOrder[]> {
+  const params = new URLSearchParams({ orgSlug, outletSlug });
+  const res = await fetch(`${API_BASE}/public/orders/pickup-queue?${params}`);
   if (!res.ok) throw new Error('Failed to load queue');
   return res.json() as Promise<PickupOrder[]>;
 }
 
-export function PickupDisplayPage({ outletId }: { outletId: string }) {
+export function PickupDisplayPage({
+  orgSlug,
+  outletSlug,
+  mode = 'pickup',
+}: {
+  orgSlug: string;
+  outletSlug: string;
+  mode?: string;
+}) {
   const [orders, setOrders] = useState<PickupOrder[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function load() {
     try {
-      const data = await fetchPickupQueue(outletId);
+      const data = await fetchPickupQueue(orgSlug, outletSlug);
       setOrders(data);
       setLastUpdated(new Date());
       setError(null);
@@ -52,7 +76,31 @@ export function PickupDisplayPage({ outletId }: { outletId: string }) {
     void load();
     const interval = setInterval(() => void load(), POLL_MS);
     return () => clearInterval(interval);
-  }, [outletId]);
+  }, [orgSlug, outletSlug]);
+
+  // Heartbeat
+  useEffect(() => {
+    void sendHeartbeat(orgSlug, outletSlug, mode);
+    heartbeatRef.current = setInterval(
+      () => void sendHeartbeat(orgSlug, outletSlug, mode),
+      HEARTBEAT_MS,
+    );
+    return () => {
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+    };
+  }, [orgSlug, outletSlug, mode]);
+
+  // Fullscreen change listener
+  useEffect(() => {
+    function onChange() { setIsFullscreen(Boolean(document.fullscreenElement)); }
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void document.documentElement.requestFullscreen();
+  }
 
   const preparing = orders.filter((o) =>
     ['confirmed', 'preparing'].includes(normalizeStatus(o.status)),
@@ -68,9 +116,23 @@ export function PickupDisplayPage({ outletId }: { outletId: string }) {
           </p>
           <h1 className="text-4xl font-bold tracking-tight md:text-5xl">Order Status</h1>
         </div>
-        {lastUpdated ? (
-          <p className="text-sm text-gray-500">Updated {lastUpdated.toLocaleTimeString()}</p>
-        ) : null}
+        <div className="flex items-center gap-3">
+          {lastUpdated ? (
+            <p className="text-sm text-gray-500">Updated {lastUpdated.toLocaleTimeString()}</p>
+          ) : null}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            className="rounded-lg border border-white/10 p-2 text-gray-400 hover:text-white"
+          >
+            {isFullscreen ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 7V3h4"/><path d="M21 7V3h-4"/><path d="M3 17v4h4"/><path d="M21 17v4h-4"/></svg>
+            )}
+          </button>
+        </div>
       </header>
 
       {error ? (
@@ -78,65 +140,37 @@ export function PickupDisplayPage({ outletId }: { outletId: string }) {
       ) : null}
 
       {orders.length === 0 && !error ? (
-        <div className="flex flex-1 items-center justify-center">
-          <p className="text-2xl text-gray-500">No active orders</p>
-        </div>
+        <p className="text-center text-2xl text-gray-500">No active orders</p>
       ) : (
-        <div className="grid flex-1 gap-8 lg:grid-cols-2 lg:gap-12">
-          <div>
-            <h2 className="mb-6 border-b border-yellow-500/30 pb-3 text-2xl font-semibold uppercase tracking-widest text-yellow-400 md:text-3xl">
-              Preparing
-              <span className="ml-3 text-lg font-normal text-yellow-500/70">
-                ({preparing.length})
-              </span>
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid flex-1 gap-8 md:grid-cols-2">
+          <section>
+            <h2 className="mb-4 text-2xl font-semibold text-amber-400">Preparing</h2>
+            <ul className="space-y-3">
               {preparing.map((order) => (
-                <div
+                <li
                   key={order.id}
-                  className="flex items-center justify-center rounded-2xl border border-yellow-500/25 bg-yellow-500/10 px-4 py-8"
+                  className="rounded-2xl bg-white/5 px-6 py-5 text-center text-5xl font-bold tracking-wide"
                 >
-                  <span className="text-5xl font-black tracking-wider text-white md:text-6xl">
-                    {displayCode(order)}
-                  </span>
-                </div>
+                  {displayCode(order)}
+                </li>
               ))}
-              {preparing.length === 0 ? (
-                <p className="col-span-full text-lg text-gray-600">—</p>
-              ) : null}
-            </div>
-          </div>
-
-          <div>
-            <h2 className="mb-6 border-b border-green-500/40 pb-3 text-2xl font-semibold uppercase tracking-widest text-green-400 md:text-3xl">
-              Ready
-              <span className="ml-3 text-lg font-normal text-green-500/70">({ready.length})</span>
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2">
+            </ul>
+          </section>
+          <section>
+            <h2 className="mb-4 text-2xl font-semibold text-emerald-400">Ready</h2>
+            <ul className="space-y-3">
               {ready.map((order) => (
-                <div
+                <li
                   key={order.id}
-                  className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-green-400/50 bg-green-500/20 px-4 py-8"
+                  className="rounded-2xl bg-emerald-500/15 px-6 py-5 text-center text-5xl font-bold tracking-wide text-emerald-300"
                 >
-                  <span className="text-5xl font-black tracking-wider text-white md:text-6xl">
-                    {displayCode(order)}
-                  </span>
-                  <span className="text-sm font-semibold uppercase tracking-widest text-green-300">
-                    Collect
-                  </span>
-                </div>
+                  {displayCode(order)}
+                </li>
               ))}
-              {ready.length === 0 ? (
-                <p className="col-span-full text-lg text-gray-600">—</p>
-              ) : null}
-            </div>
-          </div>
+            </ul>
+          </section>
         </div>
       )}
-
-      <footer className="mt-auto pt-10 text-center text-xs text-gray-700">
-        Auto-refreshes every 5 seconds
-      </footer>
     </div>
   );
 }

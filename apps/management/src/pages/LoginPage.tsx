@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { Button, Input } from '@cullinos/ui';
+import { useCallback, useState } from 'react';
+import { Button, Input, PasswordInput, Turnstile, isTurnstileEnabled } from '@cullinos/ui';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '@/lib/api';
-import { useAuthStore } from '@/stores/auth';
+import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
+import { useAuthStore, MANAGEMENT_REMEMBER_KEY } from '@/stores/auth';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -11,13 +12,27 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(true);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const turnstileOn = isTurnstileEnabled(TURNSTILE_SITE_KEY);
+  const onCaptchaToken = useCallback((token: string) => setCaptchaToken(token), []);
+  const onCaptchaExpire = useCallback(() => setCaptchaToken(''), []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (turnstileOn && !captchaToken) {
+      setError('Please complete the security check');
+      return;
+    }
     setLoading(true);
+    localStorage.setItem(MANAGEMENT_REMEMBER_KEY, remember ? 'true' : 'false');
     try {
-      const response = await authApi.login({ email, password });
+      const response = await authApi.login({
+        email,
+        password,
+        captchaToken: captchaToken || undefined,
+      });
       setAuth({
         accessToken: response.accessToken,
         refreshToken: response.refreshToken,
@@ -27,6 +42,7 @@ export function LoginPage() {
       navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
+      setCaptchaToken('');
     } finally {
       setLoading(false);
     }
@@ -53,19 +69,36 @@ export function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <Input
+          <PasswordInput
             label="Password"
-            type="password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+
+          {turnstileOn ? (
+            <Turnstile
+              siteKey={TURNSTILE_SITE_KEY}
+              onToken={onCaptchaToken}
+              onExpire={onCaptchaExpire}
+            />
+          ) : null}
 
           {error ? (
             <p className="rounded-lg border border-status-error/30 bg-status-error/10 px-3 py-2 text-sm text-status-error">
               {error}
             </p>
           ) : null}
+
+          <label className="flex items-center gap-2 text-sm text-text-secondary">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="h-4 w-4 rounded accent-brand-primary"
+            />
+            Keep me signed in
+          </label>
 
           <Button type="submit" loading={loading} className="w-full">
             Sign in

@@ -165,6 +165,37 @@ enum TableSessionStatus {
   closed
 }
 
+enum ReservationStatus {
+  pending
+  confirmed
+  seated
+  cancelled
+  no_show
+}
+
+enum ReservationInviteStatus {
+  sent
+  booked
+  expired
+  cancelled
+}
+
+enum ServiceRequestType {
+  waiter
+  bill
+  water
+  cutlery
+  napkins
+  other
+}
+
+enum ServiceRequestStatus {
+  open
+  acknowledged
+  resolved
+  cancelled
+}
+
 enum BanquetStatus {
   inquiry
   confirmed
@@ -243,6 +274,13 @@ enum ProductionBatchStatus {
   cancelled
 }
 
+enum CentralKitchenIndentStatus {
+  pending
+  approved
+  fulfilled
+  cancelled
+}
+
 // ─── Multi-tenant core ───────────────────────────────────────────────────────
 
 model Organization {
@@ -278,24 +316,42 @@ model Organization {
   menuCategories      MenuCategory[]
   menuItems           MenuItem[]
   orders              Order[]
-  customers           Customer[]
-  inventoryItems      InventoryItem[]
-  suppliers           Supplier[]
-  employees           Employee[]
-  notifications       Notification[]
-  integrations        Integration[]
-  menuSchedules       MenuSchedule[]
-  outletEvents        OutletEvent[]
-  productionBatches   ProductionBatch[]
-  devices             Device[]
-  syncEvents          SyncEvent[]
-  taxGroups           TaxGroup[]
-  deliveryZones       DeliveryZone[]
-  guests              Guest[]
-  franchiseAgreements FranchiseAgreement[]
-  analyticsSnapshots  AnalyticsSnapshot[]
-  emailCampaigns      EmailCampaign[]
-  loyaltyRewards      LoyaltyReward[]
+  customers             Customer[]
+  inventoryItems        InventoryItem[]
+  suppliers             Supplier[]
+  employees             Employee[]
+  notifications         Notification[]
+  integrations          Integration[]
+  menuSchedules         MenuSchedule[]
+  outletEvents          OutletEvent[]
+  productionBatches     ProductionBatch[]
+  devices               Device[]
+  syncEvents            SyncEvent[]
+  taxGroups             TaxGroup[]
+  printJobs             PrintJob[]
+  deliveryZones         DeliveryZone[]
+  guests                Guest[]
+  franchiseAgreements   FranchiseAgreement[]
+  analyticsSnapshots    AnalyticsSnapshot[]
+  emailCampaigns        EmailCampaign[]
+  loyaltyRewards        LoyaltyReward[]
+  payments              Payment[]
+  consentRecords        ConsentRecord[]
+  impersonationHandoffs ImpersonationHandoff[]
+  serviceRequests       ServiceRequest[]
+  guestMemberships      GuestOrgMembership[]
+  guestBanners          GuestBanner[]
+  guestPushCampaigns    GuestPushCampaign[]
+  aggregatorSettlements AggregatorSettlement[]
+  reservations          Reservation[]
+  reservationInvites    ReservationInvite[]
+  smsCampaigns          SmsCampaign[]
+  feedbackResponses     FeedbackResponse[]
+  promoDisplaySlides    PromoDisplaySlide[]
+  wastageRecords        Wastage[]
+  centralKitchens       CentralKitchen[]
+  centralKitchenIndents CentralKitchenIndent[]
+  wallet                OrganizationWallet?
 
   @@map("organizations")
 }
@@ -307,6 +363,44 @@ model OrganizationSettings {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("organization_settings")
+}
+
+/// Prepaid Cullinos portal wallet (SMS campaigns, future metered addons).
+model OrganizationWallet {
+  organizationId String   @id @map("organization_id")
+  balancePaise   Int      @default(0) @map("balance_paise")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ledger       WalletLedgerEntry[]
+
+  @@map("organization_wallets")
+}
+
+enum WalletLedgerType {
+  topup
+  sms_charge
+  manual_credit
+  manual_debit
+  refund
+}
+
+model WalletLedgerEntry {
+  id              String           @id @default(cuid())
+  organizationId  String           @map("organization_id")
+  type            WalletLedgerType
+  amountPaise     Int              @map("amount_paise")
+  balanceAfter    Int              @map("balance_after")
+  referenceType   String?          @map("reference_type")
+  referenceId     String?          @map("reference_id")
+  note            String?
+  createdByUserId String?          @map("created_by_user_id")
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  wallet OrganizationWallet @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("wallet_ledger_entries")
 }
 
 model Brand {
@@ -324,6 +418,7 @@ model Brand {
   settings     BrandSettings?
 
   @@unique([organizationId, slug])
+  @@unique([id, organizationId])
   @@map("brands")
 }
 
@@ -347,17 +442,31 @@ model Outlet {
   operatingMode  OperatingMode @default(full_service) @map("operating_mode")
   address        String?
   city           String?
+  zone           String?
   state          String?
   pincode        String?
   phone          String?
   email          String?
   gstin          String?
   isDefault      Boolean      @default(false) @map("is_default")
+  /// Cullinos Guest marketplace discovery
+  latitude            Decimal? @db.Decimal(10, 7)
+  longitude           Decimal? @db.Decimal(10, 7)
+  cuisineTags         String[] @default([]) @map("cuisine_tags")
+  coverImageUrl       String?  @map("cover_image_url")
+  marketplaceListed   Boolean  @default(false) @map("marketplace_listed")
+  marketplaceFeatured Boolean  @default(false) @map("marketplace_featured")
+  marketplaceFeaturedRank Int? @map("marketplace_featured_rank")
+  /// pending | approved | rejected
+  marketplaceModerationStatus String @default("approved") @map("marketplace_moderation_status")
+  /// When true, tenant cannot re-list until platform clears
+  marketplaceUnlistedByPlatform Boolean @default(false) @map("marketplace_unlisted_by_platform")
+  averagePrepMinutes  Int?     @map("average_prep_minutes")
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
   organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  brand           Brand            @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brand           Brand            @relation(fields: [brandId, organizationId], references: [id, organizationId], onDelete: Cascade)
   settings        OutletSettings?
   floors          Floor[]
   orders          Order[]
@@ -371,10 +480,28 @@ model Outlet {
   rooms           Room[]
   franchiseOutlets FranchiseOutlet[]
   outletUsers      OutletUser[]
+  photos           OutletPhoto[]
   events           OutletEvent[]
   productionBatches ProductionBatch[]
+  aggregatorSettlements AggregatorSettlement[]
+  serviceRequests   ServiceRequest[]
+  guestFavorites    GuestFavoriteOutlet[]
+  guestReviews      GuestOutletReview[]
+  centralKitchen    CentralKitchen?
+  centralKitchenLinks CentralKitchenOutlet[]
+  centralKitchenIndents CentralKitchenIndent[] @relation("IndentRequestingOutlet")
+  wastageRecords        Wastage[]
+  reservations          Reservation[]
+  reservationInvites    ReservationInvite[]
+  feedbackResponses     FeedbackResponse[]
+  promoDisplaySlides    PromoDisplaySlide[]
 
   @@unique([organizationId, slug])
+  @@unique([id, organizationId])
+  @@index([marketplaceListed, status])
+  @@index([city])
+  @@index([zone])
+  @@index([state])
   @@map("outlets")
 }
 
@@ -408,6 +535,7 @@ model User {
   auditLogs    AuditLog[]
   orders       Order[]      @relation("OrderCreatedBy")
   cashierShifts CashierShift[]
+  acknowledgedServiceRequests ServiceRequest[] @relation("ServiceRequestAcknowledgedBy")
 
   @@unique([organizationId, email])
   @@map("users")
@@ -469,15 +597,31 @@ model UserRole {
 }
 
 model OutletUser {
-  id       String @id @default(cuid())
-  userId   String @map("user_id")
-  outletId String @map("outlet_id")
+  id        String  @id @default(cuid())
+  userId    String  @map("user_id")
+  outletId  String  @map("outlet_id")
+  isDefault Boolean @default(false) @map("is_default")
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
 
   @@unique([userId, outletId])
   @@map("outlet_users")
+}
+
+/// Restaurant gallery photos shown on guest outlet / menu.
+model OutletPhoto {
+  id        String   @id @default(cuid())
+  outletId  String   @map("outlet_id")
+  url       String
+  caption   String?
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@index([outletId, sortOrder])
+  @@map("outlet_photos")
 }
 
 model Session {
@@ -670,10 +814,14 @@ model MenuItem {
   taxGroupId     String?  @map("tax_group_id")
   isActive       Boolean  @default(true) @map("is_active")
   isVeg          Boolean  @default(false) @map("is_veg")
+  isSpecial      Boolean  @default(false) @map("is_special")
   allergens      String[] @default([])
   sortOrder      Int      @default(0) @map("sort_order")
   sku            String?
   hsnCode        String?  @map("hsn_code")
+  packagingCharge Decimal @default(0) @map("packaging_charge") @db.Decimal(12, 2)
+  onlineAvailable Boolean @default(true) @map("online_available")
+  stockBasedAvailability Boolean @default(false) @map("stock_based_availability")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -687,6 +835,7 @@ model MenuItem {
   orderItems     OrderItem[]
   recipe         Recipe?
   loyaltyRewards LoyaltyReward[]
+  guestFavorites GuestFavoriteItem[]
 
   @@unique([organizationId, slug])
   @@map("menu_items")
@@ -848,12 +997,14 @@ model Table {
   name      String
   capacity  Int         @default(4)
   sortOrder Int         @default(0) @map("sort_order")
-  qrCode    String?     @map("qr_code")
+  qrCode    String?     @unique @map("qr_code")
   status    TableStatus @default(available)
 
-  section      Section        @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  tableSessions TableSession[]
-  orders       Order[]
+  section         Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  tableSessions   TableSession[]
+  orders          Order[]
+  serviceRequests ServiceRequest[]
+  reservations    Reservation[]
 
   @@map("tables")
 }
@@ -867,11 +1018,38 @@ model TableSession {
   endedAt      DateTime?          @map("ended_at")
   guestCount   Int?               @map("guest_count")
 
-  table Table  @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  order Order?
+  table           Table            @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  order           Order?
+  serviceRequests ServiceRequest[]
 
   @@index([tableId, status])
   @@map("table_sessions")
+}
+
+model ServiceRequest {
+  id             String               @id @default(cuid())
+  organizationId String               @map("organization_id")
+  outletId       String               @map("outlet_id")
+  tableId        String               @map("table_id")
+  tableSessionId String?              @map("table_session_id")
+  type           ServiceRequestType   @default(waiter)
+  status         ServiceRequestStatus @default(open)
+  note           String?
+  acknowledgedById String?            @map("acknowledged_by_id")
+  acknowledgedAt DateTime?            @map("acknowledged_at")
+  resolvedAt     DateTime?            @map("resolved_at")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet         Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  table          Table        @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  tableSession   TableSession? @relation(fields: [tableSessionId], references: [id], onDelete: SetNull)
+  acknowledgedBy User?        @relation("ServiceRequestAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+
+  @@index([outletId, status])
+  @@index([tableId, status])
+  @@map("service_requests")
 }
 
 // ─── Order engine ────────────────────────────────────────────────────────────
@@ -907,7 +1085,7 @@ model Order {
   updatedAt      DateTime    @updatedAt @map("updated_at")
 
   organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  outlet       Outlet          @relation(fields: [outletId], references: [id])
+  outlet       Outlet          @relation(fields: [outletId, organizationId], references: [id, organizationId])
   table        Table?          @relation(fields: [tableId], references: [id])
   tableSession TableSession?   @relation(fields: [tableSessionId], references: [id])
   customer     Customer?       @relation(fields: [customerId], references: [id])
@@ -920,6 +1098,9 @@ model Order {
   payments     Payment[]
   invoices     Invoice[]
   deliveryOrder DeliveryOrder?
+  guestReview          GuestOutletReview?
+  feedbackResponse     FeedbackResponse?
+  aggregatorSettlements  AggregatorSettlement[]
 
   @@unique([outletId, orderNumber])
   @@unique([outletId, pickupCode])
@@ -1039,6 +1220,7 @@ model PaymentMethod {
 
 model Payment {
   id              String        @id @default(cuid())
+  organizationId  String        @map("organization_id")
   orderId         String        @map("order_id")
   paymentMethodId String?       @map("payment_method_id")
   amount          Decimal       @db.Decimal(12, 2)
@@ -1048,10 +1230,27 @@ model Payment {
   processedAt     DateTime?     @map("processed_at")
   createdAt       DateTime      @default(now()) @map("created_at")
 
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   order         Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
 
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
   @@map("payments")
+}
+
+model PaymentWebhookEvent {
+  id          String   @id @default(cuid())
+  provider    String
+  eventId     String   @map("event_id")
+  eventType   String   @map("event_type")
+  payload     Json?
+  processedAt DateTime @default(now()) @map("processed_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([provider, eventId])
+  @@index([provider, eventType])
+  @@map("payment_webhook_events")
 }
 
 model Invoice {
@@ -1199,9 +1398,29 @@ model InventoryItem {
   outlet       Outlet?            @relation(fields: [outletId], references: [id])
   category     InventoryCategory? @relation(fields: [categoryId], references: [id])
   stockMovements StockMovement[]
+  lots           InventoryLot[]
   recipeIngredients RecipeIngredient[]
+  wastageRecords    Wastage[]
+  centralKitchenIndentItems CentralKitchenIndentItem[]
 
   @@map("inventory_items")
+}
+
+model InventoryLot {
+  id              String    @id @default(cuid())
+  inventoryItemId String    @map("inventory_item_id")
+  qtyRemaining    Decimal   @map("qty_remaining") @db.Decimal(12, 3)
+  unitCost        Decimal   @map("unit_cost") @db.Decimal(12, 2)
+  receivedAt      DateTime  @map("received_at")
+  expiryDate      DateTime? @map("expiry_date")
+  grnItemId       String?   @map("grn_item_id")
+
+  inventoryItem InventoryItem  @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  grnItem       GRNItem?       @relation(fields: [grnItemId], references: [id], onDelete: SetNull)
+  stockMovements StockMovement[]
+
+  @@index([inventoryItemId, receivedAt])
+  @@map("inventory_lots")
 }
 
 model StockLocation {
@@ -1215,6 +1434,7 @@ model StockLocation {
 model StockMovement {
   id              String            @id @default(cuid())
   inventoryItemId String            @map("inventory_item_id")
+  lotId           String?           @map("lot_id")
   type            StockMovementType
   quantity        Decimal           @db.Decimal(12, 3)
   reference       String?
@@ -1222,18 +1442,23 @@ model StockMovement {
   createdAt       DateTime          @default(now()) @map("created_at")
 
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  lot           InventoryLot? @relation(fields: [lotId], references: [id], onDelete: SetNull)
 
   @@map("stock_movements")
 }
 
 model Recipe {
-  id         String @id @default(cuid())
-  menuItemId String @unique @map("menu_item_id")
-  yield      Decimal @default(1) @db.Decimal(12, 2)
+  id             String  @id @default(cuid())
+  menuItemId     String  @unique @map("menu_item_id")
+  parentRecipeId String? @map("parent_recipe_id")
+  yield          Decimal @default(1) @db.Decimal(12, 2)
 
-  menuItem    MenuItem           @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  ingredients RecipeIngredient[]
-  batches     ProductionBatch[]
+  menuItem       MenuItem           @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  parentRecipe   Recipe?            @relation("RecipeHierarchy", fields: [parentRecipeId], references: [id], onDelete: SetNull)
+  childRecipes   Recipe[]           @relation("RecipeHierarchy")
+  ingredients    RecipeIngredient[]
+  usedAsSubRecipe RecipeIngredient[] @relation("SubRecipeIngredients")
+  batches        ProductionBatch[]
 
   @@map("recipes")
 }
@@ -1241,22 +1466,31 @@ model Recipe {
 model RecipeIngredient {
   id              String  @id @default(cuid())
   recipeId        String  @map("recipe_id")
-  inventoryItemId String  @map("inventory_item_id")
+  inventoryItemId String? @map("inventory_item_id")
+  subRecipeId     String? @map("sub_recipe_id")
   quantity        Decimal @db.Decimal(12, 3)
 
-  recipe        Recipe        @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  recipe        Recipe         @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+  subRecipe     Recipe?        @relation("SubRecipeIngredients", fields: [subRecipeId], references: [id])
 
   @@map("recipe_ingredients")
 }
 
 model Wastage {
-  id              String  @id @default(cuid())
-  inventoryItemId String  @map("inventory_item_id")
-  quantity        Decimal @db.Decimal(12, 3)
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  outletId        String?  @map("outlet_id")
+  inventoryItemId String   @map("inventory_item_id")
+  quantity        Decimal  @db.Decimal(12, 3)
   reason          String?
   recordedAt      DateTime @default(now()) @map("recorded_at")
 
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet        Outlet?       @relation(fields: [outletId], references: [id], onDelete: SetNull)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, recordedAt])
   @@map("wastage")
 }
 
@@ -1324,32 +1558,370 @@ model GRNItem {
   quantity        Decimal @db.Decimal(12, 3)
   unitPrice       Decimal @map("unit_price") @db.Decimal(12, 2)
 
-  grn GRN @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  grn  GRN           @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  lots InventoryLot[]
 
   @@map("grn_items")
+}
+
+model CentralKitchen {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  outletId       String   @unique @map("outlet_id")
+  name           String
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization  Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet        Outlet                 @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  linkedOutlets CentralKitchenOutlet[]
+  indents       CentralKitchenIndent[]
+
+  @@index([organizationId])
+  @@map("central_kitchens")
+}
+
+model CentralKitchenOutlet {
+  id               String @id @default(cuid())
+  centralKitchenId String @map("central_kitchen_id")
+  outletId         String @map("outlet_id")
+
+  centralKitchen CentralKitchen @relation(fields: [centralKitchenId], references: [id], onDelete: Cascade)
+  outlet         Outlet         @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@unique([centralKitchenId, outletId])
+  @@map("central_kitchen_outlets")
+}
+
+model CentralKitchenIndent {
+  id                   String                     @id @default(cuid())
+  organizationId       String                     @map("organization_id")
+  centralKitchenId     String                     @map("central_kitchen_id")
+  requestingOutletId   String                     @map("requesting_outlet_id")
+  status               CentralKitchenIndentStatus @default(pending)
+  notes                String?
+  routeCode            String?                    @map("route_code")
+  sequence             Int?
+  fulfilledAt          DateTime?                  @map("fulfilled_at")
+  createdAt            DateTime                   @default(now()) @map("created_at")
+  updatedAt            DateTime                   @updatedAt @map("updated_at")
+
+  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  centralKitchen     CentralKitchen           @relation(fields: [centralKitchenId], references: [id], onDelete: Cascade)
+  requestingOutlet   Outlet                   @relation("IndentRequestingOutlet", fields: [requestingOutletId], references: [id], onDelete: Cascade)
+  items              CentralKitchenIndentItem[]
+
+  @@index([centralKitchenId, status])
+  @@index([requestingOutletId, status])
+  @@map("central_kitchen_indents")
+}
+
+model CentralKitchenIndentItem {
+  id              String  @id @default(cuid())
+  indentId        String  @map("indent_id")
+  inventoryItemId String  @map("inventory_item_id")
+  quantity        Decimal @db.Decimal(12, 3)
+
+  indent        CentralKitchenIndent @relation(fields: [indentId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem        @relation(fields: [inventoryItemId], references: [id])
+
+  @@map("central_kitchen_indent_items")
 }
 
 // ─── CRM & growth ────────────────────────────────────────────────────────────
 
 model Customer {
-  id             String  @id @default(cuid())
-  organizationId String  @map("organization_id")
-  name           String
-  email          String?
-  phone          String?
-  loyaltyTierId  String? @map("loyalty_tier_id")
-  loyaltyPoints  Int     @default(0) @map("loyalty_points")
-  stampCount     Int     @default(0) @map("stamp_count")
-  metadata       Json?
+  id                   String    @id @default(cuid())
+  organizationId       String    @map("organization_id")
+  name                 String
+  email                String?
+  phone                String?
+  loyaltyTierId        String?   @map("loyalty_tier_id")
+  loyaltyPoints        Int       @default(0) @map("loyalty_points")
+  stampCount           Int       @default(0) @map("stamp_count")
+  metadata             Json?
+  marketingEmailOptIn  Boolean   @default(false) @map("marketing_email_opt_in")
+  marketingSmsOptIn    Boolean   @default(false) @map("marketing_sms_opt_in")
+  marketingOptInAt     DateTime? @map("marketing_opt_in_at")
+  marketingOptOutAt    DateTime? @map("marketing_opt_out_at")
+  unsubscribeToken     String?   @unique @map("unsubscribe_token")
+  anonymizedAt         DateTime? @map("anonymized_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  loyaltyTier  LoyaltyTier? @relation(fields: [loyaltyTierId], references: [id])
-  orders       Order[]
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  loyaltyTier         LoyaltyTier?         @relation(fields: [loyaltyTierId], references: [id])
+  orders              Order[]
   loyaltyTransactions LoyaltyTransaction[]
-  couponUsages CouponUsage[]
+  couponUsages        CouponUsage[]
+  guestMembership     GuestOrgMembership?
 
   @@unique([organizationId, phone])
+  @@index([organizationId, marketingEmailOptIn])
+  @@index([anonymizedAt])
   @@map("customers")
+}
+
+/// Platform identity for the Cullinos Guest mobile app (cross-tenant).
+model GuestUser {
+  id                  String    @id @default(cuid())
+  firebaseUid         String?   @unique @map("firebase_uid")
+  phone               String?   @unique
+  name                String?
+  email               String?
+  pinHash             String?   @map("pin_hash")
+  pinUpdatedAt        DateTime? @map("pin_updated_at")
+  cullinosCoins       Int       @default(0) @map("cullinos_coins")
+  marketingEmailOptIn Boolean   @default(false) @map("marketing_email_opt_in")
+  marketingSmsOptIn   Boolean   @default(false) @map("marketing_sms_opt_in")
+  anonymizedAt        DateTime? @map("anonymized_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  devices                 GuestDevice[]
+  addresses               GuestAddress[]
+  memberships             GuestOrgMembership[]
+  favoriteOutlets         GuestFavoriteOutlet[]
+  favoriteItems           GuestFavoriteItem[]
+  reviews                 GuestOutletReview[]
+  notifications           GuestNotification[]
+  notificationPreference  GuestNotificationPreference?
+  coinLedger              GuestCoinLedger[]
+
+  @@map("guest_users")
+}
+
+model GuestCoinLedger {
+  id          String   @id @default(cuid())
+  guestUserId String   @map("guest_user_id")
+  delta       Int
+  reason      String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+
+  @@index([guestUserId, createdAt])
+  @@map("guest_coin_ledger")
+}
+
+model GuestOrgMembership {
+  id             String   @id @default(cuid())
+  guestUserId    String   @map("guest_user_id")
+  organizationId String   @map("organization_id")
+  customerId     String   @unique @map("customer_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  guestUser    GuestUser    @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([guestUserId, organizationId])
+  @@index([organizationId])
+  @@map("guest_org_memberships")
+}
+
+model GuestDevice {
+  id          String    @id @default(cuid())
+  guestUserId String    @map("guest_user_id")
+  fcmToken    String    @unique @map("fcm_token")
+  platform    String?
+  lastSeenAt  DateTime? @map("last_seen_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+
+  @@index([guestUserId])
+  @@map("guest_devices")
+}
+
+model GuestAddress {
+  id          String   @id @default(cuid())
+  guestUserId String   @map("guest_user_id")
+  label       String?
+  line1       String
+  line2       String?
+  city        String?
+  state       String?
+  pincode     String?
+  latitude    Decimal? @db.Decimal(10, 7)
+  longitude   Decimal? @db.Decimal(10, 7)
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+
+  @@index([guestUserId])
+  @@map("guest_addresses")
+}
+
+model GuestPhoneOtp {
+  id             String    @id @default(cuid())
+  phone          String
+  codeHash       String    @map("code_hash")
+  challengeToken String    @unique @map("challenge_token")
+  attempts       Int       @default(0)
+  expiresAt      DateTime  @map("expires_at")
+  consumedAt     DateTime? @map("consumed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([phone])
+  @@index([challengeToken])
+  @@map("guest_phone_otps")
+}
+
+model GuestFavoriteOutlet {
+  id          String   @id @default(cuid())
+  guestUserId String   @map("guest_user_id")
+  outletId    String   @map("outlet_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+  outlet    Outlet    @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@unique([guestUserId, outletId])
+  @@index([outletId])
+  @@map("guest_favorite_outlets")
+}
+
+model GuestFavoriteItem {
+  id          String   @id @default(cuid())
+  guestUserId String   @map("guest_user_id")
+  organizationId String @map("organization_id")
+  menuItemId  String   @map("menu_item_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([guestUserId, menuItemId])
+  @@index([organizationId])
+  @@map("guest_favorite_items")
+}
+
+model GuestOutletReview {
+  id          String   @id @default(cuid())
+  guestUserId String   @map("guest_user_id")
+  outletId    String   @map("outlet_id")
+  orderId     String?  @unique @map("order_id")
+  rating      Int
+  comment     String?
+  /// visible | hidden | removed
+  status      String   @default("visible")
+  moderatedAt DateTime? @map("moderated_at")
+  moderatedByUserId String? @map("moderated_by_user_id")
+  moderationNote String? @map("moderation_note")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+  outlet    Outlet    @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  order     Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([outletId, createdAt])
+  @@index([guestUserId])
+  @@index([status, createdAt])
+  @@map("guest_outlet_reviews")
+}
+
+model GuestNotification {
+  id          String    @id @default(cuid())
+  guestUserId String    @map("guest_user_id")
+  title       String
+  body        String
+  type        String    @default("general")
+  data        Json      @default("{}")
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+
+  @@index([guestUserId, createdAt])
+  @@map("guest_notifications")
+}
+
+model GuestNotificationPreference {
+  id                   String   @id @default(cuid())
+  guestUserId          String   @unique @map("guest_user_id")
+  transactionalEnabled Boolean  @default(true) @map("transactional_enabled")
+  marketingEnabled     Boolean  @default(true) @map("marketing_enabled")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+
+  @@map("guest_notification_preferences")
+}
+
+model GuestBanner {
+  id             String    @id @default(cuid())
+  scope          String    @default("organization") // platform | organization
+  organizationId String?   @map("organization_id")
+  title          String
+  subtitle       String?
+  imageUrl       String?   @map("image_url")
+  linkType       String    @default("none") // outlet | url | none
+  linkPayload    Json      @default("{}") @map("link_payload")
+  sortOrder      Int       @default(0) @map("sort_order")
+  startsAt       DateTime? @map("starts_at")
+  endsAt         DateTime? @map("ends_at")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([scope, isActive, sortOrder])
+  @@index([organizationId, isActive])
+  @@map("guest_banners")
+}
+
+model GuestPushCampaign {
+  id             String    @id @default(cuid())
+  scope          String    @default("organization") // platform | organization
+  organizationId String?   @map("organization_id")
+  title          String
+  body           String
+  data           Json      @default("{}")
+  /// all | org_members | city | org | marketing_opt_in
+  audience       String    @default("org_members")
+  audienceFilter Json      @default("{}") @map("audience_filter")
+  deepLink       String?   @map("deep_link")
+  /// draft | scheduled | sending | sent | cancelled
+  status         String    @default("draft")
+  scheduledAt    DateTime? @map("scheduled_at")
+  sentCount      Int       @default(0) @map("sent_count")
+  failedCount    Int       @default(0) @map("failed_count")
+  sentAt         DateTime? @map("sent_at")
+  createdByUserId String?  @map("created_by_user_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([scope, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([status, scheduledAt])
+  @@map("guest_push_campaigns")
+}
+
+/// Curated Discover home rows for Cullinos Guest app
+model GuestDiscoverSection {
+  id        String    @id @default(cuid())
+  title     String
+  subtitle  String?
+  /// outlets | cuisine | manual_outlets | offers
+  type      String
+  payload   Json      @default("{}")
+  sortOrder Int       @default(0) @map("sort_order")
+  startsAt  DateTime? @map("starts_at")
+  endsAt    DateTime? @map("ends_at")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([isActive, sortOrder])
+  @@map("guest_discover_sections")
 }
 
 model LoyaltyTier {
@@ -1399,6 +1971,9 @@ model Coupon {
   id             String   @id @default(cuid())
   organizationId String   @map("organization_id")
   code           String
+  title          String?
+  description    String?
+  imageUrl       String?  @map("image_url")
   type           String
   value          Decimal  @db.Decimal(12, 2)
   minOrder       Decimal? @map("min_order") @db.Decimal(12, 2)
@@ -1407,6 +1982,7 @@ model Coupon {
   startsAt       DateTime? @map("starts_at")
   expiresAt      DateTime? @map("expires_at")
   isActive       Boolean  @default(true) @map("is_active")
+  marketplaceFeatured Boolean @default(false) @map("marketplace_featured")
 
   usages CouponUsage[]
 
@@ -1447,6 +2023,11 @@ model DeliveryOrder {
   orderId         String         @unique @map("order_id")
   status          DeliveryStatus @default(pending)
   address         String?
+  pincode         String?
+  zoneId          String?        @map("zone_id")
+  latitude        Decimal?       @db.Decimal(10, 7)
+  longitude       Decimal?       @db.Decimal(10, 7)
+  deliveryFee     Decimal        @default(0) @map("delivery_fee") @db.Decimal(12, 2)
   driverName      String?        @map("driver_name")
   driverPhone     String?        @map("driver_phone")
   estimatedAt     DateTime?      @map("estimated_at")
@@ -1454,24 +2035,29 @@ model DeliveryOrder {
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  @@index([status])
   @@map("delivery_orders")
 }
 
 // ─── Hospitality ─────────────────────────────────────────────────────────────
 
 model Guest {
-  id             String @id @default(cuid())
-  organizationId String @map("organization_id")
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
   name           String
   email          String?
   phone          String?
-  documentType   String? @map("document_type")
-  documentNumber String? @map("document_number")
+  documentType   String?   @map("document_type")
+  documentNumber String?   @map("document_number")
+  anonymizedAt   DateTime? @map("anonymized_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  roomPostings RoomPosting[]
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  roomPostings    RoomPosting[]
   banquetBookings BanquetBooking[]
 
+  @@index([organizationId, anonymizedAt])
   @@map("guests")
 }
 
@@ -1642,7 +2228,34 @@ model Integration {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@unique([organizationId, provider])
   @@map("integrations")
+}
+
+model AggregatorSettlement {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  outletId        String?  @map("outlet_id")
+  provider        String
+  externalOrderId String   @map("external_order_id")
+  orderId         String?  @map("order_id")
+  orderDate       DateTime @map("order_date")
+  grossAmount     Decimal  @map("gross_amount") @db.Decimal(12, 2)
+  commission      Decimal  @default(0) @db.Decimal(12, 2)
+  taxOnCommission Decimal  @default(0) @map("tax_on_commission") @db.Decimal(12, 2)
+  payout          Decimal  @db.Decimal(12, 2)
+  status          String   @default("imported")
+  rawPayload      Json?    @map("raw_payload")
+  batchId         String?  @map("batch_id")
+  importedAt      DateTime @default(now()) @map("imported_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet?      @relation(fields: [outletId], references: [id])
+  order        Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, provider, externalOrderId])
+  @@index([organizationId, orderDate])
+  @@map("aggregator_settlements")
 }
 
 model Webhook {
@@ -1684,6 +2297,7 @@ model Device {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   outlet       Outlet?      @relation(fields: [outletId], references: [id])
   registrations DeviceRegistration[]
+  printJobs     PrintJob[]
 
   @@map("devices")
 }
@@ -1697,6 +2311,33 @@ model DeviceRegistration {
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
   @@map("device_registrations")
+}
+
+enum PrintJobStatus {
+  pending
+  sent
+  failed
+  done
+}
+
+model PrintJob {
+  id             String         @id @default(cuid())
+  organizationId String         @map("organization_id")
+  outletId       String?        @map("outlet_id")
+  deviceId       String?        @map("device_id")
+  orderId        String?        @map("order_id")
+  kind           String         @default("receipt")
+  status         PrintJobStatus @default(pending)
+  error          String?
+  payloadSummary String?        @map("payload_summary")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  device       Device?      @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@map("print_jobs")
 }
 
 model SyncEvent {
@@ -2040,4 +2681,152 @@ model EmailCampaign {
 
   @@index([organizationId, createdAt])
   @@map("email_campaigns")
+}
+
+/// DPDP consent / notice acknowledgment registry (purpose-tagged, withdrawable).
+model ConsentRecord {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  subjectType    String    @map("subject_type")
+  subjectId      String    @map("subject_id")
+  purpose        String
+  noticeVersion  String    @map("notice_version")
+  granted        Boolean
+  source         String
+  ipAddress      String?   @map("ip_address")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  withdrawnAt    DateTime? @map("withdrawn_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, subjectType, subjectId])
+  @@index([purpose, granted])
+  @@map("consent_records")
+}
+
+/// Opaque short-lived handoff so impersonation JWTs are not placed in URLs.
+model ImpersonationHandoff {
+  id               String    @id @default(cuid())
+  organizationId   String    @map("organization_id")
+  createdByUserId  String    @map("created_by_user_id")
+  targetUserId     String    @map("target_user_id")
+  codeHash         String    @unique @map("code_hash")
+  accessToken      String    @map("access_token")
+  reason           String
+  expiresAt        DateTime  @map("expires_at")
+  consumedAt       DateTime? @map("consumed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("impersonation_handoffs")
+}
+
+// ─── Phase 5 Growth ──────────────────────────────────────────────────────────
+
+model Reservation {
+  id             String            @id @default(cuid())
+  organizationId String            @map("organization_id")
+  outletId       String            @map("outlet_id")
+  customerName   String            @map("customer_name")
+  customerPhone  String            @map("customer_phone")
+  customerEmail  String?           @map("customer_email")
+  partySize      Int               @map("party_size")
+  reservedAt     DateTime          @map("reserved_at")
+  tableId        String?           @map("table_id")
+  status         ReservationStatus @default(pending)
+  notes          String?
+  bookingToken   String            @unique @map("booking_token")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  table        Table?       @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  invite       ReservationInvite?
+
+  @@index([outletId, reservedAt])
+  @@index([organizationId, status])
+  @@map("reservations")
+}
+
+model ReservationInvite {
+  id             String                  @id @default(cuid())
+  organizationId String                  @map("organization_id")
+  outletId       String                  @map("outlet_id")
+  customerName   String                  @map("customer_name")
+  customerPhone  String                  @map("customer_phone")
+  customerEmail  String?                 @map("customer_email")
+  token          String                  @unique
+  status         ReservationInviteStatus @default(sent)
+  expiresAt      DateTime                @map("expires_at")
+  reservationId  String?                 @unique @map("reservation_id")
+  createdAt      DateTime                @default(now()) @map("created_at")
+  updatedAt      DateTime                @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  reservation  Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+
+  @@index([outletId, status])
+  @@index([organizationId, createdAt])
+  @@map("reservation_invites")
+}
+
+model SmsCampaign {
+  id              String              @id @default(cuid())
+  organizationId  String              @map("organization_id")
+  createdByUserId String              @map("created_by_user_id")
+  body            String
+  recipientCount  Int                 @default(0) @map("recipient_count")
+  sentCount       Int                 @default(0) @map("sent_count")
+  failedCount     Int                 @default(0) @map("failed_count")
+  chargedPaise    Int                 @default(0) @map("charged_paise")
+  status          EmailCampaignStatus @default(sending)
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("sms_campaigns")
+}
+
+model FeedbackResponse {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  outletId       String   @map("outlet_id")
+  orderId        String   @unique @map("order_id")
+  rating         Int?
+  comment        String?
+  surveyToken    String   @unique @map("survey_token")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([outletId, createdAt])
+  @@map("feedback_responses")
+}
+
+model PromoDisplaySlide {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  outletId        String   @map("outlet_id")
+  title           String?
+  subtitle        String?
+  imageUrl        String?  @map("image_url")
+  slideType       String   @default("offer") @map("slide_type")
+  sortOrder       Int      @default(0) @map("sort_order")
+  durationSeconds Int      @default(10) @map("duration_seconds")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@index([outletId, isActive, sortOrder])
+  @@map("promo_display_slides")
 }

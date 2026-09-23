@@ -35,7 +35,7 @@ def main() -> int:
     run(
         ssh,
         "for h in admin.cullinos.com waiter.cullinos.com pos.cullinos.com kds.cullinos.com "
-        "order.cullinos.com manage.cullinos.com platform.cullinos.com cullinos.com api.cullinos.com; do "
+        "guest.cullinos.com manage.cullinos.com platform.cullinos.com cullinos.com api.cullinos.com; do "
         "echo \"=== $h ===\"; "
         "echo -n 'A '; getent ahostsv4 $h | awk '{print $1}' | head -1; "
         "echo | openssl s_client -servername $h -connect 127.0.0.1:443 2>/dev/null | "

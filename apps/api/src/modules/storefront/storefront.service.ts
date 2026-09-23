@@ -9,7 +9,7 @@ export class StorefrontService {
     private menuService: MenuService,
   ) {}
 
-  async bootstrap(orgSlug: string, outletSlug: string) {
+  async resolveActiveOutlet(orgSlug: string, outletSlug: string) {
     const organization = await this.prisma.organization.findFirst({
       where: { slug: orgSlug, status: { in: ["active", "trial"] } },
     });
@@ -21,11 +21,34 @@ export class StorefrontService {
         slug: outletSlug,
         status: "active",
       },
-      include: { brand: true },
+      include: {
+        brand: { include: { settings: true } },
+        photos: {
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          select: { url: true },
+        },
+      },
     });
     if (!outlet) throw new NotFoundException("Outlet not found");
 
+    return { organization, outlet };
+  }
+
+  async bootstrap(orgSlug: string, outletSlug: string) {
+    const { organization, outlet } = await this.resolveActiveOutlet(orgSlug, outletSlug);
     const menu = await this.menuService.getOutletMenu(organization.id, outlet.id);
+
+    const brandSettings =
+      outlet.brand.settings?.settings &&
+      typeof outlet.brand.settings.settings === "object" &&
+      !Array.isArray(outlet.brand.settings.settings)
+        ? (outlet.brand.settings.settings as Record<string, unknown>)
+        : {};
+    const accentRaw = brandSettings.accentColor ?? brandSettings.primaryColor;
+    const accentColor =
+      typeof accentRaw === "string" && /^#[0-9A-Fa-f]{6}$/.test(accentRaw)
+        ? accentRaw
+        : null;
 
     return {
       organizationId: organization.id,
@@ -35,6 +58,10 @@ export class StorefrontService {
       outletName: outlet.name,
       outletSlug: outlet.slug,
       brandName: outlet.brand.name,
+      logoUrl: outlet.brand.logoUrl ?? organization.logoUrl ?? null,
+      coverImageUrl: outlet.coverImageUrl ?? null,
+      photoUrls: (outlet.photos ?? []).map((p) => p.url),
+      accentColor,
       orderModes: ["dine-in", "online"],
       menu,
     };

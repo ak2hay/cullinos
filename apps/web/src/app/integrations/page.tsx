@@ -17,7 +17,7 @@ export default function IntegrationsPage() {
       <Hero
         eyebrow="Integrations"
         title="Connect your existing stack"
-        subtitle="Hardware adapters ship with the Local Gateway. Payment and PMS integrations are on our roadmap — we're building honestly."
+        subtitle="Hardware, Razorpay, MSG91, Firebase, and Swiggy/Zomato ship today. Deeper hotel PMS sync is on our roadmap — we're building honestly."
       />
       <Section title="Integration categories">
         <div className="grid gap-6 md:grid-cols-2">

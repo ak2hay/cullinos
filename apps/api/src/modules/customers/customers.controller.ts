@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
-import { OrgId } from "../../common/decorators";
+import type { JwtPayload } from "@cullinos/auth";
+import { CurrentUser, OrgId } from "../../common/decorators";
 import { CustomersService } from "./customers.service";
 
 @Controller("customers")
@@ -17,16 +18,21 @@ export class CustomersController {
   }
 
   @Post()
-  create(@OrgId() orgId: string, @Body() body: Record<string, unknown>) {
-    return this.service.create(orgId, body as never);
+  create(
+    @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.service.create(orgId, body as never, user.sub);
   }
 
   @Patch(":id")
   update(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @Param("id") id: string,
     @Body() body: Record<string, unknown>,
   ) {
-    return this.service.update(orgId, id, body as never);
+    return this.service.update(orgId, id, body as never, user.sub);
   }
 }

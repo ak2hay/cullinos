@@ -1,113 +1,89 @@
-# Cullinos — Production Deployment (VM-only)
+# Cullinos — Production Deployment (GitHub → GHCR → k3s)
 
-All apps run on your OnLiveServer VM (`95.135.254.46`). No Vercel or external frontend hosts.
+All apps run on the OnLiveServer VM (`95.135.254.46`) under **k3s**. Images build in **GitHub Actions** and push to **GHCR**. Staging and production are separate namespaces on the same node.
+
+Legacy Docker Compose + `scripts/remote-deploy.py` is **emergency-only**. See [CONTRIBUTING.md](../CONTRIBUTING.md) for the branch model.
 
 ## Architecture
 
-| Component | Host | Domain |
-|-----------|------|--------|
-| API + WebSocket | Docker on VM | `api.cullinos.com` |
-| Postgres + Redis | Docker on VM | internal only |
-| Admin | nginx static | `admin.cullinos.com` |
-| Management | nginx static | `manage.cullinos.com` |
-| Super Admin | nginx static | `platform.cullinos.com` |
-| Customer (QR ordering) | nginx static | `order.cullinos.com` |
-| Waiter | nginx static | `waiter.cullinos.com` |
-| POS (browser) | nginx static | `pos.cullinos.com` |
-| KDS (browser) | nginx static | `kds.cullinos.com` |
-| Marketing | Docker Next.js | `cullinos.com` |
+| Component | How | Domain (prod) | Domain (staging) |
+|-----------|-----|---------------|------------------|
+| API + WebSocket | Deployment `api` | `api.cullinos.com` | `staging-api.cullinos.com` |
+| Postgres + Redis | In-cluster PVC | internal | internal |
+| Admin / Manage / Platform | SPA images | `admin` / `manage` / `platform` | `staging-*` |
+| POS / KDS | SPA images | `pos` / `kds` | `staging-*` |
+| Guest / Waiter landings | SPA images | `guest` / `waiter` | `staging-*` |
+| Marketing | `web` (Next.js) | `cullinos.com` | `staging.cullinos.com` |
+| Grafana | monitoring ns | `grafana.cullinos.com` | — |
 
-Stack: [`docker-compose.prod.yml`](../docker-compose.prod.yml)
+Manifests: [`infrastructure/k8s/`](../infrastructure/k8s/). Cutover: [`infrastructure/k8s/scripts/cutover-checklist.md`](../infrastructure/k8s/scripts/cutover-checklist.md).
+
+```mermaid
+flowchart LR
+  feature[feature_branches] --> develop
+  develop -->|Build_Images_staging| GHCR
+  GHCR --> stagingNs[namespace_staging]
+  develop --> main
+  main -->|Build_Images_latest| GHCR
+  GHCR --> prodNs[namespace_production]
+```
+
+## GitHub secrets & environments
+
+Create environments **staging** and **production** (optional reviewers on production).
+
+| Secret | Purpose |
+|--------|---------|
+| `KUBE_CONFIG` | Base64 of k3s kubeconfig (`server: https://95.135.254.46:6443`) |
+| `STAGING_APP_SECRETS_ENV` | Multiline `KEY=value` for staging `cullinos-secrets` (see `infrastructure/k8s/secrets.example.env`) |
+| `PRODUCTION_APP_SECRETS_ENV` | Same for production |
+| `GHCR_PULL_TOKEN` | PAT with `read:packages` if default `GITHUB_TOKEN` cannot pull |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN` | Baked into web/SPA builds |
+| `SENTRY_DSN` | Optional; also include in `*_APP_SECRETS_ENV` |
+
+Workflows:
+
+| Workflow | Trigger | Action |
+|----------|---------|--------|
+| `CI` / `Security` | PR + push | Gates |
+| `Build Images` | push `develop`/`main` | Push to `ghcr.io/ak2hay/cullinos-*` |
+| `Deploy Staging` | after build on `develop` | Apply staging overlay |
+| `Deploy Production` | after build on `main` | Apply production + Prisma push |
+| `Uptime Check` | every 15m | Curl health URLs |
+| `E2E Production` | nightly | Playwright against prod |
+
+## First-time VM setup
+
+```bash
+# On VM as root
+cd /opt/cullinos && git pull
+bash infrastructure/k8s/scripts/install-k3s.sh
+bash infrastructure/k8s/scripts/install-monitoring.sh
+# Follow cutover-checklist.md (migrate DB, stop nginx/Compose)
+```
+
+DNS: point all prod and staging hostnames A → `95.135.254.46`. TLS via Traefik + Cloudflare (Full) or Traefik ACME.
+
+## Manual kubectl deploy
+
+```bash
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+kubectl apply -k infrastructure/k8s/overlays/staging
+kubectl apply -k infrastructure/k8s/overlays/production
+kubectl -n production rollout status deployment/api
+```
+
+## Rollback
+
+- **App:** Actions → Deploy Production → `workflow_dispatch` with prior image SHA tag.
+- **DB:** R2 restore — [BACKUP_ROLLBACK.md](BACKUP_ROLLBACK.md).
+- **Cluster unavailable:** emergency Compose path via legacy `scripts/remote-deploy.py` (only if Compose stack still present).
 
 ## QR table ordering
 
-1. Waiter taps a table → **Show QR to customers** or **Take order on waiter app**
-2. Session QR URL: `https://order.cullinos.com/{orgSlug}/{outletSlug}?session={token}`
-3. Guests scan, add dishes, checkout → items merge into the table’s shared order
-4. Waiter taps **End session** when the table is cleared (QR stops working)
-
-## Deploy / update
-
-From your dev machine:
-
-```bash
-export DEPLOY_PASSWORD='your-root-password'
-python scripts/remote-deploy.py
-```
-
-On the server after `git pull`:
-
-```bash
-cd /opt/cullinos
-docker compose -f docker-compose.prod.yml up -d --build
-docker compose -f docker-compose.prod.yml run --rm -T api npx prisma db push --schema=packages/prisma/prisma/schema.prisma
-bash scripts/build-frontends.sh
-sudo mkdir -p /var/www/cullinos
-sudo cp -r dist-frontends/* /var/www/cullinos/
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-### VM `.env`
-
-Copy from [`.env.production.example`](../.env.production.example):
-
-```
-DATABASE_URL=postgresql://cullinos:<password>@postgres:5432/cullinos
-REDIS_URL=redis://redis:6379
-CUSTOMER_APP_URL=https://order.cullinos.com
-CORS_ORIGINS=https://admin.cullinos.com,https://manage.cullinos.com,https://platform.cullinos.com,https://order.cullinos.com,https://waiter.cullinos.com,https://pos.cullinos.com,https://kds.cullinos.com,https://cullinos.com
-```
-
-### nginx
-
-- API: [`infrastructure/nginx/api.cullinos.com.conf`](../infrastructure/nginx/api.cullinos.com.conf)
-- Frontends: [`infrastructure/nginx/cullinos-frontends.conf`](../infrastructure/nginx/cullinos-frontends.conf)
-
-DNS: point all subdomains A → `95.135.254.46` (disable Cloudflare proxy during initial certbot)
-
-| Subdomain | Purpose |
-|-----------|---------|
-| `api` | API + WebSocket |
-| `admin`, `manage`, `platform`, `order`, `waiter` | SPAs |
-| `pos`, `kds` | POS / KDS browser apps |
-| `cullinos.com`, `www` | Marketing site |
-
-SSL: automated by `scripts/remote-deploy.py` via certbot after DNS propagates.
-
-### Marketing site ops (SEO / security)
-
-1. **Cloudflare Turnstile** — Create a widget for `cullinos.com`, set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` on the `web` container.
-2. **Cloudflare Web Analytics** — Enable free Web Analytics for the zone; set `NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN`.
-3. **Bot / spend protection** — nginx `limit_req` is configured in [`cullinos-frontends.conf`](../infrastructure/nginx/cullinos-frontends.conf) (10 r/s site-wide, 1 r/s on `/api/contact`). In Cloudflare (free tier): enable Bot Fight Mode, add a rate-limit rule on `/api/contact`, and set billing alerts with your VPS provider.
-4. **NAP consistency** — Public contact is `hello@rkyves.com` + Mumbai, India until a street address/phone is published. Keep Google Business Profile matched to [`apps/web/src/lib/business.ts`](../apps/web/src/lib/business.ts).
-
-### Build frontends locally
-
-```bash
-npm run build:frontends
-# Output in dist-frontends/
-```
-
-Env baked in at build time:
-
-```
-VITE_API_URL=https://api.cullinos.com/api/v1
-VITE_WS_URL=https://api.cullinos.com
-VITE_CUSTOMER_URL=https://order.cullinos.com
-VITE_KDS_URL=https://kds.cullinos.com
-VITE_POS_URL=https://pos.cullinos.com
-```
-
-## POS & KDS (browser)
-
-Cashier and kitchen staff use the web apps — no desktop installer required:
-
-| App | URL |
-|-----|-----|
-| POS | https://pos.cullinos.com |
-| KDS | https://kds.cullinos.com |
-
-Ensure DNS A records for `pos` and `kds` point to the VM (`95.135.254.46`).
+1. Waiter opens **Cullinos Waiter** → table → **Show QR to customers**
+2. Session QR: `https://guest.cullinos.com/{orgSlug}/{outletSlug}?session={token}`
+3. Guests order into the shared table order; waiter ends session when cleared.
 
 ## Local development
 
@@ -115,17 +91,8 @@ Ensure DNS A records for `pos` and `kds` point to the VM (`95.135.254.46`).
 cp .env.example .env
 npm run docker:up
 npm install
-npm run db:generate
-npm run db:push
-npm run db:seed
+npm run db:generate && npm run db:push && npm run db:seed
 npm run dev
 ```
 
-## Verify production
-
-- `GET https://api.cullinos.com/api/v1/health`
-- `GET https://api.cullinos.com/api/v1/health/db`
-- `https://waiter.cullinos.com` — waiter login
-- `https://pos.cullinos.com` — cashier login
-- `https://kds.cullinos.com` — kitchen login
-- `https://order.cullinos.com/demo-restaurant/main-outlet?session=...` — after starting session from waiter
+Do not point local apps at production. See [CONTRIBUTING.md](../CONTRIBUTING.md).

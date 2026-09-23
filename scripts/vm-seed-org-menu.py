@@ -93,8 +93,8 @@ def main() -> int:
 
     ssh.close()
     safe_print("\n=== Done ===")
-    safe_print(f"Phone:  https://order.cullinos.com/{org_slug}/main-outlet")
-    safe_print(f"Kiosk:  https://order.cullinos.com/{org_slug}/main-outlet/kiosk")
+    safe_print(f"Phone:  https://guest.cullinos.com/{org_slug}/main-outlet")
+    safe_print(f"Kiosk:  https://guest.cullinos.com/{org_slug}/main-outlet/kiosk")
     return 0
 
 

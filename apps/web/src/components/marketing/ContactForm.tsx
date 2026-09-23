@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Turnstile } from '@/components/marketing/Turnstile';
+import { PhoneField, Turnstile } from '@cullinos/ui';
 
 const planOptions = ['Starter', 'Professional', 'Enterprise', 'Hospitality', 'Not sure'];
 
@@ -20,6 +20,7 @@ export function ContactForm() {
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [phone, setPhone] = useState('');
   const turnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
   const onToken = useCallback((token: string) => {
@@ -67,6 +68,7 @@ export function ContactForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...Object.fromEntries(data.entries()),
+          phone,
           'cf-turnstile-response': turnstileToken,
         }),
       });
@@ -91,7 +93,7 @@ export function ContactForm() {
         <Field label="Name" name="name" required error={fieldErrors.name} />
         <Field label="Restaurant / Business" name="business" required error={fieldErrors.business} />
         <Field label="Email" name="email" type="email" required error={fieldErrors.email} />
-        <Field label="Phone" name="phone" type="tel" />
+        <PhoneField label="Phone" value={phone} onChange={setPhone} />
         <Field label="City" name="city" />
         <Field label="Number of outlets" name="outlets" type="number" min={1} />
       </div>
@@ -131,7 +133,11 @@ export function ContactForm() {
 
       {turnstileEnabled && (
         <div>
-          <Turnstile onToken={onToken} onExpire={onExpire} />
+          <Turnstile
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+            onToken={onToken}
+            onExpire={onExpire}
+          />
           {fieldErrors.turnstile && (
             <p className="mt-1.5 text-sm text-status-error">{fieldErrors.turnstile}</p>
           )}

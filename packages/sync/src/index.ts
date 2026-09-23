@@ -1,3 +1,12 @@
+export {
+  SYNC_EVENT_TYPES,
+  type SyncEventType,
+  type SyncOrderCreateData,
+  type SyncOrderCreateItem,
+  type SyncPaymentCashData,
+  type SyncEventPayloadByType,
+} from "./event-shapes.js";
+
 export type SyncEventPayload = {
   type: string;
   idempotencyKey: string;

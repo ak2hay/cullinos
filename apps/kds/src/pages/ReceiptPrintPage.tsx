@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { DEFAULT_API_BASE } from '@cullinos/shared';
+import { useAuthStore } from '@/stores/auth';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? DEFAULT_API_BASE;
 const WS_URL = import.meta.env.VITE_WS_URL ?? 'http://localhost:3000';
@@ -45,6 +46,7 @@ function qrImageUrl(order: ReceiptOrder, outletId: string): string {
 }
 
 export function ReceiptPrintPage({ outletId }: { outletId: string }) {
+  const accessToken = useAuthStore((s) => s.accessToken);
   const [status, setStatus] = useState<'connecting' | 'live' | 'error'>('connecting');
   const [lastPrinted, setLastPrinted] = useState<string | null>(null);
   const [slip, setSlip] = useState<ReceiptOrder | null>(null);
@@ -52,9 +54,15 @@ export function ReceiptPrintPage({ outletId }: { outletId: string }) {
   const printTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (!accessToken) {
+      setStatus('error');
+      return;
+    }
+
     const socket: Socket = io(WS_URL, {
       transports: ['websocket', 'polling'],
       withCredentials: true,
+      auth: { token: accessToken },
     });
 
     socket.on('connect', () => {
@@ -81,7 +89,7 @@ export function ReceiptPrintPage({ outletId }: { outletId: string }) {
       if (printTimer.current) clearTimeout(printTimer.current);
       socket.disconnect();
     };
-  }, [outletId]);
+  }, [outletId, accessToken]);
 
   return (
     <div className="flex min-h-screen flex-col bg-bg-primary p-8 text-text-primary">

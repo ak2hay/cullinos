@@ -10,7 +10,7 @@ Use a **non-production restaurant org** for tests that create orders. Recommende
 
 | Role | How to get it |
 |------|----------------|
-| Super Admin | Platform account (e.g. `superadmin@cullinos.com`) |
+| Super Admin | Platform account (e.g. `akshrkd@gmail.com`) |
 | Owner | Onboard via Super Admin → Tenants, or use seeded demo org |
 | Waiter / Cashier | Owner creates in Admin → Staff |
 | Outlet + tables + menu | Owner completes onboarding or use `npm run db:seed` on the target DB |

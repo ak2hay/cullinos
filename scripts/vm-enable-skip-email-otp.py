@@ -15,9 +15,8 @@ PASSWORD = os.environ.get("DEPLOY_PASSWORD", "")
 APP_DIR = "/opt/cullinos"
 
 FILES = [
-    "apps/api/src/modules/platform-config/platform-config.registry.ts",
+    "apps/api/src/common/cors.util.ts",
     "apps/api/src/modules/auth/auth.service.ts",
-    "apps/api/src/modules/super-admin/super-admin.service.ts",
 ]
 
 

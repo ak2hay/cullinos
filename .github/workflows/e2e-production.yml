@@ -30,7 +30,6 @@ jobs:
           E2E_ADMIN_URL: ${{ secrets.E2E_ADMIN_URL }}
           E2E_MANAGEMENT_URL: ${{ secrets.E2E_MANAGEMENT_URL }}
           E2E_SUPER_ADMIN_URL: ${{ secrets.E2E_SUPER_ADMIN_URL }}
-          E2E_CUSTOMER_URL: ${{ secrets.E2E_CUSTOMER_URL }}
           E2E_WAITER_URL: ${{ secrets.E2E_WAITER_URL }}
           E2E_POS_URL: ${{ secrets.E2E_POS_URL }}
           E2E_KDS_URL: ${{ secrets.E2E_KDS_URL }}

@@ -10,6 +10,7 @@ export const productColors = {
     secondary: '#1A1A2E',
     card: '#16213E',
     elevated: '#1F2937',
+    overlay: 'rgba(0, 0, 0, 0.65)',
   },
   text: {
     primary: '#F9FAFB',
@@ -48,6 +49,7 @@ export const platformColors = {
     secondary: '#111827',
     card: '#1F2937',
     elevated: '#374151',
+    overlay: 'rgba(0, 0, 0, 0.65)',
   },
   text: {
     primary: '#F9FAFB',
@@ -80,6 +82,7 @@ export const colors = productColors;
 export const typography = {
   fontFamily: {
     sans: 'Inter, system-ui, sans-serif',
+    display: "'Plus Jakarta Sans', Inter, system-ui, sans-serif",
     mono: 'JetBrains Mono, monospace',
   },
   fontSize: {
@@ -111,11 +114,40 @@ export const borderRadius = {
   full: '9999px',
 } as const;
 
+export const elevation = {
+  sm: '0 1px 2px rgba(0, 0, 0, 0.35)',
+  md: '0 8px 24px rgba(0, 0, 0, 0.35)',
+  lg: '0 16px 48px rgba(0, 0, 0, 0.45)',
+} as const;
+
+export const motion = {
+  easeOut: 'cubic-bezier(0.16, 1, 0.3, 1)',
+  durationFast: '150ms',
+  durationNormal: '220ms',
+} as const;
+
+/**
+ * Brand strategy (Phase 4):
+ * - Web product (admin/customer): gold/navy — restaurant ops brand.
+ * - Guest marketplace app: teal/coral — consumer marketplace brand.
+ * - Shared signal: "Cullinos." wordmark + Plus Jakarta display type.
+ * - Tenant theming: outlet logo / accent on customer hero when provided.
+ */
+export const brandStrategy = {
+  webPalette: 'gold-navy',
+  guestPalette: 'teal-coral',
+  sharedWordmark: 'Cullinos.',
+  displayFont: 'Plus Jakarta Sans',
+} as const;
+
 export const productTheme = {
   colors: productColors,
   typography,
   spacing,
   borderRadius,
+  elevation,
+  motion,
+  brandStrategy,
 } as const;
 
 export const platformTheme = {
@@ -123,6 +155,9 @@ export const platformTheme = {
   typography,
   spacing,
   borderRadius,
+  elevation,
+  motion,
+  brandStrategy,
 } as const;
 
 /** Flat theme for scaffold scripts / inline styles */
@@ -141,6 +176,7 @@ export const cullinosTheme = {
   },
   fonts: {
     sans: typography.fontFamily.sans,
+    display: typography.fontFamily.display,
     mono: typography.fontFamily.mono,
   },
 } as const;

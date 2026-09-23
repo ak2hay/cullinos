@@ -5,12 +5,14 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
+import { createHash, randomBytes } from "crypto";
 import { hashPassword, verifyPassword } from "@cullinos/auth";
 import type { Prisma } from "@prisma/client";
 import { generateTemporaryPassword } from "../../common/generate-password";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuthService } from "../auth/auth.service";
 import { MailService } from "../mail/mail.service";
+import { Msg91Service } from "../sms/msg91.service";
 import { TenantProvisioningService } from "../organizations/tenant-provisioning.service";
 import { SaasBillingService } from "../subscriptions/saas-billing.service";
 
@@ -46,6 +48,7 @@ export class SuperAdminService {
     private saas: SaasBillingService,
     private mail: MailService,
     private auth: AuthService,
+    private msg91: Msg91Service,
   ) {}
 
   private adminAppUrl(): string {
@@ -330,6 +333,19 @@ export class SuperAdminService {
       adminUrl,
     });
 
+    let smsSent = false;
+    if (user.phone) {
+      try {
+        const sms = await this.msg91.sendTransactionalSms(
+          user.phone,
+          `Cullinos: Password reset for ${user.organization.name}. Email: ${user.email}. Temp password: ${temporaryPassword}. Login: ${adminUrl}`,
+        );
+        smsSent = sms.sent;
+      } catch {
+        smsSent = false;
+      }
+    }
+
     await this.prisma.auditLog.create({
       data: {
         organizationId: orgId,
@@ -337,7 +353,7 @@ export class SuperAdminService {
         action: "reset_password",
         entityType: "user",
         entityId: userId,
-        metadata: { email: user.email, emailSent },
+        metadata: { email: user.email, emailSent, smsSent },
       },
     });
 
@@ -346,6 +362,7 @@ export class SuperAdminService {
       email: user.email,
       temporaryPassword,
       emailSent,
+      smsSent,
       adminUrl,
     };
   }
@@ -464,7 +481,16 @@ export class SuperAdminService {
     };
   }
 
-  async impersonateOrganization(orgId: string, impersonatedBy: string) {
+  async impersonateOrganization(
+    orgId: string,
+    impersonatedBy: string,
+    reason: string,
+  ) {
+    const trimmedReason = reason?.trim();
+    if (!trimmedReason || trimmedReason.length < 8) {
+      throw new BadRequestException("A support reason (min 8 chars) is required");
+    }
+
     const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
     if (!org) throw new NotFoundException("Organization not found");
     if (org.status === "suspended") {
@@ -495,7 +521,23 @@ export class SuperAdminService {
 
     const session = await this.auth.issueImpersonationSession(target, impersonatedBy);
     const adminBase = this.adminAppUrl();
-    const adminUrl = `${adminBase}/?impersonationToken=${encodeURIComponent(session.accessToken)}`;
+
+    const code = randomBytes(32).toString("hex");
+    const codeHash = createHash("sha256").update(code).digest("hex");
+
+    await this.prisma.impersonationHandoff.create({
+      data: {
+        organizationId: orgId,
+        createdByUserId: impersonatedBy,
+        targetUserId: target.id,
+        codeHash,
+        accessToken: session.accessToken,
+        reason: trimmedReason,
+        expiresAt: new Date(session.expiresAt),
+      },
+    });
+
+    const adminUrl = `${adminBase}/?impersonationCode=${encodeURIComponent(code)}`;
 
     await this.prisma.auditLog.create({
       data: {
@@ -506,16 +548,21 @@ export class SuperAdminService {
         entityId: orgId,
         metadata: {
           targetUserId: target.id,
-          targetEmail: target.email,
+          reason: trimmedReason,
           expiresAt: session.expiresAt,
+          handoff: true,
         },
       },
     });
 
     return {
-      ...session,
+      expiresIn: session.expiresIn,
+      expiresAt: session.expiresAt,
+      refreshToken: null as string | null,
+      handoffCode: code,
       adminUrl,
       organization: { id: org.id, name: org.name, slug: org.slug },
+      user: { id: target.id, email: target.email, name: target.name },
     };
   }
 
@@ -649,6 +696,7 @@ export class SuperAdminService {
     planSlug: string;
     ownerEmail: string;
     ownerName?: string;
+    ownerPhone?: string;
     outletName?: string;
     businessType?: string;
     restaurantSize?: string | null;
@@ -676,12 +724,14 @@ export class SuperAdminService {
       adminEmail: ownerEmail,
       adminPassword: temporaryPassword,
       adminName: ownerName,
+      adminPhone: input.ownerPhone?.trim() || undefined,
       outletName: input.outletName,
       status: "trial",
       mustChangePassword: true,
       businessType: input.businessType,
       restaurantSize:
         input.businessType === "restaurant" ? (input.restaurantSize ?? null) : null,
+      trialDays: 15,
     });
 
     const emailSent = await this.mail.sendOwnerCredentials({
@@ -692,10 +742,25 @@ export class SuperAdminService {
       adminUrl: result.adminUrl,
     });
 
+    let smsSent = false;
+    const phone = input.ownerPhone?.trim();
+    if (phone) {
+      try {
+        const sms = await this.msg91.sendTransactionalSms(
+          phone,
+          `Cullinos: Your ${input.companyName} admin login is ready. Email: ${ownerEmail}. Temp password: ${temporaryPassword}. Login: ${result.adminUrl}`,
+        );
+        smsSent = sms.sent;
+      } catch {
+        smsSent = false;
+      }
+    }
+
     return {
       ...result,
       temporaryPassword,
       emailSent,
+      smsSent,
     };
   }
 

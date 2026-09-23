@@ -21,4 +21,9 @@ docs/qa/runs/*
 *.tsbuildinfo
 packages/prisma/dist-seed/
 secrets-export.txt
+secrets/*
+!secrets/.gitkeep
 build-errors.txt
+
+dist-exports/
+

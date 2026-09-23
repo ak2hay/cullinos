@@ -31,6 +31,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=5180
 
+LABEL org.opencontainers.image.title="cullinos-web" \
+      org.opencontainers.image.source="https://github.com/ak2hay/cullinos"
+
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 

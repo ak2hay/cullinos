@@ -34,6 +34,17 @@ async function parseError(response: Response): Promise<ApiRequestError> {
   }
 }
 
+function handleUnauthorized() {
+  const { accessToken, logout } = useAuthStore.getState();
+  if (!accessToken) return;
+  logout();
+  const search = typeof window !== 'undefined' ? window.location.search : '';
+  const next = search ? `/login${search}` : '/login';
+  if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+    window.location.assign(next);
+  }
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -54,6 +65,11 @@ export async function apiRequest<T>(
     headers,
   });
 
+  if (response.status === 401 && authenticated) {
+    handleUnauthorized();
+    throw new ApiRequestError('Session expired — please sign in again', 'UNAUTHORIZED', 401);
+  }
+
   if (!response.ok) {
     throw await parseError(response);
   }
@@ -68,19 +84,44 @@ export async function apiRequest<T>(
 export interface LoginPayload {
   email: string;
   password: string;
+  captchaToken?: string;
 }
 
 export interface AuthResponse extends StaffAuthResponse {}
 
+export type LoginChallengeResponse = {
+  requiresOtp: true;
+  challengeToken: string;
+};
+
 export const authApi = {
   login: async (payload: LoginPayload) => {
-    const raw = await apiRequest<ApiStaffLoginResponse>(
+    const raw = await apiRequest<ApiStaffLoginResponse | LoginChallengeResponse>(
       '/auth/login',
+      { method: 'POST', body: JSON.stringify(payload) },
+      false,
+    );
+    if ('requiresOtp' in raw && raw.requiresOtp) {
+      return raw;
+    }
+    return mapStaffLoginResponse(raw as ApiStaffLoginResponse);
+  },
+
+  verifyOtp: async (payload: { challengeToken: string; otp: string }) => {
+    const raw = await apiRequest<ApiStaffLoginResponse>(
+      '/auth/verify-otp',
       { method: 'POST', body: JSON.stringify(payload) },
       false,
     );
     return mapStaffLoginResponse(raw);
   },
+
+  resendOtp: (payload: { challengeToken: string }) =>
+    apiRequest<LoginChallengeResponse>(
+      '/auth/resend-otp',
+      { method: 'POST', body: JSON.stringify(payload) },
+      false,
+    ),
 };
 
 export interface Outlet {
@@ -148,7 +189,8 @@ export const outletsApi = {
 export const kitchenApi = {
   getDisplay: (outletId: string, stationId?: string) => {
     const query = stationId ? `?stationId=${stationId}` : '';
-    return apiRequest<KitchenDisplayData>(`/kitchen/outlets/${outletId}/display${query}`);
+    // Display board is public; still send auth when available for consistency.
+    return apiRequest<KitchenDisplayData>(`/kitchen/outlets/${outletId}/display${query}`, {}, false);
   },
 
   updateItemStatus: (itemId: string, status: KotItemStatus) =>

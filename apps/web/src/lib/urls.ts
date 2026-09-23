@@ -5,7 +5,7 @@ export function getSiteUrl(): string {
 }
 
 export function getRegisterUrl(): string {
-  return process.env.NEXT_PUBLIC_REGISTER_URL ?? `${getSiteUrl()}/contact?intent=trial`;
+  return process.env.NEXT_PUBLIC_REGISTER_URL ?? `${getAdminUrl()}/register`;
 }
 
 export function getAdminUrl(): string {

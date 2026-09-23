@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { defaultPortalMode } from '@cullinos/shared';
 import { AuthLayout } from '@/components/auth/AuthLayout';
-import { Button, Input } from '@cullinos/ui';
+import { Button, Input, PasswordInput, Turnstile, isTurnstileEnabled } from '@cullinos/ui';
 import { authApi } from '@/lib/api';
-import { useAuthStore } from '@/stores/auth';
+import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
+import { useAuthStore, ADMIN_REMEMBER_KEY } from '@/stores/auth';
 
 function postLoginPath(permissions: string[], mustChangePassword?: boolean) {
   if (mustChangePassword) return '/change-password';
@@ -21,15 +22,30 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
+  const [remember, setRemember] = useState(true);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const turnstileOn = isTurnstileEnabled(TURNSTILE_SITE_KEY);
+
+  const onCaptchaToken = useCallback((token: string) => setCaptchaToken(token), []);
+  const onCaptchaExpire = useCallback(() => setCaptchaToken(''), []);
 
   async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setResendMessage('');
+    if (turnstileOn && !captchaToken) {
+      setError('Please complete the security check');
+      return;
+    }
     setLoading(true);
+    localStorage.setItem(ADMIN_REMEMBER_KEY, remember ? 'true' : 'false');
 
     try {
-      const response = await authApi.login({ email, password });
+      const response = await authApi.login({
+        email,
+        password,
+        captchaToken: captchaToken || undefined,
+      });
       if ('requiresOtp' in response) {
         setChallengeToken(response.challengeToken);
         return;
@@ -38,6 +54,7 @@ export function LoginPage() {
       navigate(postLoginPath(response.permissions, response.user.mustChangePassword));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
+      setCaptchaToken('');
     } finally {
       setLoading(false);
     }
@@ -151,14 +168,21 @@ export function LoginPage() {
           onChange={(e) => setEmail(e.target.value)}
         />
 
-        <Input
+        <PasswordInput
           label="Password"
-          type="password"
           autoComplete="current-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+
+        {turnstileOn ? (
+          <Turnstile
+            siteKey={TURNSTILE_SITE_KEY}
+            onToken={onCaptchaToken}
+            onExpire={onCaptchaExpire}
+          />
+        ) : null}
 
         <div className="flex justify-end">
           <Link to="/forgot-password" className="text-sm text-brand-primary hover:underline">
@@ -166,9 +190,26 @@ export function LoginPage() {
           </Link>
         </div>
 
+        <label className="flex items-center gap-2 text-sm text-text-secondary">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+            className="h-4 w-4 rounded accent-brand-primary"
+          />
+          Keep me signed in
+        </label>
+
         <Button type="submit" className="w-full" loading={loading}>
           Sign in
         </Button>
+
+        <p className="text-center text-sm text-text-secondary">
+          New restaurant?{' '}
+          <Link to="/register" className="text-brand-primary hover:underline">
+            Start free Enterprise trial
+          </Link>
+        </p>
       </form>
 
       <p className="mt-6 rounded-lg border border-white/10 bg-bg-card px-4 py-3 text-center text-sm text-text-secondary">

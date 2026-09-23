@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Input } from '@cullinos/ui';
+import { Button, Input, PasswordInput, Turnstile, isTurnstileEnabled } from '@cullinos/ui';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { authApi } from '@/lib/api';
-import { useAuthStore } from '@/stores/auth';
+import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
+import { useAuthStore, POS_REMEMBER_KEY } from '@/stores/auth';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -12,18 +13,33 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(true);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const turnstileOn = isTurnstileEnabled(TURNSTILE_SITE_KEY);
+  const onCaptchaToken = useCallback((token: string) => setCaptchaToken(token), []);
+  const onCaptchaExpire = useCallback(() => setCaptchaToken(''), []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    if (turnstileOn && !captchaToken) {
+      setError('Please complete the security check');
+      return;
+    }
     setLoading(true);
+    localStorage.setItem(POS_REMEMBER_KEY, remember ? 'true' : 'false');
 
     try {
-      const response = await authApi.login({ email, password });
+      const response = await authApi.login({
+        email,
+        password,
+        captchaToken: captchaToken || undefined,
+      });
       setAuth(response);
       navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
+      setCaptchaToken('');
     } finally {
       setLoading(false);
     }
@@ -55,9 +71,8 @@ export function LoginPage() {
           className="h-14 rounded-xl px-4 text-lg"
         />
 
-        <Input
+        <PasswordInput
           label="Password"
-          type="password"
           autoComplete="current-password"
           required
           value={password}
@@ -65,9 +80,27 @@ export function LoginPage() {
           className="h-14 rounded-xl px-4 text-lg"
         />
 
+        {turnstileOn ? (
+          <Turnstile
+            siteKey={TURNSTILE_SITE_KEY}
+            onToken={onCaptchaToken}
+            onExpire={onCaptchaExpire}
+          />
+        ) : null}
+
         <Button type="submit" size="lg" loading={loading} className="w-full rounded-xl text-lg">
           Open register
         </Button>
+
+        <label className="flex items-center gap-2 text-sm text-text-secondary">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+            className="h-4 w-4 rounded accent-brand-primary"
+          />
+          Keep me signed in
+        </label>
       </form>
     </AuthLayout>
   );

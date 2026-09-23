@@ -8,7 +8,8 @@ const apps = [
   { name: "super-admin", port: 5183, title: "Cullinos Super Admin", subtitle: "Platform Operations" },
   { name: "pos", port: 5173, title: "Cullinos POS", subtitle: "Cashier Terminal" },
   { name: "kds", port: 5174, title: "Cullinos KDS", subtitle: "Kitchen Display" },
-  { name: "waiter", port: 5175, title: "Cullinos Waiter", subtitle: "Floor Staff" },
+// DECOMMISSIONED waiter web — use apps/waiter_mobile
+//   { name: "waiter", port: 5175, title: "Cullinos Waiter", subtitle: "Floor Staff" },
   { name: "customer", port: 5176, title: "Cullinos", subtitle: "Order Online" },
 ];
 

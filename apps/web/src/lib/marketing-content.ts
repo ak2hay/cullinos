@@ -41,7 +41,7 @@ export function buildFallbackMarketingBundle(): MarketingCmsBundle {
     site: {
       siteName: 'Cullinos',
       tagline: 'Restaurant Operating System',
-      registerUrl: '/contact?intent=trial',
+      registerUrl: 'https://admin.cullinos.com/register',
       contactEmail: 'hello@rkyves.com',
     },
     theme: {},

@@ -10,8 +10,6 @@ const webUrl = process.env.E2E_WEB_URL ?? 'https://cullinos.com';
 const adminUrl = process.env.E2E_ADMIN_URL ?? 'https://admin.cullinos.com';
 const managementUrl = process.env.E2E_MANAGEMENT_URL ?? 'https://manage.cullinos.com';
 const superAdminUrl = process.env.E2E_SUPER_ADMIN_URL ?? 'https://platform.cullinos.com';
-const customerUrl = process.env.E2E_CUSTOMER_URL ?? 'https://order.cullinos.com';
-const waiterUrl = process.env.E2E_WAITER_URL ?? 'https://waiter.cullinos.com';
 const posUrl = process.env.E2E_POS_URL ?? 'https://pos.cullinos.com';
 const kdsUrl = process.env.E2E_KDS_URL ?? 'https://kds.cullinos.com';
 
@@ -72,19 +70,9 @@ export default defineConfig({
       use: { baseURL: kdsUrl },
     },
     {
-      name: 'waiter',
-      testMatch: 'waiter.spec.ts',
-      use: { baseURL: waiterUrl },
-    },
-    {
-      name: 'customer',
-      testMatch: 'customer.spec.ts',
-      use: { baseURL: customerUrl },
-    },
-    {
       name: 'order-flow',
       testMatch: 'order-flow.spec.ts',
-      use: { baseURL: waiterUrl },
+      use: { baseURL: posUrl },
     },
   ],
 });

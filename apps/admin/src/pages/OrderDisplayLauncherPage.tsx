@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@cullinos/ui';
-import { outletsApi } from '@/lib/api';
+import { organizationsApi, outletsApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
 const KDS_BASE =
@@ -15,8 +15,16 @@ function buildUrl(pathQuery: string) {
 
 export function OrderDisplayLauncherPage() {
   const outletId = useAuthStore((s) => s.selectedOutletId);
+  const authOrgSlug = useAuthStore((s) => s.user?.organizationSlug);
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
-  const outletName = outletsQuery.data?.find((o) => o.id === outletId)?.name;
+  const orgQuery = useQuery({
+    queryKey: ['organizations', 'current'],
+    queryFn: organizationsApi.current,
+  });
+  const outlet = outletsQuery.data?.find((o) => o.id === outletId);
+  const outletName = outlet?.name;
+  const outletSlug = outlet?.slug;
+  const orgSlug = orgQuery.data?.slug ?? authOrgSlug;
   const [copied, setCopied] = useState<string | null>(null);
 
   if (!outletId) {
@@ -28,7 +36,32 @@ export function OrderDisplayLauncherPage() {
     );
   }
 
-  const cdsUrl = buildUrl(`mode=cds&outletId=${encodeURIComponent(outletId)}`);
+  if (outletsQuery.isLoading || orgQuery.isLoading) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold">Customer display</h1>
+        <p className="text-text-secondary">Loading outlet details…</p>
+      </div>
+    );
+  }
+
+  if (!orgSlug || !outletSlug) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold">Customer display</h1>
+        <p className="text-text-secondary">
+          Organization or outlet slug is missing. Sign out and back in, or ensure the outlet has a slug.
+        </p>
+      </div>
+    );
+  }
+
+  const cdsUrl = buildUrl(
+    `mode=cds&orgSlug=${encodeURIComponent(orgSlug)}&outletSlug=${encodeURIComponent(outletSlug)}`,
+  );
+  const playlistUrl = buildUrl(
+    `mode=playlist&orgSlug=${encodeURIComponent(orgSlug)}&outletSlug=${encodeURIComponent(outletSlug)}`,
+  );
 
   async function copy(label: string, url: string) {
     await navigator.clipboard.writeText(url);
@@ -42,6 +75,12 @@ export function OrderDisplayLauncherPage() {
       title: 'Customer display (CDS)',
       description: 'McD-style board: huge order numbers, Preparing | Ready. Open on a TV facing customers.',
       url: cdsUrl,
+    },
+    {
+      id: 'playlist',
+      title: 'Promo playlist',
+      description: 'Rotating menu and offer slides for idle screens. Manage slides under Promo display.',
+      url: playlistUrl,
     },
   ];
 

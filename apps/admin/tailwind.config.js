@@ -12,7 +12,10 @@ export default {
         status: colors.status,
         table: colors.table,
       },
-      fontFamily: typography.fontFamily,
+      fontFamily: {
+        ...typography.fontFamily,
+        display: typography.fontFamily.display,
+      },
       borderRadius,
     },
   },

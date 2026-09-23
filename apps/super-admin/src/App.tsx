@@ -7,6 +7,16 @@ import { HealthPage } from '@/pages/HealthPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { PlansPage } from '@/pages/PlansPage';
 import { PromoEmailPage } from '@/pages/PromoEmailPage';
+import { GuestOpsOverviewPage } from '@/pages/guest-ops/OverviewPage';
+import { GuestOpsMarketplacePage } from '@/pages/guest-ops/MarketplacePage';
+import { GuestOpsDiscoverPage } from '@/pages/guest-ops/DiscoverPage';
+import { GuestOpsBannersPage } from '@/pages/guest-ops/BannersPage';
+import { GuestOpsPushPage } from '@/pages/guest-ops/PushPage';
+import { GuestOpsOffersPage } from '@/pages/guest-ops/OffersPage';
+import { GuestOpsReviewsPage } from '@/pages/guest-ops/ReviewsPage';
+import { GuestOpsUsersPage } from '@/pages/guest-ops/UsersPage';
+import { GuestOpsAnalyticsPage } from '@/pages/guest-ops/AnalyticsPage';
+import { GuestOpsRuntimePage } from '@/pages/guest-ops/RuntimePage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { SubscriptionsPage } from '@/pages/SubscriptionsPage';
 import { TenantDetailPage } from '@/pages/TenantDetailPage';
@@ -64,6 +74,19 @@ export default function App() {
         <Route path="plans" element={<PlansPage />} />
         <Route path="subscriptions" element={<SubscriptionsPage />} />
         <Route path="promo-email" element={<PromoEmailPage />} />
+        <Route path="guest-ops" element={<GuestOpsOverviewPage />} />
+        <Route path="guest-ops/marketplace" element={<GuestOpsMarketplacePage />} />
+        <Route path="guest-ops/discover" element={<GuestOpsDiscoverPage />} />
+        <Route path="guest-ops/banners" element={<GuestOpsBannersPage />} />
+        <Route path="guest-ops/push" element={<GuestOpsPushPage />} />
+        <Route path="guest-ops/offers" element={<GuestOpsOffersPage />} />
+        <Route path="guest-ops/reviews" element={<GuestOpsReviewsPage />} />
+        <Route path="guest-ops/users" element={<GuestOpsUsersPage />} />
+        <Route path="guest-ops/analytics" element={<GuestOpsAnalyticsPage />} />
+        <Route path="guest-ops/runtime" element={<GuestOpsRuntimePage />} />
+        <Route path="guest-banners" element={<Navigate to="/guest-ops/banners" replace />} />
+        <Route path="guest-push" element={<Navigate to="/guest-ops/push" replace />} />
+        <Route path="guest-coupons" element={<Navigate to="/guest-ops/offers" replace />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="health" element={<HealthPage />} />
         <Route path="marketing" element={<MarketingDashboardPage />} />

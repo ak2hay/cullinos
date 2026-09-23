@@ -9,7 +9,7 @@
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
-    "@cullinos/customer#build": {
+    "": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"],
       "env": [

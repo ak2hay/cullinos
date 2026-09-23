@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '@/components/auth/AuthLayout';
-import { Button, Input } from '@cullinos/ui';
+import { Button, Input, PasswordInput } from '@cullinos/ui';
 import { authApi } from '@/lib/api';
 
 type Step = 'email' | 'reset';
@@ -77,18 +77,16 @@ export function ForgotPasswordPage() {
             value={otp}
             onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
           />
-          <Input
+          <PasswordInput
             label="New password"
-            type="password"
             autoComplete="new-password"
             required
             minLength={8}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
           />
-          <Input
+          <PasswordInput
             label="Confirm password"
-            type="password"
             autoComplete="new-password"
             required
             minLength={8}

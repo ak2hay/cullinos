@@ -1,9 +1,34 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
 import {
   defaultPortalMode,
   type PortalMode,
 } from '@cullinos/shared';
+
+export const ADMIN_REMEMBER_KEY = 'cullinos-admin-remember';
+
+function makeRememberStorage(): StateStorage {
+  return {
+    getItem: (key) => {
+      const useSession = localStorage.getItem(ADMIN_REMEMBER_KEY) === 'false';
+      return (useSession ? sessionStorage : localStorage).getItem(key);
+    },
+    setItem: (key, value) => {
+      const useSession = localStorage.getItem(ADMIN_REMEMBER_KEY) === 'false';
+      if (useSession) {
+        sessionStorage.setItem(key, value);
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, value);
+        sessionStorage.removeItem(key);
+      }
+    },
+    removeItem: (key) => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    },
+  };
+}
 
 export interface AuthUser {
   id: string;
@@ -18,6 +43,7 @@ export interface AuthUser {
   createdAt: string;
   mustChangePassword?: boolean;
   organizationName?: string;
+  organizationSlug?: string;
 }
 
 interface AuthState {
@@ -91,6 +117,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'cullinos-admin-auth',
+      storage: createJSONStorage(() => makeRememberStorage()),
       partialize: (state) => ({
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,

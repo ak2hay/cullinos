@@ -6,7 +6,7 @@ import {
   MinLength,
 } from "class-validator";
 import type { JwtPayload } from "@cullinos/auth";
-import { CurrentUser, OrgId } from "../../common/decorators";
+import { CurrentUser, OrgId, RequireModule } from "../../common/decorators";
 import { PromoService } from "./promo.service";
 
 class SendCampaignDto {
@@ -14,6 +14,17 @@ class SendCampaignDto {
   @MinLength(1)
   subject!: string;
 
+  @IsString()
+  @MinLength(1)
+  body!: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  customerIds?: string[];
+}
+
+class SendSmsCampaignDto {
   @IsString()
   @MinLength(1)
   body!: string;
@@ -43,6 +54,33 @@ export class PromoController {
       orgId,
       user.sub,
       dto.subject,
+      dto.body,
+      dto.customerIds,
+    );
+  }
+
+  @Get("recipients/sms")
+  @RequireModule("sms")
+  listSmsRecipients(@OrgId() orgId: string) {
+    return this.service.listSmsRecipients(orgId);
+  }
+
+  @Get("sms-campaigns")
+  @RequireModule("sms")
+  listSmsCampaigns(@OrgId() orgId: string) {
+    return this.service.listSmsCampaigns(orgId);
+  }
+
+  @Post("sms-campaigns")
+  @RequireModule("sms")
+  sendSmsCampaign(
+    @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: SendSmsCampaignDto,
+  ) {
+    return this.service.sendSmsCampaign(
+      orgId,
+      user.sub,
       dto.body,
       dto.customerIds,
     );

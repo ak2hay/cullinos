@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -12,14 +12,13 @@ import {
   type BusinessType,
   type RestaurantSize,
 } from '@cullinos/shared';
-import { Button, Input } from '@cullinos/ui';
+import { Button, Input, PageShell, PhoneField } from '@cullinos/ui';
 import {
-  devicesApi,
   organizationsApi,
   outletsApi,
   settingsApi,
-  taxApi,
 } from '@/lib/api';
+import { DevicesSettingsPanel, TaxGroupsSettingsPanel } from './settings/TaxAndDevicesPanels';
 
 function parseRestaurantSize(value: string | null | undefined): RestaurantSize | null {
   if (!value) return null;
@@ -39,7 +38,7 @@ type OrderOptionId = (typeof ORDER_OPTIONS)[number]['id'];
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
-  const [outletForm, setOutletForm] = useState({ name: '', city: '', phone: '' });
+  const [outletForm, setOutletForm] = useState({ name: '', city: '', phone: '', gstin: '' });
   const [outletNotice, setOutletNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [form, setForm] = useState({
     name: '',
@@ -56,72 +55,27 @@ export function SettingsPage() {
     qr: false,
   });
   const [preOrdersEnabled, setPreOrdersEnabled] = useState(true);
-  const [taxName, setTaxName] = useState('');
-  const [taxRateName, setTaxRateName] = useState('CGST');
-  const [taxRate, setTaxRate] = useState('2.5');
-  const [taxNotice, setTaxNotice] = useState<string | null>(null);
-  const [deviceName, setDeviceName] = useState('');
-  const [deviceType, setDeviceType] = useState<'printer' | 'kds' | 'pos'>('printer');
-  const [deviceNotice, setDeviceNotice] = useState<string | null>(null);
 
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
   const orgQuery = useQuery({ queryKey: ['organizations', 'current'], queryFn: organizationsApi.current });
   const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get });
-  const taxQuery = useQuery({ queryKey: ['tax'], queryFn: taxApi.list });
-  const devicesQuery = useQuery({ queryKey: ['devices'], queryFn: devicesApi.list });
 
   const createOutletMutation = useMutation({
     mutationFn: () => outletsApi.create({
       name: outletForm.name,
       city: outletForm.city || undefined,
       phone: outletForm.phone || undefined,
+      gstin: outletForm.gstin || undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['outlets'] });
-      setOutletForm({ name: '', city: '', phone: '' });
+      setOutletForm({ name: '', city: '', phone: '', gstin: '' });
       setOutletNotice({ type: 'success', text: 'Outlet created successfully!' });
       setTimeout(() => setOutletNotice(null), 5000);
     },
     onError: (err: Error) => {
       setOutletNotice({ type: 'error', text: err.message ?? 'Failed to create outlet.' });
       setTimeout(() => setOutletNotice(null), 5000);
-    },
-  });
-
-  const createTaxMutation = useMutation({
-    mutationFn: () =>
-      taxApi.createGroup({
-        name: taxName,
-        rates: [{ name: taxRateName || 'Rate', rate: Number(taxRate) || 0 }],
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tax'] });
-      setTaxName('');
-      setTaxRateName('CGST');
-      setTaxRate('2.5');
-      setTaxNotice('Tax group created.');
-      setTimeout(() => setTaxNotice(null), 4000);
-    },
-    onError: (err: Error) => {
-      setTaxNotice(err.message ?? 'Failed to create tax group.');
-    },
-  });
-
-  const createDeviceMutation = useMutation({
-    mutationFn: () =>
-      devicesApi.create({
-        name: deviceName,
-        type: deviceType,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['devices'] });
-      setDeviceName('');
-      setDeviceType('printer');
-      setDeviceNotice('Device registered.');
-      setTimeout(() => setDeviceNotice(null), 4000);
-    },
-    onError: (err: Error) => {
-      setDeviceNotice(err.message ?? 'Failed to register device.');
     },
   });
 
@@ -185,14 +139,11 @@ export function SettingsPage() {
   const showPreOrders = isNavFeatureVisible(businessType, FEATURES.PRE_ORDERS, restaurantSize);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="mt-1 text-sm text-text-secondary">
-          Everyday restaurant details. No technical setup required.
-        </p>
-      </div>
-
+    <PageShell
+      className="mx-auto max-w-3xl"
+      title="Settings"
+      description="Everyday restaurant details. No technical setup required."
+    >
       {orgQuery.error || settingsQuery.error ? (
         <div className="rounded-xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
           Failed to load settings
@@ -224,10 +175,10 @@ export function SettingsPage() {
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
           />
-          <Input
+          <PhoneField
             label="Phone"
             value={form.phone}
-            onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+            onChange={(phone) => setForm((f) => ({ ...f, phone }))}
           />
           <Input
             label="Email"
@@ -314,7 +265,7 @@ export function SettingsPage() {
           {businessType && parent ? (
             <>
               {BUSINESS_TYPE_PARENT_LABELS[parent]}
-              {parent === 'qsr' ? ` · ${BUSINESS_TYPE_LABELS[businessType]}` : null}
+              {parent === 'qsr' ? ` Â· ${BUSINESS_TYPE_LABELS[businessType]}` : null}
             </>
           ) : (
             'Not set yet.'
@@ -338,13 +289,16 @@ export function SettingsPage() {
             Each outlet is a restaurant location. Add another if you have more than one place.
           </p>
         </div>
-
         <ul className="divide-y divide-white/5">
           {(outletsQuery.data ?? []).map((outlet) => (
             <li key={outlet.id} className="flex items-center justify-between py-3">
               <div>
                 <p className="font-medium">{outlet.name}</p>
-                {outlet.city ? <p className="text-xs text-text-muted">{outlet.city}</p> : null}
+                <p className="text-xs text-text-muted">
+                  {[outlet.city, outlet.phone, outlet.gstin ? `GSTIN ${outlet.gstin}` : null]
+                    .filter(Boolean)
+                    .join(' · ') || 'No details'}
+                </p>
               </div>
               <span className={`rounded-full px-2 py-0.5 text-xs ${outlet.isActive ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'}`}>
                 {outlet.isActive ? 'Active' : 'Inactive'}
@@ -360,7 +314,7 @@ export function SettingsPage() {
               {outletNotice.text}
             </div>
           )}
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Input
               label="Location name *"
               placeholder="Bandra Outlet"
@@ -373,11 +327,17 @@ export function SettingsPage() {
               value={outletForm.city}
               onChange={(e) => setOutletForm((f) => ({ ...f, city: e.target.value }))}
             />
-            <Input
+            <PhoneField
               label="Phone"
               placeholder="+91 9900000000"
               value={outletForm.phone}
-              onChange={(e) => setOutletForm((f) => ({ ...f, phone: e.target.value }))}
+              onChange={(phone) => setOutletForm((f) => ({ ...f, phone }))}
+            />
+            <Input
+              label="GSTIN"
+              placeholder="27AAAAA0000A1Z5"
+              value={outletForm.gstin}
+              onChange={(e) => setOutletForm((f) => ({ ...f, gstin: e.target.value }))}
             />
           </div>
           <div className="mt-3">
@@ -392,120 +352,8 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <div className="space-y-4 rounded-xl border border-white/5 bg-bg-card p-5">
-        <div>
-          <h2 className="font-semibold">Tax groups</h2>
-          <p className="mt-1 text-sm text-text-secondary">
-            Create GST / tax groups and rates used on menu items.
-          </p>
-        </div>
-        <ul className="divide-y divide-white/5">
-          {(taxQuery.data ?? []).map((group) => (
-            <li key={group.id} className="py-3">
-              <p className="font-medium">{group.name}</p>
-              <p className="text-xs text-text-muted">
-                {(group.rates ?? [])
-                  .map((r) => `${r.name} ${Number(r.rate)}%`)
-                  .join(' · ') || 'No rates'}
-              </p>
-            </li>
-          ))}
-          {(taxQuery.data ?? []).length === 0 ? (
-            <li className="py-3 text-sm text-text-muted">No tax groups yet.</li>
-          ) : null}
-        </ul>
-        <form
-          className="grid gap-3 sm:grid-cols-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            createTaxMutation.mutate();
-          }}
-        >
-          <Input
-            label="Group name"
-            required
-            placeholder="GST 5%"
-            value={taxName}
-            onChange={(e) => setTaxName(e.target.value)}
-          />
-          <Input
-            label="Rate name"
-            value={taxRateName}
-            onChange={(e) => setTaxRateName(e.target.value)}
-          />
-          <Input
-            label="Rate %"
-            type="number"
-            min={0}
-            step="any"
-            value={taxRate}
-            onChange={(e) => setTaxRate(e.target.value)}
-          />
-          <div className="sm:col-span-3 flex items-center gap-3">
-            <Button type="submit" loading={createTaxMutation.isPending} disabled={!taxName.trim()}>
-              Create tax group
-            </Button>
-            {taxNotice ? <p className="text-sm text-text-secondary">{taxNotice}</p> : null}
-          </div>
-        </form>
-      </div>
-
-      <div className="space-y-4 rounded-xl border border-white/5 bg-bg-card p-5">
-        <div>
-          <h2 className="font-semibold">Devices</h2>
-          <p className="mt-1 text-sm text-text-secondary">
-            Register printers, kitchen displays, and POS terminals.
-          </p>
-        </div>
-        <ul className="divide-y divide-white/5">
-          {(devicesQuery.data ?? []).map((device) => (
-            <li key={device.id} className="flex items-center justify-between py-3">
-              <div>
-                <p className="font-medium">{device.name}</p>
-                <p className="text-xs text-text-muted">{device.type}</p>
-              </div>
-            </li>
-          ))}
-          {(devicesQuery.data ?? []).length === 0 ? (
-            <li className="py-3 text-sm text-text-muted">No devices registered.</li>
-          ) : null}
-        </ul>
-        <form
-          className="grid gap-3 sm:grid-cols-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            createDeviceMutation.mutate();
-          }}
-        >
-          <Input
-            label="Device name"
-            required
-            placeholder="Receipt printer"
-            value={deviceName}
-            onChange={(e) => setDeviceName(e.target.value)}
-          />
-          <label className="space-y-1 text-sm">
-            <span className="text-text-secondary">Type</span>
-            <select
-              value={deviceType}
-              onChange={(e) => setDeviceType(e.target.value as 'printer' | 'kds' | 'pos')}
-              className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
-            >
-              <option value="printer">Printer</option>
-              <option value="kds">KDS</option>
-              <option value="pos">POS</option>
-            </select>
-          </label>
-          <div className="flex items-end">
-            <Button type="submit" loading={createDeviceMutation.isPending} disabled={!deviceName.trim()}>
-              Register device
-            </Button>
-          </div>
-          {deviceNotice ? (
-            <p className="sm:col-span-3 text-sm text-text-secondary">{deviceNotice}</p>
-          ) : null}
-        </form>
-      </div>
+      <TaxGroupsSettingsPanel />
+      <DevicesSettingsPanel />
 
       <Button
         onClick={() => saveMutation.mutate()}
@@ -514,6 +362,6 @@ export function SettingsPage() {
       >
         Save settings
       </Button>
-    </div>
+    </PageShell>
   );
 }

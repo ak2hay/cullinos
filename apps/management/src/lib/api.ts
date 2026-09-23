@@ -68,6 +68,7 @@ export async function apiRequest<T>(
 export interface LoginPayload {
   email: string;
   password: string;
+  captchaToken?: string;
 }
 
 export interface AuthResponse extends StaffAuthResponse {}
@@ -115,9 +116,18 @@ export interface DailyDashboard {
 export interface OutletComparison {
   outletId: string;
   outletName: string;
+  city?: string | null;
+  zone?: string | null;
+  state?: string | null;
   revenue: number;
   orders: number;
   averageOrderValue: number;
+}
+
+export interface OutletGeoFilters {
+  cities: string[];
+  zones: string[];
+  states: string[];
 }
 
 export interface InventoryItem {
@@ -174,12 +184,27 @@ export const analyticsApi = {
     const qs = search.toString();
     return apiRequest<DailyDashboard>(`/analytics/daily${qs ? `?${qs}` : ''}`);
   },
-  outletComparison: (params?: { date?: string; brandId?: string }) => {
+  outletComparison: (params?: {
+    date?: string;
+    brandId?: string;
+    city?: string;
+    zone?: string;
+    state?: string;
+  }) => {
     const search = new URLSearchParams();
     if (params?.date) search.set('date', params.date);
     if (params?.brandId) search.set('brandId', params.brandId);
+    if (params?.city) search.set('city', params.city);
+    if (params?.zone) search.set('zone', params.zone);
+    if (params?.state) search.set('state', params.state);
     const qs = search.toString();
     return apiRequest<OutletComparison[]>(`/analytics/outlet-comparison${qs ? `?${qs}` : ''}`);
+  },
+  outletGeoFilters: (params?: { brandId?: string }) => {
+    const search = new URLSearchParams();
+    if (params?.brandId) search.set('brandId', params.brandId);
+    const qs = search.toString();
+    return apiRequest<OutletGeoFilters>(`/analytics/outlet-geo-filters${qs ? `?${qs}` : ''}`);
   },
 };
 

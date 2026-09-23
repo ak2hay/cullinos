@@ -1,0 +1,124 @@
+# Hosts overridden per overlay. TLS via Traefik/cert-manager annotations or Cloudflare Full SSL.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cullinos
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  tls:
+    - secretName: cullinos-tls
+      hosts:
+        - api.cullinos.com
+        - admin.cullinos.com
+        - manage.cullinos.com
+        - platform.cullinos.com
+        - pos.cullinos.com
+        - kds.cullinos.com
+        - guest.cullinos.com
+        - waiter.cullinos.com
+        - cullinos.com
+        - www.cullinos.com
+  rules:
+    - host: api.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 80
+    - host: admin.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-admin
+                port:
+                  number: 80
+    - host: manage.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-management
+                port:
+                  number: 80
+    - host: platform.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-super-admin
+                port:
+                  number: 80
+    - host: pos.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-pos
+                port:
+                  number: 80
+    - host: kds.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-kds
+                port:
+                  number: 80
+    - host: guest.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-guest-landing
+                port:
+                  number: 80
+    - host: waiter.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-waiter-landing
+                port:
+                  number: 80
+    - host: cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80
+    - host: www.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80

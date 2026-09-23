@@ -11,6 +11,6 @@ import { SuperAdminGuard } from "./guards/super-admin.guard";
   imports: [PrismaModule, StorageModule],
   controllers: [MarketingSuperAdminController, MarketingPublicController],
   providers: [MarketingService, MarketingUploadService, SuperAdminGuard],
-  exports: [MarketingService],
+  exports: [MarketingService, MarketingUploadService],
 })
 export class MarketingModule {}

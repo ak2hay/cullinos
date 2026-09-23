@@ -1,4 +1,5 @@
 import {
+  BadGatewayException,
   BadRequestException,
   Injectable,
   Logger,
@@ -7,6 +8,10 @@ import {
 import type { Plan, Subscription, SubscriptionStatus } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { RazorpayClient } from "../payments/razorpay.client";
+
+function isHttpLike(err: unknown): err is { getStatus?: () => number } {
+  return typeof err === "object" && err !== null && "getStatus" in err;
+}
 
 @Injectable()
 export class SaasBillingService {
@@ -54,20 +59,38 @@ export class SaasBillingService {
   async ensureRazorpayPlan(plan: Plan) {
     if (plan.razorpayPlanIdMonthly) return plan.razorpayPlanIdMonthly;
     this.razorpay.requireConfigured();
-    const created = await this.razorpay.createPlan({
-      name: `Cullinos ${plan.name}`,
-      amountPaise: Math.round(Number(plan.priceMonthly) * 100),
-      description: plan.description,
-    });
-    const updated = await this.prisma.plan.update({
-      where: { id: plan.id },
-      data: { razorpayPlanIdMonthly: created.id },
-    });
-    return updated.razorpayPlanIdMonthly!;
+    try {
+      const created = await this.razorpay.createPlan({
+        name: `Cullinos ${plan.name}`,
+        amountPaise: Math.round(Number(plan.priceMonthly) * 100),
+        description: plan.description,
+      });
+      const updated = await this.prisma.plan.update({
+        where: { id: plan.id },
+        data: { razorpayPlanIdMonthly: created.id },
+      });
+      return updated.razorpayPlanIdMonthly!;
+    } catch (err) {
+      if (isHttpLike(err)) throw err;
+      this.logger.error(
+        `Failed to sync plan ${plan.slug} to Razorpay: ${err instanceof Error ? err.message : err}`,
+      );
+      throw new BadGatewayException(
+        "Could not sync billing plan with Razorpay. Check gateway keys and plan price.",
+      );
+    }
   }
 
   async collectPayment(orgId: string) {
-    this.razorpay.requireConfigured();
+    try {
+      this.razorpay.requireConfigured();
+    } catch (err) {
+      if (isHttpLike(err)) throw err;
+      throw new BadRequestException(
+        "Razorpay is not configured. Ask a platform admin to set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.",
+      );
+    }
+
     const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
     if (!org) throw new NotFoundException("Organization not found");
 
@@ -81,7 +104,8 @@ export class SaasBillingService {
     if (
       subscription.razorpaySubId &&
       subscription.razorpayShortUrl &&
-      subscription.status !== "cancelled"
+      subscription.status !== "cancelled" &&
+      subscription.status !== "trial"
     ) {
       return {
         organizationId: orgId,
@@ -92,36 +116,111 @@ export class SaasBillingService {
       };
     }
 
-    const customerId = await this.ensureCustomer(org);
-    const planId = await this.ensureRazorpayPlan(subscription.plan);
-    const created = await this.razorpay.createSubscription({
-      planId,
-      customerId,
-      notes: {
-        kind: "saas",
+    try {
+      const customerId = await this.ensureCustomer(org);
+      const planId = await this.ensureRazorpayPlan(subscription.plan);
+      const created = await this.razorpay.createSubscription({
+        planId,
+        customerId,
+        notes: {
+          kind: "saas",
+          organizationId: orgId,
+          subscriptionId: subscription.id,
+        },
+      });
+
+      const shortUrl = created.short_url ?? subscription.razorpayShortUrl;
+
+      const updated = await this.prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          razorpaySubId: created.id,
+          razorpayShortUrl: shortUrl ?? null,
+        },
+        include: { plan: true },
+      });
+
+      return {
         organizationId: orgId,
-        subscriptionId: subscription.id,
+        subscriptionId: updated.id,
+        razorpaySubId: updated.razorpaySubId,
+        shortUrl: updated.razorpayShortUrl,
+        status: updated.status,
+      };
+    } catch (err) {
+      if (isHttpLike(err)) throw err;
+      this.logger.error(
+        `collectPayment failed for org ${orgId}: ${err instanceof Error ? err.message : err}`,
+      );
+      throw new BadGatewayException(
+        "Could not start Razorpay checkout. Verify gateway configuration and try again.",
+      );
+    }
+  }
+
+  async listActivePlans() {
+    const plans = await this.prisma.plan.findMany({
+      where: { isActive: true },
+      orderBy: { priceMonthly: "asc" },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        description: true,
+        priceMonthly: true,
+        priceYearly: true,
+        maxOutlets: true,
       },
     });
+    return plans.map((p) => ({
+      ...p,
+      priceMonthly: Number(p.priceMonthly),
+      priceYearly: Number(p.priceYearly),
+    }));
+  }
 
-    const shortUrl = created.short_url ?? subscription.razorpayShortUrl;
+  /** Switch plan (e.g. after Enterprise trial) and start Razorpay checkout. */
+  async activatePlan(orgId: string, planSlug: string) {
+    const plan = await this.prisma.plan.findUnique({ where: { slug: planSlug } });
+    if (!plan || !plan.isActive) throw new NotFoundException("Plan not found");
 
-    const updated = await this.prisma.subscription.update({
+    const subscription = await this.prisma.subscription.findFirst({
+      where: { organizationId: orgId },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!subscription) throw new NotFoundException("No subscription");
+
+    const planFeatures = await this.prisma.planFeature.findMany({
+      where: { planId: plan.id },
+    });
+
+    if (subscription.razorpaySubId) {
+      await this.cancelGatewaySubscription(subscription);
+    }
+
+    await this.prisma.subscriptionEntitlement.deleteMany({
+      where: { subscriptionId: subscription.id },
+    });
+
+    await this.prisma.subscription.update({
       where: { id: subscription.id },
       data: {
-        razorpaySubId: created.id,
-        razorpayShortUrl: shortUrl ?? null,
+        planId: plan.id,
+        status: "past_due",
+        trialEndsAt: null,
+        razorpaySubId: null,
+        razorpayShortUrl: null,
+        entitlements: {
+          create: planFeatures.map((f) => ({
+            module: f.module,
+            enabled: f.enabled,
+            limits: f.limits ?? undefined,
+          })),
+        },
       },
-      include: { plan: true },
     });
 
-    return {
-      organizationId: orgId,
-      subscriptionId: updated.id,
-      razorpaySubId: updated.razorpaySubId,
-      shortUrl: updated.razorpayShortUrl,
-      status: updated.status,
-    };
+    return this.collectPayment(orgId);
   }
 
   async cancelGatewaySubscription(subscription: Pick<Subscription, "razorpaySubId">) {
@@ -212,17 +311,34 @@ export class SaasBillingService {
     razorpayCustomerId: string | null;
   }) {
     if (org.razorpayCustomerId) return org.razorpayCustomerId;
-    const customer = await this.razorpay.createCustomer({
-      name: org.name,
-      email: org.email,
-      contact: org.phone,
-      notes: { kind: "saas", organizationId: org.id },
-    });
-    await this.prisma.organization.update({
-      where: { id: org.id },
-      data: { razorpayCustomerId: customer.id },
-    });
-    return customer.id;
+    if (!org.email && !org.phone) {
+      throw new BadRequestException(
+        "Organization needs an email or phone before starting Razorpay checkout.",
+      );
+    }
+    try {
+      const customer = await this.razorpay.createCustomer({
+        name: org.name,
+        email: org.email,
+        contact: org.phone,
+        notes: { kind: "saas", organizationId: org.id },
+      });
+      await this.prisma.organization.update({
+        where: { id: org.id },
+        data: { razorpayCustomerId: customer.id },
+      });
+      return customer.id;
+    } catch (err) {
+      if (isHttpLike(err)) throw err;
+      this.logger.error(
+        `Failed to create Razorpay customer for org ${org.id}: ${
+          err instanceof Error ? err.message : err
+        }`,
+      );
+      throw new BadGatewayException(
+        "Could not create Razorpay customer. Check organization email/phone and gateway keys.",
+      );
+    }
   }
 
   private async findSubscription(input: {

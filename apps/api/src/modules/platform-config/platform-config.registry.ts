@@ -6,12 +6,19 @@ export type ConfigGroupId =
   | "openai"
   | "webhooks"
   | "revalidate"
-  | "msg91";
+  | "msg91"
+  | "fcm"
+  | "guest_app"
+  | "billing";
+
+export type ConfigKeyControl = "otp_gate";
 
 export type ConfigKeyDef = {
   key: string;
   isSecret: boolean;
   label: string;
+  /** Special UI control in Super Admin settings (default: text input). */
+  control?: ConfigKeyControl;
 };
 
 export type ConfigGroupDef = {
@@ -24,19 +31,31 @@ export type ConfigGroupDef = {
 export const CONFIG_GROUPS: ConfigGroupDef[] = [
   {
     id: "smtp",
-    label: "SMTP",
-    description: "Brevo/SMTP for OTP and promotional email",
+    label: "SMTP (transactional / staff OTP)",
+    description:
+      "Transactional mail (OTP, invoices, password reset). Prefer From on mail.yourdomain.com. Use Test SMTP after saving.",
     keys: [
       { key: "SMTP_HOST", isSecret: false, label: "Host" },
       { key: "SMTP_PORT", isSecret: false, label: "Port" },
       { key: "SMTP_USER", isSecret: false, label: "Username" },
       { key: "SMTP_PASS", isSecret: true, label: "Password" },
-      { key: "SMTP_FROM_EMAIL", isSecret: false, label: "From email" },
+      { key: "SMTP_FROM_EMAIL", isSecret: false, label: "From email (transactional)" },
       { key: "SMTP_FROM_NAME", isSecret: false, label: "From name" },
       {
-        key: "AUTH_SKIP_EMAIL_OTP",
+        key: "AUTH_EMAIL_OTP_DISABLED_UNTIL",
         isSecret: false,
-        label: "Skip email OTP (temporary)",
+        label: "Email OTP",
+        control: "otp_gate",
+      },
+      {
+        key: "SMTP_MARKETING_FROM_EMAIL",
+        isSecret: false,
+        label: "Marketing From email (news.yourdomain.com)",
+      },
+      {
+        key: "SMTP_MARKETING_FROM_NAME",
+        isSecret: false,
+        label: "Marketing From name",
       },
     ],
   },
@@ -108,15 +127,132 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
   {
     id: "msg91",
     label: "Phone OTP (MSG91)",
-    description: "Customer phone OTP via MSG91 Flow API",
+    description:
+      "Guest + customer phone OTP. Prefer Widget (ID + tokenAuth); Flow SMS needs auth key + template + sender. Turn off Guest OTP debug once Flow works.",
     keys: [
-      { key: "MSG91_AUTH_KEY", isSecret: true, label: "Auth key" },
-      { key: "MSG91_TEMPLATE_ID", isSecret: false, label: "Template ID" },
+      { key: "MSG91_AUTH_KEY", isSecret: true, label: "Auth key (server verify)" },
+      {
+        key: "MSG91_WIDGET_ID",
+        isSecret: false,
+        label: "Widget ID",
+      },
+      {
+        key: "MSG91_WIDGET_TOKEN",
+        isSecret: true,
+        label: "Widget tokenAuth (client)",
+      },
+      {
+        key: "MSG91_TEMPLATE_ID",
+        isSecret: false,
+        label: "Flow template ID (fallback SMS)",
+      },
+      {
+        key: "MSG91_MARKETING_TEMPLATE_ID",
+        isSecret: false,
+        label: "Marketing SMS template ID (MESSAGE var)",
+      },
       { key: "MSG91_SENDER_ID", isSecret: false, label: "Sender ID" },
       {
         key: "MSG91_OTP_TTL_SECONDS",
         isSecret: false,
         label: "OTP TTL (seconds)",
+      },
+      {
+        key: "AUTH_SMS_OTP_DISABLED_UNTIL",
+        isSecret: false,
+        label: "SMS OTP",
+        control: "otp_gate",
+      },
+    ],
+  },
+  {
+    id: "billing",
+    label: "Portal wallet & SMS pricing",
+    description:
+      "Prepaid wallet pricing for Cullinos portal addons. SMS campaigns deduct pro-rata from SMS_PRICE_PER_100_PAISE (e.g. 10000 = ₹100 per 100 SMS).",
+    keys: [
+      {
+        key: "SMS_PRICE_PER_100_PAISE",
+        isSecret: false,
+        label: "SMS price per 100 messages (paise)",
+      },
+    ],
+  },
+  {
+    id: "fcm",
+    label: "Firebase Cloud Messaging",
+    description:
+      "Push for Cullinos Guest (order status + marketing). Legacy server key required for device delivery.",
+    keys: [
+      { key: "FCM_SERVER_KEY", isSecret: true, label: "Legacy server key" },
+    ],
+  },
+  {
+    id: "guest_app",
+    label: "Cullinos App",
+    description:
+      "Cullinos App Android controls. GUEST_OTP_DEBUG_IN_PROD shows OTP on-screen — temporary only; disable after MSG91 Flow is live.",
+    keys: [
+      {
+        key: "GUEST_APP_MIN_VERSION",
+        isSecret: false,
+        label: "Minimum Android version code",
+      },
+      {
+        key: "GUEST_APP_FORCE_UPDATE",
+        isSecret: false,
+        label: "Force update (true/false)",
+      },
+      {
+        key: "GUEST_APP_SOFT_UPDATE_MESSAGE",
+        isSecret: false,
+        label: "Soft update message (optional)",
+      },
+      {
+        key: "GUEST_APP_MAINTENANCE",
+        isSecret: false,
+        label: "Maintenance mode message",
+      },
+      {
+        key: "GUEST_APP_PLAY_STORE_URL",
+        isSecret: false,
+        label: "Play Store URL",
+      },
+      {
+        key: "GUEST_APP_SUPPORT_URL",
+        isSecret: false,
+        label: "Support URL",
+      },
+      {
+        key: "GUEST_APP_PRIVACY_URL",
+        isSecret: false,
+        label: "Privacy policy URL",
+      },
+      {
+        key: "GUEST_APP_TERMS_URL",
+        isSecret: false,
+        label: "Terms of service URL",
+      },
+      {
+        key: "GUEST_APP_FEATURE_FLAGS",
+        isSecret: false,
+        label: "Feature flags JSON (optional)",
+      },
+      {
+        key: "GUEST_APP_PHONE_MENU_QR_ENABLED",
+        isSecret: false,
+        label: "Phone menu / takeaway QR (true/false)",
+      },
+      {
+        key: "GUEST_OTP_DEBUG_IN_PROD",
+        isSecret: false,
+        label: "Guest OTP on-screen code (temp, true/false)",
+      },
+      {
+        key: "PLATFORM_DEFAULT_GUEST_THEME_KEY",
+        isSecret: false,
+        label:
+          "Default guest restaurant theme (classic|forest|ocean|spice|charcoal|sunset)",
       },
     ],
   },

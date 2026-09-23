@@ -16,28 +16,41 @@ const QA_DIR = join(ROOT, 'docs', 'qa');
 const OUT_DIR = join(QA_DIR, 'export', 'pdf');
 const HTML_DIR = join(QA_DIR, 'export', 'html');
 
+/** Sources are relative to docs/qa/ */
 const PDF_SOURCES = [
-  { src: 'WHATS_NEW.md', dest: 'Whats_New.pdf', html: 'Whats_New.html' },
-  { src: 'TESTER_HANDBOOK.md', dest: 'QA_Tester_Handbook.pdf', html: 'QA_Tester_Handbook.html' },
-  { src: 'QUICK_REFERENCE_CARD.md', dest: 'Quick_Reference_Card.pdf', html: 'Quick_Reference_Card.html' },
-  { src: 'EMPLOYEE_BRIEF.md', dest: 'Employee_Brief.pdf', html: 'Employee_Brief.html' },
+  { src: 'guides/WHATS_NEW.md', dest: 'Whats_New.pdf', html: 'Whats_New.html', title: 'Cullinos QA — What\'s New' },
+  { src: 'guides/COMPLETE_FEATURE_TEST_GUIDE.md', dest: 'Complete_Feature_Test_Guide.pdf', html: 'Complete_Feature_Test_Guide.html', title: 'Cullinos — Complete Feature Testing Guide' },
+  { src: 'guides/TESTER_HANDBOOK.md', dest: 'QA_Tester_Handbook.pdf', html: 'QA_Tester_Handbook.html', title: 'Cullinos QA Tester Handbook' },
+  { src: 'guides/MANUAL_TEST_PLAN.md', dest: 'Manual_Test_Plan.pdf', html: 'Manual_Test_Plan.html', title: 'Cullinos Manual Test Plan' },
+  { src: 'guides/QA_QUICK_START.md', dest: 'QA_Quick_Start.pdf', html: 'QA_Quick_Start.html', title: 'Cullinos QA Quick Start' },
+  { src: 'guides/QUICK_REFERENCE_CARD.md', dest: 'Quick_Reference_Card.pdf', html: 'Quick_Reference_Card.html', title: 'Cullinos QA Quick Reference' },
+  { src: 'guides/EMPLOYEE_BRIEF.md', dest: 'Employee_Brief.pdf', html: 'Employee_Brief.html', title: 'Cullinos QA Employee Brief' },
 ];
 
 const PDF_CSS = `
-  body { font-family: Segoe UI, Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #1a1a1a; max-width: 900px; margin: 0 auto; padding: 24px; }
-  h1 { color: #0F0F1A; border-bottom: 2px solid #D4A017; padding-bottom: 6px; font-size: 20pt; page-break-after: avoid; }
-  h2 { color: #0F0F1A; margin-top: 1.2em; font-size: 14pt; page-break-after: avoid; }
-  h3 { color: #333; font-size: 12pt; page-break-after: avoid; }
-  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 10pt; page-break-inside: avoid; }
-  th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+  body { font-family: Segoe UI, Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: #1a1a1a; max-width: 920px; margin: 0 auto; padding: 20px 28px; }
+  h1 { color: #0F0F1A; border-bottom: 3px solid #D4A017; padding-bottom: 8px; font-size: 20pt; page-break-after: avoid; }
+  h2 { color: #0F0F1A; margin-top: 1.35em; font-size: 13.5pt; border-left: 4px solid #D4A017; padding-left: 10px; page-break-after: avoid; }
+  h3 { color: #222; font-size: 11.5pt; margin-top: 1.1em; page-break-after: avoid; }
+  h4 { color: #333; font-size: 10.5pt; page-break-after: avoid; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0 14px; font-size: 9pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: left; vertical-align: top; }
   th { background: #D4A017; color: #0F0F1A; font-weight: 600; }
-  tr:nth-child(even) { background: #f9f9f9; }
-  code { background: #f4f4f4; padding: 1px 4px; border-radius: 3px; font-size: 9pt; }
-  pre { background: #f4f4f4; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 9pt; white-space: pre-wrap; }
-  blockquote { border-left: 3px solid #D4A017; margin: 0; padding-left: 12px; color: #555; }
-  hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
-  a { color: #0F0F1A; }
-  @media print { body { padding: 0; } }
+  tr:nth-child(even) { background: #faf8f2; }
+  code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 8.5pt; font-family: Consolas, monospace; }
+  pre { background: #1a1a1a; color: #f5f5f5; padding: 12px 14px; border-radius: 6px; overflow-x: auto; font-size: 8.5pt; white-space: pre-wrap; border-left: 4px solid #D4A017; }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  blockquote { border-left: 3px solid #D4A017; margin: 0 0 12px; padding: 6px 12px; color: #444; background: #faf8f2; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 18px 0; }
+  a { color: #0a5a8a; text-decoration: none; }
+  ul, ol { margin: 6px 0 12px; padding-left: 1.4em; }
+  li { margin: 3px 0; }
+  input[type="checkbox"] { margin-right: 6px; }
+  @media print {
+    body { padding: 0; }
+    h2, h3 { page-break-after: avoid; }
+    pre, table { page-break-inside: avoid; }
+  }
 `;
 
 /** @returns {string | undefined} */
@@ -83,10 +96,11 @@ function printHtmlToPdf(browserPath, htmlPath, pdfPath) {
       '--headless=new',
       '--disable-gpu',
       '--no-sandbox',
+      '--print-to-pdf-no-header',
       `--print-to-pdf=${pdfPath}`,
       fileUrl,
     ],
-    { encoding: 'utf8', timeout: 120000 },
+    { encoding: 'utf8', timeout: 180000 },
   );
 
   if (result.status !== 0) {
@@ -111,13 +125,16 @@ async function main() {
 
   let pdfCount = 0;
 
-  for (const { src, dest, html } of PDF_SOURCES) {
-    const title = src.replace('.md', '');
+  for (const { src, dest, html, title } of PDF_SOURCES) {
     const htmlPath = join(HTML_DIR, html);
     const pdfPath = join(OUT_DIR, dest);
 
     console.log(`Processing ${src}...`);
-    writeFileSync(htmlPath, markdownToHtml(src, title), 'utf8');
+    if (!existsSync(join(QA_DIR, src))) {
+      console.warn(`  Skip — missing ${src}`);
+      continue;
+    }
+    writeFileSync(htmlPath, markdownToHtml(src, title || src), 'utf8');
     console.log(`  Wrote ${htmlPath}`);
 
     if (browserPath) {

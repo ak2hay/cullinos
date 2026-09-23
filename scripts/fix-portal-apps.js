@@ -7,7 +7,8 @@ const portals = [
   { name: 'super-admin', port: 5183, extraDeps: {} },
   { name: 'pos', port: 5173, extraDeps: {} },
   { name: 'kds', port: 5174, extraDeps: { 'socket.io-client': '^4.8.1' } },
-  { name: 'waiter', port: 5175, extraDeps: {} },
+// DECOMMISSIONED waiter web — use apps/waiter_mobile
+//   { name: 'waiter', port: 5175, extraDeps: {} },
   { name: 'customer', port: 5176, extraDeps: {} },
 ];
 

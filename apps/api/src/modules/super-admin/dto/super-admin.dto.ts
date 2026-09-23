@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class SuperAdminLoginDto {
   @IsEmail()
@@ -6,6 +6,7 @@ export class SuperAdminLoginDto {
 
   @IsString()
   @MinLength(6)
+  @MaxLength(128)
   password!: string;
 }
 
@@ -20,4 +21,11 @@ export class ManageSubscriptionDto {
 
   @IsString()
   status!: string;
+}
+
+export class ImpersonateOrgDto {
+  @IsString()
+  @MinLength(8)
+  @MaxLength(500)
+  reason!: string;
 }

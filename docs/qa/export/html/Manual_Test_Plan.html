@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Cullinos Manual Test Plan</title>
+  <style>
+  body { font-family: Segoe UI, Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: #1a1a1a; max-width: 920px; margin: 0 auto; padding: 20px 28px; }
+  h1 { color: #0F0F1A; border-bottom: 3px solid #D4A017; padding-bottom: 8px; font-size: 20pt; page-break-after: avoid; }
+  h2 { color: #0F0F1A; margin-top: 1.35em; font-size: 13.5pt; border-left: 4px solid #D4A017; padding-left: 10px; page-break-after: avoid; }
+  h3 { color: #222; font-size: 11.5pt; margin-top: 1.1em; page-break-after: avoid; }
+  h4 { color: #333; font-size: 10.5pt; page-break-after: avoid; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0 14px; font-size: 9pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: left; vertical-align: top; }
+  th { background: #D4A017; color: #0F0F1A; font-weight: 600; }
+  tr:nth-child(even) { background: #faf8f2; }
+  code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 8.5pt; font-family: Consolas, monospace; }
+  pre { background: #1a1a1a; color: #f5f5f5; padding: 12px 14px; border-radius: 6px; overflow-x: auto; font-size: 8.5pt; white-space: pre-wrap; border-left: 4px solid #D4A017; }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  blockquote { border-left: 3px solid #D4A017; margin: 0 0 12px; padding: 6px 12px; color: #444; background: #faf8f2; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 18px 0; }
+  a { color: #0a5a8a; text-decoration: none; }
+  ul, ol { margin: 6px 0 12px; padding-left: 1.4em; }
+  li { margin: 3px 0; }
+  input[type="checkbox"] { margin-right: 6px; }
+  @media print {
+    body { padding: 0; }
+    h2, h3 { page-break-after: avoid; }
+    pre, table { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body><h1 id="cullinos-production-manual-test-plan">Cullinos Production Manual Test Plan</h1>
+<p>Full functionality manual QA for production, starting from a <strong>fresh tenant</strong> onboarded via Super Admin.</p>
+<p><strong>Environment:</strong> Production<br><strong>Tenant:</strong> New restaurant (Enterprise plan)<br><strong>Staff:</strong> 1 employee (Waiter role)</p>
+<p><strong>Exhaustive click-paths:</strong> <a href="./COMPLETE_FEATURE_TEST_GUIDE.md">COMPLETE_FEATURE_TEST_GUIDE.md</a> · <strong>Score sheet:</strong> <a href="../sheets/TEST_RUN_SHEET.md">TEST_RUN_SHEET.md</a> (<strong>190</strong> cases)</p>
+<hr>
+<h2 id="table-of-contents">Table of contents</h2>
+<ol>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#phase-0--preflight">Phase 0 — Preflight</a></li>
+<li><a href="#phase-1--tenant-bootstrap">Phase 1 — Tenant bootstrap</a></li>
+<li><a href="#phase-2--core-operational-workflows">Phase 2 — Core operational workflows</a></li>
+<li><a href="#phase-3--admin-back-office">Phase 3 — Admin back office</a></li>
+<li><a href="#phase-4--enterprise-management">Phase 4 — Enterprise Management</a></li>
+<li><a href="#phase-5--super-admin-platform-ops">Phase 5 — Super Admin platform ops</a></li>
+<li><a href="#phase-6--marketing-website">Phase 6 — Marketing website</a></li>
+<li><a href="#phase-7--api-smoke-swagger">Phase 7 — API smoke (Swagger)</a></li>
+<li><a href="#out-of-scope--expected-na-items">Out of scope / expected N/A items</a></li>
+</ol>
+<hr>
+<h2 id="overview">Overview</h2>
+<h3 id="test-approach">Test approach</h3>
+<p>One QA lead switches between roles (Super Admin, Owner, Guest) while one employee tests floor operations (Waiter). Record all credentials in <a href="../sheets/CREDENTIALS_LOG.md">CREDENTIALS_LOG.md</a>, defects in <a href="../sheets/BUG_LOG.md">BUG_LOG.md</a>, and results in <a href="../sheets/TEST_RUN_SHEET.md">TEST_RUN_SHEET.md</a>.</p>
+<h3 id="production-constraints">Production constraints</h3>
+<table>
+<thead>
+<tr>
+<th>Constraint</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>POS / KDS hosted</td>
+<td><a href="https://pos.cullinos.com">https://pos.cullinos.com</a> and <a href="https://kds.cullinos.com">https://kds.cullinos.com</a></td>
+</tr>
+<tr>
+<td>Admin Portal POS</td>
+<td><a href="https://admin.cullinos.com/pos">https://admin.cullinos.com/pos</a> (requires POS_ACCESS)</td>
+</tr>
+<tr>
+<td>Business-type nav</td>
+<td>Banquets / Brands / Guests / Rooms may be hidden on restaurant → N/A</td>
+</tr>
+<tr>
+<td>Razorpay pay-now</td>
+<td>N/A unless production keys configured</td>
+</tr>
+</tbody></table>
+<h3 id="phase-flow">Phase flow</h3>
+<pre><code class="language-mermaid">flowchart TD
+  subgraph phase0 [Phase 0 - Preflight]
+    Health[API health checks]
+    SuperLogin[Super Admin login]
+  end
+  subgraph phase1 [Phase 1 - Tenant bootstrap]
+    Onboard[Onboard restaurant Enterprise plan]
+    OwnerLogin[Owner first login]
+    Wizard[Onboarding wizard]
+    MenuStaff[Menu plus 1 staff account]
+  end
+  subgraph phase2 [Phase 2 - Core ops]
+    WaiterFlow[Waiter table order]
+    KDSVerify[KDS kitchen display]
+    POSFlow[POS counter order]
+    PortalPos[Admin Portal POS]
+    CustomerFlow[Guest online order]
+    CdsFlow[Order Display CDS]
+  end
+  subgraph phase3 [Phase 3 - Back office]
+    AdminModules[Admin dashboard menu orders tables inventory]
+    NewModules[Recipes loyalty delivery promo billing]
+    EventsProd[Events or Production by business type]
+    ManagementEnt[Management multi-outlet if 2nd outlet added]
+  end
+  subgraph phase4 [Phase 4 - Platform]
+    SuperOps[Tenant suspend activate subscription plans]
+    MarketingCMS[Marketing CMS plus public site]
+  end
+  phase0 --&gt; phase1 --&gt; phase2 --&gt; phase3 --&gt; phase4
+</code></pre>
+<hr>
+<h2 id="phase-0--preflight">Phase 0 — Preflight</h2>
+<p><strong>Goal:</strong> Confirm production is healthy and tooling is ready.</p>
+<h3 id="production-urls">Production URLs</h3>
+<table>
+<thead>
+<tr>
+<th>App</th>
+<th>URL</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>API health</td>
+<td><a href="https://api.cullinos.com/api/v1/health">https://api.cullinos.com/api/v1/health</a></td>
+</tr>
+<tr>
+<td>API DB health</td>
+<td><a href="https://api.cullinos.com/api/v1/health/db">https://api.cullinos.com/api/v1/health/db</a></td>
+</tr>
+<tr>
+<td>Swagger</td>
+<td><a href="https://api.cullinos.com/docs">https://api.cullinos.com/docs</a></td>
+</tr>
+<tr>
+<td>Super Admin</td>
+<td><a href="https://platform.cullinos.com">https://platform.cullinos.com</a></td>
+</tr>
+<tr>
+<td>Admin</td>
+<td><a href="https://admin.cullinos.com">https://admin.cullinos.com</a></td>
+</tr>
+<tr>
+<td>Management</td>
+<td><a href="https://manage.cullinos.com">https://manage.cullinos.com</a></td>
+</tr>
+<tr>
+<td>Waiter</td>
+<td>Cullinos Waiter Android app</td>
+</tr>
+<tr>
+<td>Cullinos App</td>
+<td><a href="https://guest.cullinos.com/%7BorgSlug%7D/%7BoutletSlug%7D">https://guest.cullinos.com/{orgSlug}/{outletSlug}</a></td>
+</tr>
+<tr>
+<td>Marketing</td>
+<td><a href="https://cullinos.com">https://cullinos.com</a></td>
+</tr>
+</tbody></table>
+<h3 id="steps">Steps</h3>
+<ol>
+<li>Open API health URL in browser — expect JSON with healthy status.</li>
+<li>Open API DB health URL — expect database connectivity OK.</li>
+<li>Login to Super Admin — confirm dashboard loads.</li>
+<li>Prepare run folder: <code>docs/qa/runs/RUN-YYYYMMDD/</code> with copied templates.</li>
+<li>Prepare two browsers (main + incognito).</li>
+<li>Optional: start local POS/KDS with <code>VITE_API_URL=https://api.cullinos.com/api/v1</code>.</li>
+</ol>
+<h3 id="naming-convention-fresh-tenant">Naming convention (fresh tenant)</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Restaurant name</td>
+<td>QA Test Kitchen</td>
+</tr>
+<tr>
+<td>Owner email</td>
+<td><a href="mailto:&#x71;&#x61;&#x2d;&#x6f;&#119;&#110;&#101;&#x72;&#43;&#x32;&#48;&#x32;&#x36;&#48;&#x38;&#x33;&#48;&#x40;&#x79;&#x6f;&#x75;&#x72;&#100;&#x6f;&#x6d;&#97;&#x69;&#110;&#x2e;&#99;&#111;&#109;">&#x71;&#x61;&#x2d;&#x6f;&#119;&#110;&#101;&#x72;&#43;&#x32;&#48;&#x32;&#x36;&#48;&#x38;&#x33;&#48;&#x40;&#x79;&#x6f;&#x75;&#x72;&#100;&#x6f;&#x6d;&#97;&#x69;&#110;&#x2e;&#99;&#111;&#109;</a></td>
+</tr>
+<tr>
+<td>Staff email</td>
+<td><a href="mailto:&#113;&#97;&#x2d;&#119;&#97;&#105;&#x74;&#x65;&#x72;&#43;&#50;&#x30;&#x32;&#54;&#48;&#56;&#51;&#48;&#64;&#121;&#111;&#117;&#x72;&#100;&#x6f;&#x6d;&#x61;&#105;&#x6e;&#x2e;&#99;&#x6f;&#x6d;">&#113;&#97;&#x2d;&#119;&#97;&#105;&#x74;&#x65;&#x72;&#43;&#50;&#x30;&#x32;&#54;&#48;&#56;&#51;&#48;&#64;&#121;&#111;&#117;&#x72;&#100;&#x6f;&#x6d;&#x61;&#105;&#x6e;&#x2e;&#99;&#x6f;&#x6d;</a></td>
+</tr>
+<tr>
+<td>Plan</td>
+<td>enterprise</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="phase-1--tenant-bootstrap">Phase 1 — Tenant bootstrap</h2>
+<p><strong>Goal:</strong> Create a new restaurant tenant and minimum test data.</p>
+<h3 id="11-super-admin--onboard-restaurant">1.1 Super Admin — Onboard restaurant</h3>
+<p><strong>App:</strong> <a href="https://platform.cullinos.com">https://platform.cullinos.com</a><br><strong>Route:</strong> <code>/</code> (Tenants)</p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>Login with Super Admin credentials.</li>
+<li>Click <strong>Onboard restaurant</strong>.</li>
+<li>Fill the form:<ul>
+<li>Restaurant name (e.g. QA Test Kitchen)</li>
+<li>First outlet name (e.g. Main Outlet)</li>
+<li>Plan: <strong>enterprise</strong></li>
+<li>Owner name, email, password</li>
+</ul>
+</li>
+<li>Submit and copy the success message (owner email + Admin URL).</li>
+<li>Record org slug, outlet slug, and credentials in Credentials Log.</li>
+<li>Verify new tenant appears in list with <strong>active</strong> status.</li>
+</ol>
+<p><strong>Expected:</strong></p>
+<ul>
+<li>Tenant created with default outlet and subscription.</li>
+<li>Owner can log in at <a href="https://admin.cullinos.com">https://admin.cullinos.com</a>.</li>
+</ul>
+<h3 id="12-owner--first-login-and-onboarding-wizard">1.2 Owner — First login and onboarding wizard</h3>
+<p><strong>App:</strong> <a href="https://admin.cullinos.com">https://admin.cullinos.com</a><br><strong>Route:</strong> <code>/onboarding</code></p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>Login with owner credentials from onboarding.</li>
+<li>Navigate to <strong>Setup</strong> (<code>/onboarding</code>) if not redirected automatically.</li>
+<li>Select business type: <strong>restaurant</strong> (full-service, includes tables step).</li>
+<li>Complete wizard steps:<ul>
+<li><strong>Business info:</strong> name, GSTIN (test: <code>27AAAAA0000A1Z5</code>)</li>
+<li><strong>Menu setup:</strong> note recommended categories</li>
+<li><strong>Tables:</strong> follow wizard guidance</li>
+<li><strong>Tax &amp; GST:</strong> follow wizard guidance</li>
+<li><strong>Staff:</strong> follow wizard guidance</li>
+<li><strong>Done:</strong> reach completion step</li>
+</ul>
+</li>
+<li>Record business type and operating mode in Credentials Log.</li>
+</ol>
+<p><strong>Expected:</strong></p>
+<ul>
+<li>Wizard saves settings without error.</li>
+<li>Owner lands on Done step.</li>
+</ul>
+<h3 id="13-owner--seed-minimum-test-data">1.3 Owner — Seed minimum test data</h3>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Route</th>
+<th>Minimum data</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Menu</td>
+<td><code>/menu</code></td>
+<td>2 categories, 4+ items (mix veg/non-veg, varied prices)</td>
+</tr>
+<tr>
+<td>Tables</td>
+<td><code>/tables</code></td>
+<td>2+ tables (e.g. T1, T2) via Admin UI</td>
+</tr>
+<tr>
+<td>Staff</td>
+<td><code>/staff</code></td>
+<td>1 <strong>Waiter</strong> + 1 <strong>Cashier</strong> (for POS), assigned to main outlet</td>
+</tr>
+<tr>
+<td>Settings</td>
+<td><code>/settings</code></td>
+<td>Confirm businessType, operatingMode, enabledOrderTypes</td>
+</tr>
+<tr>
+<td>2nd outlet (optional)</td>
+<td>Swagger</td>
+<td>Add second outlet for Management stock transfer tests</td>
+</tr>
+</tbody></table>
+<p><strong>Staff creation steps:</strong></p>
+<ol>
+<li>Admin → Staff → <strong>Add staff member</strong></li>
+<li>Name, email, password, role: Waiter</li>
+<li>Assign main outlet</li>
+<li>Submit — record credentials in Credentials Log (password ref only)</li>
+<li>Repeat for <strong>Cashier</strong> (POS at pos.cullinos.com and Admin <code>/pos</code>)</li>
+</ol>
+<p><strong>Auth recovery (Phase 1.4):</strong></p>
+<ul>
+<li>Admin <code>/forgot-password</code> and Super Admin <code>/forgot-password</code> — page loads, accepts email (do not need to complete mailbox delivery)</li>
+<li>Owner <code>/change-password</code> — page reachable after login</li>
+</ul>
+<hr>
+<h2 id="phase-2--core-operational-workflows">Phase 2 — Core operational workflows</h2>
+<p><strong>Goal:</strong> Verify end-to-end order flows across customer-facing and staff apps.</p>
+<p>Record order IDs, timestamps, and screenshots on failure in Bug Log.</p>
+<h3 id="21-dine-in-waiter-order--qr-guest-ordering-→-kds">2.1 Dine-in: Waiter order + QR guest ordering → KDS</h3>
+<pre><code class="language-mermaid">sequenceDiagram
+  participant W as WaiterApp
+  participant G as GuestPhone
+  participant API as ProductionAPI
+  participant K as KDS
+  W-&gt;&gt;API: Start table session show QR
+  G-&gt;&gt;API: Scan session link add items submit
+  API-&gt;&gt;K: KOT via WebSocket
+  W-&gt;&gt;API: View table order end session
+</code></pre>
+<p><strong>Apps:</strong> Waiter, Customer (session QR), KDS (<code>https://kds.cullinos.com</code>), Admin</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Action</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Employee logs into Cullinos Waiter Android app</td>
+<td>Login succeeds</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Select main outlet</td>
+<td>Table grid visible</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Tap table → <strong>Show QR to customers</strong></td>
+<td>QR modal with session link</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Open QR link on phone (incognito)</td>
+<td>Menu loads; “Ordering for Table …”</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Guest adds items → checkout</td>
+<td>Order sent to kitchen</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Waiter <strong>View table order</strong></td>
+<td>Same order shows guest items</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Open <a href="https://kds.cullinos.com">https://kds.cullinos.com</a> (kitchen login)</td>
+<td>KOT card appears</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Waiter <strong>End session</strong></td>
+<td>Guest link shows expired on refresh</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Alt: <strong>Take order on waiter app</strong></td>
+<td>Waiter adds items directly (same table order)</td>
+</tr>
+</tbody></table>
+<h3 id="22-counter--takeaway-pos">2.2 Counter / takeaway: POS</h3>
+<p><strong>App:</strong> <a href="https://pos.cullinos.com">https://pos.cullinos.com</a></p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Action</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Open POS URL, login as Cashier</td>
+<td>POS loads with outlet</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Browse menu, add items, set takeaway</td>
+<td>Cart subtotal correct</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Hold order</td>
+<td>Order appears in held panel</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Resume held order</td>
+<td>Cart restores</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Checkout (quick order)</td>
+<td>Order confirmed</td>
+</tr>
+</tbody></table>
+<h3 id="23-guest-online-ordering-customer-app">2.3 Guest online ordering: Customer app</h3>
+<p><strong>URL:</strong> <code>https://guest.cullinos.com/{orgSlug}/{outletSlug}</code></p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Action</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Open storefront in incognito</td>
+<td>Menu categories and items from Phase 1</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Add items (with modifiers if available)</td>
+<td>Cart badge updates</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Go to cart</td>
+<td>Items and totals correct</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Checkout — enter name, phone</td>
+<td>Form validates</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Optional: scheduled pickup, tip</td>
+<td>Fields accept input</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Pay later (default)</td>
+<td>Order placed; confirmation shown</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Admin → <code>/orders</code></td>
+<td>Online/QR source order visible</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Session QR flow (waiter generates QR, guest orders)</td>
+<td>Items merge into table order; KOT on KDS</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Open customer login modal</td>
+<td>Modal opens; guest can still checkout without login</td>
+</tr>
+</tbody></table>
+<p><strong>Pay now (Razorpay):</strong> Test only if keys configured; otherwise N/A.</p>
+<h3 id="24-displays-hub--order-display-cds">2.4 Displays hub &amp; Order Display (CDS)</h3>
+<p><strong>Admin route:</strong> <code>/displays</code> (legacy <code>/cds</code>, <code>/pickup-queue</code>, <code>/kds</code>, <code>/promo-display</code> redirect here)</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Action</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Admin → Displays (<code>/displays</code>)</td>
+<td>Page loads with KDS / CDS / Pickup / Promo URLs</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Copy CDS or Pickup URL and open</td>
+<td>Public board loads without staff login</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Place counter/online order</td>
+<td>Appears in Preparing</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Mark ready on KDS</td>
+<td>Moves to Ready column</td>
+</tr>
+</tbody></table>
+<h3 id="25-admin-portal-pos">2.5 Admin Portal POS</h3>
+<p><strong>App:</strong> <a href="https://admin.cullinos.com/pos">https://admin.cullinos.com/pos</a> (owner or staff with <code>POS_ACCESS</code>)</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Action</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Open <code>/pos</code> as owner</td>
+<td>Portal POS loads</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Add items, hold, resume</td>
+<td>Cart restores from held panel</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Checkout</td>
+<td>Order confirmed and listed in Admin Orders</td>
+</tr>
+</tbody></table>
+<h3 id="26-digital-ordering-kiosk-launcher">2.6 Digital Ordering (kiosk) launcher</h3>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Action</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Admin → <code>/kiosk</code></td>
+<td>Launcher page loads</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Copy / open storefront or kiosk URL</td>
+<td>Storefront usable</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="phase-3--admin-back-office">Phase 3 — Admin back office</h2>
+<p><strong>App:</strong> <a href="https://admin.cullinos.com">https://admin.cullinos.com</a><br><strong>Role:</strong> Owner<br><strong>Detail steps:</strong> <a href="./COMPLETE_FEATURE_TEST_GUIDE.md">COMPLETE_FEATURE_TEST_GUIDE.md</a></p>
+<p>Test each module after Phase 2 orders exist (for meaningful dashboard/reports data).</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Route</th>
+<th>Test focus</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dashboard</td>
+<td><code>/</code></td>
+<td>KPIs: revenue, orders, AOV, payment breakdown</td>
+<td>Numbers reflect test orders</td>
+</tr>
+<tr>
+<td>Menu</td>
+<td><code>/menu</code></td>
+<td>Categories, items, combos, schedules, outlet prices</td>
+<td>Changes visible on Waiter/Guest</td>
+</tr>
+<tr>
+<td>Orders</td>
+<td><code>/orders</code></td>
+<td>List all test orders; check status, source, total</td>
+<td>All Phase 2 orders present</td>
+</tr>
+<tr>
+<td>Tables</td>
+<td><code>/tables</code></td>
+<td>Create/edit tables; QR</td>
+<td>Real UI</td>
+</tr>
+<tr>
+<td>Reservations</td>
+<td><code>/reservations</code></td>
+<td>Create reservation; copy book link</td>
+<td>TABLES feature</td>
+</tr>
+<tr>
+<td>Inventory</td>
+<td><code>/inventory</code></td>
+<td>List stock; add or adjust item</td>
+<td>Real UI</td>
+</tr>
+<tr>
+<td>Customers</td>
+<td><code>/customers</code></td>
+<td>Create / search; stamps</td>
+<td></td>
+</tr>
+<tr>
+<td>Loyalty</td>
+<td><code>/loyalty</code></td>
+<td>Settings, tiers, rewards</td>
+<td>Size-gated</td>
+</tr>
+<tr>
+<td>Coupons</td>
+<td><code>/coupons</code></td>
+<td>Create / deactivate</td>
+<td></td>
+</tr>
+<tr>
+<td>Recipes</td>
+<td><code>/recipes</code></td>
+<td>Create recipe; appears in list</td>
+<td></td>
+</tr>
+<tr>
+<td>Purchasing / Suppliers</td>
+<td><code>/purchasing</code>, <code>/suppliers</code></td>
+<td>Draft PO; add supplier</td>
+<td></td>
+</tr>
+<tr>
+<td>Central kitchen</td>
+<td><code>/central-kitchen</code></td>
+<td>Hub / indent</td>
+<td>Often N/A</td>
+</tr>
+<tr>
+<td>Delivery</td>
+<td><code>/delivery</code></td>
+<td>Add zone / list</td>
+<td>May be empty</td>
+</tr>
+<tr>
+<td>Aggregators</td>
+<td><code>/aggregators</code></td>
+<td>Swiggy/Zomato tabs</td>
+<td>N/A without credentials</td>
+</tr>
+<tr>
+<td>Payments</td>
+<td><code>/payments</code></td>
+<td>Razorpay / Cashfree Save</td>
+<td>N/A without keys</td>
+</tr>
+<tr>
+<td>App listing / Banners / SMS</td>
+<td><code>/marketplace</code>, <code>/guest-banners</code>, <code>/sms-campaigns</code></td>
+<td>Cullinos App marketing</td>
+<td></td>
+</tr>
+<tr>
+<td>Billing</td>
+<td><code>/billing</code></td>
+<td>Page loads</td>
+<td>Subscription / invoices</td>
+</tr>
+<tr>
+<td>Events</td>
+<td><code>/events</code></td>
+<td>Create event</td>
+<td></td>
+</tr>
+<tr>
+<td>Production</td>
+<td><code>/production</code></td>
+<td>Schedule / complete batch</td>
+<td>May be N/A</td>
+</tr>
+<tr>
+<td>Displays</td>
+<td><code>/displays</code></td>
+<td>Copy KDS / CDS / Pickup / Promo URLs</td>
+<td>Unified hub</td>
+</tr>
+<tr>
+<td>Digital Ordering</td>
+<td><code>/kiosk</code></td>
+<td>Launcher shows storefront URL</td>
+<td></td>
+</tr>
+<tr>
+<td>Banquets</td>
+<td><code>/banquets</code></td>
+<td>Page loads</td>
+<td><strong>N/A</strong> on restaurant tenant</td>
+</tr>
+<tr>
+<td>Brands</td>
+<td><code>/brands</code></td>
+<td>Page loads</td>
+<td><strong>N/A</strong> on restaurant tenant</td>
+</tr>
+<tr>
+<td>Guests</td>
+<td><code>/hospitality/guests</code></td>
+<td>Page loads</td>
+<td><strong>N/A</strong> on restaurant tenant</td>
+</tr>
+<tr>
+<td>Rooms</td>
+<td><code>/hospitality/rooms</code></td>
+<td>Page loads</td>
+<td><strong>N/A</strong> on restaurant tenant</td>
+</tr>
+<tr>
+<td>Staff</td>
+<td><code>/staff</code></td>
+<td>Employees listed; Waiter without POS denied <code>/pos</code></td>
+<td></td>
+</tr>
+<tr>
+<td>Reports</td>
+<td><code>/reports</code></td>
+<td>Revenue, tabs, Export</td>
+<td>Non-zero after test orders</td>
+</tr>
+<tr>
+<td>Settings</td>
+<td><code>/settings</code></td>
+<td>Form Save; location / tax / device</td>
+<td>Not a JSON editor</td>
+</tr>
+<tr>
+<td>Onboarding</td>
+<td><code>/onboarding</code></td>
+<td>Revisit wizard; Complete setup seeds categories</td>
+<td></td>
+</tr>
+<tr>
+<td>Login</td>
+<td><code>/login</code></td>
+<td>Logout and re-login</td>
+<td>Session persists correctly</td>
+</tr>
+</tbody></table>
+<p><strong>Note:</strong> Promo Email is Super Admin <code>/promo-email</code> only — not an Admin route.</p>
+<h2 id="phase-4--enterprise-management">Phase 4 — Enterprise Management</h2>
+<p><strong>App:</strong> <a href="https://manage.cullinos.com">https://manage.cullinos.com</a><br><strong>Role:</strong> Owner<br><strong>Requires:</strong> Enterprise plan (set during onboarding)</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Route</th>
+<th>Test focus</th>
+<th>Blocked if</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Overview</td>
+<td><code>/</code></td>
+<td>Consolidated KPIs, payment mix, hourly breakdown</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Reports</td>
+<td><code>/reports</code></td>
+<td>Network-level report loads</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Outlet Comparison</td>
+<td><code>/comparison</code></td>
+<td>Cross-outlet metrics</td>
+<td>Only 1 outlet</td>
+</tr>
+<tr>
+<td>Stock Transfer</td>
+<td><code>/stock-transfer</code></td>
+<td>Create transfer between outlets</td>
+<td>Only 1 outlet</td>
+</tr>
+<tr>
+<td>Franchise</td>
+<td><code>/franchise</code></td>
+<td>Franchisee list</td>
+<td>May be empty on fresh tenant</td>
+</tr>
+</tbody></table>
+<p><strong>If only one outlet:</strong> Add second outlet via Swagger, then retest comparison and stock transfer.</p>
+<hr>
+<h2 id="phase-5--super-admin-platform-ops">Phase 5 — Super Admin platform ops</h2>
+<p><strong>App:</strong> <a href="https://platform.cullinos.com">https://platform.cullinos.com</a><br><strong>Role:</strong> Super Admin<br><strong>Safety:</strong> Use QA tenant only for destructive actions.</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Route</th>
+<th>Test focus</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Tenants</td>
+<td><code>/</code></td>
+<td>Find QA tenant in list</td>
+</tr>
+<tr>
+<td>Onboard</td>
+<td>modal</td>
+<td>Completed in Phase 1 — verify tenant details</td>
+</tr>
+<tr>
+<td>Plans</td>
+<td><code>/plans</code></td>
+<td>Plans list / editor loads</td>
+</tr>
+<tr>
+<td>Subscriptions</td>
+<td><code>/subscriptions</code></td>
+<td>Change plan for QA tenant; verify entitlements</td>
+</tr>
+<tr>
+<td>Promo Email</td>
+<td><code>/promo-email</code></td>
+<td>Page loads</td>
+</tr>
+<tr>
+<td>Guest App Ops overview</td>
+<td><code>/guest-ops</code></td>
+<td>KPIs load; maintenance alert if set</td>
+</tr>
+<tr>
+<td>Marketplace</td>
+<td><code>/guest-ops/marketplace</code></td>
+<td>List outlets; toggle featured / unlist</td>
+</tr>
+<tr>
+<td>Discover CMS</td>
+<td><code>/guest-ops/discover</code></td>
+<td>Create a section; appears in Guest Discover after refresh</td>
+</tr>
+<tr>
+<td>Banners</td>
+<td><code>/guest-ops/banners</code></td>
+<td>Create platform banner; deactivate org banner</td>
+</tr>
+<tr>
+<td>Push</td>
+<td><code>/guest-ops/push</code></td>
+<td>Draft + send (or schedule) campaign</td>
+</tr>
+<tr>
+<td>Offers</td>
+<td><code>/guest-ops/offers</code></td>
+<td>Create coupon; toggle marketplace featured</td>
+</tr>
+<tr>
+<td>Reviews</td>
+<td><code>/guest-ops/reviews</code></td>
+<td>Hide / restore a review</td>
+</tr>
+<tr>
+<td>Guest users</td>
+<td><code>/guest-ops/users</code></td>
+<td>Search user; open detail; export JSON</td>
+</tr>
+<tr>
+<td>Analytics</td>
+<td><code>/guest-ops/analytics</code></td>
+<td>Summary cards load</td>
+</tr>
+<tr>
+<td>Runtime</td>
+<td><code>/guest-ops/runtime</code></td>
+<td>Save soft-update message; preview app-config</td>
+</tr>
+<tr>
+<td>Settings</td>
+<td><code>/settings</code></td>
+<td>Platform settings page loads</td>
+</tr>
+<tr>
+<td>System Health</td>
+<td><code>/health</code></td>
+<td>Platform metrics load (orgs, orders, sync)</td>
+</tr>
+<tr>
+<td>Forgot password</td>
+<td><code>/forgot-password</code></td>
+<td>Page loads (logged out)</td>
+</tr>
+<tr>
+<td>Marketing CMS</td>
+<td><code>/marketing</code></td>
+<td>Dashboard loads</td>
+</tr>
+<tr>
+<td>Hero editor</td>
+<td><code>/marketing/hero</code></td>
+<td>Edit and save draft</td>
+</tr>
+<tr>
+<td>Pages editor</td>
+<td><code>/marketing/pages</code></td>
+<td>Edit page content</td>
+</tr>
+<tr>
+<td>Theme editor</td>
+<td><code>/marketing/theme</code></td>
+<td>View/edit theme tokens</td>
+</tr>
+<tr>
+<td>Pricing editor</td>
+<td><code>/marketing/pricing</code></td>
+<td>View/edit pricing tiers</td>
+</tr>
+<tr>
+<td>Navigation editor</td>
+<td><code>/marketing/navigation</code></td>
+<td>View/edit nav links</td>
+</tr>
+<tr>
+<td>Testimonials</td>
+<td><code>/marketing/testimonials</code></td>
+<td>Editor loads</td>
+</tr>
+<tr>
+<td>Blog editor</td>
+<td><code>/marketing/blog</code></td>
+<td>Create/edit draft post</td>
+</tr>
+<tr>
+<td>Media library</td>
+<td><code>/marketing/media</code></td>
+<td>Upload or list media</td>
+</tr>
+<tr>
+<td>Design lab</td>
+<td><code>/marketing/design-lab</code></td>
+<td>Page loads</td>
+</tr>
+</tbody></table>
+<h3 id="destructive-tests-qa-tenant-only">Destructive tests (QA tenant only)</h3>
+<ol>
+<li><strong>Suspend tenant</strong> — provide reason, confirm owner cannot login to Admin.</li>
+<li><strong>Reactivate tenant</strong> — confirm owner can login again.</li>
+<li>Document any unexpected behavior in Bug Log.</li>
+</ol>
+<p><strong>Do not</strong> publish breaking marketing CMS changes to production without approval.</p>
+<hr>
+<h2 id="phase-6--marketing-website">Phase 6 — Marketing website</h2>
+<p><strong>App:</strong> <a href="https://cullinos.com">https://cullinos.com</a> (public, no login)</p>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Path</th>
+<th>Check</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Home</td>
+<td><code>/</code></td>
+<td>Hero, CTAs, navigation</td>
+</tr>
+<tr>
+<td>Features</td>
+<td><code>/features</code></td>
+<td>Content renders</td>
+</tr>
+<tr>
+<td>Pricing</td>
+<td><code>/pricing</code></td>
+<td>Plans/pricing visible</td>
+</tr>
+<tr>
+<td>Integrations</td>
+<td><code>/integrations</code></td>
+<td>Page loads</td>
+</tr>
+<tr>
+<td>About</td>
+<td><code>/about</code></td>
+<td>Page loads</td>
+</tr>
+<tr>
+<td>Blog index</td>
+<td><code>/blog</code></td>
+<td>Post list loads</td>
+</tr>
+<tr>
+<td>Blog article</td>
+<td><code>/blog/[slug]</code></td>
+<td>At least one article readable</td>
+</tr>
+<tr>
+<td>Contact</td>
+<td><code>/contact</code></td>
+<td>Form submits or graceful error without Resend</td>
+</tr>
+<tr>
+<td>Privacy</td>
+<td><code>/privacy</code></td>
+<td>Legal content</td>
+</tr>
+<tr>
+<td>Terms</td>
+<td><code>/terms</code></td>
+<td>Legal content</td>
+</tr>
+<tr>
+<td>Solutions — Restaurants</td>
+<td><code>/solutions/restaurants</code></td>
+<td>Vertical page loads</td>
+</tr>
+<tr>
+<td>Solutions — Cafes</td>
+<td><code>/solutions/cafes</code></td>
+<td>Vertical page loads</td>
+</tr>
+<tr>
+<td>Solutions — Food trucks</td>
+<td><code>/solutions/food-trucks</code></td>
+<td>Vertical page loads</td>
+</tr>
+<tr>
+<td>Solutions — Bakeries</td>
+<td><code>/solutions/bakeries</code></td>
+<td>Vertical page loads</td>
+</tr>
+<tr>
+<td>Solutions — Chains</td>
+<td><code>/solutions/chains</code></td>
+<td>Vertical page loads</td>
+</tr>
+<tr>
+<td>Solutions — Hospitality</td>
+<td><code>/solutions/hospitality</code></td>
+<td>Vertical page loads</td>
+</tr>
+</tbody></table>
+<p><strong>CMS cross-check:</strong> If Super Admin marketing edits were saved, verify they appear on the public site after revalidation (if configured).</p>
+<hr>
+<h2 id="phase-7--api-smoke-swagger">Phase 7 — API smoke (Swagger)</h2>
+<p><strong>Tool:</strong> <a href="https://api.cullinos.com/docs">https://api.cullinos.com/docs</a><br><strong>Auth:</strong> Owner JWT from browser DevTools (Network tab after Admin login) or <code>POST /api/v1/auth/login</code>.</p>
+<p>Recipes, Delivery, and Hospitality also have Admin UIs — Swagger remains a valid smoke path.</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>API prefix</th>
+<th>Smoke test</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Billing</td>
+<td><code>/billing</code></td>
+<td>List invoices for a test order</td>
+</tr>
+<tr>
+<td>KOT</td>
+<td><code>/kot</code></td>
+<td>List kitchen tickets for outlet</td>
+</tr>
+<tr>
+<td>Tax</td>
+<td><code>/tax</code></td>
+<td>Get tax configuration</td>
+</tr>
+<tr>
+<td>Recipes</td>
+<td><code>/recipes</code></td>
+<td>Create and list one recipe</td>
+</tr>
+<tr>
+<td>Purchasing</td>
+<td><code>/purchasing</code></td>
+<td>Create purchase order draft</td>
+</tr>
+<tr>
+<td>Wastage</td>
+<td><code>/wastage</code></td>
+<td>Log one wastage entry</td>
+</tr>
+<tr>
+<td>Delivery</td>
+<td><code>/delivery</code></td>
+<td>List delivery orders</td>
+</tr>
+<tr>
+<td>Hospitality</td>
+<td><code>/hospitality</code></td>
+<td>Create guest and room (Enterprise)</td>
+</tr>
+<tr>
+<td>Audit</td>
+<td><code>/audit</code></td>
+<td>Recent entries after admin actions</td>
+</tr>
+<tr>
+<td>Notifications</td>
+<td><code>/notifications</code></td>
+<td>List notifications</td>
+</tr>
+<tr>
+<td>Devices</td>
+<td><code>/devices</code></td>
+<td>List registered devices</td>
+</tr>
+<tr>
+<td>Integrations</td>
+<td><code>/integrations</code></td>
+<td>List integrations</td>
+</tr>
+<tr>
+<td>Insights</td>
+<td><code>/insights</code></td>
+<td>Fetch insights payload</td>
+</tr>
+<tr>
+<td>Sync</td>
+<td><code>/sync</code></td>
+<td>Document only — API endpoint for device sync</td>
+</tr>
+</tbody></table>
+<p>Record HTTP status and response shape in TEST_RUN_SHEET notes column.</p>
+<hr>
+<h2 id="out-of-scope--expected-na-items">Out of scope / expected N/A items</h2>
+<p>Document these as <strong>Known limitations</strong>, not defects:</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Razorpay pay-now</td>
+<td>Requires production payment keys — use Pay later</td>
+</tr>
+<tr>
+<td>Banquets / Brands / Guests / Rooms on restaurant tenant</td>
+<td>Hidden by business-type nav — mark N/A</td>
+</tr>
+<tr>
+<td>Outlet comparison / stock transfer</td>
+<td>Needs 2+ outlets</td>
+</tr>
+<tr>
+<td>Gateway offline sync</td>
+<td>Needs Electron app on restaurant LAN</td>
+</tr>
+<tr>
+<td>Marketing CMS publish to live site</td>
+<td>Needs team lead approval before publish</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="sign-off-criteria">Sign-off criteria</h2>
+<p>A run is <strong>complete</strong> when:</p>
+<ul>
+<li><input disabled="" type="checkbox"> All TEST_RUN_SHEET cases marked Pass, Fail, Blocked, or N/A</li>
+<li><input disabled="" type="checkbox"> Credentials Log filled (references only, no plaintext passwords in git)</li>
+<li><input disabled="" type="checkbox"> All Fail/Blocked cases have Bug Log entries</li>
+<li><input disabled="" type="checkbox"> Known limitations documented separately from open bugs</li>
+<li><input disabled="" type="checkbox"> Sign-off block completed in TEST_RUN_SHEET</li>
+</ul>
+</body>
+</html>

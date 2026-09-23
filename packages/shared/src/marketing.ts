@@ -5,8 +5,9 @@ export const MARKETING_URLS = {
   admin: 'https://admin.cullinos.com',
   register: 'https://cullinos.com/contact?intent=trial',
   manage: 'https://manage.cullinos.com',
-  order: 'https://order.cullinos.com',
-  waiter: 'https://waiter.cullinos.com',
+  order: 'https://guest.cullinos.com',
+  waiter: 'https://waiter.cullinos.com', // Play Store landing for Cullinos Waiter
+  guest: 'https://guest.cullinos.com',
   api: 'https://api.cullinos.com',
 } as const;
 
@@ -163,29 +164,29 @@ export const PRODUCT_MODULES = [
   },
   {
     title: 'Front of House',
-    description: 'Waiter app and table management for faster service and fewer errors.',
+    description: 'Waiter app, tables, and reservations for faster service and fewer errors.',
     icon: 'waiter',
   },
   {
-    title: 'Customer Ordering',
-    description: 'QR dine-in and online storefront for direct orders to your kitchen.',
+    title: 'Cullinos App',
+    description: 'QR dine-in, online storefront, kiosk, and the Cullinos Guest marketplace app.',
     icon: 'ordering',
   },
   {
     title: 'Back Office',
-    description: 'Menu, inventory, staff, orders, and reports from one admin dashboard.',
+    description: 'Menu, inventory, purchasing, production, staff, and reports from one dashboard.',
     icon: 'admin',
   },
   {
     title: 'Enterprise Console',
-    description: 'Multi-outlet management with consolidated analytics and franchise tools.',
+    description: 'Multi-outlet management with consolidated analytics, franchise, and aggregators.',
     icon: 'enterprise',
   },
 ] as const;
 
 export const TRUST_PILLARS = [
   { title: 'GST-ready billing', description: 'CGST, SGST, and IGST built into every bill.' },
-  { title: 'Offline POS & KDS', description: 'Local Gateway keeps service running when the internet drops.' },
+  { title: 'Every order channel', description: 'POS, Waiter, QR, Guest app, and aggregators — one kitchen.' },
   { title: 'Scales with you', description: 'From one outlet to hotel chains — same platform.' },
 ] as const;
 
@@ -195,7 +196,7 @@ export const FEATURE_SECTIONS = [
     items: [
       {
         name: 'Point of Sale',
-        description: 'Fast checkout, modifiers, split bills, and GST-compliant receipts.',
+        description: 'Fast checkout, modifiers, holds, shifts, and GST-compliant receipts.',
         status: 'available' as const,
       },
       {
@@ -205,7 +206,12 @@ export const FEATURE_SECTIONS = [
       },
       {
         name: 'Table Management',
-        description: 'Live table map, reservations, and turn-time visibility.',
+        description: 'Live table map, merge/transfer, and service requests.',
+        status: 'available' as const,
+      },
+      {
+        name: 'Reservations',
+        description: 'Book tables from Admin or a public book-link.',
         status: 'available' as const,
       },
       {
@@ -213,10 +219,15 @@ export const FEATURE_SECTIONS = [
         description: 'Route orders to stations, track prep times, and mark items ready.',
         status: 'available' as const,
       },
+      {
+        name: 'Order & Promo Displays',
+        description: 'Customer-facing ready boards and in-venue promo playlists.',
+        status: 'available' as const,
+      },
     ],
   },
   {
-    title: 'Customer channels',
+    title: 'Cullinos App channels',
     items: [
       {
         name: 'QR Ordering',
@@ -225,7 +236,17 @@ export const FEATURE_SECTIONS = [
       },
       {
         name: 'Online Storefront',
-        description: 'Branded ordering at order.cullinos.com for pickup and delivery.',
+        description: 'Order via the Cullinos App (Android) for pickup, delivery, and dine-in.',
+        status: 'available' as const,
+      },
+      {
+        name: 'Digital Ordering / Kiosk',
+        description: 'Self-serve kiosk mode and launcher URLs for your floor.',
+        status: 'available' as const,
+      },
+      {
+        name: 'Cullinos Guest App',
+        description: 'Android marketplace: nearby outlets, banners, push, reorder, and loyalty.',
         status: 'available' as const,
       },
     ],
@@ -239,8 +260,13 @@ export const FEATURE_SECTIONS = [
         status: 'available' as const,
       },
       {
-        name: 'Inventory',
-        description: 'Stock levels, recipes, purchasing, and wastage tracking.',
+        name: 'Inventory & Recipes',
+        description: 'Stock levels, costing, wastage, and recipe-linked production.',
+        status: 'available' as const,
+      },
+      {
+        name: 'Purchasing & Central Kitchen',
+        description: 'Suppliers, POs, GRN, and outlet indents from a central kitchen.',
         status: 'available' as const,
       },
       {
@@ -249,8 +275,8 @@ export const FEATURE_SECTIONS = [
         status: 'available' as const,
       },
       {
-        name: 'Reports',
-        description: 'Sales, item performance, and outlet summaries.',
+        name: 'Reports & ERP Export',
+        description: 'Sales, item performance, outlet summaries, and day-book export.',
         status: 'available' as const,
       },
     ],
@@ -264,13 +290,18 @@ export const FEATURE_SECTIONS = [
         status: 'available' as const,
       },
       {
-        name: 'Coupons & Promotions',
-        description: 'Discount codes and campaigns tied to your order engine.',
+        name: 'Coupons, Email & SMS',
+        description: 'Discount codes, promo email, and MSG91 SMS campaigns.',
         status: 'available' as const,
       },
       {
-        name: 'Delivery',
-        description: 'Manage delivery orders alongside dine-in and takeaway.',
+        name: 'Delivery & Aggregators',
+        description: 'Manage delivery orders plus Swiggy / Zomato connect and settlements.',
+        status: 'available' as const,
+      },
+      {
+        name: 'Guest App Marketing',
+        description: 'Marketplace listing, banners, and push campaigns for Cullinos Guest.',
         status: 'available' as const,
       },
     ],
@@ -326,21 +357,33 @@ export const INTEGRATION_CATEGORIES = [
   },
   {
     title: 'Payments',
-    description: 'Payment adapter interfaces for UPI, cards, and wallets.',
-    status: 'coming_soon' as const,
-    items: ['UPI & card terminals', 'Split payments', 'Refund workflows', 'Payment reconciliation'],
+    description: 'Razorpay for online checkout, Guest app, and subscription collect.',
+    status: 'available' as const,
+    items: ['Razorpay UPI / cards / wallets', 'Payment intent & verify', 'Webhooks', 'Subscription collect'],
+  },
+  {
+    title: 'Messaging & push',
+    description: 'OTP, marketing SMS, email, and Guest app push.',
+    status: 'available' as const,
+    items: ['MSG91 phone OTP', 'MSG91 marketing SMS', 'Promo email (SMTP / Brevo)', 'Firebase FCM push'],
+  },
+  {
+    title: 'Delivery aggregators',
+    description: 'Connect marketplace delivery channels alongside your own orders.',
+    status: 'available' as const,
+    items: ['Swiggy connect & webhooks', 'Zomato connect & webhooks', 'Settlements / reconciliation'],
   },
   {
     title: 'Hotel PMS',
     description: 'Post charges to guest folios and sync with property systems.',
     status: 'coming_soon' as const,
-    items: ['Room posting', 'Folio sync', 'Banquet billing', 'Guest profile lookup'],
+    items: ['Deeper folio sync', 'Banquet billing sync', 'Guest profile lookup'],
   },
   {
-    title: 'Notifications',
-    description: 'SMS and email adapters for order updates and marketing.',
-    status: 'coming_soon' as const,
-    items: ['Order confirmations', 'Kitchen alerts', 'Customer SMS', 'Staff notifications'],
+    title: 'Accounting',
+    description: 'Export day-book data for your accountant or ERP.',
+    status: 'available' as const,
+    items: ['ERP day-book export'],
   },
 ] as const;
 
@@ -385,7 +428,7 @@ export type MarketingImageKey = keyof typeof MARKETING_IMAGES;
 export const CULLINOS_ELEVATOR_PITCH = {
   headline: "Cullinos is your food business operating system.",
   subline:
-    'One login runs your cashier, kitchen, online orders, production, and reports — for restaurants, cafes, food trucks, and bakeries. GST billing and offline mode built in.',
+    'One login runs your cashier, kitchen, QR & online orders, Guest marketplace, production, and reports — for restaurants, cafes, food trucks, and bakeries. GST billing built in.',
   bullets: [
     {
       title: 'One platform',
@@ -394,12 +437,12 @@ export const CULLINOS_ELEVATOR_PITCH = {
     },
     {
       title: 'Every order channel',
-      description: 'Cashier, waiter, QR menu, and online orders all reach your kitchen instantly.',
+      description: 'Cashier, waiter, QR menu, Guest app, and aggregators all reach your kitchen.',
       icon: 'channels',
     },
     {
       title: 'Built for India',
-      description: 'GST billing, offline POS, and plans from one outlet to hotel chains.',
+      description: 'GST billing, Razorpay, MSG91, and plans from one outlet to hotel chains.',
       icon: 'india',
     },
   ],
@@ -415,26 +458,26 @@ export const HOW_IT_WORKS_STEPS = [
   {
     step: 2,
     title: 'Take orders anywhere',
-    description: 'Use POS, waiter app, QR codes, or your online storefront — all connected.',
+    description: 'Use POS, waiter app, QR codes, online storefront, or the Guest app — all connected.',
     icon: 'orders',
   },
   {
     step: 3,
     title: 'Kitchen stays in sync',
-    description: 'Orders appear on KDS instantly. Works offline when the internet drops.',
+    description: 'Orders appear on KDS instantly — from floor, web, app, or aggregators.',
     icon: 'kitchen',
   },
   {
     step: 4,
     title: 'Track and grow',
-    description: 'See sales, inventory, and reports. Scale to more outlets when you are ready.',
+    description: 'See sales, inventory, CRM, and reports. Scale to more outlets when you are ready.',
     icon: 'grow',
   },
 ] as const;
 
 export const FEATURE_CATEGORY_IDS: Record<string, string> = {
   'Front of house': 'front-of-house',
-  'Customer channels': 'customer-channels',
+  'Cullinos App channels': 'cullinos-app-channels',
   'Back office': 'back-office',
   Growth: 'growth',
   Enterprise: 'enterprise',
@@ -443,7 +486,7 @@ export const FEATURE_CATEGORY_IDS: Record<string, string> = {
 
 export const FEATURE_CATEGORY_IMAGES: Record<string, MarketingImageKey> = {
   'Front of house': 'mockupPos',
-  'Customer channels': 'mockupOrdering',
+  'Cullinos App channels': 'mockupOrdering',
   'Back office': 'mockupAdmin',
   Growth: 'mockupAdmin',
   Enterprise: 'mockupEnterprise',
@@ -470,20 +513,20 @@ export const APP_SHOWCASE_ITEMS = [
     href: '/features#front-of-house',
   },
   {
-    title: 'Customer Ordering',
-    benefit: 'Let guests order via QR at the table or your online menu.',
+    title: 'Cullinos App',
+    benefit: 'QR, online storefront, kiosk, and the Cullinos Guest marketplace app.',
     imageKey: 'mockupOrdering' as MarketingImageKey,
-    href: '/features#customer-channels',
+    href: '/features#cullinos-app-channels',
   },
   {
     title: 'Admin Dashboard',
-    benefit: 'Manage menu, stock, staff, and daily reports in one place.',
+    benefit: 'Manage menu, stock, purchasing, CRM, and Guest app marketing in one place.',
     imageKey: 'mockupAdmin' as MarketingImageKey,
     href: '/features#back-office',
   },
   {
     title: 'Enterprise Console',
-    benefit: 'Compare outlets and manage franchises from one screen.',
+    benefit: 'Compare outlets, aggregators, and franchises from one screen.',
     imageKey: 'mockupEnterprise' as MarketingImageKey,
     href: '/features#enterprise',
   },

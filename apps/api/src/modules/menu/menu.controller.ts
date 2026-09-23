@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,13 +9,24 @@ import {
   Param,
   Patch,
   Post,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 import { OrgId, Public, RequireModule } from "../../common/decorators";
+import {
+  MARKETING_UPLOAD_MAX_BYTES,
+  MarketingUploadService,
+} from "../marketing/marketing-upload.service";
 import { MenuService } from "./menu.service";
 
 @Controller("menu")
 export class MenuController {
-  constructor(private service: MenuService) {}
+  constructor(
+    private service: MenuService,
+    private uploadService: MarketingUploadService,
+  ) {}
 
   @Get()
   list(@OrgId() orgId: string) {
@@ -56,6 +68,12 @@ export class MenuController {
     return this.service.listItems(orgId);
   }
 
+  @Get("items/:id")
+  @RequireModule("menu")
+  getItem(@OrgId() orgId: string, @Param("id") id: string) {
+    return this.service.getItem(orgId, id);
+  }
+
   @Post("items")
   @RequireModule("menu")
   createItem(@OrgId() orgId: string, @Body() body: Record<string, unknown>) {
@@ -70,6 +88,25 @@ export class MenuController {
     @Body() body: Record<string, unknown>,
   ) {
     return this.service.updateItem(orgId, id, body as never);
+  }
+
+  @Post("items/:id/image-upload")
+  @RequireModule("menu")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: memoryStorage(),
+      limits: { fileSize: MARKETING_UPLOAD_MAX_BYTES },
+    }),
+  )
+  async uploadItemImage(
+    @OrgId() orgId: string,
+    @Param("id") id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file?.buffer) throw new BadRequestException("No file uploaded.");
+    const result = await this.uploadService.saveUploadedFile(file, `menu-item-${id}`, "menuItem");
+    await this.service.setItemImageUrl(orgId, id, result.url);
+    return { imageUrl: result.url, url: result.url };
   }
 
   @Delete("items/:id")
@@ -108,10 +145,45 @@ export class MenuController {
     return this.service.deleteSchedule(orgId, id);
   }
 
+  @Get("combos")
+  @RequireModule("menu")
+  listCombos(@OrgId() orgId: string) {
+    return this.service.listCombos(orgId);
+  }
+
+  @Post("combos")
+  @RequireModule("menu")
+  createCombo(@OrgId() orgId: string, @Body() body: Record<string, unknown>) {
+    return this.service.createCombo(orgId, body as never);
+  }
+
+  @Patch("combos/:id")
+  @RequireModule("menu")
+  updateCombo(
+    @OrgId() orgId: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.service.updateCombo(orgId, id, body as never);
+  }
+
+  @Delete("combos/:id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @RequireModule("menu")
+  deleteCombo(@OrgId() orgId: string, @Param("id") id: string) {
+    return this.service.deleteCombo(orgId, id);
+  }
+
   @Get("outlets/:outletId")
   @RequireModule("menu")
   getOutletMenu(@OrgId() orgId: string, @Param("outletId") outletId: string) {
     return this.service.getOutletMenu(orgId, outletId);
+  }
+
+  @Get("outlets/:outletId/prices")
+  @RequireModule("menu")
+  listOutletPrices(@OrgId() orgId: string, @Param("outletId") outletId: string) {
+    return this.service.listOutletPrices(orgId, outletId);
   }
 
   @Post("outlets/:outletId/items/:menuItemId/prices")
@@ -120,7 +192,12 @@ export class MenuController {
     @OrgId() orgId: string,
     @Param("outletId") outletId: string,
     @Param("menuItemId") menuItemId: string,
-    @Body() body: { price: number; priceType?: "retail" | "wholesale" },
+    @Body()
+    body: {
+      price: number;
+      priceType?: "retail" | "wholesale";
+      isAvailable?: boolean;
+    },
   ) {
     return this.service.setOutletPrice(
       orgId,
@@ -128,6 +205,7 @@ export class MenuController {
       menuItemId,
       body.price,
       body.priceType ?? "retail",
+      body.isAvailable,
     );
   }
 }

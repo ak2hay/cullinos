@@ -2,15 +2,20 @@
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   owner: [
     "org:read", "org:update", "org:manage_users", "org:manage_settings",
-    "outlet:read", "menu:read", "menu:create", "menu:update",
-    "order:read", "order:create", "order:update", "order:cancel", "pos:access",
+    "outlet:read", "outlet:create", "outlet:update", "outlet:delete",
+    "menu:read", "menu:create", "menu:update",
+    "order:read", "order:create", "order:update", "order:cancel", "order:discount", "order:discount:approve",
+    "pos:access", "pos:shift:open", "pos:shift:close", "pos:day:close",
     "table:read", "table:manage", "inventory:read", "inventory:adjust", "inventory:transfer",
+    "purchase:read", "purchase:create",
     "reports:read", "reports:export", "settings:read", "settings:update", "staff:read", "staff:manage",
   ],
   manager: [
-    "org:read", "outlet:read", "menu:read", "menu:create", "menu:update",
-    "order:read", "order:create", "order:update", "order:cancel", "pos:access",
+    "org:read", "outlet:read", "outlet:update", "menu:read", "menu:create", "menu:update",
+    "order:read", "order:create", "order:update", "order:cancel", "order:discount", "order:discount:approve",
+    "pos:access", "pos:shift:open", "pos:shift:close", "pos:day:close",
     "table:read", "table:manage", "inventory:read", "inventory:adjust", "inventory:transfer",
+    "purchase:read", "purchase:create",
     "reports:read", "reports:export", "settings:read", "settings:update", "staff:read",
   ],
   waiter: [
@@ -18,8 +23,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "table:read", "table:manage", "customer:read",
   ],
   cashier: [
-    "outlet:read", "menu:read", "order:read", "order:create", "order:update",
-    "pos:access", "table:read", "customer:read",
+    "outlet:read", "menu:read", "order:read", "order:create", "order:update", "order:discount",
+    "pos:access", "pos:shift:open", "pos:shift:close", "table:read", "customer:read",
   ],
   kitchen: [
     "kitchen:read", "kitchen:update", "order:read", "menu:read",

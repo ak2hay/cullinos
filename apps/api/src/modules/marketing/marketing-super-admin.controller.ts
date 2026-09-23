@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -15,6 +16,7 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
 import { SuperAdminGuard } from "./guards/super-admin.guard";
+import { MARKETING_UPLOAD_MAX_BYTES } from "./marketing-upload.service";
 import { MarketingService } from "./marketing.service";
 
 @Controller("super-admin/marketing")
@@ -38,12 +40,18 @@ export class MarketingSuperAdminController {
   }
 
   @Post("assets/upload")
-  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage() }))
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: memoryStorage(),
+      limits: { fileSize: MARKETING_UPLOAD_MAX_BYTES },
+    }),
+  )
   uploadAsset(
     @UploadedFile() file: Express.Multer.File,
     @Body("slotKey") slotKey?: string,
     @Body("alt") alt?: string,
   ) {
+    if (!file?.buffer) throw new BadRequestException("No file uploaded.");
     return this.marketing.uploadAsset(file, slotKey, alt);
   }
 

@@ -21,9 +21,9 @@ describe('Cullinos critical paths', () => {
   });
 
   it('GST tax calculation for India', () => {
-    const result = calculateGst([{ amount: 10000 }], [{ name: 'GST', rate: 18 }], false);
-    expect(result.taxTotal).toBe(1800);
-    expect(result.total).toBe(11800);
+    const result = calculateGst([{ amount: 100 }], [{ name: 'GST', rate: 18 }], false);
+    expect(result.taxTotal).toBe(18);
+    expect(result.total).toBe(118);
   });
 
   it('RBAC default waiter permissions', () => {

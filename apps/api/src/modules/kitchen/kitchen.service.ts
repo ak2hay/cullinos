@@ -355,17 +355,22 @@ export class KitchenService {
             },
           },
         },
-        include: { items: true },
+        include: { items: true, table: true },
       });
       this.ws.emitToOutlet(outletId, "order.updated", {
         id: updatedOrder.id,
         orderNumber: updatedOrder.orderNumber,
         status: updatedOrder.status,
+        tableId: updatedOrder.tableId,
+        tableName: updatedOrder.table?.name ?? null,
       });
       if (orderStatus === "ready") {
         this.ws.emitToOutlet(outletId, "order.ready", {
           id: updatedOrder.id,
           orderNumber: updatedOrder.orderNumber,
+          tableId: updatedOrder.tableId,
+          tableName: updatedOrder.table?.name ?? null,
+          status: "READY",
         });
       }
     }

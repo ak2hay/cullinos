@@ -180,12 +180,12 @@ table.pretty tr:nth-child(even) td { background: var(--card); }
     <div class="mark">C</div>
     <p class="eyebrow" style="margin-top:28px">User manual</p>
     <h1 class="display" style="font-size:42pt;max-width:520px">How to use Cullinos</h1>
-    <p class="tagline">A practical guide for restaurant owners and staff — from first login to daily service.</p>
+    <p class="tagline">A practical guide for restaurant owners and staff — from first login to daily service, Guest app marketing, and supply chain.</p>
   </div>
   <div class="cover-meta">
     <div style="font-size:14pt;font-family:'Fraunces',Georgia,serif;margin-bottom:6px">Cullinos</div>
     Restaurant Operating System · by Rkyves<br/>
-    Owners · Managers · Cashiers · Waiters · Kitchen
+    Owners · Managers · Cashiers · Waiters · Kitchen · 2026
   </div>
 </section>
 
@@ -197,9 +197,10 @@ table.pretty tr:nth-child(even) td { background: var(--card); }
     <tbody>
       <tr><td>Owner / manager</td><td>https://admin.cullinos.com</td><td>Owner email from onboarding</td></tr>
       <tr><td>Cashier</td><td>https://pos.cullinos.com<br/>or Admin → Portal POS</td><td>Cashier staff account</td></tr>
-      <tr><td>Waiter</td><td>https://waiter.cullinos.com</td><td>Waiter staff account</td></tr>
+      <tr><td>Waiter</td><td>Cullinos Waiter Android app</td><td>Waiter staff account</td></tr>
       <tr><td>Kitchen</td><td>https://kds.cullinos.com</td><td>Kitchen / staff login</td></tr>
-      <tr><td>Guests</td><td>https://order.cullinos.com/<em>org</em>/<em>outlet</em></td><td>No login required</td></tr>
+      <tr><td>Guests (web)</td><td>https://order.cullinos.com/<em>org</em>/<em>outlet</em></td><td>No login required</td></tr>
+      <tr><td>Guests (app)</td><td>Cullinos Guest (Android)</td><td>Phone OTP / PIN</td></tr>
       <tr><td>Multi-outlet</td><td>https://manage.cullinos.com</td><td>Owner (Enterprise)</td></tr>
     </tbody>
   </table>
@@ -211,9 +212,10 @@ table.pretty tr:nth-child(even) td { background: var(--card); }
   <div class="step"><div class="step-num">3</div><div><h3>Build your menu</h3><p>Admin → <strong>Menu</strong>: create categories, then items with prices. Toggle availability when an item sells out.</p></div></div>
   <div class="step"><div class="step-num">4</div><div><h3>Add tables</h3><p>Admin → <strong>Tables</strong>: create floor tables (e.g. T1, T2) so Waiter can take dine-in orders.</p></div></div>
   <div class="step"><div class="step-num">5</div><div><h3>Invite staff</h3><p>Admin → <strong>Staff</strong>: add a Waiter and a Cashier, assign your outlet, share passwords securely.</p></div></div>
+  <div class="step"><div class="step-num">6</div><div><h3>Optional: reservations &amp; Guest app</h3><p>Enable <strong>Reservations</strong> for book-links. Under <strong>Cullinos App</strong>, set App listing, banners, and coupons if you use the marketplace.</p></div></div>
 
   <h2 class="section-break">2. Taking orders — Waiter (dine-in)</h2>
-  <div class="step"><div class="step-num">1</div><div><h3>Open Waiter</h3><p>waiter.cullinos.com → log in → select outlet → see the table grid.</p></div></div>
+  <div class="step"><div class="step-num">1</div><div><h3>Open Waiter</h3><p>Cullinos Waiter Android → log in → select outlet → see the table grid.</p></div></div>
   <div class="step"><div class="step-num">2</div><div><h3>Open a table</h3><p>Tap a table → add menu items → confirm. Note the order number.</p></div></div>
   <div class="step"><div class="step-num">3</div><div><h3>Optional: guest QR</h3><p>Use <strong>Show QR to customers</strong> so guests order on their phones into the same table ticket. End the session when the table clears.</p></div></div>
   <div class="step"><div class="step-num">4</div><div><h3>Kitchen sees it</h3><p>KOTs appear on KDS (kds.cullinos.com) within seconds.</p></div></div>
@@ -222,21 +224,23 @@ table.pretty tr:nth-child(even) td { background: var(--card); }
   <div class="step"><div class="step-num">1</div><div><h3>Open POS</h3><p>pos.cullinos.com as Cashier — or Admin → <strong>Portal POS</strong> (/pos) if you have POS access.</p></div></div>
   <div class="step"><div class="step-num">2</div><div><h3>Build the cart</h3><p>Tap items, set order type (e.g. takeaway), check subtotal.</p></div></div>
   <div class="step"><div class="step-num">3</div><div><h3>Hold if needed</h3><p>Hold an order to free the screen; resume later from the held panel.</p></div></div>
-  <div class="step"><div class="step-num">4</div><div><h3>Checkout</h3><p>Confirm the quick order. It shows in Admin → Orders and on KDS.</p></div></div>
+  <div class="step"><div class="step-num">4</div><div><h3>Checkout</h3><p>Confirm the quick order. It shows in Admin → Orders and on KDS. Open/close shifts when your plan supports cash-drawer accountability.</p></div></div>
 
-  <h2>4. Online &amp; QR guest ordering</h2>
+  <h2>4. Online, QR &amp; Guest app ordering</h2>
   <ol>
-    <li>Share <code>https://order.cullinos.com/your-org/your-outlet</code> or the waiter QR link.</li>
-    <li>Guest browses menu → cart → checkout with name &amp; phone.</li>
+    <li>Share <code>https://order.cullinos.com/your-org/your-outlet</code>, the waiter QR link, or a Guest app deep link.</li>
+    <li>Guest browses menu → cart → checkout with name &amp; phone (web) or OTP/PIN (Guest app).</li>
     <li>Prefer <strong>Pay later</strong> unless Razorpay is configured for Pay now.</li>
-    <li>Verify the order in Admin → <strong>Orders</strong>.</li>
+    <li>Apply coupons where enabled; verify the order in Admin → <strong>Orders</strong>.</li>
   </ol>
-  <p class="small muted">Customer login is optional — guests can always checkout without an account.</p>
+  <p class="small muted">Customer login is optional on the web storefront — guests can always checkout without an account.</p>
 
-  <h2>5. Kitchen &amp; Order Display</h2>
+  <h2>5. Kitchen, Order Display &amp; Promo display</h2>
   <div class="grid-2">
     <div class="card"><h3>Kitchen Display</h3><p>Open kds.cullinos.com (or Admin → Kitchen Display launcher). Tickets update live as orders arrive. Mark items as you cook.</p></div>
     <div class="card"><h3>Order Display</h3><p>Admin → <strong>Order Display</strong> (/cds). Copy the public board URL to a tablet/TV so guests see Preparing → Ready.</p></div>
+    <div class="card"><h3>Promo display</h3><p>Admin → <strong>Promo display</strong>: build playlists for in-venue screens.</p></div>
+    <div class="card"><h3>Reservations</h3><p>Admin → <strong>Reservations</strong>: manage bookings; share the public book-link when enabled.</p></div>
   </div>
 
   <h2 class="section-break">6. Back office essentials</h2>
@@ -247,16 +251,21 @@ table.pretty tr:nth-child(even) td { background: var(--card); }
       <tr><td>See today’s orders</td><td>Admin → Orders</td></tr>
       <tr><td>Check stock</td><td>Admin → Inventory</td></tr>
       <tr><td>Add a recipe</td><td>Admin → Recipes</td></tr>
+      <tr><td>Create a purchase order</td><td>Admin → Purchasing / Suppliers</td></tr>
+      <tr><td>Central kitchen indents</td><td>Admin → Central kitchen</td></tr>
       <tr><td>Schedule production</td><td>Admin → Production</td></tr>
       <tr><td>Loyalty / CRM</td><td>Admin → Loyalty / Customers</td></tr>
-      <tr><td>Send a promo</td><td>Admin → Promo Email</td></tr>
+      <tr><td>Send a promo email</td><td>Admin → Promo Email</td></tr>
+      <tr><td>Send SMS campaign</td><td>Admin → SMS campaigns</td></tr>
+      <tr><td>Guest banners / push</td><td>Admin → Cullinos App</td></tr>
+      <tr><td>Aggregator orders</td><td>Admin → Aggregators</td></tr>
       <tr><td>Delivery list</td><td>Admin → Delivery</td></tr>
       <tr><td>Sales reports</td><td>Admin → Reports</td></tr>
       <tr><td>Subscription / invoices</td><td>Admin → Billing</td></tr>
       <tr><td>Kiosk / storefront link</td><td>Admin → Digital Ordering</td></tr>
     </tbody>
   </table>
-  <p class="small muted">Some pages (Banquets, Brands, Guests, Rooms) appear only for matching business types / plans.</p>
+  <p class="small muted">Some pages (Banquets, Brands, Guests, Rooms, Central kitchen) appear only for matching business types / plans.</p>
 
   <h2>7. Multi-outlet (Enterprise)</h2>
   <ol>
@@ -272,6 +281,7 @@ table.pretty tr:nth-child(even) td { background: var(--card); }
     <li>End QR table sessions when guests leave so old links stop working.</li>
     <li>Use Incognito when testing the customer storefront as a guest.</li>
     <li>Never put real passwords in shared spreadsheets or chat.</li>
+    <li>Review Guest app listing and banners before a marketing push.</li>
   </ul>
 
   <div class="banner">

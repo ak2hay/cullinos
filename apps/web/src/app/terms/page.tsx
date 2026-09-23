@@ -50,8 +50,10 @@ export default function TermsPage() {
 
           <h2>5. Data and ownership</h2>
           <p>
-            You retain ownership of business data you enter into Cullinos. We require a license to host and process
-            that data solely to provide the service. See our Privacy Policy for details.
+            You retain ownership of business data you enter into Cullinos. For tenant customer and guest personal
+            data, you are typically the Data Fiduciary under India’s DPDP Act and we act as a Data Processor to host
+            and process that data solely to provide the service. For platform account and billing data, we act as a
+            Data Fiduciary. See our Privacy Policy for rights, retention, and sub-processors.
           </p>
 
           <h2>6. Limitation of liability</h2>

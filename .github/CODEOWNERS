@@ -1,0 +1,34 @@
+# Default — repo maintainers
+*       @ak2hay
+
+# API / backend
+/apps/api/                          @ak2hay
+/packages/prisma/                   @ak2hay
+/packages/shared/                   @ak2hay
+/packages/auth/                     @ak2hay
+/packages/tax-engine/               @ak2hay
+/packages/integrations/             @ak2hay
+
+# Admin / management / platform
+/apps/admin/                        @ak2hay
+/apps/management/                   @ak2hay
+/apps/super-admin/                  @ak2hay
+
+# Floor / kitchen
+/apps/pos/                          @ak2hay
+/apps/kds/                          @ak2hay
+/apps/pos-desktop/                  @ak2hay
+/apps/kds-desktop/                  @ak2hay
+
+# Marketing + mobile
+/apps/web/                          @ak2hay
+/apps/guest/                        @ak2hay
+/apps/waiter_mobile/                @ak2hay
+
+# Infra / deploy
+/infrastructure/                    @ak2hay
+/.github/                           @ak2hay
+/Dockerfile*                        @ak2hay
+/docker-compose*.yml                @ak2hay
+/docs/DEPLOYMENT.md                 @ak2hay
+/docs/BACKUP_ROLLBACK.md            @ak2hay

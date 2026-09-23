@@ -10,8 +10,8 @@ import { IncomingOrderItem } from "../../common/order-items.util";
 import { OrdersService } from "../orders/orders.service";
 import { toApiTableStatus } from "../../common/status.util";
 
-const CUSTOMER_APP_BASE =
-  process.env.CUSTOMER_APP_URL ?? "https://order.cullinos.com";
+const GUEST_APP_BASE =
+  process.env.GUEST_APP_URL ?? "https://guest.cullinos.com";
 
 @Injectable()
 export class TableSessionsService {
@@ -20,6 +20,153 @@ export class TableSessionsService {
     private ws: WebsocketGateway,
     private ordersService: OrdersService,
   ) {}
+
+  async transferTable(
+    orgId: string,
+    outletId: string,
+    fromTableId: string,
+    toTableId: string,
+  ) {
+    if (fromTableId === toTableId) {
+      throw new BadRequestException("Cannot transfer a table to itself");
+    }
+    await this.assertTable(orgId, outletId, fromTableId);
+    await this.assertTable(orgId, outletId, toTableId);
+
+    const fromSession = await this.prisma.tableSession.findFirst({
+      where: { tableId: fromTableId, status: "active" },
+      include: { order: true },
+    });
+    if (!fromSession) throw new BadRequestException("Source table has no active session");
+
+    const toBusy = await this.prisma.tableSession.findFirst({
+      where: { tableId: toTableId, status: "active" },
+    });
+    if (toBusy) throw new BadRequestException("Target table already has an active session");
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.tableSession.update({
+        where: { id: fromSession.id },
+        data: { tableId: toTableId },
+      });
+      if (fromSession.order) {
+        await tx.order.update({
+          where: { id: fromSession.order.id },
+          data: { tableId: toTableId },
+        });
+      }
+      await tx.table.update({ where: { id: fromTableId }, data: { status: "available" } });
+      await tx.table.update({ where: { id: toTableId }, data: { status: "occupied" } });
+    });
+
+    this.ws.emitToOutlet(outletId, "table.updated", {
+      id: fromTableId,
+      outletId,
+      status: "AVAILABLE",
+    });
+    this.ws.emitToOutlet(outletId, "table.updated", {
+      id: toTableId,
+      outletId,
+      status: "OCCUPIED",
+    });
+
+    return this.getActiveSession(orgId, outletId, toTableId);
+  }
+
+  async mergeTables(
+    orgId: string,
+    outletId: string,
+    primaryTableId: string,
+    tableIds: string[],
+  ) {
+    const unique = [...new Set(tableIds.filter((id) => id !== primaryTableId))];
+    if (unique.length === 0) {
+      throw new BadRequestException("Select at least one other table to merge");
+    }
+    await this.assertTable(orgId, outletId, primaryTableId);
+    for (const id of unique) await this.assertTable(orgId, outletId, id);
+
+    let primarySession = await this.prisma.tableSession.findFirst({
+      where: { tableId: primaryTableId, status: "active" },
+      include: { order: { include: { items: true } } },
+    });
+    if (!primarySession) {
+      await this.startSession(orgId, outletId, primaryTableId);
+      primarySession = await this.prisma.tableSession.findFirst({
+        where: { tableId: primaryTableId, status: "active" },
+        include: { order: { include: { items: true } } },
+      });
+    }
+    if (!primarySession) throw new BadRequestException("Could not open primary session");
+
+    for (const secondaryId of unique) {
+      const secondary = await this.prisma.tableSession.findFirst({
+        where: { tableId: secondaryId, status: "active" },
+        include: { order: { include: { items: true } } },
+      });
+      if (!secondary) continue;
+
+      if (secondary.order?.items?.length) {
+        if (!primarySession.order) {
+          await this.prisma.order.updateMany({
+            where: { id: secondary.order.id },
+            data: {
+              tableId: primaryTableId,
+              tableSessionId: primarySession.id,
+            },
+          });
+        } else if (secondary.order.id !== primarySession.order.id) {
+          const items = secondary.order.items.map((i) => ({
+            menuItemId: i.menuItemId ?? undefined,
+            variantId: i.variantId ?? undefined,
+            name: i.name,
+            quantity: i.quantity,
+            unitPrice: Number(i.unitPrice),
+            notes: i.notes ?? undefined,
+            modifiers: (i.modifiers as IncomingOrderItem["modifiers"]) ?? undefined,
+          }));
+          await this.ordersService.addItems(orgId, primarySession.order.id, items as never);
+          await this.prisma.order.update({
+            where: { id: secondary.order.id },
+            data: {
+              status: "cancelled",
+              notes: `Merged into ${primarySession.order.orderNumber}`,
+              tableSessionId: null,
+            },
+          });
+        }
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.tableSession.update({
+          where: { id: secondary.id },
+          data: { status: "closed", endedAt: new Date() },
+        });
+        await tx.table.update({
+          where: { id: secondaryId },
+          data: { status: "available" },
+        });
+      });
+
+      this.ws.emitToOutlet(outletId, "table.updated", {
+        id: secondaryId,
+        outletId,
+        status: "AVAILABLE",
+      });
+    }
+
+    await this.prisma.table.update({
+      where: { id: primaryTableId },
+      data: { status: "occupied" },
+    });
+    this.ws.emitToOutlet(outletId, "table.updated", {
+      id: primaryTableId,
+      outletId,
+      status: "OCCUPIED",
+    });
+
+    return this.getActiveSession(orgId, outletId, primaryTableId);
+  }
 
   private async assertTable(orgId: string, outletId: string, tableId: string) {
     const table = await this.prisma.table.findFirst({
@@ -48,9 +195,15 @@ export class TableSessionsService {
       include: { order: true },
     });
     if (existing) {
+      const sessionToken = randomUUID().replace(/-/g, "");
+      const rotated = await this.prisma.tableSession.update({
+        where: { id: existing.id },
+        data: { sessionToken },
+        include: { order: true },
+      });
       const org = table.section.floor.outlet.organization;
       const outlet = table.section.floor.outlet;
-      return this.mapSessionResponse(existing, table, org.slug, outlet.slug);
+      return this.mapSessionResponse(rotated, table, org.slug, outlet.slug);
     }
 
     const sessionToken = randomUUID().replace(/-/g, "");
@@ -83,6 +236,86 @@ export class TableSessionsService {
     });
 
     return this.mapSessionResponse(session, table, org.slug, outlet.slug);
+  }
+
+  /**
+   * Guest permanent-table QR: join an active session without rotating the token,
+   * or create one if none exists.
+   */
+  async joinOrCreateByQrCode(qrCode: string) {
+    const code = qrCode?.trim();
+    if (!code) throw new BadRequestException("QR code is required");
+
+    const table = await this.prisma.table.findFirst({
+      where: { qrCode: code },
+      include: {
+        section: {
+          include: {
+            floor: { include: { outlet: { include: { organization: true } } } },
+          },
+        },
+      },
+    });
+    if (!table) throw new NotFoundException("Table not found for this QR code");
+
+    const outlet = table.section.floor.outlet;
+    const org = outlet.organization;
+    if (outlet.status !== "active" || org.status === "suspended" || org.status === "cancelled") {
+      throw new BadRequestException("This restaurant is not accepting QR orders right now");
+    }
+
+    const existing = await this.prisma.tableSession.findFirst({
+      where: { tableId: table.id, status: "active" },
+      include: { order: true },
+    });
+    if (existing) {
+      return {
+        ...this.mapSessionResponse(existing, table, org.slug, outlet.slug),
+        organizationId: org.id,
+        organizationSlug: org.slug,
+        organizationName: org.name,
+        outletId: outlet.id,
+        outletSlug: outlet.slug,
+        outletName: outlet.name,
+        qrCode: table.qrCode,
+        joinedExisting: true,
+      };
+    }
+
+    const sessionToken = randomUUID().replace(/-/g, "");
+    const session = await this.prisma.$transaction(async (tx) => {
+      await tx.table.update({
+        where: { id: table.id },
+        data: { status: "occupied" },
+      });
+      return tx.tableSession.create({
+        data: {
+          tableId: table.id,
+          sessionToken,
+          status: "active",
+        },
+        include: { order: true },
+      });
+    });
+
+    this.ws.emitToOutlet(outlet.id, "table.updated", {
+      id: table.id,
+      outletId: outlet.id,
+      name: table.name,
+      status: "OCCUPIED",
+    });
+
+    return {
+      ...this.mapSessionResponse(session, table, org.slug, outlet.slug),
+      organizationId: org.id,
+      organizationSlug: org.slug,
+      organizationName: org.name,
+      outletId: outlet.id,
+      outletSlug: outlet.slug,
+      outletName: outlet.name,
+      qrCode: table.qrCode,
+      joinedExisting: false,
+    };
   }
 
   async getActiveSession(orgId: string, outletId: string, tableId: string) {
@@ -276,7 +509,7 @@ export class TableSessionsService {
   ) {
     const qrUrl =
       orgSlug && outletSlug
-        ? `${CUSTOMER_APP_BASE}/${orgSlug}/${outletSlug}?session=${session.sessionToken}`
+        ? `${GUEST_APP_BASE}/o/${encodeURIComponent(orgSlug)}/${encodeURIComponent(outletSlug)}?${new URLSearchParams({ session: session.sessionToken }).toString()}`
         : null;
 
     return {

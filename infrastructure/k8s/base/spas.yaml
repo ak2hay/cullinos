@@ -1,0 +1,318 @@
+# Shared template applied per SPA via kustomize nameSuffix / images in overlays.
+# Each SPA is a separate Deployment+Service in this file.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spa-admin
+  labels:
+    app: spa-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spa-admin
+  template:
+    metadata:
+      labels:
+        app: spa-admin
+    spec:
+      containers:
+        - name: nginx
+          image: ghcr.io/ak2hay/cullinos-spa-admin:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spa-admin
+spec:
+  selector:
+    app: spa-admin
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spa-management
+  labels:
+    app: spa-management
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spa-management
+  template:
+    metadata:
+      labels:
+        app: spa-management
+    spec:
+      containers:
+        - name: nginx
+          image: ghcr.io/ak2hay/cullinos-spa-management:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spa-management
+spec:
+  selector:
+    app: spa-management
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spa-super-admin
+  labels:
+    app: spa-super-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spa-super-admin
+  template:
+    metadata:
+      labels:
+        app: spa-super-admin
+    spec:
+      containers:
+        - name: nginx
+          image: ghcr.io/ak2hay/cullinos-spa-super-admin:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spa-super-admin
+spec:
+  selector:
+    app: spa-super-admin
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spa-pos
+  labels:
+    app: spa-pos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spa-pos
+  template:
+    metadata:
+      labels:
+        app: spa-pos
+    spec:
+      containers:
+        - name: nginx
+          image: ghcr.io/ak2hay/cullinos-spa-pos:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spa-pos
+spec:
+  selector:
+    app: spa-pos
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spa-kds
+  labels:
+    app: spa-kds
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spa-kds
+  template:
+    metadata:
+      labels:
+        app: spa-kds
+    spec:
+      containers:
+        - name: nginx
+          image: ghcr.io/ak2hay/cullinos-spa-kds:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spa-kds
+spec:
+  selector:
+    app: spa-kds
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spa-guest-landing
+  labels:
+    app: spa-guest-landing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spa-guest-landing
+  template:
+    metadata:
+      labels:
+        app: spa-guest-landing
+    spec:
+      containers:
+        - name: nginx
+          image: ghcr.io/ak2hay/cullinos-spa-guest-landing:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spa-guest-landing
+spec:
+  selector:
+    app: spa-guest-landing
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spa-waiter-landing
+  labels:
+    app: spa-waiter-landing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spa-waiter-landing
+  template:
+    metadata:
+      labels:
+        app: spa-waiter-landing
+    spec:
+      containers:
+        - name: nginx
+          image: ghcr.io/ak2hay/cullinos-spa-waiter-landing:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spa-waiter-landing
+spec:
+  selector:
+    app: spa-waiter-landing
+  ports:
+    - port: 80
+      targetPort: 80

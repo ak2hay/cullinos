@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
+import { getJwtSecret } from "../../common/jwt-secret.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
 import { MarketingUploadService } from "./marketing-upload.service";
@@ -452,7 +453,7 @@ export class MarketingService {
 
   verifyPreviewToken(token: string) {
     try {
-      const payload = this.jwt.verify(token, { secret: process.env.JWT_SECRET || "dev-secret" }) as {
+      const payload = this.jwt.verify(token, { secret: getJwtSecret() }) as {
         preview?: boolean;
       };
       return payload.preview === true;

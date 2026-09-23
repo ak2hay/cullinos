@@ -27,6 +27,7 @@ export function CookieBanner({ onOpenChange }: { onOpenChange?: (open: boolean) 
     localStorage.setItem(CONSENT_KEY, value);
     setOpen(false);
     onOpenChange?.(false);
+    window.dispatchEvent(new Event('cullinos-cookie-consent'));
   }
 
   if (!open) return null;

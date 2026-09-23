@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "crypto";
 import { Body, Controller, Get, Headers, Param, Patch, Post, UnauthorizedException } from "@nestjs/common";
 import { Public } from "../../common/decorators";
 import { generateTemporaryPassword } from "../../common/generate-password";
@@ -26,9 +27,16 @@ export class InternalController {
   ) {}
 
   private verifyKey(key: string | undefined) {
-    const expected =
-      this.config.get("INTERNAL_API_KEY") || "change-me-internal-provision-key";
-    if (key !== expected) throw new UnauthorizedException("Invalid internal API key");
+    const expected = (this.config.get("INTERNAL_API_KEY") ?? "").trim();
+    if (!expected) {
+      throw new UnauthorizedException("Internal API key is not configured");
+    }
+    const provided = (key ?? "").trim();
+    const a = Buffer.from(provided);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+      throw new UnauthorizedException("Invalid internal API key");
+    }
   }
 
   /** Rkyves / platform ops onboards a restaurant and issues owner credentials. */

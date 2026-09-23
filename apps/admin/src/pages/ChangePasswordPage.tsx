@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { defaultPortalMode } from '@cullinos/shared';
-import { Button, Input } from '@cullinos/ui';
+import { Button, Input, PasswordInput } from '@cullinos/ui';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
@@ -58,26 +58,23 @@ export function ChangePasswordPage() {
             {error}
           </div>
         ) : null}
-        <Input
+        <PasswordInput
           label="Current temporary password"
-          type="password"
           autoComplete="current-password"
           required
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
         />
-        <Input
+        <PasswordInput
           label="New password"
-          type="password"
           autoComplete="new-password"
           required
           minLength={8}
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
         />
-        <Input
+        <PasswordInput
           label="Confirm new password"
-          type="password"
           autoComplete="new-password"
           required
           minLength={8}

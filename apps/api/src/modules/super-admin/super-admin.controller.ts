@@ -11,6 +11,7 @@ import {
   Req,
   UseGuards,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import {
   IsArray,
   IsBoolean,
@@ -21,6 +22,7 @@ import {
   IsOptional,
   IsString,
   Length,
+  MaxLength,
   MinLength,
 } from "class-validator";
 import type { JwtPayload } from "@cullinos/auth";
@@ -37,6 +39,7 @@ class SuperAdminLoginDto {
 
   @IsString()
   @MinLength(4)
+  @MaxLength(128)
   password!: string;
 }
 
@@ -56,6 +59,13 @@ class ResendOtpDto {
 
 class SuspendDto {
   @IsString()
+  reason!: string;
+}
+
+class ImpersonateDto {
+  @IsString()
+  @MinLength(8)
+  @MaxLength(500)
   reason!: string;
 }
 
@@ -85,6 +95,10 @@ class OnboardRestaurantDto {
   @IsString()
   @IsOptional()
   ownerName?: string;
+
+  @IsString()
+  @IsOptional()
+  ownerPhone?: string;
 
   @IsString()
   @IsOptional()
@@ -188,6 +202,13 @@ class Msg91TestDto {
   phone?: string;
 }
 
+class SmtpTestDto {
+  @IsOptional()
+  @IsString()
+  @IsEmail()
+  to?: string;
+}
+
 @Controller("super-admin")
 @UseGuards(SuperAdminGuard)
 export class SuperAdminController {
@@ -199,18 +220,21 @@ export class SuperAdminController {
   ) {}
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post("login")
   login(@Body() dto: SuperAdminLoginDto) {
     return this.service.login(dto.email, dto.password);
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post("verify-otp")
   verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.service.verifyOtp(dto.challengeToken, dto.otp);
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post("resend-otp")
   resendOtp(@Body() dto: ResendOtpDto) {
     return this.service.resendOtp(dto.challengeToken);
@@ -281,8 +305,12 @@ export class SuperAdminController {
   }
 
   @Post("organizations/:id/impersonate")
-  impersonate(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
-    return this.service.impersonateOrganization(id, user.sub);
+  impersonate(
+    @Param("id") id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ImpersonateDto,
+  ) {
+    return this.service.impersonateOrganization(id, user.sub, dto.reason);
   }
 
   @Get("audit-logs")
@@ -381,8 +409,8 @@ export class SuperAdminController {
   }
 
   @Post("settings/smtp/test")
-  testSmtp() {
-    return this.mail.testSmtp();
+  testSmtp(@Body() body: SmtpTestDto) {
+    return this.mail.testSmtp(body.to);
   }
 
   @Post("settings/msg91/test")

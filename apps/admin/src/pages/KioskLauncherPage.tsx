@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@cullinos/ui';
-import { outletsApi, organizationsApi } from '@/lib/api';
+import { outletsApi, organizationsApi, settingsApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
-const CUSTOMER_BASE =
-  (import.meta.env.VITE_CUSTOMER_URL as string | undefined) ??
-  (import.meta.env.PROD ? 'https://order.cullinos.com' : 'http://localhost:5176');
+const GUEST_APP_BASE =
+  (import.meta.env.VITE_GUEST_APP_URL as string | undefined) ??
+  'https://guest.cullinos.com';
 
 const KDS_BASE =
   (import.meta.env.VITE_KDS_URL as string | undefined) ??
@@ -19,11 +19,14 @@ export function KioskLauncherPage() {
     queryKey: ['organizations', 'current'],
     queryFn: organizationsApi.current,
   });
+  const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get });
   const [copied, setCopied] = useState<string | null>(null);
 
   const outlet = outletsQuery.data?.find((o) => o.id === outletId);
   const orgSlug = orgQuery.data?.slug;
   const outletSlug = outlet?.slug;
+  const phoneMenuQrEnabled =
+    settingsQuery.data?.platformCapabilities?.phoneMenuQrEnabled === true;
 
   if (!outletId) {
     return (
@@ -36,7 +39,7 @@ export function KioskLauncherPage() {
 
   const menuUrl =
     orgSlug && outletSlug
-      ? `${CUSTOMER_BASE.replace(/\/$/, '')}/${encodeURIComponent(orgSlug)}/${encodeURIComponent(outletSlug)}`
+      ? `${GUEST_APP_BASE.replace(/\/$/, '')}/o/${encodeURIComponent(orgSlug)}/${encodeURIComponent(outletSlug)}`
       : null;
   const kioskUrl = menuUrl ? `${menuUrl}/kiosk` : null;
   const receiptUrl = `${KDS_BASE.replace(/\/$/, '')}/?mode=receipt&outletId=${encodeURIComponent(outletId)}`;
@@ -55,13 +58,17 @@ export function KioskLauncherPage() {
         'Touch tablet for in-store self-order. Prints a 6-character QR ticket on the kiosk printer after place.',
       url: kioskUrl,
     },
-    {
-      id: 'menu',
-      title: 'Phone menu QR',
-      description:
-        'Customer phone storefront. Put this URL on a counter/table sticker — orders print on the receipt station.',
-      url: menuUrl,
-    },
+    ...(phoneMenuQrEnabled
+      ? [
+          {
+            id: 'menu',
+            title: 'Phone menu QR',
+            description:
+              'Customer phone storefront. Put this URL on a counter/table sticker — orders print on the receipt station.',
+            url: menuUrl,
+          },
+        ]
+      : []),
     {
       id: 'receipt',
       title: 'Receipt printer station',
@@ -76,8 +83,9 @@ export function KioskLauncherPage() {
       <div>
         <h1 className="text-2xl font-semibold">Digital ordering</h1>
         <p className="mt-1 text-sm text-text-secondary">
-          Tablet kiosk and phone menu for {outlet?.name ?? 'the selected outlet'}. Tickets use a
-          unique 6-character code with QR — not another customer status board.
+          Tablet kiosk{phoneMenuQrEnabled ? ' and phone menu' : ''} for{' '}
+          {outlet?.name ?? 'the selected outlet'}. Tickets use a unique 6-character code with QR —
+          not another customer status board.
         </p>
       </div>
 

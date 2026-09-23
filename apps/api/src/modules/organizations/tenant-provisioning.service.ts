@@ -9,6 +9,7 @@ export type ProvisionTenantInput = {
   adminEmail: string;
   adminPassword: string;
   adminName?: string;
+  adminPhone?: string;
   outletName?: string;
   rkyvesClientId?: string;
   status?: "trial" | "active";
@@ -16,6 +17,8 @@ export type ProvisionTenantInput = {
   mustChangePassword?: boolean;
   businessType?: string;
   restaurantSize?: string | null;
+  /** Override default trial length (days). Default 15. */
+  trialDays?: number;
 };
 
 @Injectable()
@@ -35,8 +38,14 @@ export class TenantProvisioningService {
       .replace(/^-|-$/g, "")
       .slice(0, 40);
     const slug = `${baseSlug}-${Date.now().toString(36)}`;
-    const passwordHash = await hashPassword(input.adminPassword);
-    const trialEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    const password = input.adminPassword;
+    if (password.length < 8 || password.length > 128) {
+      throw new BadRequestException("Admin password must be 8–128 characters");
+    }
+    const passwordHash = await hashPassword(password);
+    const trialDays =
+      input.trialDays && input.trialDays > 0 ? Math.round(input.trialDays) : 15;
+    const trialEnd = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000);
     const orgStatus = input.status ?? "trial";
 
     const org = await this.prisma.organization.create({
@@ -46,6 +55,7 @@ export class TenantProvisioningService {
         rkyvesClientId: input.rkyvesClientId,
         status: orgStatus,
         email: input.adminEmail,
+        phone: input.adminPhone?.trim() || null,
         ...(input.businessType
           ? { businessType: input.businessType as never }
           : {}),
@@ -85,6 +95,7 @@ export class TenantProvisioningService {
         email: input.adminEmail,
         passwordHash,
         name: input.adminName ?? "Owner",
+        phone: input.adminPhone?.trim() || null,
         isSuperAdmin: false,
         mustChangePassword: input.mustChangePassword !== false,
       },

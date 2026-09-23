@@ -1,4 +1,7 @@
-import { Module } from "@nestjs/common";
+import { Module, NestModule, MiddlewareConsumer } from "@nestjs/common";
+import { APP_GUARD } from "@nestjs/core";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { SecurityHeadersMiddleware } from "./common/security-headers.middleware";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PlatformConfigModule } from "./modules/platform-config/platform-config.module";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -46,12 +49,28 @@ import { InternalModule } from "./modules/internal/internal.module";
 import { MarketingModule } from "./modules/marketing/marketing.module";
 import { EventsModule } from "./modules/events/events.module";
 import { ProductionModule } from "./modules/production/production.module";
+import { CentralKitchenModule } from "./modules/central-kitchen/central-kitchen.module";
 import { StorageModule } from "./modules/storage/storage.module";
 import { PromoModule } from "./modules/promo/promo.module";
+import { PrivacyModule } from "./modules/privacy/privacy.module";
+import { GuestModule } from "./modules/guest/guest.module";
+import { AggregatorsModule } from "./modules/aggregators/aggregators.module";
+import { ErpExportModule } from "./modules/erp-export/erp-export.module";
+import { ReservationsModule } from "./modules/reservations/reservations.module";
+import { FeedbackModule } from "./modules/feedback/feedback.module";
+import { PromoDisplayModule } from "./modules/promo-display/promo-display.module";
+import { WalletModule } from "./modules/wallet/wallet.module";
 import { HealthController } from "./health.controller";
+import { GeoController } from "./modules/geo/geo.controller";
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000,
+        limit: 120,
+      },
+    ]),
     PrismaModule,
     PlatformConfigModule,
     StorageModule,
@@ -100,8 +119,22 @@ import { HealthController } from "./health.controller";
     MarketingModule,
     EventsModule,
     ProductionModule,
+    CentralKitchenModule,
     PromoModule,
+    PrivacyModule,
+    GuestModule,
+    AggregatorsModule,
+    ErpExportModule,
+    ReservationsModule,
+    FeedbackModule,
+    PromoDisplayModule,
+    WalletModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, GeoController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(SecurityHeadersMiddleware).forRoutes("*");
+  }
+}

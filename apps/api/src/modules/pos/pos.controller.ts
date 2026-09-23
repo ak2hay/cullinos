@@ -1,11 +1,16 @@
-import { Body, Controller, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { CurrentUser, OrgId, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import type { JwtPayload } from "@cullinos/auth";
 import { OrdersService } from "../orders/orders.service";
+import { PosShiftsService } from "./pos-shifts.service";
 
 @Controller("pos")
 export class PosController {
-  constructor(private ordersService: OrdersService) {}
+  constructor(
+    private ordersService: OrdersService,
+    private shifts: PosShiftsService,
+  ) {}
 
   @Post("quick-order")
   @RequireModule("pos")
@@ -38,5 +43,59 @@ export class PosController {
   @RequireModule("pos")
   resumeOrder(@OrgId() orgId: string, @Param("id") id: string) {
     return this.ordersService.resume(orgId, id);
+  }
+
+  @Get("shifts/open")
+  @RequireModule("pos")
+  openShiftStatus(
+    @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
+    @Query("outletId") outletId: string,
+  ) {
+    return this.shifts.getOpenShift(orgId, outletId, user.sub);
+  }
+
+  @Post("shifts/open")
+  @RequireModule("pos")
+  @RequirePermissions("pos:shift:open", "pos:access")
+  openShift(
+    @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() body: { outletId?: string; openingCash?: number },
+  ) {
+    return this.shifts.openShift(
+      orgId,
+      user.sub,
+      body.outletId ?? "",
+      body.openingCash,
+    );
+  }
+
+  @Post("shifts/:id/close")
+  @RequireModule("pos")
+  @RequirePermissions("pos:shift:close", "pos:access")
+  closeShift(
+    @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
+    @Param("id") id: string,
+    @Body() body: { closingCash?: number },
+  ) {
+    return this.shifts.closeShift(orgId, user.sub, id, body.closingCash);
+  }
+
+  @Post("shifts/:id/movements")
+  @RequireModule("pos")
+  @RequirePermissions("pos:shift:open", "pos:access")
+  addMovement(
+    @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
+    @Param("id") id: string,
+    @Body() body: { type?: string; amount?: number; reason?: string },
+  ) {
+    return this.shifts.addMovement(orgId, user.sub, id, {
+      type: body.type ?? "cash_in",
+      amount: Number(body.amount),
+      reason: body.reason,
+    });
   }
 }

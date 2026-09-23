@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { PasswordInput } from '@cullinos/ui';
 import { RKYVES_BRAND, superAdminApi } from '@/lib/api';
 
 type Step = 'email' | 'reset';
@@ -120,28 +121,22 @@ export function ForgotPasswordPage() {
                 className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
               />
             </label>
-            <label className="block">
-              <span className="text-sm text-text-secondary">New password</span>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm text-text-secondary">Confirm password</span>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
-              />
-            </label>
+            <PasswordInput
+              label="New password"
+              required
+              minLength={8}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+            <PasswordInput
+              label="Confirm password"
+              required
+              minLength={8}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+            />
             <button
               type="submit"
               disabled={loading}

@@ -1,5 +1,30 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
+
+export const MANAGEMENT_REMEMBER_KEY = 'cullinos-management-remember';
+
+function makeRememberStorage(): StateStorage {
+  return {
+    getItem: (key) => {
+      const useSession = localStorage.getItem(MANAGEMENT_REMEMBER_KEY) === 'false';
+      return (useSession ? sessionStorage : localStorage).getItem(key);
+    },
+    setItem: (key, value) => {
+      const useSession = localStorage.getItem(MANAGEMENT_REMEMBER_KEY) === 'false';
+      if (useSession) {
+        sessionStorage.setItem(key, value);
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, value);
+        sessionStorage.removeItem(key);
+      }
+    },
+    removeItem: (key) => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    },
+  };
+}
 
 export interface AuthUser {
   id: string;
@@ -57,6 +82,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'cullinos-management-auth',
+      storage: createJSONStorage(() => makeRememberStorage()),
       partialize: (state) => ({
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,

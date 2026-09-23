@@ -3,6 +3,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { KitchenDisplayPage } from '@/pages/KitchenDisplayPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { PickupDisplayPage } from '@/pages/PickupDisplayPage';
+import { PromoPlaylistPage } from '@/pages/PromoPlaylistPage';
 import { ReceiptPrintPage } from '@/pages/ReceiptPrintPage';
 import { useAuthStore } from '@/stores/auth';
 
@@ -20,12 +21,18 @@ function getQueryParam(key: string): string | null {
 }
 
 export default function App() {
-  // Pickup / CDS / receipt modes are public — no login needed.
+  // Pickup / CDS modes use storefront slugs. Receipt mode requires auth + outletId.
   const mode = getQueryParam('mode');
   const outletId = getQueryParam('outletId');
+  const orgSlug = getQueryParam('orgSlug');
+  const outletSlug = getQueryParam('outletSlug');
 
-  if ((mode === 'pickup' || mode === 'cds') && outletId) {
-    return <PickupDisplayPage outletId={outletId} />;
+  if (mode === 'playlist' && orgSlug && outletSlug) {
+    return <PromoPlaylistPage orgSlug={orgSlug} outletSlug={outletSlug} />;
+  }
+
+  if ((mode === 'pickup' || mode === 'cds') && orgSlug && outletSlug) {
+    return <PickupDisplayPage orgSlug={orgSlug} outletSlug={outletSlug} mode={mode} />;
   }
 
   if (mode === 'receipt' && outletId) {

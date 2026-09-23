@@ -55,14 +55,24 @@ export function KotCard({ kot, outletId }: KotCardProps) {
   async function bumpAllItems() {
     const next = nextStatus(kot.status);
     if (!next) return;
-    for (const item of kot.items) {
-      if (item.status !== 'SERVED') {
-        await updateMutation.mutateAsync({ itemId: item.id, status: next });
+    try {
+      for (const item of kot.items) {
+        if (item.status !== 'SERVED') {
+          await updateMutation.mutateAsync({ itemId: item.id, status: next });
+        }
       }
+    } catch {
+      // Error surface via updateMutation.error below.
     }
   }
 
   const next = nextStatus(kot.status);
+  const actionError =
+    updateMutation.error instanceof Error
+      ? updateMutation.error.message
+      : updateMutation.isError
+        ? 'Failed to update ticket'
+        : null;
 
   return (
     <article
@@ -113,6 +123,10 @@ export function KotCard({ kot, outletId }: KotCardProps) {
 
       {kot.notes ? (
         <p className="mb-3 text-xs text-status-warning">Note: {kot.notes}</p>
+      ) : null}
+
+      {actionError ? (
+        <p className="mb-2 text-xs text-status-error">{actionError}</p>
       ) : null}
 
       {next ? (

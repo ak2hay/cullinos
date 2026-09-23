@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@cullinos/ui';
-import { outletsApi } from '@/lib/api';
+import { organizationsApi, outletsApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
 const KDS_BASE =
@@ -15,8 +15,16 @@ function buildUrl(pathQuery: string) {
 
 export function KitchenDisplayLauncherPage() {
   const outletId = useAuthStore((s) => s.selectedOutletId);
+  const authOrgSlug = useAuthStore((s) => s.user?.organizationSlug);
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
-  const outletName = outletsQuery.data?.find((o) => o.id === outletId)?.name;
+  const orgQuery = useQuery({
+    queryKey: ['organizations', 'current'],
+    queryFn: organizationsApi.current,
+  });
+  const outlet = outletsQuery.data?.find((o) => o.id === outletId);
+  const outletName = outlet?.name;
+  const outletSlug = outlet?.slug;
+  const orgSlug = orgQuery.data?.slug ?? authOrgSlug;
   const [copied, setCopied] = useState<string | null>(null);
 
   if (!outletId) {
@@ -28,9 +36,28 @@ export function KitchenDisplayLauncherPage() {
     );
   }
 
+  if (outletsQuery.isLoading || orgQuery.isLoading) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold">Kitchen display</h1>
+        <p className="text-text-secondary">Loading outlet details…</p>
+      </div>
+    );
+  }
+
   const kitchenUrl = buildUrl(`outletId=${encodeURIComponent(outletId)}`);
-  const cdsUrl = buildUrl(`mode=cds&outletId=${encodeURIComponent(outletId)}`);
-  const pickupUrl = buildUrl(`mode=pickup&outletId=${encodeURIComponent(outletId)}`);
+  const cdsUrl =
+    orgSlug && outletSlug
+      ? buildUrl(
+          `mode=cds&orgSlug=${encodeURIComponent(orgSlug)}&outletSlug=${encodeURIComponent(outletSlug)}`,
+        )
+      : '';
+  const pickupUrl =
+    orgSlug && outletSlug
+      ? buildUrl(
+          `mode=pickup&orgSlug=${encodeURIComponent(orgSlug)}&outletSlug=${encodeURIComponent(outletSlug)}`,
+        )
+      : '';
 
   async function copy(label: string, url: string) {
     await navigator.clipboard.writeText(url);
@@ -45,18 +72,22 @@ export function KitchenDisplayLauncherPage() {
       description: 'Staff login required. Shows KOTs for the kitchen.',
       url: kitchenUrl,
     },
-    {
-      id: 'cds',
-      title: 'Customer display (CDS)',
-      description: 'Public board — Preparing | Ready columns.',
-      url: cdsUrl,
-    },
-    {
-      id: 'pickup',
-      title: 'Pickup display',
-      description: 'Same customer board via mode=pickup.',
-      url: pickupUrl,
-    },
+    ...(cdsUrl
+      ? [
+          {
+            id: 'cds',
+            title: 'Customer display (CDS)',
+            description: 'Public board — Preparing | Ready columns.',
+            url: cdsUrl,
+          },
+          {
+            id: 'pickup',
+            title: 'Pickup display',
+            description: 'Same customer board via mode=pickup.',
+            url: pickupUrl,
+          },
+        ]
+      : []),
   ];
 
   return (

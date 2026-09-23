@@ -14,7 +14,7 @@ FRONTEND_DOMAINS = [
     "admin.cullinos.com",
     "manage.cullinos.com",
     "platform.cullinos.com",
-    "order.cullinos.com",
+    "guest.cullinos.com",
     "waiter.cullinos.com",
     "pos.cullinos.com",
     "kds.cullinos.com",

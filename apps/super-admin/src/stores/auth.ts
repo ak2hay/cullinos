@@ -1,5 +1,30 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
+
+export const SUPER_ADMIN_REMEMBER_KEY = 'cullinos-super-admin-remember';
+
+function makeRememberStorage(): StateStorage {
+  return {
+    getItem: (key) => {
+      const useSession = localStorage.getItem(SUPER_ADMIN_REMEMBER_KEY) === 'false';
+      return (useSession ? sessionStorage : localStorage).getItem(key);
+    },
+    setItem: (key, value) => {
+      const useSession = localStorage.getItem(SUPER_ADMIN_REMEMBER_KEY) === 'false';
+      if (useSession) {
+        sessionStorage.setItem(key, value);
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, value);
+        sessionStorage.removeItem(key);
+      }
+    },
+    removeItem: (key) => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    },
+  };
+}
 
 export interface SuperAdminUser {
   id: string;
@@ -24,6 +49,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'cullinos-super-admin-auth',
+      storage: createJSONStorage(() => makeRememberStorage()),
       partialize: (state) => ({
         accessToken: state.accessToken,
         admin: state.admin,

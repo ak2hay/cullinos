@@ -12,6 +12,7 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { OrgId, Public, RequireModule } from "../../common/decorators";
+import { getJwtSecret } from "../../common/jwt-secret.util";
 import { LoyaltyService } from "./loyalty.service";
 
 @Controller("loyalty")
@@ -134,7 +135,7 @@ export class PublicLoyaltyController {
     }
     try {
       const payload = this.jwt.verify(auth.slice(7), {
-        secret: process.env.JWT_SECRET || "dev-secret",
+        secret: getJwtSecret(),
       }) as { sub: string; type?: string; orgId?: string };
       if (payload.type !== "customer") {
         throw new UnauthorizedException("Not a customer token");

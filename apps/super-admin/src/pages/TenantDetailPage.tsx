@@ -14,6 +14,9 @@ export function TenantDetailPage() {
     emailSent: boolean;
   } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [walletAmountRupees, setWalletAmountRupees] = useState('500');
+  const [walletNote, setWalletNote] = useState('');
+  const [walletError, setWalletError] = useState<string | null>(null);
 
   const detailQuery = useQuery({
     queryKey: ['super-admin', 'organization', id],
@@ -24,6 +27,12 @@ export function TenantDetailPage() {
   const usersQuery = useQuery({
     queryKey: ['super-admin', 'organization', id, 'users'],
     queryFn: () => superAdminApi.listOrganizationUsers(id),
+    enabled: Boolean(id),
+  });
+
+  const walletQuery = useQuery({
+    queryKey: ['super-admin', 'organization', id, 'wallet'],
+    queryFn: () => superAdminApi.getOrganizationWallet(id),
     enabled: Boolean(id),
   });
 
@@ -92,12 +101,28 @@ export function TenantDetailPage() {
   });
 
   const impersonateMutation = useMutation({
-    mutationFn: () => superAdminApi.impersonateOrganization(id),
+    mutationFn: (reason: string) => superAdminApi.impersonateOrganization(id, reason),
     onSuccess: (result) => {
       window.open(result.adminUrl, '_blank', 'noopener,noreferrer');
-      setMessage(`Opened support session as ${result.user.email} (expires ${new Date(result.expiresAt).toLocaleString()})`);
+      setMessage(
+        `Opened support session as ${result.user.email} (expires ${new Date(result.expiresAt).toLocaleString()})`,
+      );
     },
     onError: (err: Error) => setMessage(err.message),
+  });
+
+  const walletAdjustMutation = useMutation({
+    mutationFn: (payload: { amountPaise: number; note: string }) =>
+      superAdminApi.adjustOrganizationWallet(id, payload),
+    onSuccess: (bal) => {
+      setWalletError(null);
+      setWalletNote('');
+      setMessage(`Wallet updated. Balance ₹${bal.balanceRupees.toFixed(2)}.`);
+      queryClient.invalidateQueries({
+        queryKey: ['super-admin', 'organization', id, 'wallet'],
+      });
+    },
+    onError: (err: Error) => setWalletError(err.message),
   });
 
   const org = detailQuery.data;
@@ -138,7 +163,16 @@ export function TenantDetailPage() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => impersonateMutation.mutate()}
+            onClick={() => {
+              const reason = window.prompt(
+                'Support reason for impersonation (required, min 8 characters):',
+              );
+              if (!reason || reason.trim().length < 8) {
+                setMessage('Impersonation cancelled — a support reason is required.');
+                return;
+              }
+              impersonateMutation.mutate(reason.trim());
+            }}
             disabled={impersonateMutation.isPending || !isActive}
             className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary disabled:opacity-60"
           >
@@ -252,6 +286,107 @@ export function TenantDetailPage() {
           </dl>
         </section>
       </div>
+
+      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+        <h2 className="font-medium">Portal wallet (SMS addon)</h2>
+        <p className="mt-1 text-sm text-text-muted">
+          Manual credit/debit. SMS rate is set under Platform Settings → Portal wallet &amp; SMS
+          pricing.
+        </p>
+        {walletQuery.isLoading ? (
+          <p className="mt-3 text-sm text-text-muted">Loading wallet…</p>
+        ) : walletQuery.error ? (
+          <p className="mt-3 text-sm text-status-error">
+            {walletQuery.error instanceof Error
+              ? walletQuery.error.message
+              : 'Failed to load wallet'}
+          </p>
+        ) : (
+          <dl className="mt-4 grid gap-3 sm:grid-cols-3 text-sm">
+            <div>
+              <dt className="text-text-muted">Balance</dt>
+              <dd className="text-lg font-semibold">
+                ₹{(walletQuery.data?.balanceRupees ?? 0).toFixed(2)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-text-muted">SMS rate</dt>
+              <dd>
+                ₹{(walletQuery.data?.pricePer100Rupees ?? 0).toFixed(2)} / 100 SMS
+              </dd>
+            </div>
+          </dl>
+        )}
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <label className="text-sm">
+            <span className="mb-1 block text-text-muted">Amount (₹)</span>
+            <input
+              type="number"
+              step="0.01"
+              value={walletAmountRupees}
+              onChange={(e) => setWalletAmountRupees(e.target.value)}
+              className="h-10 w-32 rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm"
+            />
+          </label>
+          <label className="min-w-48 flex-1 text-sm">
+            <span className="mb-1 block text-text-muted">Note (required)</span>
+            <input
+              type="text"
+              value={walletNote}
+              onChange={(e) => setWalletNote(e.target.value)}
+              placeholder="Support credit / correction"
+              className="h-10 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={walletAdjustMutation.isPending}
+            className="h-10 rounded-lg bg-brand-primary px-4 text-sm font-medium text-bg-primary disabled:opacity-60"
+            onClick={() => {
+              const rupees = Math.abs(Number(walletAmountRupees));
+              if (!Number.isFinite(rupees) || rupees === 0) {
+                setWalletError('Enter a positive amount in rupees.');
+                return;
+              }
+              if (!walletNote.trim()) {
+                setWalletError('Note is required.');
+                return;
+              }
+              walletAdjustMutation.mutate({
+                amountPaise: Math.round(rupees * 100),
+                note: walletNote.trim(),
+              });
+            }}
+          >
+            {walletAdjustMutation.isPending ? 'Saving…' : 'Credit'}
+          </button>
+          <button
+            type="button"
+            disabled={walletAdjustMutation.isPending}
+            className="h-10 rounded-lg border border-white/10 px-4 text-sm hover:bg-white/5 disabled:opacity-60"
+            onClick={() => {
+              const rupees = Math.abs(Number(walletAmountRupees));
+              if (!Number.isFinite(rupees) || rupees === 0) {
+                setWalletError('Enter a positive amount in rupees.');
+                return;
+              }
+              if (!walletNote.trim()) {
+                setWalletError('Note is required.');
+                return;
+              }
+              walletAdjustMutation.mutate({
+                amountPaise: -Math.round(rupees * 100),
+                note: walletNote.trim(),
+              });
+            }}
+          >
+            Debit
+          </button>
+        </div>
+        {walletError ? (
+          <p className="mt-2 text-sm text-status-error">{walletError}</p>
+        ) : null}
+      </section>
 
       <section className="rounded-xl border border-white/5 bg-bg-card p-5">
         <h2 className="font-medium">Subscription</h2>

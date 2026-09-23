@@ -22,6 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/blog',
     '/privacy',
     '/terms',
+    '/unsubscribe',
   ];
 
   const slugs = await getBlogSlugs();

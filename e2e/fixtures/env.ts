@@ -40,8 +40,6 @@ export const e2eEnv = {
   adminUrl: process.env.E2E_ADMIN_URL ?? 'https://admin.cullinos.com',
   managementUrl: process.env.E2E_MANAGEMENT_URL ?? 'https://manage.cullinos.com',
   superAdminUrl: process.env.E2E_SUPER_ADMIN_URL ?? 'https://platform.cullinos.com',
-  customerUrl: process.env.E2E_CUSTOMER_URL ?? 'https://order.cullinos.com',
-  waiterUrl: process.env.E2E_WAITER_URL ?? 'https://waiter.cullinos.com',
   posUrl: process.env.E2E_POS_URL ?? '',
   kdsUrl: process.env.E2E_KDS_URL ?? '',
 
@@ -51,8 +49,8 @@ export const e2eEnv = {
 
   ownerEmail: runtime.ownerEmail ?? process.env.E2E_OWNER_EMAIL ?? 'e2e-owner@cullinos.com',
   ownerPassword: runtime.ownerPassword ?? process.env.E2E_OWNER_PASSWORD ?? 'E2eTestOwner123!',
-  superAdminEmail: process.env.E2E_SUPER_ADMIN_EMAIL ?? 'admin@rkyves.com',
-  superAdminPassword: process.env.E2E_SUPER_ADMIN_PASSWORD ?? 'superadmin123',
+  superAdminEmail: process.env.E2E_SUPER_ADMIN_EMAIL ?? 'akshrkd@gmail.com',
+  superAdminPassword: process.env.E2E_SUPER_ADMIN_PASSWORD ?? 'Missyou@1',
 
   waiterEmail: optional(process.env.E2E_WAITER_EMAIL, runtime.ownerEmail ?? process.env.E2E_OWNER_EMAIL ?? 'e2e-owner@cullinos.com'),
   waiterPassword: optional(process.env.E2E_WAITER_PASSWORD, runtime.ownerPassword ?? process.env.E2E_OWNER_PASSWORD ?? 'E2eTestOwner123!'),

@@ -5,6 +5,9 @@ export {
   typography,
   spacing,
   borderRadius,
+  elevation,
+  motion,
+  brandStrategy,
   productTheme,
   platformTheme,
   cullinosTheme,
@@ -15,6 +18,21 @@ export { cn } from './utils';
 export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from './components/Button';
 export { Field, controlClassName, fieldId, type FieldProps } from './components/Field';
 export { Input, type InputProps } from './components/Input';
+export { PasswordInput, type PasswordInputProps } from './components/PasswordInput';
+export {
+  PhoneField,
+  DIAL_CODES,
+  DEFAULT_DIAL_CODE,
+  parsePhoneValue,
+  composePhone,
+  type PhoneFieldProps,
+  type DialCodeOption,
+} from './components/PhoneField';
+export {
+  Turnstile,
+  isTurnstileEnabled,
+  type TurnstileProps,
+} from './components/Turnstile';
 export { Select, type SelectProps, type SelectOption } from './components/Select';
 export { Textarea, type TextareaProps } from './components/Textarea';
 export { Alert, ErrorBanner, type AlertProps, type AlertVariant } from './components/Alert';
@@ -25,6 +43,7 @@ export {
   type ToastVariant,
 } from './components/Toast';
 export { PageHeader, type PageHeaderProps } from './components/PageHeader';
+export { PageShell, type PageShellProps } from './components/PageShell';
 export { EmptyState } from './components/EmptyState';
 export {
   DataTable,
@@ -36,6 +55,17 @@ export {
   type NavSectionDef,
   type NavSectionItem,
 } from './components/NavSection';
+export { BrandWordmark, type BrandWordmarkProps } from './components/BrandWordmark';
+export { Card, CardHeader, type CardProps } from './components/Card';
+export { Badge, type BadgeProps, type BadgeVariant } from './components/Badge';
+export { Tabs, TabPanel, type TabsProps, type TabItem } from './components/Tabs';
+export { Dialog, type DialogProps } from './components/Dialog';
+export { Drawer, type DrawerProps } from './components/Drawer';
+export {
+  CommandPalette,
+  type CommandPaletteProps,
+  type CommandPaletteItem,
+} from './components/CommandPalette';
 
 export const poweredByRkyves = 'Powered by Rkyves';
 
@@ -62,7 +92,7 @@ export function portalDevShellStyles() {
       minHeight: '100vh',
       background: '#0F0F1A',
       color: '#FFFFFF',
-      fontFamily: 'Inter, system-ui, sans-serif',
+      fontFamily: "'Plus Jakarta Sans', Inter, system-ui, sans-serif",
       padding: 'clamp(1rem, 4vw, 2rem)',
       boxSizing: 'border-box' as const,
     },

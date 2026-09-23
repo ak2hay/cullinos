@@ -184,6 +184,27 @@ export class CreateMenuItemDto {
 
   @IsOptional()
   @IsInt()
+  @Min(0)
+  packagingCharge?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  onlineAvailable?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  stockBasedAvailability?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isVeg?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isSpecial?: boolean;
+
+  @IsOptional()
+  @IsInt()
   sortOrder?: number;
 
   @IsOptional()
@@ -250,6 +271,27 @@ export class UpdateMenuItemDto {
   @IsOptional()
   @IsBoolean()
   isAvailable?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  packagingCharge?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  onlineAvailable?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  stockBasedAvailability?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isVeg?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isSpecial?: boolean;
 
   @IsOptional()
   @IsInt()

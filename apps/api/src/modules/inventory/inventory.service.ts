@@ -50,9 +50,33 @@ export class InventoryService {
           unit: item.unit,
           currentStock: Number(item.currentStock),
           reorderLevel: Number(item.reorderLevel),
+          costPerUnit: Number(item.costPerUnit),
           outletId: item.outletId,
         })),
       );
+  }
+
+  async listLots(orgId: string, itemId: string) {
+    const item = await this.prisma.inventoryItem.findFirst({
+      where: { id: itemId, organizationId: orgId },
+      select: { id: true },
+    });
+    if (!item) throw new NotFoundException("Inventory item not found");
+
+    const lots = await this.prisma.inventoryLot.findMany({
+      where: { inventoryItemId: itemId, qtyRemaining: { gt: 0 } },
+      orderBy: { receivedAt: "asc" },
+      take: 100,
+    });
+
+    return lots.map((lot) => ({
+      id: lot.id,
+      qtyRemaining: Number(lot.qtyRemaining),
+      unitCost: Number(lot.unitCost),
+      receivedAt: lot.receivedAt.toISOString(),
+      expiryDate: lot.expiryDate?.toISOString() ?? null,
+      grnItemId: lot.grnItemId,
+    }));
   }
 
   async createItem(
@@ -176,6 +200,54 @@ export class InventoryService {
         notes: movement.notes,
       },
     };
+  }
+
+  async updateItem(
+    orgId: string,
+    itemId: string,
+    data: {
+      name?: string;
+      sku?: string;
+      unit?: string;
+      currentStock?: number;
+      reorderLevel?: number;
+    },
+  ) {
+    const item = await this.prisma.inventoryItem.findFirst({
+      where: { id: itemId, organizationId: orgId },
+    });
+    if (!item) throw new NotFoundException("Inventory item not found");
+
+    const updated = await this.prisma.inventoryItem.update({
+      where: { id: item.id },
+      data: {
+        ...(data.name?.trim() ? { name: data.name.trim() } : {}),
+        ...(data.sku !== undefined ? { sku: data.sku?.trim() || null } : {}),
+        ...(data.unit ? { unit: this.resolveUnit(data.unit) } : {}),
+        ...(data.currentStock !== undefined ? { currentStock: data.currentStock } : {}),
+        ...(data.reorderLevel !== undefined ? { reorderLevel: data.reorderLevel } : {}),
+      },
+    });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      sku: updated.sku,
+      unit: updated.unit,
+      currentStock: Number(updated.currentStock),
+      reorderLevel: Number(updated.reorderLevel),
+      outletId: updated.outletId,
+    };
+  }
+
+  async removeItem(orgId: string, itemId: string) {
+    const item = await this.prisma.inventoryItem.findFirst({
+      where: { id: itemId, organizationId: orgId },
+    });
+    if (!item) throw new NotFoundException("Inventory item not found");
+
+    await this.prisma.inventoryItem.delete({ where: { id: item.id } });
+    return { id: item.id, deleted: true };
   }
 
   async transfer(

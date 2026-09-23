@@ -20,6 +20,12 @@ export type ResolvedOrderItem = {
   unitPrice: number;
   notes: string | null;
   modifiers: Array<{ name: string; price: number; modifierId?: string }> | null;
+  taxGroupId: string | null;
+};
+
+export type ResolveOrderItemsOptions = {
+  /** Public storefront orders: menu IDs only, server prices, DB modifier prices. */
+  publicOrder?: boolean;
 };
 
 export async function resolveOrderItems(
@@ -27,6 +33,7 @@ export async function resolveOrderItems(
   orgId: string,
   outletId: string,
   items: IncomingOrderItem[],
+  options: ResolveOrderItemsOptions = {},
 ): Promise<ResolvedOrderItem[]> {
   if (!items?.length) {
     throw new BadRequestException("Order must include at least one item");
@@ -36,6 +43,9 @@ export async function resolveOrderItems(
 
   for (const item of items) {
     if (!item.menuItemId) {
+      if (options.publicOrder) {
+        throw new BadRequestException("Public orders require menuItemId for every item");
+      }
       if (!item.name || item.unitPrice == null) {
         throw new BadRequestException("Each item requires menuItemId or name + unitPrice");
       }
@@ -47,6 +57,7 @@ export async function resolveOrderItems(
         unitPrice: toRupeesFromClient(item.unitPrice),
         notes: item.notes ?? null,
         modifiers: item.modifiers ?? null,
+        taxGroupId: null,
       });
       continue;
     }
@@ -56,6 +67,13 @@ export async function resolveOrderItems(
       include: {
         variants: true,
         outletPrices: { where: { outletId, priceType: "retail" } },
+        modifierGroups: {
+          include: {
+            modifierGroup: {
+              include: { modifiers: true },
+            },
+          },
+        },
       },
     });
 
@@ -80,17 +98,71 @@ export async function resolveOrderItems(
       unitPriceRupees = Number(outletPrice.price);
     }
 
-    const modifierTotalPaise =
-      item.modifiers?.reduce((sum, m) => sum + (m.price ?? 0), 0) ?? 0;
+    const modifierCatalog = new Map<
+      string,
+      { id: string; name: string; price: number }
+    >();
+    for (const link of menuItem.modifierGroups) {
+      for (const mod of link.modifierGroup.modifiers) {
+        modifierCatalog.set(mod.id, {
+          id: mod.id,
+          name: mod.name,
+          price: Number(mod.price),
+        });
+      }
+    }
+
+    let resolvedModifiers: Array<{ name: string; price: number; modifierId?: string }> | null =
+      null;
+    let modifierTotalRupees = 0;
+
+    if (item.modifiers?.length) {
+      resolvedModifiers = [];
+      for (const incoming of item.modifiers) {
+        if (options.publicOrder) {
+          if (!incoming.modifierId) {
+            throw new BadRequestException("Public orders require modifierId for modifiers");
+          }
+          const catalog = modifierCatalog.get(incoming.modifierId);
+          if (!catalog) {
+            throw new BadRequestException(`Modifier not found: ${incoming.modifierId}`);
+          }
+          resolvedModifiers.push({
+            name: catalog.name,
+            price: toPaise(catalog.price),
+            modifierId: catalog.id,
+          });
+          modifierTotalRupees += catalog.price;
+        } else if (incoming.modifierId && modifierCatalog.has(incoming.modifierId)) {
+          const catalog = modifierCatalog.get(incoming.modifierId)!;
+          resolvedModifiers.push({
+            name: catalog.name,
+            price: toPaise(catalog.price),
+            modifierId: catalog.id,
+          });
+          modifierTotalRupees += catalog.price;
+        } else {
+          // Staff POS may still send free-form modifiers with client prices.
+          const priceRupees = toRupeesFromClient(incoming.price ?? 0);
+          resolvedModifiers.push({
+            name: incoming.name,
+            price: toPaise(priceRupees),
+            modifierId: incoming.modifierId,
+          });
+          modifierTotalRupees += priceRupees;
+        }
+      }
+    }
 
     resolved.push({
       menuItemId: menuItem.id,
       variantId,
       name,
       quantity: item.quantity,
-      unitPrice: unitPriceRupees + modifierTotalPaise / 100,
+      unitPrice: unitPriceRupees + modifierTotalRupees,
       notes: item.notes ?? null,
-      modifiers: item.modifiers ?? null,
+      modifiers: resolvedModifiers,
+      taxGroupId: menuItem.taxGroupId,
     });
   }
 
@@ -110,7 +182,9 @@ export function mapOrderToClient(order: {
   source?: string;
   tableId: string | null;
   outletId: string;
+  table?: { id?: string; name?: string | null } | null;
   subtotal: unknown;
+  taxTotal?: unknown;
   total?: unknown;
   tipAmount?: unknown;
   customerName?: string | null;
@@ -119,12 +193,19 @@ export function mapOrderToClient(order: {
   readyAt?: Date | null;
   type?: string;
   createdAt?: Date;
+  taxLines?: Array<{
+    taxName: string;
+    rate: unknown;
+    amount: unknown;
+  }>;
   items?: Array<{
     id: string;
     name: string;
     quantity: number;
     unitPrice: unknown;
     notes: string | null;
+    menuItemId?: string | null;
+    menuItem?: { hsnCode?: string | null } | null;
   }>;
 }) {
   return {
@@ -134,6 +215,7 @@ export function mapOrderToClient(order: {
     status: order.status.toUpperCase(),
     source: order.source?.toUpperCase(),
     tableId: order.tableId,
+    tableName: order.table?.name ?? null,
     outletId: order.outletId,
     type: order.type?.toUpperCase(),
     customerName: order.customerName,
@@ -141,17 +223,24 @@ export function mapOrderToClient(order: {
     scheduledPickupAt: order.scheduledPickupAt?.toISOString(),
     readyAt: order.readyAt?.toISOString() ?? null,
     subtotal: toPaise(Number(order.subtotal)),
+    taxTotal: order.taxTotal != null ? toPaise(Number(order.taxTotal)) : 0,
     tipAmount: order.tipAmount != null ? toPaise(Number(order.tipAmount)) : 0,
     total: order.total != null ? toPaise(Number(order.total)) : undefined,
     totalAmount:
       order.total != null ? toPaise(Number(order.total)) : toPaise(Number(order.subtotal)),
     createdAt: order.createdAt?.toISOString(),
+    taxLines: (order.taxLines ?? []).map((t) => ({
+      taxName: t.taxName,
+      rate: Number(t.rate),
+      amount: toPaise(Number(t.amount)),
+    })),
     items: order.items?.map((item) => ({
       id: item.id,
       name: item.name,
       quantity: item.quantity,
       unitPrice: toPaise(Number(item.unitPrice)),
       notes: item.notes,
+      hsnCode: item.menuItem?.hsnCode ?? null,
     })),
   };
 }

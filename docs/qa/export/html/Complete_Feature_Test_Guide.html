@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Cullinos — Complete Feature Testing Guide</title>
+  <style>
+  body { font-family: Segoe UI, Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: #1a1a1a; max-width: 920px; margin: 0 auto; padding: 20px 28px; }
+  h1 { color: #0F0F1A; border-bottom: 3px solid #D4A017; padding-bottom: 8px; font-size: 20pt; page-break-after: avoid; }
+  h2 { color: #0F0F1A; margin-top: 1.35em; font-size: 13.5pt; border-left: 4px solid #D4A017; padding-left: 10px; page-break-after: avoid; }
+  h3 { color: #222; font-size: 11.5pt; margin-top: 1.1em; page-break-after: avoid; }
+  h4 { color: #333; font-size: 10.5pt; page-break-after: avoid; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0 14px; font-size: 9pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: left; vertical-align: top; }
+  th { background: #D4A017; color: #0F0F1A; font-weight: 600; }
+  tr:nth-child(even) { background: #faf8f2; }
+  code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 8.5pt; font-family: Consolas, monospace; }
+  pre { background: #1a1a1a; color: #f5f5f5; padding: 12px 14px; border-radius: 6px; overflow-x: auto; font-size: 8.5pt; white-space: pre-wrap; border-left: 4px solid #D4A017; }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  blockquote { border-left: 3px solid #D4A017; margin: 0 0 12px; padding: 6px 12px; color: #444; background: #faf8f2; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 18px 0; }
+  a { color: #0a5a8a; text-decoration: none; }
+  ul, ol { margin: 6px 0 12px; padding-left: 1.4em; }
+  li { margin: 3px 0; }
+  input[type="checkbox"] { margin-right: 6px; }
+  @media print {
+    body { padding: 0; }
+    h2, h3 { page-break-after: avoid; }
+    pre, table { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body><h1 id="cullinos--complete-feature-testing-guide">Cullinos — Complete Feature Testing Guide</h1>
+<p><strong>Purpose:</strong> Exhaustive click-by-click manual tests for every active portal, page, and major action.<br><strong>Companion docs:</strong> Day plan → <a href="./TESTER_HANDBOOK.md">TESTER_HANDBOOK.md</a> · Score sheet → <a href="../sheets/TEST_RUN_SHEET.md">../sheets/TEST_RUN_SHEET.md</a> · Bugs → <a href="../sheets/BUG_LOG.md">../sheets/BUG_LOG.md</a> · Credentials → <a href="../sheets/CREDENTIALS_LOG.md">../sheets/CREDENTIALS_LOG.md</a><br><strong>PDF:</strong> <a href="../export/pdf/Complete_Feature_Test_Guide.pdf">../export/pdf/Complete_Feature_Test_Guide.pdf</a> (regenerate with <code>npm run qa:export</code>)</p>
+<p><strong>How to mark:</strong> Check each <code>[ ]</code> as you go. Record Pass / Fail / Blocked / N/A on the Test Run Sheet. Failures → Bug Log + screenshot.</p>
+<p><strong>Environment:</strong> Production (default). Local ports and CLI commands are in the appendix.</p>
+<hr>
+<h2 id="quick-url-card-bookmark-these">Quick URL card (bookmark these)</h2>
+<table>
+<thead>
+<tr>
+<th>Portal</th>
+<th>Production URL</th>
+<th>Who</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Super Admin</td>
+<td><a href="https://platform.cullinos.com">https://platform.cullinos.com</a></td>
+<td>Rkyves platform</td>
+</tr>
+<tr>
+<td>Admin (owner)</td>
+<td><a href="https://admin.cullinos.com">https://admin.cullinos.com</a></td>
+<td>Owner / manager</td>
+</tr>
+<tr>
+<td>Portal POS</td>
+<td><a href="https://admin.cullinos.com/pos">https://admin.cullinos.com/pos</a></td>
+<td>Staff with <code>POS_ACCESS</code></td>
+</tr>
+<tr>
+<td>Management</td>
+<td><a href="https://manage.cullinos.com">https://manage.cullinos.com</a></td>
+<td>Multi-outlet owner</td>
+</tr>
+<tr>
+<td>POS</td>
+<td><a href="https://pos.cullinos.com">https://pos.cullinos.com</a></td>
+<td>Cashier</td>
+</tr>
+<tr>
+<td>KDS</td>
+<td><a href="https://kds.cullinos.com">https://kds.cullinos.com</a></td>
+<td>Kitchen</td>
+</tr>
+<tr>
+<td>Guest deep link</td>
+<td><a href="https://guest.cullinos.com/o/%60%7Borg%7D%60/%60%7Boutlet%7D%60">https://guest.cullinos.com/o/`{org}`/`{outlet}`</a></td>
+<td>Diner</td>
+</tr>
+<tr>
+<td>Guest + table</td>
+<td><code>…/o/{org}/{outlet}?table=T1</code></td>
+<td>QR dine-in</td>
+</tr>
+<tr>
+<td>Guest + session</td>
+<td><code>…/o/{org}/{outlet}?session={token}</code></td>
+<td>Waiter QR session</td>
+</tr>
+<tr>
+<td>Marketing</td>
+<td><a href="https://cullinos.com">https://cullinos.com</a></td>
+<td>Public</td>
+</tr>
+<tr>
+<td>API health</td>
+<td><a href="https://api.cullinos.com/api/v1/health">https://api.cullinos.com/api/v1/health</a></td>
+<td>Preflight</td>
+</tr>
+<tr>
+<td>API DB health</td>
+<td><a href="https://api.cullinos.com/api/v1/health/db">https://api.cullinos.com/api/v1/health/db</a></td>
+<td>Preflight</td>
+</tr>
+<tr>
+<td>Swagger</td>
+<td><a href="https://api.cullinos.com/docs">https://api.cullinos.com/docs</a></td>
+<td>API smoke</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="useful-commands">Useful commands</h2>
+<h3 id="regenerate-qa-pack-pdf--excel">Regenerate QA pack (PDF + Excel)</h3>
+<p>From repo root:</p>
+<pre><code class="language-bash">npm install
+npm run qa:export
+</code></pre>
+<p>Outputs:</p>
+<ul>
+<li>PDFs → <code>docs/qa/export/pdf/</code></li>
+<li>HTML (print fallback) → <code>docs/qa/export/html/</code></li>
+<li>Excel → <code>docs/qa/export/excel/</code></li>
+</ul>
+<h3 id="start-a-test-run-folder">Start a test run folder</h3>
+<pre><code class="language-powershell"># PowerShell (Windows)
+$run = &quot;docs/qa/runs/RUN-$(Get-Date -Format yyyyMMdd)&quot;
+New-Item -ItemType Directory -Force -Path &quot;$run/evidence&quot; | Out-Null
+Copy-Item docs/qa/export/excel/*.xlsx $run/
+</code></pre>
+<pre><code class="language-bash"># bash / Git Bash
+RUN=&quot;docs/qa/runs/RUN-$(date +%Y%m%d)&quot;
+mkdir -p &quot;$RUN/evidence&quot;
+cp docs/qa/export/excel/*.xlsx &quot;$RUN/&quot;
+</code></pre>
+<h3 id="preflight-health-checks">Preflight health checks</h3>
+<pre><code class="language-bash">curl -sS https://api.cullinos.com/api/v1/health
+curl -sS https://api.cullinos.com/api/v1/health/db
+</code></pre>
+<h3 id="optional-local-apps-against-production-api">Optional local apps (against production API)</h3>
+<pre><code class="language-bash"># POS — http://localhost:5173
+VITE_API_URL=https://api.cullinos.com/api/v1 VITE_WS_URL=https://api.cullinos.com npm run dev --workspace=@cullinos/pos
+
+# KDS — http://localhost:5174
+VITE_API_URL=https://api.cullinos.com/api/v1 VITE_WS_URL=https://api.cullinos.com npm run dev --workspace=@cullinos/kds
+
+# Admin — http://localhost:5181
+npm run dev --workspace=@cullinos/admin
+
+# Super Admin — http://localhost:5183
+npm run dev --workspace=@cullinos/super-admin
+
+# Management — http://localhost:5182
+npm run dev --workspace=@cullinos/management
+
+# Marketing web — http://localhost:5180
+npm run dev --workspace=@cullinos/web
+</code></pre>
+<h3 id="display-url-patterns-from-admin-→-displays">Display URL patterns (from Admin → Displays)</h3>
+<p>Replace slugs after tenant setup:</p>
+<pre><code class="language-text">https://kds.cullinos.com/?mode=cds&amp;orgSlug={org}&amp;outletSlug={outlet}
+https://kds.cullinos.com/?mode=pickup&amp;orgSlug={org}&amp;outletSlug={outlet}
+https://kds.cullinos.com/?mode=playlist&amp;orgSlug={org}&amp;outletSlug={outlet}
+https://kds.cullinos.com/?mode=receipt&amp;outletId={outletId}
+</code></pre>
+<hr>
+<h2 id="table-of-contents">Table of contents</h2>
+<ol start="0">
+<li><a href="#0-how-to-use--result-codes">How to use &amp; result codes</a></li>
+<li><a href="#1-setup--sample-data-no-demo-button">Setup &amp; sample data (no Demo button)</a></li>
+<li><a href="#2-gating-matrix-when-to-mark-na">Gating matrix (when to mark N/A)</a></li>
+<li><a href="#3-cross-portal-journeys">Cross-portal journeys</a></li>
+<li><a href="#4-super-admin--platformcullinoscom">Super Admin</a></li>
+<li><a href="#5-admin--owner-portal--admincullinoscom">Admin / Owner portal</a></li>
+<li><a href="#6-management--managecullinoscom">Management</a></li>
+<li><a href="#7-pos--poscullinoscom">POS</a></li>
+<li><a href="#8-kds--public-displays--kdscullinoscom">KDS &amp; public displays</a></li>
+<li><a href="#9-waiter-android--cullinos-waiter">Waiter Android</a></li>
+<li><a href="#10-cullinos-app-guest">Cullinos App (Guest)</a></li>
+<li><a href="#11-marketing-website--cullinoscom">Marketing website</a></li>
+<li><a href="#12-appendix--urls-ports--commands">Appendix — URLs, ports &amp; commands</a></li>
+</ol>
+<hr>
+<h2 id="0-how-to-use--result-codes">0. How to use &amp; result codes</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Pass</strong></td>
+<td>Steps completed; expected result matched</td>
+</tr>
+<tr>
+<td><strong>Fail</strong></td>
+<td>Unexpected behaviour — log bug with steps + screenshot</td>
+</tr>
+<tr>
+<td><strong>Blocked</strong></td>
+<td>Cannot run (missing access, outage, dependency failed)</td>
+</tr>
+<tr>
+<td><strong>N/A</strong></td>
+<td>Feature hidden by business type, plan, permission, or no gateway keys</td>
+</tr>
+</tbody></table>
+<table>
+<thead>
+<tr>
+<th>Who</th>
+<th>Portal</th>
+<th>Login</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Rkyves platform</td>
+<td>Super Admin</td>
+<td>Platform credentials (secure handoff)</td>
+</tr>
+<tr>
+<td>Restaurant owner</td>
+<td>Admin, Management</td>
+<td>Created by Super Admin onboard</td>
+</tr>
+<tr>
+<td>Floor / cashier / kitchen</td>
+<td>Waiter, POS, KDS</td>
+<td>Created by Owner in <strong>Admin → Staff</strong></td>
+</tr>
+<tr>
+<td>Diner</td>
+<td>Cullinos App</td>
+<td>Phone OTP / Google / guest browse; checkout may require auth</td>
+</tr>
+<tr>
+<td>Public</td>
+<td>Marketing site</td>
+<td>None</td>
+</tr>
+</tbody></table>
+<p><strong>There is no Admin “Demo data” button.</strong> Sample categories are seeded only when the owner finishes <strong>Complete setup</strong> on the onboarding wizard. Everything else (items, tables, staff) you create manually — see Chapter 1.</p>
+<hr>
+<h2 id="1-setup--sample-data-no-demo-button">1. Setup &amp; sample data (no Demo button)</h2>
+<p>Use a <strong>fresh QA restaurant</strong> (do not reuse the public demo org for scored runs).</p>
+<h3 id="11-create-the-tenant">1.1 Create the tenant</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Open <a href="https://platform.cullinos.com">https://platform.cullinos.com</a> → <strong>Sign in</strong></li>
+<li><input disabled="" type="checkbox"> Go to <strong>Tenants</strong> → <strong>Onboard restaurant</strong></li>
+<li><input disabled="" type="checkbox"> Fill: Restaurant name*, Business category <strong>Restaurant</strong>, size <strong>Medium</strong> or <strong>Large</strong>, First outlet name*, Plan <strong>Enterprise</strong>, Owner name, Owner email*</li>
+<li><input disabled="" type="checkbox"> Click <strong>Create tenant</strong></li>
+<li><input disabled="" type="checkbox"> Copy one-time owner password (<strong>Reveal once</strong>) into your password manager — record slug/email in Credentials Log (no password in git)</li>
+<li><input disabled="" type="checkbox"> Confirm new tenant appears as <strong>active</strong></li>
+</ol>
+<p><strong>Expected:</strong> Success message with Admin URL and owner email; tenant list shows the new org.</p>
+<h3 id="12-owner-first-login--wizard">1.2 Owner first login &amp; wizard</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Open <a href="https://admin.cullinos.com">https://admin.cullinos.com</a> → sign in with owner email + temporary password</li>
+<li><input disabled="" type="checkbox"> If forced: <strong>Change password</strong> → <strong>Save new password</strong></li>
+<li><input disabled="" type="checkbox"> Complete onboarding steps with <strong>Continue</strong> / <strong>Back</strong>:<ul>
+<li>Business details (category, size, name*, GSTIN, timezone, currency)</li>
+<li>Your features (read-only chips)</li>
+<li>Menu categories (sample categories will be seeded)</li>
+<li>Tables / Tax / Staff tips as shown</li>
+</ul>
+</li>
+<li><input disabled="" type="checkbox"> Last step → <strong>Complete setup</strong></li>
+</ol>
+<p><strong>Expected:</strong> <code>setupCompleted</code>; sample <strong>menu categories</strong> appear under <strong>Menu</strong>; Setup nav item may hide; dashboard loads.</p>
+<h3 id="13-minimum-test-data-create-manually">1.3 Minimum test data (create manually)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Menu</strong> → <strong>items</strong> → <strong>Add item</strong> — create 4+ items across 2 categories (varied prices). Optional: variants, modifiers, <strong>Upload photo</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Tables</strong> → <strong>Add floor</strong> (if needed) → <strong>Add table</strong> → <strong>Create table</strong> — at least 2 tables. Open detail → <strong>Generate QR</strong> / <strong>Download QR</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Staff</strong> → <strong>Add staff member</strong>:<ul>
+<li>Waiter: name, phone (for OTP), email, temp password, role <strong>Waiter</strong>, assign outlet → <strong>Create account</strong></li>
+<li>Cashier: same with role <strong>Cashier</strong></li>
+</ul>
+</li>
+<li><input disabled="" type="checkbox"> <strong>Settings</strong> → enable order types you need → <strong>Save settings</strong>; optionally <strong>Create tax group</strong>, <strong>Register device</strong>, <strong>Add location</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Payments</strong> (optional for pay-now): configure Razorpay and/or Cashfree → <strong>Save</strong>; without keys mark pay-now <strong>N/A</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Displays</strong> → copy KDS / CDS / Pickup / Promo URLs for later</li>
+<li><input disabled="" type="checkbox"> <strong>Digital Ordering</strong> (<code>/kiosk</code>) → copy storefront / kiosk links</li>
+</ol>
+<p>Record org slug, outlet slug, outletId, staff emails in Credentials Log.</p>
+<hr>
+<h2 id="2-gating-matrix-when-to-mark-na">2. Gating matrix (when to mark N/A)</h2>
+<table>
+<thead>
+<tr>
+<th>Feature / path</th>
+<th>Visible when</th>
+<th>Typical restaurant QA</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Tables, Reservations</td>
+<td>Business feature <code>TABLES</code></td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>Displays (KDS/CDS/Promo)</td>
+<td><code>KDS</code></td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>Inventory, Recipes, Purchasing, Suppliers</td>
+<td>Inventory / purchasing features</td>
+<td>Pass on medium+</td>
+</tr>
+<tr>
+<td>Loyalty, Coupons</td>
+<td><code>LOYALTY</code></td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>Delivery</td>
+<td><code>DELIVERY</code></td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>Marketplace, Guest banners</td>
+<td><code>ONLINE_ORDERING</code></td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>Digital Ordering / kiosk</td>
+<td><code>QR_ORDERING</code></td>
+<td>Pass</td>
+</tr>
+<tr>
+<td>Central kitchen</td>
+<td><code>MULTI_OUTLET</code> + transfer permission</td>
+<td>Often N/A until 2nd outlet / CK</td>
+</tr>
+<tr>
+<td>Banquets</td>
+<td><code>BANQUET</code></td>
+<td><strong>N/A</strong> on plain restaurant</td>
+</tr>
+<tr>
+<td>Brands</td>
+<td><code>MULTI_BRAND</code></td>
+<td><strong>N/A</strong></td>
+</tr>
+<tr>
+<td>Guests / Rooms</td>
+<td><code>ROOM_SERVICE</code></td>
+<td><strong>N/A</strong> (hospitality tenant)</td>
+</tr>
+<tr>
+<td>Events / Production</td>
+<td><code>EVENTS</code> / <code>PRODUCTION</code></td>
+<td>May be N/A by type</td>
+</tr>
+<tr>
+<td>Portal POS <code>/pos</code></td>
+<td>Permission <code>POS_ACCESS</code></td>
+<td>Pass for owner</td>
+</tr>
+<tr>
+<td>Billing</td>
+<td><code>ORG_MANAGE_SETTINGS</code></td>
+<td>Pass for owner</td>
+</tr>
+<tr>
+<td>Razorpay / Cashfree pay-now</td>
+<td>Keys configured</td>
+<td><strong>N/A</strong> without keys</td>
+</tr>
+<tr>
+<td>QSR ERP ↔ POS switch</td>
+<td>Cafe / bakery / food_truck / qsr parent</td>
+<td>N/A on classic restaurant</td>
+</tr>
+<tr>
+<td>Management comparison / stock transfer</td>
+<td>2+ outlets</td>
+<td>Needs second outlet</td>
+</tr>
+</tbody></table>
+<p>Nav also filters by staff <strong>permissions</strong>. Staff without a permission should not see or should be denied the route.</p>
+<hr>
+<h2 id="3-cross-portal-journeys">3. Cross-portal journeys</h2>
+<h3 id="journey-a--floor-order-→-kitchen-→-reports">Journey A — Floor order → kitchen → reports</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Waiter: login → open table → <strong>Add items</strong> → <strong>Confirm order</strong> / <strong>Send to kitchen</strong></li>
+<li><input disabled="" type="checkbox"> KDS: ticket appears within ~5s → <strong>Mark Preparing</strong> → <strong>Mark Ready</strong> → <strong>Mark Served</strong></li>
+<li><input disabled="" type="checkbox"> Admin <strong>Orders</strong>: dine-in order listed with correct total/source</li>
+<li><input disabled="" type="checkbox"> Admin <strong>Reports</strong> → <strong>Today</strong> → Daily summary / Item-wise reflect the order</li>
+</ol>
+<h3 id="journey-b--qr-guest-session">Journey B — QR guest session</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Waiter table → <strong>Start QR session</strong> / <strong>Show QR</strong> → <strong>Copy link</strong></li>
+<li><input disabled="" type="checkbox"> Incognito or Guest app: open link → menu loads with table/session</li>
+<li><input disabled="" type="checkbox"> Guest adds items → checkout (pay later or UPI if keys exist)</li>
+<li><input disabled="" type="checkbox"> Waiter <strong>End session</strong> → guest refresh fails or session ends</li>
+<li><input disabled="" type="checkbox"> Admin Orders shows online/QR source</li>
+</ol>
+<h3 id="journey-c--counter-pos">Journey C — Counter POS</h3>
+<ol>
+<li><input disabled="" type="checkbox"> POS login as Cashier → <strong>Open shift</strong> if required</li>
+<li><input disabled="" type="checkbox"> Add items → <strong>Pickup</strong> → <strong>Hold</strong> → <strong>Resume</strong> → <strong>Pay full</strong> → <strong>Cash</strong></li>
+<li><input disabled="" type="checkbox"> Optional e-bill <strong>SMS</strong> / <strong>Email</strong> / <strong>Dismiss</strong></li>
+<li><input disabled="" type="checkbox"> Admin Orders + Reports updated</li>
+</ol>
+<h3 id="journey-d--cds-board">Journey D — CDS board</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Admin <strong>Displays</strong> → copy CDS or Pickup URL → open in new tab</li>
+<li><input disabled="" type="checkbox"> Place a takeaway/POS order</li>
+<li><input disabled="" type="checkbox"> Order appears in <strong>Preparing</strong>; after kitchen ready → <strong>Ready</strong></li>
+</ol>
+<h3 id="journey-e--marketplace-listing-cullinos-app">Journey E — Marketplace listing (Cullinos App)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Admin <strong>App listing</strong> → enable <strong>List on Cullinos App</strong> → hours/photos → <strong>Save listing</strong></li>
+<li><input disabled="" type="checkbox"> Super Admin <strong>Guest Ops → Marketplace</strong> → <strong>Approve</strong> / Featured / rank <strong>Set</strong></li>
+<li><input disabled="" type="checkbox"> Guest app <strong>Home</strong> / <strong>Explore</strong> shows outlet (may need geo / discover config)</li>
+</ol>
+<hr>
+<h2 id="4-super-admin--platformcullinoscom">4. Super Admin — platform.cullinos.com</h2>
+<p><strong>Who:</strong> Platform ops only.</p>
+<h3 id="41-auth">4.1 Auth</h3>
+<h4 id="login-login">Login (<code>/login</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Open login → enter email/password → <strong>Sign in</strong></li>
+<li><input disabled="" type="checkbox"> If OTP: enter code → <strong>Verify and sign in</strong>; try <strong>Resend code</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Forgot password?</strong> link works</li>
+</ol>
+<p><strong>Expected:</strong> Lands on Dashboard.</p>
+<h4 id="forgot-password-forgot-password">Forgot password (<code>/forgot-password</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Send reset code</strong> with valid email</li>
+<li><input disabled="" type="checkbox"> <strong>Update password</strong> with code + new password (or confirm UI accepts flow without crashing)</li>
+</ol>
+<h3 id="42-dashboard-">4.2 Dashboard (<code>/</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> KPIs and recent tenants load without error</li>
+<li><input disabled="" type="checkbox"> Nav links work: Tenants, Plans, Subscriptions, Cullinos App, Settings, System health, Marketing</li>
+</ol>
+<h3 id="43-tenants-tenants">4.3 Tenants (<code>/tenants</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> List loads; search/filter by status/plan if present</li>
+<li><input disabled="" type="checkbox"> <strong>Onboard restaurant</strong> → fill required fields → <strong>Create tenant</strong> (use a throwaway QA org or skip if already created in Ch.1)</li>
+<li><input disabled="" type="checkbox"> Row <strong>Open</strong> → tenant detail</li>
+<li><input disabled="" type="checkbox"> <strong>Suspend</strong> (reason) → owner Admin login blocked</li>
+<li><input disabled="" type="checkbox"> <strong>Activate</strong> → owner login works again</li>
+<li><input disabled="" type="checkbox"> <strong>Delete</strong> only on disposable QA tenant (type name → <strong>Delete forever</strong>) — skip on shared tenants</li>
+<li><input disabled="" type="checkbox"> <strong>Load more</strong> if many tenants</li>
+</ol>
+<h4 id="tenant-detail-tenantsid">Tenant detail (<code>/tenants/:id</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Open as tenant</strong> (impersonation) → Admin opens with banner; exit cleanly</li>
+<li><input disabled="" type="checkbox"> <strong>Collect payment</strong> / <strong>Reset password</strong> UI opens without crash (complete only on QA tenant)</li>
+<li><input disabled="" type="checkbox"> Suspend / Activate from detail matches list behaviour</li>
+</ol>
+<h3 id="44-plans-plans">4.4 Plans (<code>/plans</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Plans list loads</li>
+<li><input disabled="" type="checkbox"> <strong>Create plan</strong> → <strong>Create</strong> (QA-only; or cancel)</li>
+<li><input disabled="" type="checkbox"> Row <strong>Edit</strong> → <strong>Save</strong></li>
+</ol>
+<h3 id="45-subscriptions-subscriptions">4.5 Subscriptions (<code>/subscriptions</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Select QA tenant → change plan → <strong>Update subscription</strong></li>
+<li><input disabled="" type="checkbox"> Confirm entitlements update (Admin modules appear/disappear as expected)</li>
+</ol>
+<h3 id="46-promo-email-promo-email">4.6 Promo email (<code>/promo-email</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Page loads</li>
+<li><input disabled="" type="checkbox"> Compose draft → <strong>Send campaign</strong> only to internal test list (or cancel after validating UI)</li>
+</ol>
+<p><strong>Note:</strong> Promo email is <strong>platform</strong> only — not Admin.</p>
+<h3 id="47-cullinos-app--guest-ops">4.7 Cullinos App — Guest Ops</h3>
+<h4 id="overview-guest-ops">Overview (<code>/guest-ops</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> KPIs load; section links open marketplace, discover, banners, push, offers, reviews, users, analytics, runtime</li>
+<li><input disabled="" type="checkbox"> If maintenance banner: <strong>Edit runtime settings</strong></li>
+</ol>
+<h4 id="marketplace-guest-opsmarketplace">Marketplace (<code>/guest-ops/marketplace</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Filters/search work</li>
+<li><input disabled="" type="checkbox"> Toggle Featured / Listed; rank <strong>Set</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Approve</strong> / <strong>Reject</strong> / <strong>Force unlist</strong> / <strong>Clear unlist</strong> on QA listing</li>
+</ol>
+<h4 id="discover-guest-opsdiscover">Discover (<code>/guest-ops/discover</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Create section</strong> → <strong>Save changes</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Edit</strong> / <strong>Delete</strong> section</li>
+</ol>
+<h4 id="banners-guest-opsbanners">Banners (<code>/guest-ops/banners</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Create banner</strong> → <strong>Save changes</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Edit</strong>, <strong>Deactivate</strong>, <strong>Delete</strong></li>
+</ol>
+<h4 id="push-guest-opspush">Push (<code>/guest-ops/push</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Create draft</strong> → <strong>Save draft</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Schedule</strong> or <strong>Send now</strong> only to test devices; <strong>Cancel</strong> draft if unused</li>
+</ol>
+<h4 id="offers-guest-opsoffers">Offers (<code>/guest-ops/offers</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Create offer</strong> → <strong>Save changes</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Edit</strong>, <strong>Deactivate</strong>, <strong>Delete</strong></li>
+</ol>
+<h4 id="reviews-guest-opsreviews">Reviews (<code>/guest-ops/reviews</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Filter/search</li>
+<li><input disabled="" type="checkbox"> <strong>Hide</strong>, <strong>Remove</strong>, <strong>Restore</strong></li>
+</ol>
+<h4 id="users-guest-opsusers">Users (<code>/guest-ops/users</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Search</strong> guest user</li>
+<li><input disabled="" type="checkbox"> <strong>Export JSON</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Erase user</strong> only on disposable test account</li>
+</ol>
+<h4 id="analytics-guest-opsanalytics">Analytics (<code>/guest-ops/analytics</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> 30-day metrics load (read-only)</li>
+</ol>
+<h4 id="runtime-guest-opsruntime">Runtime (<code>/guest-ops/runtime</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Edit theme/maintenance/flags carefully → <strong>Save runtime settings</strong> (prefer QA-safe toggles; reverse after)</li>
+</ol>
+<p>Legacy redirects: <code>/guest-banners</code>, <code>/guest-push</code>, <code>/guest-coupons</code> → guest-ops equivalents.</p>
+<h3 id="48-settings-settings">4.8 Settings (<code>/settings</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Open page → <strong>Refresh</strong></li>
+<li><input disabled="" type="checkbox"> Change a safe field → <strong>Save</strong></li>
+</ol>
+<h3 id="49-system-health-health">4.9 System health (<code>/health</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Metrics load → <strong>Refresh</strong></li>
+</ol>
+<h3 id="410-marketing-cms">4.10 Marketing CMS</h3>
+<h4 id="hub-marketing">Hub (<code>/marketing</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Hub links open all editors</li>
+<li><input disabled="" type="checkbox"> <strong>Publish site</strong> only when intentionally publishing (or skip)</li>
+</ol>
+<h4 id="media-marketingmedia">Media (<code>/marketing/media</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Upload file</strong> → appears in library</li>
+<li><input disabled="" type="checkbox"> <strong>Delete</strong> test file</li>
+</ol>
+<h4 id="hero-marketinghero">Hero (<code>/marketing/hero</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Edit slide → <strong>Save slide</strong></li>
+</ol>
+<h4 id="pages-marketingpages">Pages (<code>/marketing/pages</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Edit block → <strong>Save block</strong></li>
+</ol>
+<h4 id="theme-marketingtheme">Theme (<code>/marketing/theme</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Edit → <strong>Save theme draft</strong></li>
+</ol>
+<h4 id="pricing-marketingpricing">Pricing (<code>/marketing/pricing</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Edit cards → <strong>Save</strong></li>
+</ol>
+<h4 id="testimonials-marketingtestimonials">Testimonials (<code>/marketing/testimonials</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Add testimonial</strong> → <strong>Save</strong>; <strong>Delete</strong> test entry</li>
+</ol>
+<h4 id="navigation-marketingnavigation">Navigation (<code>/marketing/navigation</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Edit item → <strong>Save</strong></li>
+</ol>
+<h4 id="blog-marketingblog">Blog (<code>/marketing/blog</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Create draft</strong> → <strong>Save</strong>; <strong>Delete</strong> test draft</li>
+</ol>
+<h4 id="design-lab-marketingdesign-lab">Design lab (<code>/marketing/design-lab</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Generate suggestions</strong> / seed presets if present → apply only as draft</li>
+</ol>
+<h3 id="411-sign-out">4.11 Sign out</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Sign out</strong> → login page; session cleared</li>
+</ol>
+<hr>
+<h2 id="5-admin--owner-portal--admincullinoscom">5. Admin / Owner portal — admin.cullinos.com</h2>
+<p><strong>Who:</strong> Owner / managers with ERP permissions. QSR orgs may see <strong>ERP | POS</strong> switch; cashiers may be POS-only.</p>
+<h3 id="51-auth--onboarding">5.1 Auth &amp; onboarding</h3>
+<h4 id="login-login-1">Login (<code>/login</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Email/password → <strong>Sign in</strong>; optional <strong>Keep me signed in</strong></li>
+<li><input disabled="" type="checkbox"> OTP path if challenged: <strong>Verify and sign in</strong>, <strong>Resend code</strong>, <strong>Back to sign in</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Forgot password?</strong></li>
+</ol>
+<h4 id="forgot-password-forgot-password-1">Forgot password (<code>/forgot-password</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Send reset code</strong> → <strong>Update password</strong> (or confirm UI)</li>
+</ol>
+<h4 id="change-password-change-password">Change password (<code>/change-password</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Forced after temp password → <strong>Save new password</strong></li>
+<li><input disabled="" type="checkbox"> Impersonation: <strong>Back to dashboard</strong> if shown</li>
+</ol>
+<h4 id="onboarding-onboarding">Onboarding (<code>/onboarding</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Reachable when <code>!setupCompleted</code> or via Settings → <strong>Open restaurant setup</strong></li>
+<li><input disabled="" type="checkbox"> Walk all steps → <strong>Complete setup</strong> (seeds sample categories)</li>
+</ol>
+<h3 id="52-dashboard-">5.2 Dashboard (<code>/</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> KPI cards load</li>
+<li><input disabled="" type="checkbox"> Toggle trend <strong>7d</strong> / <strong>14d</strong> / <strong>30d</strong></li>
+<li><input disabled="" type="checkbox"> Chart mode <strong>Revenue</strong> / <strong>Orders</strong></li>
+<li><input disabled="" type="checkbox"> After test orders, revenue/order counts look sane</li>
+</ol>
+<h3 id="53-portal-pos-pos">5.3 Portal POS (<code>/pos</code>)</h3>
+<p><strong>Gate:</strong> <code>POS_ACCESS</code></p>
+<ol>
+<li><input disabled="" type="checkbox"> Open <strong>/pos</strong> (or POS mode switch)</li>
+<li><input disabled="" type="checkbox"> <strong>Open shift</strong> if prompted</li>
+<li><input disabled="" type="checkbox"> Tap categories / items; cart subtotal correct</li>
+<li><input disabled="" type="checkbox"> Set <strong>Pickup</strong> or <strong>Eat in</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Hold (H)</strong> → Held panel → <strong>Resume</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Pay full</strong> → <strong>Cash (Enter)</strong> or <strong>UPI / card</strong> (UPI N/A without keys)</li>
+<li><input disabled="" type="checkbox"> E-bill: <strong>SMS</strong> / <strong>Email</strong> / <strong>Dismiss</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Close shift</strong></li>
+<li><input disabled="" type="checkbox"> Staff without POS access denied or redirected</li>
+</ol>
+<h3 id="54-menu-menu">5.4 Menu (<code>/menu</code>)</h3>
+<p><strong>Gate:</strong> <code>MENU_READ</code></p>
+<h4 id="categories-tab">Categories tab</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Add category</strong> → save → appears in list</li>
+<li><input disabled="" type="checkbox"> <strong>Edit</strong> / <strong>Save changes</strong>; <strong>Delete</strong> unused test category</li>
+</ol>
+<h4 id="items-tab">Items tab</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Add item</strong> → category, name, price, flags → <strong>Add item</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Add variant</strong> / <strong>Add group</strong> / <strong>Add modifier</strong> → save</li>
+<li><input disabled="" type="checkbox"> <strong>Upload photo</strong> after save</li>
+<li><input disabled="" type="checkbox"> Toggle Online; <strong>Edit</strong> price; <strong>Delete</strong> disposable item</li>
+</ol>
+<h4 id="combos-tab">Combos tab</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Create combo</strong> → <strong>Add item</strong> lines → save</li>
+<li><input disabled="" type="checkbox"> <strong>Edit</strong> / <strong>Delete</strong></li>
+</ol>
+<h4 id="schedules-tab">Schedules tab</h4>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Create schedule</strong> → save → <strong>Edit</strong> / <strong>Delete</strong></li>
+</ol>
+<h4 id="outlet-prices-tab">Outlet prices tab</h4>
+<ol>
+<li><input disabled="" type="checkbox"> With outlet selected, edit price/availability → <strong>Save</strong></li>
+</ol>
+<h3 id="55-orders-orders">5.5 Orders (<code>/orders</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> List shows Phase 2 orders; filter <strong>Scheduled / pre-orders only</strong> if used</li>
+<li><input disabled="" type="checkbox"> Open row → detail <strong>Close</strong></li>
+<li><input disabled="" type="checkbox"> Advance status: <strong>CONFIRMED</strong> → <strong>PREPARING</strong> → <strong>READY</strong> → <strong>SERVED</strong> → <strong>COMPLETED</strong> (and <strong>CANCELLED</strong> on a throwaway order)</li>
+</ol>
+<h3 id="56-tables-tables">5.6 Tables (<code>/tables</code>)</h3>
+<p><strong>Gate:</strong> <code>TABLES</code></p>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Add floor</strong>; filter <strong>All</strong> / floor / <strong>Unassigned</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Add table</strong> → <strong>Create table</strong></li>
+<li><input disabled="" type="checkbox"> Detail: <strong>Edit table</strong> → <strong>Save changes</strong>; status select</li>
+<li><input disabled="" type="checkbox"> <strong>Generate QR</strong> / <strong>Regenerate QR</strong> → <strong>Download QR</strong> → <strong>Copy URL</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Print QR sheet</strong></li>
+<li><input disabled="" type="checkbox"> Takeaway QR: <strong>Download QR (800 px)</strong> / <strong>Copy URL</strong></li>
+<li><input disabled="" type="checkbox"> Select two tables → <strong>Merge selected</strong> / <strong>Transfer</strong> (if available)</li>
+<li><input disabled="" type="checkbox"> <strong>Delete table</strong> on disposable table only</li>
+</ol>
+<h3 id="57-reservations-reservations">5.7 Reservations (<code>/reservations</code>)</h3>
+<p><strong>Gate:</strong> <code>TABLES</code></p>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Copy public book link</strong> → opens booking surface</li>
+<li><input disabled="" type="checkbox"> <strong>Create reservation</strong> → appears in list</li>
+<li><input disabled="" type="checkbox"> Row <strong>Confirm</strong> / <strong>Cancel</strong></li>
+</ol>
+<h3 id="58-inventory-inventory">5.8 Inventory (<code>/inventory</code>)</h3>
+<p><strong>Gate:</strong> Inventory feature + <code>INVENTORY_READ</code></p>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Add item</strong> → <strong>Create item</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Edit</strong> → <strong>Apply adjustment</strong>; <strong>Record wastage</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Filter low-stock</strong> / <strong>Show all</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Transfer stock</strong> → <strong>Transfer</strong> (needs destinations)</li>
+<li><input disabled="" type="checkbox"> <strong>Delete</strong> disposable item</li>
+</ol>
+<h3 id="59-recipes-recipes">5.9 Recipes (<code>/recipes</code>)</h3>
+<p><strong>Gate:</strong> <code>RECIPES</code></p>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Add recipe</strong> → <strong>Add ingredient</strong> → <strong>Create recipe</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Edit</strong> / <strong>Save changes</strong>; <strong>Delete</strong></li>
+</ol>
+<h3 id="510-purchasing-purchasing">5.10 Purchasing (<code>/purchasing</code>)</h3>
+<p><strong>Gate:</strong> Purchasing + <code>PURCHASE_READ</code> (create supplier first)</p>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>New PO</strong> → <strong>Create draft PO</strong></li>
+<li><input disabled="" type="checkbox"> Row <strong>Send</strong> → <strong>Receive (GRN)</strong></li>
+</ol>
+<h3 id="511-suppliers-suppliers">5.11 Suppliers (<code>/suppliers</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Add supplier</strong> → <strong>Save supplier</strong></li>
+<li><input disabled="" type="checkbox"> Row <strong>Delete</strong> disposable supplier</li>
+</ol>
+<h3 id="512-central-kitchen-central-kitchen">5.12 Central kitchen (<code>/central-kitchen</code>)</h3>
+<p><strong>Gate:</strong> <code>MULTI_OUTLET</code> + transfer permission — often <strong>N/A</strong></p>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Add hub</strong> → <strong>Create hub</strong></li>
+<li><input disabled="" type="checkbox"> <strong>New indent</strong> → <strong>Submit indent</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Plan route</strong>; indent <strong>Fulfill</strong></li>
+</ol>
+<h3 id="513-customers-customers">5.13 Customers (<code>/customers</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Form <strong>Create</strong> (optional <strong>Opt in to promotional email</strong>)</li>
+<li><input disabled="" type="checkbox"> <strong>Search</strong></li>
+<li><input disabled="" type="checkbox"> Row <strong>Add stamp</strong>; detail <strong>Redeem points</strong>; <strong>Close</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Export</strong> / <strong>Erase</strong> only on disposable test customer</li>
+</ol>
+<h3 id="514-loyalty-loyalty">5.14 Loyalty (<code>/loyalty</code>)</h3>
+<p><strong>Gate:</strong> <code>LOYALTY</code></p>
+<ol>
+<li><input disabled="" type="checkbox"> Toggle <strong>Stamp card enabled</strong> → <strong>Save settings</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Create tier</strong>; <strong>Remove</strong> disposable tier</li>
+<li><input disabled="" type="checkbox"> <strong>Add reward</strong> → <strong>Enable</strong> / <strong>Disable</strong> / <strong>Remove</strong></li>
+</ol>
+<h3 id="515-coupons-coupons">5.15 Coupons (<code>/coupons</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Create coupon</strong> (Active) → list shows it</li>
+<li><input disabled="" type="checkbox"> <strong>Edit</strong> / <strong>Save changes</strong>; <strong>Deactivate</strong>; <strong>Delete</strong></li>
+</ol>
+<h3 id="516-guests--rooms-hospitality">5.16 Guests &amp; Rooms (hospitality)</h3>
+<p><strong>Gate:</strong> <code>ROOM_SERVICE</code> — <strong>N/A</strong> on restaurant</p>
+<ol>
+<li><input disabled="" type="checkbox"> <code>/hospitality/guests</code> — list loads; <strong>Erase</strong> only disposable</li>
+<li><input disabled="" type="checkbox"> <code>/hospitality/rooms</code> — table loads (read-only)</li>
+</ol>
+<h3 id="517-events-events">5.17 Events (<code>/events</code>)</h3>
+<p><strong>Gate:</strong> <code>EVENTS</code> — may be N/A</p>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Schedule event</strong> → appears in list</li>
+</ol>
+<h3 id="518-banquets-banquets">5.18 Banquets (<code>/banquets</code>)</h3>
+<p><strong>Gate:</strong> <code>BANQUET</code> — usually <strong>N/A</strong></p>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Add package</strong>; <strong>Add booking</strong></li>
+</ol>
+<h3 id="519-brands-brands">5.19 Brands (<code>/brands</code>)</h3>
+<p><strong>Gate:</strong> <code>MULTI_BRAND</code> — usually <strong>N/A</strong></p>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Add brand</strong></li>
+</ol>
+<h3 id="520-production-production">5.20 Production (<code>/production</code>)</h3>
+<p><strong>Gate:</strong> <code>PRODUCTION</code> — may be N/A</p>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Schedule batch</strong> → <strong>Mark complete</strong></li>
+</ol>
+<h3 id="521-displays-displays">5.21 Displays (<code>/displays</code>)</h3>
+<p><strong>Gate:</strong> <code>KDS</code><br>Legacy bookmarks <code>/kds</code>, <code>/cds</code>, <code>/promo-display</code>, <code>/pickup-queue</code> redirect here.</p>
+<ol>
+<li><input disabled="" type="checkbox"> For Kitchen / CDS / Pickup / Promo: <strong>Copy URL</strong> → <strong>Open in new tab ↗</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Refresh</strong> active displays / device status</li>
+<li><input disabled="" type="checkbox"> Promo: <strong>Add slide</strong> → <strong>Remove</strong> test slide</li>
+</ol>
+<h3 id="522-digital-ordering-kiosk">5.22 Digital Ordering (<code>/kiosk</code>)</h3>
+<p><strong>Gate:</strong> <code>QR_ORDERING</code></p>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Copy</strong> / <strong>Open in new tab</strong> for Ordering kiosk, Phone menu QR, Receipt printer station as shown</li>
+<li><input disabled="" type="checkbox"> Kiosk URL opens Guest kiosk mode (pay at counter)</li>
+</ol>
+<h3 id="523-delivery-delivery">5.23 Delivery (<code>/delivery</code>)</h3>
+<p><strong>Gate:</strong> <code>DELIVERY</code></p>
+<ol>
+<li><input disabled="" type="checkbox"> Page lists delivery orders/zones</li>
+<li><input disabled="" type="checkbox"> <strong>Add zone</strong> → saved</li>
+</ol>
+<h3 id="524-aggregators-aggregators">5.24 Aggregators (<code>/aggregators</code>)</h3>
+<p><strong>Gate:</strong> <code>REPORTS_READ</code></p>
+<ol>
+<li><input disabled="" type="checkbox"> Tabs <strong>Swiggy</strong> / <strong>Zomato</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Connect</strong> / <strong>Disconnect</strong> (sandbox or N/A without credentials)</li>
+<li><input disabled="" type="checkbox"> <strong>Generate secret</strong> / <strong>Regenerate secret</strong></li>
+<li><input disabled="" type="checkbox"> Per outlet: <strong>Connected</strong>, <strong>Menu sync</strong>, <strong>Sync now</strong></li>
+</ol>
+<h3 id="525-payments-payments">5.25 Payments (<code>/payments</code>)</h3>
+<p><strong>Gate:</strong> <code>SETTINGS_READ</code></p>
+<ol>
+<li><input disabled="" type="checkbox"> Tabs <strong>Razorpay</strong> / <strong>Cashfree</strong></li>
+<li><input disabled="" type="checkbox"> Toggle <strong>Active</strong>, <strong>Default for online payments</strong> → <strong>Save Razorpay</strong> / <strong>Save Cashfree</strong></li>
+<li><input disabled="" type="checkbox"> Outlet <strong>Edit</strong> → <strong>Use outlet-specific keys</strong> / prefer provider → <strong>Save outlet</strong> / <strong>Cancel</strong></li>
+<li><input disabled="" type="checkbox"> Without real keys: save may fail validation — mark pay-now flows <strong>N/A</strong></li>
+</ol>
+<h3 id="526-app-listing--marketplace-marketplace">5.26 App listing / Marketplace (<code>/marketplace</code>)</h3>
+<p><strong>Gate:</strong> Online ordering + outlet/settings update</p>
+<ol>
+<li><input disabled="" type="checkbox"> Enable <strong>List on Cullinos App</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Upload image</strong> / <strong>Add photo</strong> → <strong>Set cover</strong>; set hours (<strong>Open</strong> / <strong>Close</strong> / <strong>Closed</strong>)</li>
+<li><input disabled="" type="checkbox"> <strong>Save listing</strong></li>
+</ol>
+<h3 id="527-guest-banners-guest-banners">5.27 Guest banners (<code>/guest-banners</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Create banner</strong> → <strong>Save changes</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Edit</strong> / <strong>Delete</strong></li>
+</ol>
+<h3 id="528-sms-campaigns-sms-campaigns">5.28 SMS campaigns (<code>/sms-campaigns</code>)</h3>
+<p><strong>Gate:</strong> <code>SETTINGS_UPDATE</code></p>
+<ol>
+<li><input disabled="" type="checkbox"> Link <strong>Top up wallet</strong> / <strong>Open Billing</strong> works</li>
+<li><input disabled="" type="checkbox"> Select <strong>All opted-in</strong> or recipients → <strong>Send campaign</strong> only if wallet funded (else Blocked/N/A)</li>
+</ol>
+<h3 id="529-staff-staff">5.29 Staff (<code>/staff</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Add staff member</strong> → fill name*, phone, email*, temp password*, role → outlets → <strong>Create account</strong></li>
+<li><input disabled="" type="checkbox"> Status <strong>active</strong> / <strong>inactive</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Delete</strong> disposable staff (not owner)</li>
+</ol>
+<h3 id="530-reports-reports">5.30 Reports (<code>/reports</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Presets <strong>Today</strong> / <strong>7 days</strong> / <strong>30 days</strong></li>
+<li><input disabled="" type="checkbox"> Tabs: <strong>Daily summary</strong>, <strong>Item-wise</strong>, <strong>Category</strong>, <strong>Payment methods</strong>, <strong>Discounts</strong>, <strong>Cancellations</strong>, <strong>Food cost</strong></li>
+<li><input disabled="" type="checkbox"> Choose export type → <strong>Export</strong> downloads/opens</li>
+</ol>
+<h3 id="531-settings-settings">5.31 Settings (<code>/settings</code>)</h3>
+<p><strong>Gate:</strong> <code>SETTINGS_READ</code> — form UI (not JSON editor)</p>
+<ol>
+<li><input disabled="" type="checkbox"> Edit restaurant name, phone, email, GSTIN, city, address → <strong>Save settings</strong></li>
+<li><input disabled="" type="checkbox"> Toggle <strong>Dine-in</strong>, <strong>Takeaway / pickup</strong>, <strong>Home delivery</strong>, <strong>QR ordering</strong> → Save</li>
+<li><input disabled="" type="checkbox"> Toggle <strong>Enable pre-orders &amp; scheduling</strong> if shown → Save</li>
+<li><input disabled="" type="checkbox"> <strong>Open restaurant setup</strong> → onboarding</li>
+<li><input disabled="" type="checkbox"> <strong>Add location</strong> → name* → <strong>Add location</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Create tax group</strong> (group name, rate name, %)</li>
+<li><input disabled="" type="checkbox"> <strong>Register device</strong> (Printer / KDS / POS)</li>
+</ol>
+<p><strong>Expected:</strong> Toast/success; values persist after refresh. Invalid empty required fields blocked by UI.</p>
+<h3 id="532-billing-billing">5.32 Billing (<code>/billing</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Subscription status loads</li>
+<li><input disabled="" type="checkbox"> <strong>Pay / activate</strong> / <strong>Open payment page</strong> (complete only if intentional)</li>
+<li><input disabled="" type="checkbox"> Wallet <strong>Top up ₹…</strong> presets (N/A without payment)</li>
+</ol>
+<h3 id="533-logout">5.33 Logout</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Sign out → re-login works; session persistence matches “Keep me signed in”</li>
+</ol>
+<hr>
+<h2 id="6-management--managecullinoscom">6. Management — manage.cullinos.com</h2>
+<p><strong>Who:</strong> Chain / multi-outlet owners (Enterprise).</p>
+<h3 id="61-login-login">6.1 Login (<code>/login</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Sign in</strong> with owner credentials</li>
+</ol>
+<h3 id="62-overview-">6.2 Overview (<code>/</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> KPIs, outlets, payment mix load</li>
+<li><input disabled="" type="checkbox"> Brand / outlet selectors (<strong>All brands</strong>, <strong>All outlets</strong>)</li>
+</ol>
+<h3 id="63-reports-reports">6.3 Reports (<code>/reports</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Consolidated revenue / recent orders load</li>
+</ol>
+<h3 id="64-outlet-comparison-comparison">6.4 Outlet comparison (<code>/comparison</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Filters <strong>Date</strong>, <strong>City</strong>, <strong>Zone</strong>, <strong>State</strong></li>
+<li><input disabled="" type="checkbox"> Needs <strong>2+ outlets</strong> — else N/A / empty</li>
+</ol>
+<h3 id="65-stock-transfer-stock-transfer">6.5 Stock transfer (<code>/stock-transfer</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Select <strong>From outlet</strong>, <strong>To outlet</strong>, <strong>Inventory item</strong>, <strong>Quantity</strong> → <strong>Submit transfer</strong></li>
+<li><input disabled="" type="checkbox"> N/A with single outlet</li>
+</ol>
+<h3 id="66-franchise-franchise">6.6 Franchise (<code>/franchise</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Franchisees table loads</li>
+</ol>
+<h3 id="67-sign-out">6.7 Sign out</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Sign out</strong></li>
+</ol>
+<hr>
+<h2 id="7-pos--poscullinoscom">7. POS — pos.cullinos.com</h2>
+<p><strong>Who:</strong> Cashier (and owners with POS access). Desktop Electron uses the same SPA.</p>
+<h3 id="71-login-login">7.1 Login (<code>/login</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Open register</strong> with cashier email/password; <strong>Keep me signed in</strong></li>
+</ol>
+<h3 id="72-register-">7.2 Register (<code>/</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Open shift</strong> / later <strong>Close shift</strong></li>
+<li><input disabled="" type="checkbox"> Search <strong>Search items… ( / )</strong>; category tabs; <strong>Recent</strong></li>
+<li><input disabled="" type="checkbox"> Add items; cart subtotal correct; qty / <strong>Remove item</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Find</strong> loyalty phone if testing loyalty</li>
+<li><input disabled="" type="checkbox"> Order type <strong>Pickup</strong> / <strong>Eat in</strong></li>
+<li><input disabled="" type="checkbox"> Coupon / Discount / Tip / <strong>Pay amount</strong> as available</li>
+<li><input disabled="" type="checkbox"> <strong>Hold (H)</strong> → <strong>Resume</strong> from Held orders</li>
+<li><input disabled="" type="checkbox"> <strong>Split selected items</strong> (optional)</li>
+<li><input disabled="" type="checkbox"> <strong>Pay full</strong> → <strong>Cash (Enter)</strong> or <strong>UPI / card</strong></li>
+<li><input disabled="" type="checkbox"> E-bill <strong>SMS</strong> / <strong>Email</strong> / <strong>Dismiss</strong></li>
+<li><input disabled="" type="checkbox"> Header <strong>Sign out</strong></li>
+</ol>
+<p><strong>Expected:</strong> Order in Admin Orders; KDS ticket if kitchen flow enabled.</p>
+<hr>
+<h2 id="8-kds--public-displays--kdscullinoscom">8. KDS &amp; public displays — kds.cullinos.com</h2>
+<h3 id="81-kitchen-login-login">8.1 Kitchen login (<code>/login</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Open KDS</strong>; OTP: <strong>Verify and open KDS</strong>, <strong>Resend code</strong>, <strong>Back to sign in</strong></li>
+</ol>
+<h3 id="82-kitchen-board-">8.2 Kitchen board (<code>/</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Select <strong>Outlet</strong> → live tickets</li>
+<li><input disabled="" type="checkbox"> <strong>Refresh</strong>; fullscreen; ticket <strong>Mark Preparing</strong> → <strong>Mark Ready</strong> → <strong>Mark Served</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Logout</strong></li>
+</ol>
+<h3 id="83-order-status--cds-public">8.3 Order status / CDS (public)</h3>
+<p>URL from Admin Displays, e.g. <code>?mode=cds&amp;orgSlug=…&amp;outletSlug=…</code> or <code>?mode=pickup&amp;…</code></p>
+<ol>
+<li><input disabled="" type="checkbox"> Board loads without login</li>
+<li><input disabled="" type="checkbox"> Columns <strong>Preparing</strong> / <strong>Ready</strong> update with live orders</li>
+<li><input disabled="" type="checkbox"> Fullscreen works</li>
+</ol>
+<h3 id="84-promo-playlist-public">8.4 Promo playlist (public)</h3>
+<p><code>?mode=playlist&amp;orgSlug=…&amp;outletSlug=…</code></p>
+<ol>
+<li><input disabled="" type="checkbox"> Slides auto-play from Admin promo content</li>
+<li><input disabled="" type="checkbox"> <strong>Enter fullscreen</strong> / <strong>Exit fullscreen</strong></li>
+</ol>
+<h3 id="85-receipt-mode">8.5 Receipt mode</h3>
+<p><code>?mode=receipt&amp;outletId=…</code></p>
+<ol>
+<li><input disabled="" type="checkbox"> Auth + outlet as required</li>
+<li><input disabled="" type="checkbox"> <strong>Reprint last</strong> works after a print event</li>
+</ol>
+<hr>
+<h2 id="9-waiter-android--cullinos-waiter">9. Waiter Android — Cullinos Waiter</h2>
+<p><strong>Package:</strong> floor staff. Accounts from Admin → Staff (Waiter).</p>
+<h3 id="91-splash--login">9.1 Splash &amp; login</h3>
+<ol>
+<li><input disabled="" type="checkbox"> App opens splash → login</li>
+<li><input disabled="" type="checkbox"> Phone <strong>Send OTP</strong> → <strong>Verify OTP</strong> / <strong>Resend OTP</strong>, or <strong>Use email instead</strong> → <strong>Sign in</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Keep me signed in</strong></li>
+</ol>
+<h3 id="92-floor-">9.2 Floor (<code>/</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Outlet picker; floor filter <strong>All floors</strong></li>
+<li><input disabled="" type="checkbox"> Table grid shows Admin tables; tap table</li>
+</ol>
+<h3 id="93-table-detail-tabletableid">9.3 Table detail (<code>/table/:tableId</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Assign table</strong> → occupied</li>
+<li><input disabled="" type="checkbox"> <strong>Add items</strong> → cart → <strong>Send to kitchen</strong> / <strong>Confirm order</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Mark served</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Start QR session</strong> / <strong>Show QR</strong> → <strong>Copy link</strong> → <strong>OK</strong></li>
+<li><input disabled="" type="checkbox"> <strong>End session</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Transfer table</strong> / <strong>Merge tables</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Collect payment</strong> → <strong>Confirm cash</strong> or <strong>Online (UPI / card)</strong> → <strong>Paid</strong></li>
+</ol>
+<h3 id="94-calls-calls">9.4 Calls (<code>/calls</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Filters <strong>Open</strong> / <strong>Acknowledged</strong> / <strong>All</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Acknowledge</strong> → <strong>Done</strong></li>
+<li><input disabled="" type="checkbox"> Sound/haptic respect More settings</li>
+</ol>
+<h3 id="95-orders-hub-orders">9.5 Orders hub (<code>/orders</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Filters; mark <strong>Served</strong></li>
+</ol>
+<h3 id="96-more--settings-more">9.6 More / settings (<code>/more</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Change outlet; language → <strong>Confirm language</strong></li>
+<li><input disabled="" type="checkbox"> Toggle <strong>Call alert sound</strong>, <strong>Call haptic feedback</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Log out</strong></li>
+</ol>
+<hr>
+<h2 id="10-cullinos-app-guest">10. Cullinos App (Guest)</h2>
+<p><strong>Android app</strong> + deep links <code>https://guest.cullinos.com/o/{org}/{outlet}</code> (± <code>?table=</code> / <code>?session=</code>).<br>Decommissioned customer web is <strong>out of scope</strong>.</p>
+<h3 id="101-auth-login">10.1 Auth (<code>/login</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <strong>Continue with Google</strong> / <strong>Email</strong> / <strong>Phone</strong></li>
+<li><input disabled="" type="checkbox"> Phone: <strong>Send OTP</strong> → <strong>Verify &amp; continue</strong> / <strong>Resend OTP</strong></li>
+<li><input disabled="" type="checkbox"> PIN: <strong>Sign in with PIN</strong> / <strong>Save PIN &amp; continue</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Change number</strong>, <strong>Other options</strong></li>
+</ol>
+<h3 id="102-marketplace-shell">10.2 Marketplace shell</h3>
+<h4 id="home-">Home (<code>/</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Quick <strong>Dine In</strong> / <strong>Takeaway</strong> / <strong>Delivery</strong> / <strong>Offers</strong></li>
+<li><input disabled="" type="checkbox"> Nearby restaurants list; <strong>Retry</strong> on error</li>
+</ol>
+<h4 id="explore-explore">Explore (<code>/explore</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Filters <strong>Veg Only</strong>, <strong>Offers Only</strong>, radius</li>
+<li><input disabled="" type="checkbox"> Open a restaurant → outlet shell</li>
+</ol>
+<h4 id="offers-offers">Offers (<code>/offers</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Offers list loads</li>
+</ol>
+<h4 id="scan-scan">Scan (<code>/scan</code>)</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Camera; <strong>Album</strong>, <strong>Light</strong>; scan table QR → outlet/session</li>
+</ol>
+<h4 id="profile-profile--auth-required">Profile (<code>/profile</code>) — auth required</h4>
+<ol>
+<li><input disabled="" type="checkbox"> Links <strong>Orders</strong>, <strong>Loyalty</strong>, <strong>Coins</strong></li>
+<li><input disabled="" type="checkbox"> <strong>Edit</strong> profile → <strong>Save</strong> / <strong>Cancel</strong></li>
+<li><input disabled="" type="checkbox"> Addresses <strong>Edit</strong> / <strong>Set default</strong></li>
+<li><input disabled="" type="checkbox"> Privacy / Terms; <strong>Log out</strong></li>
+</ol>
+<h3 id="103-location-locationmap">10.3 Location (<code>/location/map</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Pin location → confirm for discover/delivery</li>
+</ol>
+<h3 id="104-notifications--orders--loyalty">10.4 Notifications / orders / loyalty</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <code>/notifications</code> list loads when logged in</li>
+<li><input disabled="" type="checkbox"> <code>/orders</code> → open <code>/orders/:id</code>; empty state <strong>Explore restaurants</strong> / <strong>Scan a table QR</strong></li>
+<li><input disabled="" type="checkbox"> <code>/wallets</code> and <code>/coins</code> load</li>
+</ol>
+<h3 id="105-outlet-ordering">10.5 Outlet ordering</h3>
+<ol>
+<li><input disabled="" type="checkbox"> Open <code>/o/{org}/{outlet}</code> (from Admin Digital Ordering or QR)</li>
+<li><input disabled="" type="checkbox"> <strong>Menu</strong> → category <strong>All</strong> → <strong>ADD +</strong> on item</li>
+<li><input disabled="" type="checkbox"> Item detail → qty → <strong>Add to Cart | ₹…</strong> → <strong>View Cart</strong></li>
+<li><input disabled="" type="checkbox"> Cart: notes <strong>Save</strong>; <strong>Clear Cart</strong>; <strong>Proceed to Checkout</strong></li>
+<li><input disabled="" type="checkbox"> Checkout (auth): <strong>Delivery</strong> / <strong>Dine In</strong> / <strong>Takeaway</strong>; <strong>ASAP</strong> / <strong>Schedule for later</strong>; coupon <strong>Apply</strong>; tip; pay <strong>UPI</strong> / <strong>Card</strong> / <strong>Wallet</strong> or pay-later → <strong>Pay ₹…</strong></li>
+<li><input disabled="" type="checkbox"> Confirm <strong>Paid</strong> / success; order in Admin Orders</li>
+</ol>
+<h3 id="106-kiosk-kiosk">10.6 Kiosk (<code>…/kiosk</code>)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> No login required</li>
+<li><input disabled="" type="checkbox"> <strong>Pickup</strong> / <strong>Eat in</strong> → add items → <strong>Place order · Pay at counter · ₹…</strong></li>
+<li><input disabled="" type="checkbox"> Success → <strong>New order</strong></li>
+<li><input disabled="" type="checkbox"> Ticket appears for counter/kitchen as designed</li>
+</ol>
+<h3 id="107-legal">10.7 Legal</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <code>/privacy</code>, <code>/terms</code> → <strong>Open in browser</strong> if offered</li>
+</ol>
+<hr>
+<h2 id="11-marketing-website--cullinoscom">11. Marketing website — cullinos.com</h2>
+<p>No login. CMS content comes from Super Admin Marketing.</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Steps</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/</code></td>
+<td>[ ] Hero + nav; <strong>Start free trial</strong> / <strong>Contact</strong>; cookie <strong>Accept</strong> / <strong>Decline</strong></td>
+</tr>
+<tr>
+<td><code>/features</code></td>
+<td>[ ] Page loads; CTA</td>
+</tr>
+<tr>
+<td><code>/about</code></td>
+<td>[ ] Page loads; CTAs</td>
+</tr>
+<tr>
+<td><code>/pricing</code></td>
+<td>[ ] Plans; <strong>Start free trial</strong> / <strong>Contact sales</strong></td>
+</tr>
+<tr>
+<td><code>/contact</code></td>
+<td>[ ] <strong>Send message</strong> → <code>/thank-you</code> or graceful error</td>
+</tr>
+<tr>
+<td><code>/thank-you</code></td>
+<td>[ ] <strong>Back to home</strong></td>
+</tr>
+<tr>
+<td><code>/integrations</code></td>
+<td>[ ] Loads; <strong>Contact us</strong></td>
+</tr>
+<tr>
+<td><code>/blog</code></td>
+<td>[ ] Index; <strong>Subscribe via RSS</strong></td>
+</tr>
+<tr>
+<td><code>/blog/[slug]</code></td>
+<td>[ ] Article readable</td>
+</tr>
+<tr>
+<td><code>/solutions/restaurants</code></td>
+<td>[ ] Loads</td>
+</tr>
+<tr>
+<td><code>/solutions/cafes</code></td>
+<td>[ ] Loads</td>
+</tr>
+<tr>
+<td><code>/solutions/bakeries</code></td>
+<td>[ ] Loads</td>
+</tr>
+<tr>
+<td><code>/solutions/food-trucks</code></td>
+<td>[ ] Loads</td>
+</tr>
+<tr>
+<td><code>/solutions/chains</code></td>
+<td>[ ] Loads</td>
+</tr>
+<tr>
+<td><code>/solutions/hospitality</code></td>
+<td>[ ] Loads</td>
+</tr>
+<tr>
+<td><code>/privacy</code></td>
+<td>[ ] Loads</td>
+</tr>
+<tr>
+<td><code>/terms</code></td>
+<td>[ ] Loads</td>
+</tr>
+<tr>
+<td><code>/unsubscribe</code></td>
+<td>[ ] Token flow or Privacy link</td>
+</tr>
+</tbody></table>
+<p>Nav/footer: <strong>Home</strong>, <strong>Features</strong>, <strong>About</strong>, <strong>Pricing</strong>, <strong>Contact</strong>, Product/Solutions links.</p>
+<hr>
+<h2 id="12-appendix--urls-ports--commands">12. Appendix — URLs, ports &amp; commands</h2>
+<h3 id="production-urls-full">Production URLs (full)</h3>
+<table>
+<thead>
+<tr>
+<th>App</th>
+<th>URL</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Super Admin</td>
+<td><a href="https://platform.cullinos.com">https://platform.cullinos.com</a></td>
+<td>Onboard, Guest Ops, Marketing CMS</td>
+</tr>
+<tr>
+<td>Super Admin login</td>
+<td><a href="https://platform.cullinos.com/login">https://platform.cullinos.com/login</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Super Admin tenants</td>
+<td><a href="https://platform.cullinos.com/tenants">https://platform.cullinos.com/tenants</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Super Admin guest-ops</td>
+<td><a href="https://platform.cullinos.com/guest-ops">https://platform.cullinos.com/guest-ops</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Super Admin promo email</td>
+<td><a href="https://platform.cullinos.com/promo-email">https://platform.cullinos.com/promo-email</a></td>
+<td>Not in Admin</td>
+</tr>
+<tr>
+<td>Admin</td>
+<td><a href="https://admin.cullinos.com">https://admin.cullinos.com</a></td>
+<td>Owner ERP</td>
+</tr>
+<tr>
+<td>Admin login</td>
+<td><a href="https://admin.cullinos.com/login">https://admin.cullinos.com/login</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Admin Portal POS</td>
+<td><a href="https://admin.cullinos.com/pos">https://admin.cullinos.com/pos</a></td>
+<td>Needs <code>POS_ACCESS</code></td>
+</tr>
+<tr>
+<td>Admin Displays</td>
+<td><a href="https://admin.cullinos.com/displays">https://admin.cullinos.com/displays</a></td>
+<td>KDS/CDS/Pickup/Promo</td>
+</tr>
+<tr>
+<td>Admin Digital Ordering</td>
+<td><a href="https://admin.cullinos.com/kiosk">https://admin.cullinos.com/kiosk</a></td>
+<td>Storefront / kiosk links</td>
+</tr>
+<tr>
+<td>Admin Payments</td>
+<td><a href="https://admin.cullinos.com/payments">https://admin.cullinos.com/payments</a></td>
+<td>Gateway keys</td>
+</tr>
+<tr>
+<td>Admin Settings</td>
+<td><a href="https://admin.cullinos.com/settings">https://admin.cullinos.com/settings</a></td>
+<td>Form UI (not JSON)</td>
+</tr>
+<tr>
+<td>Management</td>
+<td><a href="https://manage.cullinos.com">https://manage.cullinos.com</a></td>
+<td>Multi-outlet</td>
+</tr>
+<tr>
+<td>POS</td>
+<td><a href="https://pos.cullinos.com">https://pos.cullinos.com</a></td>
+<td>Cashier terminal</td>
+</tr>
+<tr>
+<td>KDS kitchen</td>
+<td><a href="https://kds.cullinos.com">https://kds.cullinos.com</a></td>
+<td>Staff login</td>
+</tr>
+<tr>
+<td>Guest outlet</td>
+<td><a href="https://guest.cullinos.com/o/%7BorgSlug%7D/%7BoutletSlug%7D">https://guest.cullinos.com/o/{orgSlug}/{outletSlug}</a></td>
+<td>Replace slugs</td>
+</tr>
+<tr>
+<td>Guest kiosk</td>
+<td><a href="https://guest.cullinos.com/o/%7BorgSlug%7D/%7BoutletSlug%7D/kiosk">https://guest.cullinos.com/o/{orgSlug}/{outletSlug}/kiosk</a></td>
+<td>Pay at counter</td>
+</tr>
+<tr>
+<td>Marketing</td>
+<td><a href="https://cullinos.com">https://cullinos.com</a></td>
+<td>Public site</td>
+</tr>
+<tr>
+<td>API health</td>
+<td><a href="https://api.cullinos.com/api/v1/health">https://api.cullinos.com/api/v1/health</a></td>
+<td>Expect healthy JSON</td>
+</tr>
+<tr>
+<td>API DB health</td>
+<td><a href="https://api.cullinos.com/api/v1/health/db">https://api.cullinos.com/api/v1/health/db</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Swagger</td>
+<td><a href="https://api.cullinos.com/docs">https://api.cullinos.com/docs</a></td>
+<td>Authorize with Bearer JWT</td>
+</tr>
+</tbody></table>
+<h3 id="local-ports-optional">Local ports (optional)</h3>
+<table>
+<thead>
+<tr>
+<th>App</th>
+<th>Port</th>
+<th>Dev command</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Marketing web</td>
+<td>5180</td>
+<td><code>npm run dev --workspace=@cullinos/web</code></td>
+</tr>
+<tr>
+<td>Admin</td>
+<td>5181</td>
+<td><code>npm run dev --workspace=@cullinos/admin</code></td>
+</tr>
+<tr>
+<td>Management</td>
+<td>5182</td>
+<td><code>npm run dev --workspace=@cullinos/management</code></td>
+</tr>
+<tr>
+<td>Super Admin</td>
+<td>5183</td>
+<td><code>npm run dev --workspace=@cullinos/super-admin</code></td>
+</tr>
+<tr>
+<td>POS</td>
+<td>5173</td>
+<td>See commands above (set <code>VITE_API_URL</code>)</td>
+</tr>
+<tr>
+<td>KDS</td>
+<td>5174</td>
+<td>See commands above (set <code>VITE_API_URL</code>)</td>
+</tr>
+</tbody></table>
+<h3 id="pack--evidence-commands">Pack &amp; evidence commands</h3>
+<pre><code class="language-bash"># Regenerate all PDFs + Excel from markdown
+npm run qa:export
+
+# PDF only
+node scripts/generate-qa-pdf.mjs
+
+# Excel only
+node scripts/generate-qa-excel.mjs
+</code></pre>
+<h3 id="out-of-scope">Out of scope</h3>
+<ul>
+<li>Decommissioned <strong>Customer web</strong> (<code>apps/customer</code>) and <strong>Waiter web</strong> (<code>apps/waiter</code>)</li>
+<li>Admin orphan pages without routes (<code>GuestPushPage</code>, <code>PromoEmailPage</code>) — use Super Admin Guest Ops / Promo email</li>
+<li>Live payment capture without configured keys → <strong>N/A</strong></li>
+<li>Destructive Super Admin delete on non-QA tenants → skip</li>
+</ul>
+<hr>
+<h2 id="sign-off-optional">Sign-off (optional)</h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Tester</td>
+<td></td>
+</tr>
+<tr>
+<td>Run ID</td>
+<td>RUN-YYYYMMDD</td>
+</tr>
+<tr>
+<td>Tenant slug</td>
+<td></td>
+</tr>
+<tr>
+<td>Guide version date</td>
+<td>2026-09-20</td>
+</tr>
+<tr>
+<td>Incomplete sections</td>
+<td></td>
+</tr>
+<tr>
+<td>Signature</td>
+<td></td>
+</tr>
+</tbody></table>
+</body>
+</html>

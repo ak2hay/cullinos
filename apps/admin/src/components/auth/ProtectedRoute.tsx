@@ -86,5 +86,14 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/onboarding" replace />;
   }
 
+  const needsBilling =
+    orgQuery.data?.trialExpired === true ||
+    (orgQuery.data?.subscriptionActive === false &&
+      orgQuery.data?.subscriptionStatus != null);
+  const onBilling = location.pathname === '/billing';
+  if (needsBilling && !onBilling && !onOnboarding) {
+    return <Navigate to="/billing" replace />;
+  }
+
   return children;
 }

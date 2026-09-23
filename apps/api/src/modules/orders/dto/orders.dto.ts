@@ -2,9 +2,11 @@ import {
   IsArray,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -89,13 +91,23 @@ export class AddOrderItemsDto {
 }
 
 export class ApplyDiscountDto {
-  @IsInt()
+  @IsNumber()
   @Min(0)
   discountAmount!: number;
 
   @IsOptional()
   @IsString()
   reason?: string;
+
+  @IsOptional()
+  @IsString()
+  couponCode?: string;
+}
+
+export class SplitOrderDto {
+  @IsArray()
+  @IsString({ each: true })
+  itemIds!: string[];
 }
 
 export class CancelOrderDto {
@@ -137,5 +149,6 @@ export class ListOrdersQueryDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(100)
   limit?: number;
 }

@@ -42,6 +42,7 @@ export function TenantsPage() {
   const [credentials, setCredentials] = useState<CredentialsResult | null>(null);
   const [onboardError, setOnboardError] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [passwordRevealed, setPasswordRevealed] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -117,6 +118,7 @@ export function TenantsPage() {
         adminUrl: result.adminUrl,
         emailSent: result.emailSent,
       });
+      setPasswordRevealed(false);
       setOnboardError(null);
       setShowOnboard(false);
       setCompanyName('');
@@ -133,14 +135,25 @@ export function TenantsPage() {
     },
   });
 
-  async function copyText(label: string, value: string) {
+  async function copyText(label: string, value: string, options?: { clearAfterMs?: number }) {
     try {
       await navigator.clipboard.writeText(value);
       setCopiedField(label);
       setTimeout(() => setCopiedField(null), 1500);
+      if (options?.clearAfterMs) {
+        window.setTimeout(() => {
+          void navigator.clipboard.writeText('').catch(() => undefined);
+        }, options.clearAfterMs);
+      }
     } catch {
       // ignore
     }
+  }
+
+  function dismissCredentials() {
+    setCredentials(null);
+    setPasswordRevealed(false);
+    setCopiedField(null);
   }
 
   function handleParentChange(next: BusinessTypeParent) {
@@ -175,6 +188,7 @@ export function TenantsPage() {
             {credentials.emailSent
               ? ' Credentials were also emailed to the owner.'
               : ' Email was not sent (check RESEND_API_KEY); copy credentials below.'}
+            {' '}Temporary password is hidden by default; clipboard is cleared shortly after copy.
           </p>
           <div className="mt-3 space-y-2 font-mono text-xs text-text-primary">
             <div className="flex flex-wrap items-center gap-2">
@@ -190,10 +204,23 @@ export function TenantsPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-text-muted">Temp password:</span>
-              <span>{credentials.temporaryPassword}</span>
+              <span>
+                {passwordRevealed
+                  ? credentials.temporaryPassword
+                  : '•'.repeat(Math.max(12, credentials.temporaryPassword.length))}
+              </span>
               <button
                 type="button"
-                onClick={() => copyText('password', credentials.temporaryPassword)}
+                onClick={() => setPasswordRevealed((v) => !v)}
+                className="rounded border border-white/10 px-2 py-0.5 text-[11px] hover:bg-white/5"
+              >
+                {passwordRevealed ? 'Hide' : 'Reveal once'}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  copyText('password', credentials.temporaryPassword, { clearAfterMs: 30_000 })
+                }
                 className="rounded border border-white/10 px-2 py-0.5 text-[11px] hover:bg-white/5"
               >
                 {copiedField === 'password' ? 'Copied' : 'Copy'}
@@ -213,7 +240,7 @@ export function TenantsPage() {
           </div>
           <button
             type="button"
-            onClick={() => setCredentials(null)}
+            onClick={dismissCredentials}
             className="mt-3 text-xs text-text-muted hover:underline"
           >
             Dismiss

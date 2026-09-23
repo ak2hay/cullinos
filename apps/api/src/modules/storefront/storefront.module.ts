@@ -7,5 +7,6 @@ import { StorefrontService } from "./storefront.service";
   imports: [MenuModule],
   controllers: [StorefrontController],
   providers: [StorefrontService],
+  exports: [StorefrontService],
 })
 export class StorefrontModule {}

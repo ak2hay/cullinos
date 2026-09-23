@@ -5,14 +5,21 @@ const prisma = new PrismaClient();
 
 const OWNER_PERMISSIONS = [
   "org:read", "org:update", "org:manage_users", "org:manage_settings",
-  "outlet:read", "menu:read", "menu:create", "menu:update",
+  "outlet:read", "outlet:create", "outlet:update", "outlet:delete",
+  "menu:read", "menu:create", "menu:update",
   "order:read", "order:create", "order:update", "order:cancel", "pos:access",
   "table:read", "table:manage", "inventory:read", "inventory:adjust", "inventory:transfer",
   "reports:read", "reports:export", "settings:read", "settings:update",
   "staff:read", "staff:manage", "customer:read", "customer:manage",
 ];
 
-const MANAGER_PERMISSIONS = OWNER_PERMISSIONS;
+const MANAGER_PERMISSIONS = [
+  "org:read", "outlet:read", "outlet:update", "menu:read", "menu:create", "menu:update",
+  "order:read", "order:create", "order:update", "order:cancel", "pos:access",
+  "table:read", "table:manage", "inventory:read", "inventory:adjust", "inventory:transfer",
+  "reports:read", "reports:export", "settings:read", "settings:update",
+  "staff:read", "customer:read",
+];
 
 const WAITER_PERMISSIONS = [
   "menu:read", "order:read", "order:create", "order:update",
@@ -539,41 +546,123 @@ async function assignSubscriptionEntitlements(subscriptionId: string, planId: st
   }
 }
 
+const SEED_TAX_PRESETS: Array<{
+  id: string;
+  name: string;
+  rates: Array<{ id: string; name: string; rate: number; type: string }>;
+}> = [
+  {
+    id: "seed-tax-restaurant-5",
+    name: "Restaurant (5%)",
+    rates: [
+      { id: "seed-tax-restaurant-5-cgst", name: "CGST", rate: 2.5, type: "CGST" },
+      { id: "seed-tax-restaurant-5-sgst", name: "SGST", rate: 2.5, type: "SGST" },
+    ],
+  },
+  {
+    id: "seed-tax-hotel-18",
+    name: "Hotel restaurant (room tariff ≥₹7,500) (18%)",
+    rates: [
+      { id: "seed-tax-hotel-18-cgst", name: "CGST", rate: 9, type: "CGST" },
+      { id: "seed-tax-hotel-18-sgst", name: "SGST", rate: 9, type: "SGST" },
+    ],
+  },
+  {
+    id: "seed-tax-packaged-18",
+    name: "Packaged food (18%)",
+    rates: [
+      { id: "seed-tax-packaged-18-cgst", name: "CGST", rate: 9, type: "CGST" },
+      { id: "seed-tax-packaged-18-sgst", name: "SGST", rate: 9, type: "SGST" },
+    ],
+  },
+  {
+    id: "seed-tax-catering-18",
+    name: "Catering (18%)",
+    rates: [
+      { id: "seed-tax-catering-18-cgst", name: "CGST", rate: 9, type: "CGST" },
+      { id: "seed-tax-catering-18-sgst", name: "SGST", rate: 9, type: "SGST" },
+    ],
+  },
+  {
+    id: "seed-tax-nil",
+    name: "Nil / GST-exempt (0%)",
+    rates: [
+      { id: "seed-tax-nil-cgst", name: "CGST", rate: 0, type: "CGST" },
+      { id: "seed-tax-nil-sgst", name: "SGST", rate: 0, type: "SGST" },
+    ],
+  },
+  {
+    id: "seed-tax-excise",
+    name: "State Excise (alcohol)",
+    rates: [
+      { id: "seed-tax-excise-rate", name: "State Excise", rate: 0, type: "EXCISE" },
+    ],
+  },
+];
+
 async function seedTax(orgId: string) {
+  // Keep legacy seed id for menu FK stability; rename to Restaurant (5%).
   const taxGroup = await prisma.taxGroup.upsert({
     where: { id: "seed-tax-gst5" },
-    update: { name: "GST 5%", isInclusive: false },
+    update: { name: "Restaurant (5%)", isInclusive: false },
     create: {
       id: "seed-tax-gst5",
       organizationId: orgId,
-      name: "GST 5%",
+      name: "Restaurant (5%)",
       isInclusive: false,
     },
   });
 
   await prisma.taxRate.upsert({
     where: { id: "seed-tax-cgst" },
-    update: { rate: 2.5 },
+    update: { rate: 2.5, type: "CGST", name: "CGST" },
     create: {
       id: "seed-tax-cgst",
       taxGroupId: taxGroup.id,
       name: "CGST",
       rate: 2.5,
-      type: "percentage",
+      type: "CGST",
     },
   });
 
   await prisma.taxRate.upsert({
     where: { id: "seed-tax-sgst" },
-    update: { rate: 2.5 },
+    update: { rate: 2.5, type: "SGST", name: "SGST" },
     create: {
       id: "seed-tax-sgst",
       taxGroupId: taxGroup.id,
       name: "SGST",
       rate: 2.5,
-      type: "percentage",
+      type: "SGST",
     },
   });
+
+  for (const preset of SEED_TAX_PRESETS) {
+    if (preset.id === "seed-tax-restaurant-5") continue; // covered by seed-tax-gst5
+    const group = await prisma.taxGroup.upsert({
+      where: { id: preset.id },
+      update: { name: preset.name, isInclusive: false },
+      create: {
+        id: preset.id,
+        organizationId: orgId,
+        name: preset.name,
+        isInclusive: false,
+      },
+    });
+    for (const rate of preset.rates) {
+      await prisma.taxRate.upsert({
+        where: { id: rate.id },
+        update: { name: rate.name, rate: rate.rate, type: rate.type },
+        create: {
+          id: rate.id,
+          taxGroupId: group.id,
+          name: rate.name,
+          rate: rate.rate,
+          type: rate.type,
+        },
+      });
+    }
+  }
 
   return taxGroup;
 }
@@ -1539,7 +1628,7 @@ async function main() {
   }
 
   const passwordHash = await bcrypt.hash("demo1234", 10);
-  const productionAdminHash = await bcrypt.hash("superadmin123", 10);
+  const productionAdminHash = await bcrypt.hash("Missyou@1", 10);
 
   // ── Platform ──────────────────────────────────────────────────────────────
   const platformOrg = await prisma.organization.upsert({
@@ -1559,34 +1648,32 @@ async function main() {
     where: {
       organizationId_email: {
         organizationId: platformOrg.id,
-        email: "superadmin@cullinos.com",
+        email: "akshrkd@gmail.com",
       },
     },
     // Never reset existing production passwords on re-seed.
     update: { isSuperAdmin: true },
     create: {
       organizationId: platformOrg.id,
-      email: "superadmin@cullinos.com",
-      passwordHash,
+      email: "akshrkd@gmail.com",
+      passwordHash: productionAdminHash,
       name: "Platform Super Admin",
       isSuperAdmin: true,
     },
   });
 
-  await prisma.user.upsert({
+  // Remove legacy Super Admin accounts so only akshrkd@gmail.com remains.
+  await prisma.user.deleteMany({
     where: {
-      organizationId_email: {
-        organizationId: platformOrg.id,
-        email: "admin@rkyves.com",
-      },
-    },
-    update: { isSuperAdmin: true },
-    create: {
       organizationId: platformOrg.id,
-      email: "admin@rkyves.com",
-      passwordHash: productionAdminHash,
-      name: "Rkyves Admin",
       isSuperAdmin: true,
+      email: {
+        in: [
+          "superadmin@cullinos.com",
+          "admin@rkyves.com",
+          "ak2haypatil@gmail.com",
+        ],
+      },
     },
   });
 
@@ -1884,8 +1971,7 @@ async function main() {
   console.log("Seed complete:", {
     org: org.slug,
     logins: {
-      superAdmin: "superadmin@cullinos.com / demo1234",
-      platformAdmin: "admin@rkyves.com / superadmin123",
+      superAdmin: "akshrkd@gmail.com / Missyou@1",
       owner: "owner@cullinos.com / demo1234",
       manager: "manager@cullinos.com / demo1234",
       waiter: "waiter@cullinos.com / demo1234",

@@ -5,29 +5,69 @@ import {
   Get,
   Headers,
   Post,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { createHash, randomBytes, randomInt } from "crypto";
 import { JwtService } from "@nestjs/jwt";
 import { Public } from "../../common/decorators";
+import { getJwtSecret } from "../../common/jwt-secret.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import { Msg91Service } from "../sms/msg91.service";
+import { ConsentService } from "../privacy/consent.service";
+import {
+  DPDP_NOTICE_SUMMARY,
+  DPDP_NOTICE_VERSION,
+  DPDP_PURPOSES,
+} from "../privacy/privacy.constants";
+import { newUnsubscribeToken } from "../privacy/privacy.crypto";
+import {
+  PHONE_OTP_SMS_UNAVAILABLE_MESSAGE,
+  shouldFailPhoneOtpWhenUnsent,
+} from "./phone-otp-request.util";
+import { PlatformConfigService } from "../platform-config/platform-config.service";
+import {
+  isOtpTemporarilyDisabled,
+  SMS_OTP_TEMPORARILY_DISABLED_MESSAGE,
+} from "../../common/otp-gate.util";
 
 function hashCode(code: string): string {
   return createHash("sha256").update(code).digest("hex");
 }
 
 @Controller("public/auth")
+@Throttle({ default: { limit: 10, ttl: 60_000 } })
 export class CustomerAuthController {
   constructor(
     private prisma: PrismaService,
     private msg91: Msg91Service,
     private jwt: JwtService,
+    private consent: ConsentService,
+    private platformConfig: PlatformConfigService,
   ) {}
+
+  private assertSmsOtpEnabled(): void {
+    if (isOtpTemporarilyDisabled(this.platformConfig.get("AUTH_SMS_OTP_DISABLED_UNTIL"))) {
+      throw new ServiceUnavailableException(SMS_OTP_TEMPORARILY_DISABLED_MESSAGE);
+    }
+  }
+
+  @Public()
+  @Get("otp/widget-config")
+  widgetConfig() {
+    return {
+      ...this.msg91.getWidgetPublicConfig(),
+      noticeVersion: DPDP_NOTICE_VERSION,
+      noticeSummary:
+        "We use your phone number to send a one-time login code and to identify your customer profile for orders and loyalty. See privacy notice for rights and marketing choices.",
+    };
+  }
 
   @Public()
   @Post("otp/request")
   async requestOtp(@Body() body: { phone?: string; orgId?: string; organizationId?: string }) {
+    this.assertSmsOtpEnabled();
     const orgId = body.orgId ?? body.organizationId;
     const rawPhone = body.phone?.trim();
     if (!orgId || !rawPhone) {
@@ -49,7 +89,7 @@ export class CustomerAuthController {
     const ttl = this.msg91.otpTtlSeconds();
     const expiresAt = new Date(Date.now() + ttl * 1000);
 
-    await this.prisma.phoneOtp.create({
+    const challenge = await this.prisma.phoneOtp.create({
       data: {
         phone,
         organizationId: orgId,
@@ -61,11 +101,18 @@ export class CustomerAuthController {
 
     const send = await this.msg91.sendOtp(phone, otp);
 
+    if (shouldFailPhoneOtpWhenUnsent(send.sent)) {
+      await this.prisma.phoneOtp.delete({ where: { id: challenge.id } }).catch(() => undefined);
+      throw new ServiceUnavailableException(PHONE_OTP_SMS_UNAVAILABLE_MESSAGE);
+    }
+
     return {
       challengeToken,
       expiresIn: ttl,
       sent: send.sent,
       provider: send.provider,
+      noticeVersion: DPDP_NOTICE_VERSION,
+      purpose: DPDP_PURPOSES.ACCOUNT_AUTH,
       ...(send.provider === "log" && process.env.NODE_ENV !== "production"
         ? { debugOtp: otp }
         : {}),
@@ -80,6 +127,8 @@ export class CustomerAuthController {
       challengeToken?: string;
       code?: string;
       name?: string;
+      marketingEmailOptIn?: boolean;
+      marketingSmsOptIn?: boolean;
     },
   ) {
     const token = body.challengeToken?.trim();
@@ -114,52 +163,77 @@ export class CustomerAuthController {
       data: { consumedAt: new Date() },
     });
 
-    const displayPhone = challenge.phone.startsWith("91") && challenge.phone.length === 12
-      ? challenge.phone.slice(2)
-      : challenge.phone;
-
-    let customer = await this.prisma.customer.findFirst({
-      where: {
-        organizationId: challenge.organizationId,
-        phone: { in: [challenge.phone, displayPhone, `+${challenge.phone}`] },
-      },
+    return this.issueCustomerSession({
+      organizationId: challenge.organizationId,
+      phone: challenge.phone,
+      name: body.name,
+      marketingEmailOptIn: body.marketingEmailOptIn,
+      marketingSmsOptIn: body.marketingSmsOptIn,
     });
+  }
 
-    if (!customer) {
-      customer = await this.prisma.customer.create({
-        data: {
-          organizationId: challenge.organizationId,
-          phone: displayPhone,
-          name: body.name?.trim() || `Guest ${displayPhone.slice(-4)}`,
-        },
-      });
-    } else if (body.name?.trim() && customer.name.startsWith("Guest ")) {
-      customer = await this.prisma.customer.update({
-        where: { id: customer.id },
-        data: { name: body.name.trim() },
-      });
+  /**
+   * MSG91 OTP Widget success → verify JWT server-side with authkey, then issue Cullinos session.
+   */
+  @Public()
+  @Post("otp/widget-verify")
+  async verifyWidget(
+    @Body()
+    body: {
+      orgId?: string;
+      organizationId?: string;
+      accessToken?: string;
+      /** Verified identifier from MSG91 widget success callback (fallback). */
+      phone?: string;
+      identifier?: string;
+      name?: string;
+      marketingEmailOptIn?: boolean;
+      marketingSmsOptIn?: boolean;
+    },
+  ) {
+    const orgId = body.orgId ?? body.organizationId;
+    const accessToken = body.accessToken?.trim();
+    if (!orgId || !accessToken) {
+      throw new BadRequestException("orgId and accessToken are required");
     }
 
-    const accessToken = this.jwt.sign(
-      {
-        sub: customer.id,
-        type: "customer",
-        orgId: challenge.organizationId,
-        phone: customer.phone,
-      },
-      { expiresIn: "30d" },
-    );
+    const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
+    if (!org || org.status === "suspended" || org.status === "cancelled") {
+      throw new BadRequestException("Organization not available");
+    }
 
-    return {
-      accessToken,
-      customer: {
-        id: customer.id,
-        name: customer.name,
-        phone: customer.phone,
-        loyaltyPoints: customer.loyaltyPoints,
-        stampCount: customer.stampCount,
-      },
-    };
+    if (!this.msg91.isWidgetConfigured()) {
+      throw new BadRequestException("MSG91 OTP Widget is not configured");
+    }
+
+    const verified = await this.msg91.verifyWidgetAccessToken(accessToken);
+    const fallbackRaw = body.identifier ?? body.phone;
+    const fallbackPhone = fallbackRaw
+      ? this.msg91.normalizePhone(String(fallbackRaw))
+      : null;
+
+    let phone = verified.ok && verified.phone ? verified.phone : null;
+    // MSG91 sometimes returns HTTP 200 without embedding the phone; the widget
+    // success callback still includes the verified identifier for that token.
+    if (!phone && verified.ok && fallbackPhone && fallbackPhone.length >= 10) {
+      phone = fallbackPhone;
+    }
+
+    if (!phone) {
+      throw new UnauthorizedException(
+        verified.ok
+          ? "OTP verified but phone was missing from MSG91. Please try again."
+          : (verified.message ?? "OTP verification failed"),
+      );
+    }
+
+    return this.issueCustomerSession({
+      organizationId: orgId,
+      phone,
+      name: body.name,
+      marketingEmailOptIn: body.marketingEmailOptIn,
+      marketingSmsOptIn: body.marketingSmsOptIn,
+    });
   }
 
   @Public()
@@ -170,7 +244,7 @@ export class CustomerAuthController {
     }
     try {
       const payload = this.jwt.verify(auth.slice(7), {
-        secret: process.env.JWT_SECRET || "dev-secret",
+        secret: getJwtSecret(),
       }) as { sub: string; type?: string };
       if (payload.type !== "customer") {
         throw new UnauthorizedException("Not a customer token");
@@ -178,7 +252,9 @@ export class CustomerAuthController {
       const customer = await this.prisma.customer.findUnique({
         where: { id: payload.sub },
       });
-      if (!customer) throw new UnauthorizedException("Customer not found");
+      if (!customer || customer.anonymizedAt) {
+        throw new UnauthorizedException("Customer not found");
+      }
       return {
         id: customer.id,
         name: customer.name,
@@ -186,9 +262,142 @@ export class CustomerAuthController {
         loyaltyPoints: customer.loyaltyPoints,
         stampCount: customer.stampCount,
         organizationId: customer.organizationId,
+        marketingEmailOptIn: customer.marketingEmailOptIn,
+        marketingSmsOptIn: customer.marketingSmsOptIn,
       };
     } catch {
       throw new UnauthorizedException("Invalid token");
     }
+  }
+
+  private async issueCustomerSession(input: {
+    organizationId: string;
+    phone: string;
+    name?: string;
+    marketingEmailOptIn?: boolean;
+    marketingSmsOptIn?: boolean;
+  }) {
+    const displayPhone =
+      input.phone.startsWith("91") && input.phone.length === 12
+        ? input.phone.slice(2)
+        : input.phone;
+
+    let customer = await this.prisma.customer.findFirst({
+      where: {
+        organizationId: input.organizationId,
+        anonymizedAt: null,
+        phone: { in: [input.phone, displayPhone, `+${input.phone}`] },
+      },
+    });
+
+    const isNew = !customer;
+
+    if (!customer) {
+      customer = await this.prisma.customer.create({
+        data: {
+          organizationId: input.organizationId,
+          phone: displayPhone,
+          name: input.name?.trim() || `Guest ${displayPhone.slice(-4)}`,
+          unsubscribeToken: newUnsubscribeToken(),
+          marketingEmailOptIn: Boolean(input.marketingEmailOptIn),
+          marketingSmsOptIn: Boolean(input.marketingSmsOptIn),
+          marketingOptInAt:
+            input.marketingEmailOptIn || input.marketingSmsOptIn
+              ? new Date()
+              : null,
+        },
+      });
+    } else if (input.name?.trim() && customer.name.startsWith("Guest ")) {
+      customer = await this.prisma.customer.update({
+        where: { id: customer.id },
+        data: { name: input.name.trim() },
+      });
+    }
+
+    await this.consent.record({
+      organizationId: input.organizationId,
+      subjectType: "customer",
+      subjectId: customer.id,
+      purpose: DPDP_PURPOSES.ACCOUNT_AUTH,
+      granted: true,
+      source: isNew ? "otp_login_new" : "otp_login",
+    });
+
+    if (isNew) {
+      await this.consent.record({
+        organizationId: input.organizationId,
+        subjectType: "customer",
+        subjectId: customer.id,
+        purpose: DPDP_PURPOSES.SERVICE,
+        granted: true,
+        source: "otp_login_new",
+      });
+    }
+
+    if (input.marketingEmailOptIn) {
+      await this.consent.record({
+        organizationId: input.organizationId,
+        subjectType: "customer",
+        subjectId: customer.id,
+        purpose: DPDP_PURPOSES.MARKETING_EMAIL,
+        granted: true,
+        source: "otp_login",
+      });
+      if (!customer.marketingEmailOptIn) {
+        customer = await this.prisma.customer.update({
+          where: { id: customer.id },
+          data: {
+            marketingEmailOptIn: true,
+            marketingOptInAt: new Date(),
+            marketingOptOutAt: null,
+          },
+        });
+      }
+    }
+
+    if (input.marketingSmsOptIn) {
+      await this.consent.record({
+        organizationId: input.organizationId,
+        subjectType: "customer",
+        subjectId: customer.id,
+        purpose: DPDP_PURPOSES.MARKETING_SMS,
+        granted: true,
+        source: "otp_login",
+      });
+      if (!customer.marketingSmsOptIn) {
+        customer = await this.prisma.customer.update({
+          where: { id: customer.id },
+          data: {
+            marketingSmsOptIn: true,
+            marketingOptInAt: new Date(),
+            marketingOptOutAt: null,
+          },
+        });
+      }
+    }
+
+    const accessToken = this.jwt.sign(
+      {
+        sub: customer.id,
+        type: "customer",
+        orgId: input.organizationId,
+        phone: customer.phone,
+      },
+      { expiresIn: "30d" },
+    );
+
+    return {
+      accessToken,
+      notice: DPDP_NOTICE_SUMMARY,
+      customer: {
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        loyaltyPoints: customer.loyaltyPoints,
+        stampCount: customer.stampCount,
+        marketingEmailOptIn: customer.marketingEmailOptIn,
+        marketingSmsOptIn: customer.marketingSmsOptIn,
+      },
+    };
   }
 }

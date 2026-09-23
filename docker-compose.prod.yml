@@ -32,6 +32,7 @@ services:
       - cullinos
 
   api:
+    image: cullinos-api:current
     build:
       context: .
       dockerfile: Dockerfile
@@ -48,10 +49,13 @@ services:
         condition: service_healthy
     volumes:
       - cullinos_marketing_uploads:/data/marketing-uploads
+      # Optional: place firebase-adminsdk.json on the host and set FIREBASE_SERVICE_ACCOUNT_PATH=/secrets/firebase-adminsdk.json
+      - ${FIREBASE_SECRETS_DIR:-./secrets}:/secrets:ro
     networks:
       - cullinos
 
   web:
+    image: cullinos-web:current
     build:
       context: .
       dockerfile: Dockerfile.web

@@ -2,29 +2,39 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>EMPLOYEE_BRIEF</title>
+  <title>Cullinos QA Employee Brief</title>
   <style>
-  body { font-family: Segoe UI, Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #1a1a1a; max-width: 900px; margin: 0 auto; padding: 24px; }
-  h1 { color: #0F0F1A; border-bottom: 2px solid #D4A017; padding-bottom: 6px; font-size: 20pt; page-break-after: avoid; }
-  h2 { color: #0F0F1A; margin-top: 1.2em; font-size: 14pt; page-break-after: avoid; }
-  h3 { color: #333; font-size: 12pt; page-break-after: avoid; }
-  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 10pt; page-break-inside: avoid; }
-  th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+  body { font-family: Segoe UI, Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: #1a1a1a; max-width: 920px; margin: 0 auto; padding: 20px 28px; }
+  h1 { color: #0F0F1A; border-bottom: 3px solid #D4A017; padding-bottom: 8px; font-size: 20pt; page-break-after: avoid; }
+  h2 { color: #0F0F1A; margin-top: 1.35em; font-size: 13.5pt; border-left: 4px solid #D4A017; padding-left: 10px; page-break-after: avoid; }
+  h3 { color: #222; font-size: 11.5pt; margin-top: 1.1em; page-break-after: avoid; }
+  h4 { color: #333; font-size: 10.5pt; page-break-after: avoid; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0 14px; font-size: 9pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: left; vertical-align: top; }
   th { background: #D4A017; color: #0F0F1A; font-weight: 600; }
-  tr:nth-child(even) { background: #f9f9f9; }
-  code { background: #f4f4f4; padding: 1px 4px; border-radius: 3px; font-size: 9pt; }
-  pre { background: #f4f4f4; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 9pt; white-space: pre-wrap; }
-  blockquote { border-left: 3px solid #D4A017; margin: 0; padding-left: 12px; color: #555; }
-  hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
-  a { color: #0F0F1A; }
-  @media print { body { padding: 0; } }
+  tr:nth-child(even) { background: #faf8f2; }
+  code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 8.5pt; font-family: Consolas, monospace; }
+  pre { background: #1a1a1a; color: #f5f5f5; padding: 12px 14px; border-radius: 6px; overflow-x: auto; font-size: 8.5pt; white-space: pre-wrap; border-left: 4px solid #D4A017; }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  blockquote { border-left: 3px solid #D4A017; margin: 0 0 12px; padding: 6px 12px; color: #444; background: #faf8f2; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 18px 0; }
+  a { color: #0a5a8a; text-decoration: none; }
+  ul, ol { margin: 6px 0 12px; padding-left: 1.4em; }
+  li { margin: 3px 0; }
+  input[type="checkbox"] { margin-right: 6px; }
+  @media print {
+    body { padding: 0; }
+    h2, h3 { page-break-after: avoid; }
+    pre, table { page-break-inside: avoid; }
+  }
 </style>
 </head>
 <body><h1 id="cullinos-qa--employee-brief">Cullinos QA — Employee Brief</h1>
 <p><strong>Role:</strong> Manual QA Tester (Production)<br><strong>Duration:</strong> ~4 days (6–8 hours per day)<br><strong>Environment:</strong> Production (cullinos.com)</p>
 <hr>
 <h2 id="your-goal">Your goal</h2>
-<p>Test all <strong>160 test cases</strong> on the live Cullinos platform. Record results in Excel. Log every failure with steps and screenshots. Return completed work to your team lead.</p>
+<p>Test all <strong>190 test cases</strong> on the live Cullinos platform. Record results in Excel. Log every failure with steps and screenshots. Return completed work to your team lead.</p>
+<p>Use <strong><a href="./COMPLETE_FEATURE_TEST_GUIDE.md">COMPLETE_FEATURE_TEST_GUIDE.md</a></strong> for click-by-click steps on every page.</p>
 <p>Read <strong>Whats_New.pdf</strong> first for features added in this cycle.</p>
 <hr>
 <h2 id="what-you-will-receive">What you will receive</h2>
@@ -102,7 +112,7 @@
 <hr>
 <h2 id="your-deliverables-end-of-day-4">Your deliverables (end of Day 4)</h2>
 <ol>
-<li><strong>TEST_RUN_SHEET.xlsx</strong> — all 160 test cases marked; Summary and Sign-off sheets complete</li>
+<li><strong>TEST_RUN_SHEET.xlsx</strong> — all 190 test cases marked; Summary and Sign-off sheets complete</li>
 <li><strong>BUG_LOG.xlsx</strong> — every Fail has a bug row with steps, expected, actual, screenshot path</li>
 <li><strong>CREDENTIALS_LOG.xlsx</strong> — org slug, outlet slug, outlet ID, emails (password refs only)</li>
 <li><strong>evidence/</strong> folder — PNG screenshots named like <code>BUG-001-screenshot.png</code></li>

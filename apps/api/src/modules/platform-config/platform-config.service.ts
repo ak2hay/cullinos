@@ -31,6 +31,8 @@ export type FieldStatus = {
   value?: string | null;
   /** Masked secret preview when configured. */
   masked?: string | null;
+  /** Special UI control (e.g. otp_gate dual dropdown). */
+  control?: "otp_gate";
 };
 
 export type GroupStatus = {
@@ -228,6 +230,7 @@ export class PlatformConfigService implements OnModuleInit {
           value: keyDef.isSecret ? null : (effective ?? null),
           masked:
             keyDef.isSecret && effective ? maskSecret(effective) : null,
+          ...(keyDef.control ? { control: keyDef.control } : {}),
         });
       }
       groups.push({

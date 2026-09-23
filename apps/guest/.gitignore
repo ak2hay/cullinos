@@ -1,0 +1,15 @@
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+*.iml
+.idea/
+android/.gradle/
+android/local.properties
+android/app/google-services.json
+ios/Pods/
+ios/.symlinks/
+*.jks
+*.keystore
+.env

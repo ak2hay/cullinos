@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Open Cullinos</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f6f8;
+        --card: #ffffff;
+        --text: #1a1a1a;
+        --muted: #6b7280;
+        --brand: #1b5e3b;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      main {
+        max-width: 420px;
+        width: 100%;
+        background: var(--card);
+        border-radius: 20px;
+        padding: 28px 24px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+      }
+      h1 { font-size: 1.4rem; margin: 0 0 8px; }
+      p { color: var(--muted); line-height: 1.45; margin: 0 0 16px; }
+      a.btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 48px;
+        border-radius: 14px;
+        text-decoration: none;
+        font-weight: 700;
+        margin-top: 10px;
+      }
+      a.primary { background: var(--brand); color: #fff; }
+      a.secondary {
+        background: #fff;
+        color: var(--brand);
+        border: 1.5px solid var(--brand);
+      }
+      a.link { color: var(--muted); text-align: center; margin-top: 16px; display: block; font-size: 0.9rem; }
+      #status { font-size: 0.85rem; color: var(--muted); margin-top: 12px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Open this restaurant</h1>
+      <p id="blurb">Opening Cullinos Guest… If the app is not installed, we will take you to the store.</p>
+      <a class="btn primary" id="play" href="https://play.google.com/store/apps/details?id=com.cullinos.guest">Get on Google Play</a>
+      <a class="btn secondary" id="open" href="#">Open in app</a>
+      <a class="btn secondary" id="ios" href="#" style="display:none">Get on the App Store</a>
+      <p id="status">Trying to open the app…</p>
+    </main>
+    <script>
+      (function () {
+        var params = new URLSearchParams(location.search);
+        var pathMatch = location.pathname.match(/^\/o\/([^\/]+)\/([^\/]+)/);
+        var org = params.get('org') || params.get('orgSlug') || (pathMatch && pathMatch[1]) || '';
+        var outlet = params.get('outlet') || params.get('outletSlug') || (pathMatch && pathMatch[2]) || '';
+        var table = params.get('table') || '';
+        var session = params.get('session') || '';
+        var q = new URLSearchParams();
+        if (table) q.set('table', table);
+        if (session) q.set('session', session);
+        var qs = q.toString() ? '?' + q.toString() : '';
+        var guestBase = 'https://guest.cullinos.com';
+        var httpsApp = org && outlet
+          ? guestBase + '/o/' + encodeURIComponent(org) + '/' + encodeURIComponent(outlet) + qs
+          : guestBase + '/';
+        var scheme = org && outlet
+          ? 'cullinos://outlet/' + encodeURIComponent(org) + '/' + encodeURIComponent(outlet) + qs
+          : 'cullinos://outlet';
+        var deepPath = org && outlet
+          ? 'outlet/' + encodeURIComponent(org) + '/' + encodeURIComponent(outlet) + qs
+          : 'outlet';
+        var playBase = 'https://play.google.com/store/apps/details?id=com.cullinos.guest';
+        var referrer = encodeURIComponent(
+          'utm_source=table_qr&utm_medium=qr&deep_link=' + encodeURIComponent(scheme)
+        );
+        var playUrl = playBase + '&referrer=' + referrer;
+        var intentUrl =
+          'intent://' + deepPath +
+          '#Intent;scheme=cullinos;package=com.cullinos.guest;S.browser_fallback_url=' +
+          encodeURIComponent(playUrl) + ';end';
+
+        try {
+          localStorage.setItem('cullinos_pending_deep_link', scheme);
+        } catch (e) {}
+
+        var openBtn = document.getElementById('open');
+        var playBtn = document.getElementById('play');
+        var iosBtn = document.getElementById('ios');
+        var statusEl = document.getElementById('status');
+        playBtn.href = playUrl;
+        openBtn.href = scheme;
+
+        var ua = navigator.userAgent || '';
+        var isAndroid = /Android/i.test(ua);
+        var isIOS = /iPhone|iPad|iPod/i.test(ua);
+
+        fetch('https://api.cullinos.com/api/v1/public/marketplace/app-config')
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (body) {
+            if (!body) return;
+            if (body.playStoreUrl) {
+              playBtn.href = body.playStoreUrl + (body.playStoreUrl.indexOf('?') >= 0 ? '&' : '?') + 'referrer=' + referrer;
+            }
+            if (body.appStoreUrl) {
+              iosBtn.href = body.appStoreUrl;
+              iosBtn.style.display = 'flex';
+            }
+          })
+          .catch(function () {});
+
+        function tryOpenApp() {
+          if (isAndroid) {
+            window.location.href = intentUrl;
+            return;
+          }
+          var iframe = document.createElement('iframe');
+          iframe.style.display = 'none';
+          iframe.src = scheme;
+          document.body.appendChild(iframe);
+          setTimeout(function () { iframe.remove(); }, 1500);
+          // Also try top-level for iOS
+          if (isIOS) {
+            window.location.href = scheme;
+          }
+        }
+
+        tryOpenApp();
+
+        var left = false;
+        document.addEventListener('visibilitychange', function () {
+          if (document.hidden) left = true;
+        });
+        window.addEventListener('pagehide', function () { left = true; });
+
+        setTimeout(function () {
+          if (left || document.hidden) {
+            statusEl.textContent = 'App opened (or opening)…';
+            return;
+          }
+          statusEl.textContent = 'App not detected — opening the store…';
+          if (isIOS && iosBtn.href && iosBtn.href !== '#') {
+            window.location.href = iosBtn.href;
+          } else {
+            window.location.href = playBtn.href;
+          }
+        }, 2200);
+      })();
+    </script>
+  </body>
+</html>

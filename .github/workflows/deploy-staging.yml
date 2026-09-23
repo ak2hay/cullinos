@@ -1,0 +1,112 @@
+name: Deploy Staging
+
+on:
+  workflow_run:
+    workflows: ["Build Images"]
+    types: [completed]
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (default: staging)"
+        required: false
+        default: staging
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set image tag
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.image_tag }}"
+          if [ -z "$TAG" ]; then TAG=staging; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.29.0
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Ensure namespace and GHCR pull secret
+        env:
+          PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+        run: |
+          kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
+          TOKEN="${PULL_TOKEN:-${{ secrets.GITHUB_TOKEN }}}"
+          kubectl create secret docker-registry ghcr-pull \
+            --docker-server=ghcr.io \
+            --docker-username="${{ github.actor }}" \
+            --docker-password="$TOKEN" \
+            --namespace=staging \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Apply Kustomize overlay
+        run: kubectl apply -k infrastructure/k8s/overlays/staging
+
+      - name: Set image tags and pull secret
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          NS=staging
+          for d in api web spa-admin spa-management spa-super-admin spa-pos spa-kds spa-guest-landing spa-waiter-landing; do
+            IMG="ghcr.io/ak2hay/cullinos-${d/spa-/spa-}"
+            case "$d" in
+              api) IMG=ghcr.io/ak2hay/cullinos-api ;;
+              web) IMG=ghcr.io/ak2hay/cullinos-web ;;
+              spa-admin) IMG=ghcr.io/ak2hay/cullinos-spa-admin ;;
+              spa-management) IMG=ghcr.io/ak2hay/cullinos-spa-management ;;
+              spa-super-admin) IMG=ghcr.io/ak2hay/cullinos-spa-super-admin ;;
+              spa-pos) IMG=ghcr.io/ak2hay/cullinos-spa-pos ;;
+              spa-kds) IMG=ghcr.io/ak2hay/cullinos-spa-kds ;;
+              spa-guest-landing) IMG=ghcr.io/ak2hay/cullinos-spa-guest-landing ;;
+              spa-waiter-landing) IMG=ghcr.io/ak2hay/cullinos-spa-waiter-landing ;;
+            esac
+            CTR=nginx
+            [ "$d" = "api" ] && CTR=api
+            [ "$d" = "web" ] && CTR=web
+            kubectl -n "$NS" set image "deployment/$d" "$CTR=$IMG:$TAG"
+            kubectl -n "$NS" patch "deployment/$d" --type=strategic \
+              -p '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"ghcr-pull"}]}}}}'
+          done
+
+      - name: Apply app secrets
+        env:
+          APP_SECRETS: ${{ secrets.STAGING_APP_SECRETS_ENV }}
+        run: |
+          if [ -z "$APP_SECRETS" ]; then
+            echo "STAGING_APP_SECRETS_ENV not set — leaving existing cullinos-secrets"
+            exit 0
+          fi
+          printf '%s\n' "$APP_SECRETS" > /tmp/secrets.env
+          kubectl -n staging create secret generic cullinos-secrets \
+            --from-env-file=/tmp/secrets.env \
+            --dry-run=client -o yaml | kubectl apply -f -
+          rm -f /tmp/secrets.env
+
+      - name: Wait for API rollout
+        run: kubectl -n staging rollout status deployment/api --timeout=300s
+
+      - name: Smoke health
+        run: |
+          kubectl -n staging run smoke-$RANDOM --rm -i --restart=Never --image=curlimages/curl:8.5.0 -- \
+            curl -sf http://api/api/v1/health

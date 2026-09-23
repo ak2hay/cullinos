@@ -1,9 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
+import { PlatformConfigService } from "../platform-config/platform-config.service";
 
 @Injectable()
 export class OrganizationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private platformConfig: PlatformConfigService,
+  ) {}
 
   list(orgId: string) {
     return this.prisma.organization.findMany({ where: { id: orgId } });
@@ -31,6 +35,21 @@ export class OrganizationsService {
     });
     if (!org) return org;
     const json = this.settingsJson(org.settings?.settings);
+
+    const subscription = await this.prisma.subscription.findFirst({
+      where: { organizationId: orgId },
+      include: { plan: { select: { slug: true, name: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    const now = Date.now();
+    const trialExpired =
+      subscription?.status === "trial" &&
+      subscription.trialEndsAt != null &&
+      subscription.trialEndsAt.getTime() <= now;
+    const subscriptionActive =
+      subscription?.status === "active" ||
+      (subscription?.status === "trial" && !trialExpired);
+
     return {
       id: org.id,
       name: org.name,
@@ -46,13 +65,26 @@ export class OrganizationsService {
       currency: org.currency,
       setupCompleted: json.setupCompleted === true,
       loyaltySettings: json.loyaltySettings ?? null,
+      subscriptionStatus: subscription?.status ?? null,
+      trialEndsAt: subscription?.trialEndsAt?.toISOString() ?? null,
+      trialExpired,
+      subscriptionActive: Boolean(subscriptionActive),
+      planSlug: subscription?.plan?.slug ?? null,
+      planName: subscription?.plan?.name ?? null,
     };
   }
 
-  getSettings(orgId: string) {
-    return this.prisma.organizationSettings.findUnique({
+  async getSettings(orgId: string) {
+    const row = await this.prisma.organizationSettings.findUnique({
       where: { organizationId: orgId },
     });
+    const phoneMenuQrEnabled =
+      String(this.platformConfig.get("GUEST_APP_PHONE_MENU_QR_ENABLED") || "")
+        .toLowerCase() === "true";
+    return {
+      ...(row ?? { organizationId: orgId, settings: {} }),
+      platformCapabilities: { phoneMenuQrEnabled },
+    };
   }
 
   async updateSettings(orgId: string, body: Record<string, unknown>) {

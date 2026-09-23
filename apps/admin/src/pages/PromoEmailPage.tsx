@@ -70,7 +70,8 @@ export function PromoEmailPage() {
       <div>
         <h1 className="text-2xl font-semibold">Promo email</h1>
         <p className="mt-1 max-w-2xl text-text-secondary">
-          Compose a promotional email and send it to customers who have an email on file.
+          Compose a promotional email and send it only to customers who have opted in to marketing email
+          (DPDP consent). Each message includes an unsubscribe link.
         </p>
       </div>
 

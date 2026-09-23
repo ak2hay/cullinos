@@ -10,13 +10,16 @@ import { PortalPosPage } from '@/features/pos/PortalPosPage';
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { DeliveryPage } from '@/pages/DeliveryPage';
+import { AggregatorsPage } from '@/pages/AggregatorsPage';
+import { PaymentsPage } from '@/pages/PaymentsPage';
+import { MarketplaceListingPage } from '@/pages/MarketplaceListingPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { GuestsPage } from '@/pages/GuestsPage';
-import { KitchenDisplayLauncherPage } from '@/pages/KitchenDisplayLauncherPage';
+import { DisplaysPage } from '@/pages/DisplaysPage';
+import { RegisterPage } from '@/pages/RegisterPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { LoyaltyPage } from '@/pages/LoyaltyPage';
 import { MenuPage } from '@/pages/MenuPage';
-import { OrderDisplayLauncherPage } from '@/pages/OrderDisplayLauncherPage';
 import { OrdersPage } from '@/pages/OrdersPage';
 import { TablesPage } from '@/pages/TablesPage';
 import { InventoryPage } from '@/pages/InventoryPage';
@@ -25,10 +28,16 @@ import { BanquetsPage } from '@/pages/BanquetsPage';
 import { BrandsPage } from '@/pages/BrandsPage';
 import { ProductionPage } from '@/pages/ProductionPage';
 import { RecipesPage } from '@/pages/RecipesPage';
+import { PurchasingPage } from '@/pages/PurchasingPage';
+import { SuppliersPage } from '@/pages/SuppliersPage';
+import { CentralKitchenPage } from '@/pages/CentralKitchenPage';
 import { ReportsPage } from '@/pages/ReportsPage';
 import { CustomersPage } from '@/pages/CustomersPage';
 import { KioskLauncherPage } from '@/pages/KioskLauncherPage';
-import { PromoEmailPage } from '@/pages/PromoEmailPage';
+import { CouponsPage } from '@/pages/CouponsPage';
+import { GuestBannersPage } from '@/pages/GuestBannersPage';
+import { ReservationsPage } from '@/pages/ReservationsPage';
+import { SmsCampaignsPage } from '@/pages/SmsCampaignsPage';
 import { RoomsPage } from '@/pages/RoomsPage';
 import { StaffPage } from '@/pages/StaffPage';
 import { SettingsPage } from '@/pages/SettingsPage';
@@ -67,7 +76,14 @@ export default function App() {
           </PublicOnly>
         }
       />
-      <Route path="/register" element={<Navigate to="/login" replace />} />
+      <Route
+        path="/register"
+        element={
+          <PublicOnly>
+            <RegisterPage />
+          </PublicOnly>
+        }
+      />
       <Route
         path="/change-password"
         element={
@@ -163,11 +179,41 @@ export default function App() {
           }
         />
         <Route
-          path="promo-email"
+          path="sms-campaigns"
           element={
             <ErpPage>
               <PermissionRoute allOf={[PERMISSIONS.SETTINGS_UPDATE]}>
-                <PromoEmailPage />
+                <SmsCampaignsPage />
+              </PermissionRoute>
+            </ErpPage>
+          }
+        />
+        <Route
+          path="reservations"
+          element={
+            <ErpPage>
+              <BusinessTypeRoute>
+                <ReservationsPage />
+              </BusinessTypeRoute>
+            </ErpPage>
+          }
+        />
+        <Route
+          path="coupons"
+          element={
+            <ErpPage>
+              <PermissionRoute allOf={[PERMISSIONS.SETTINGS_UPDATE]}>
+                <CouponsPage />
+              </PermissionRoute>
+            </ErpPage>
+          }
+        />
+        <Route
+          path="guest-banners"
+          element={
+            <ErpPage>
+              <PermissionRoute allOf={[PERMISSIONS.SETTINGS_UPDATE]}>
+                <GuestBannersPage />
               </PermissionRoute>
             </ErpPage>
           }
@@ -212,7 +258,22 @@ export default function App() {
             </ErpPage>
           }
         />
-        <Route path="pickup-queue" element={<Navigate to="/cds" replace />} />
+        {/* Displays hub — consolidated KDS / CDS / promo launcher */}
+        <Route
+          path="displays"
+          element={
+            <ErpPage>
+              <BusinessTypeRoute>
+                <DisplaysPage />
+              </BusinessTypeRoute>
+            </ErpPage>
+          }
+        />
+        {/* Legacy redirects — keep old bookmarks working */}
+        <Route path="kds" element={<Navigate to="/displays" replace />} />
+        <Route path="cds" element={<Navigate to="/displays" replace />} />
+        <Route path="promo-display" element={<Navigate to="/displays" replace />} />
+        <Route path="pickup-queue" element={<Navigate to="/displays" replace />} />
         <Route
           path="loyalty"
           element={
@@ -223,26 +284,7 @@ export default function App() {
             </ErpPage>
           }
         />
-        <Route
-          path="kds"
-          element={
-            <ErpPage>
-              <BusinessTypeRoute>
-                <KitchenDisplayLauncherPage />
-              </BusinessTypeRoute>
-            </ErpPage>
-          }
-        />
-        <Route
-          path="cds"
-          element={
-            <ErpPage>
-              <BusinessTypeRoute>
-                <OrderDisplayLauncherPage />
-              </BusinessTypeRoute>
-            </ErpPage>
-          }
-        />
+        {/* /kds and /cds are now redirects — see /displays above */}
         <Route
           path="kiosk"
           element={
@@ -264,12 +306,80 @@ export default function App() {
           }
         />
         <Route
+          path="purchasing"
+          element={
+            <ErpPage>
+              <BusinessTypeRoute>
+                <PermissionRoute allOf={[PERMISSIONS.PURCHASE_READ]}>
+                  <PurchasingPage />
+                </PermissionRoute>
+              </BusinessTypeRoute>
+            </ErpPage>
+          }
+        />
+        <Route
+          path="suppliers"
+          element={
+            <ErpPage>
+              <BusinessTypeRoute>
+                <PermissionRoute allOf={[PERMISSIONS.PURCHASE_READ]}>
+                  <SuppliersPage />
+                </PermissionRoute>
+              </BusinessTypeRoute>
+            </ErpPage>
+          }
+        />
+        <Route
+          path="central-kitchen"
+          element={
+            <ErpPage>
+              <BusinessTypeRoute>
+                <PermissionRoute allOf={[PERMISSIONS.INVENTORY_TRANSFER]}>
+                  <CentralKitchenPage />
+                </PermissionRoute>
+              </BusinessTypeRoute>
+            </ErpPage>
+          }
+        />
+        <Route
           path="delivery"
           element={
             <ErpPage>
               <BusinessTypeRoute>
                 <DeliveryPage />
               </BusinessTypeRoute>
+            </ErpPage>
+          }
+        />
+        <Route
+          path="aggregators"
+          element={
+            <ErpPage>
+              <PermissionRoute allOf={[PERMISSIONS.REPORTS_READ]}>
+                <AggregatorsPage />
+              </PermissionRoute>
+            </ErpPage>
+          }
+        />
+        <Route
+          path="payments"
+          element={
+            <ErpPage>
+              <PermissionRoute allOf={[PERMISSIONS.SETTINGS_READ]}>
+                <PaymentsPage />
+              </PermissionRoute>
+            </ErpPage>
+          }
+        />
+        <Route
+          path="marketplace"
+          element={
+            <ErpPage>
+              <PermissionRoute anyOf={[PERMISSIONS.OUTLET_UPDATE, PERMISSIONS.SETTINGS_UPDATE]}>
+                <BusinessTypeRoute>
+                  <MarketplaceListingPage />
+                </BusinessTypeRoute>
+              </PermissionRoute>
             </ErpPage>
           }
         />

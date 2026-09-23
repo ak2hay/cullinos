@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""One-shot remote deploy for Cullinos API. Run locally — not for CI."""
+"""LEGACY emergency deploy (Docker Compose + SSH). Prefer GitHub Actions → GHCR → k3s.
+
+Normal releases: push to develop/main (see CONTRIBUTING.md and docs/DEPLOYMENT.md).
+This script remains for disaster rollback to Compose only — not for CI.
+"""
 from __future__ import annotations
 
 import io
@@ -23,8 +27,8 @@ VM_REDIS_URL = "redis://redis:6379"
 
 CORS_ORIGINS = (
     "https://admin.cullinos.com,https://manage.cullinos.com,"
-    "https://platform.cullinos.com,https://order.cullinos.com,"
-    "https://waiter.cullinos.com,https://pos.cullinos.com,"
+    "https://platform.cullinos.com,https://guest.cullinos.com,"
+    "https://pos.cullinos.com,"
     "https://kds.cullinos.com,https://cullinos.com"
 )
 
@@ -32,7 +36,7 @@ FRONTEND_DOMAINS = [
     "admin.cullinos.com",
     "manage.cullinos.com",
     "platform.cullinos.com",
-    "order.cullinos.com",
+    "guest.cullinos.com",
     "waiter.cullinos.com",
     "pos.cullinos.com",
     "kds.cullinos.com",
@@ -51,6 +55,10 @@ EXCLUDE_DIRS = {
     "playwright-report",
     "test-results",
     "coverage",
+    "build",
+    ".dart_tool",
+    ".gradle",
+    ".idea",
 }
 EXCLUDE_FILES = {"secrets-export.txt", ".env"}
 
@@ -159,9 +167,15 @@ def vm_env_updates(secrets: dict[str, str], existing: dict[str, str] | None = No
         "POSTGRES_PASSWORD": pg_pw,
         "DATABASE_URL": VM_DATABASE_URL.format(password=pg_pw),
         "REDIS_URL": VM_REDIS_URL,
+        "NODE_ENV": "production",
+        "CORS_ORIGINS": CORS_ORIGINS,
+        "AUTH_SKIP_EMAIL_OTP": "false",
         "REVALIDATE_SECRET": secrets.get("REVALIDATE_SECRET") or (existing or {}).get("REVALIDATE_SECRET") or os.urandom(24).hex(),
         "MARKETING_REVALIDATE_URL": "https://cullinos.com/api/revalidate",
         "INTERNAL_API_KEY": secrets.get("INTERNAL_API_KEY") or (existing or {}).get("INTERNAL_API_KEY") or os.urandom(24).hex(),
+        "GUEST_APP_URL": "https://guest.cullinos.com",
+        "CUSTOMER_APP_URL": "https://guest.cullinos.com",
+        "API_URL": "https://api.cullinos.com",
     }
     if secrets.get("JWT_ACCESS_SECRET"):
         updates["JWT_SECRET"] = secrets["JWT_ACCESS_SECRET"]
@@ -189,7 +203,8 @@ REVALIDATE_SECRET={updates["REVALIDATE_SECRET"]}
 MARKETING_REVALIDATE_URL={updates["MARKETING_REVALIDATE_URL"]}
 API_URL=https://api.cullinos.com
 CORS_ORIGINS={CORS_ORIGINS}
-CUSTOMER_APP_URL=https://order.cullinos.com
+GUEST_APP_URL=https://guest.cullinos.com
+CUSTOMER_APP_URL=https://guest.cullinos.com
 MARKETING_UPLOAD_DIR=/data/marketing-uploads
 """
 
@@ -244,10 +259,17 @@ def main() -> int:
     secrets_path = ROOT / "secrets-export.txt"
     secrets = parse_secrets(secrets_path) if secrets_path.exists() else {}
 
+    print("Packing project tarball (before SSH, to avoid idle disconnect)...")
+    tarball = make_tarball()
+    print(f"Tarball size: {len(tarball) / 1_000_000:.1f} MB", flush=True)
+
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    print(f"Connecting to {USER}@{HOST}...")
-    ssh.connect(HOST, username=USER, password=password, timeout=30)
+    print(f"Connecting to {USER}@{HOST}...", flush=True)
+    ssh.connect(HOST, username=USER, password=password, timeout=30, banner_timeout=60)
+    transport = ssh.get_transport()
+    if transport:
+        transport.set_keepalive(30)
 
     print("Installing Docker, nginx, git...")
     run(
@@ -260,13 +282,13 @@ def main() -> int:
         timeout=900,
     )
 
-    print("Uploading project tarball...")
-    tarball = make_tarball()
+    print("Uploading project tarball...", flush=True)
     sftp = ssh.open_sftp()
     run(ssh, f"mkdir -p {APP_DIR}")
     with sftp.file("/tmp/cullinos.tar.gz", "wb") as f:
         f.write(tarball)
     sftp.close()
+    del tarball
     run(ssh, f"mkdir -p {APP_DIR} && test -f {APP_DIR}/.env && cp {APP_DIR}/.env /tmp/cullinos.env.bak || true")
     run(ssh, f"rm -rf {APP_DIR}/* && tar -xzf /tmp/cullinos.tar.gz -C {APP_DIR} && rm /tmp/cullinos.tar.gz")
     run(ssh, f"test -f /tmp/cullinos.env.bak && mv /tmp/cullinos.env.bak {APP_DIR}/.env || true")
@@ -314,10 +336,22 @@ def main() -> int:
 
     print("Initializing database schema...")
     run(ssh, f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml stop api || true")
+    # Backfill payments.organization_id before required-column push (P0 hardening).
     run(
         ssh,
         f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml run --rm -T api "
-        "npx prisma db push --schema=packages/prisma/prisma/schema.prisma",
+        "npx prisma db execute --stdin --schema=packages/prisma/prisma/schema.prisma <<'SQL'\n"
+        "ALTER TABLE payments ADD COLUMN IF NOT EXISTS organization_id TEXT;\n"
+        "UPDATE payments p SET organization_id = o.organization_id "
+        "FROM orders o WHERE p.order_id = o.id "
+        "AND (p.organization_id IS NULL OR p.organization_id = '');\n"
+        "SQL",
+        timeout=300,
+    )
+    run(
+        ssh,
+        f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml run --rm -T api "
+        "npx prisma db push --accept-data-loss --schema=packages/prisma/prisma/schema.prisma",
         timeout=600,
     )
     run(
@@ -434,9 +468,24 @@ def main() -> int:
     print(f"API (public): https://api.cullinos.com/api/v1/health")
     print(f"App directory: {APP_DIR}")
     print("Backend stack: API + Postgres + Redis (all on this VM).")
-    print("Frontends: https://admin.cullinos.com, https://waiter.cullinos.com, etc.")
+    print("Frontends: https://admin.cullinos.com, https://pos.cullinos.com, etc.")
+    print("Waiter Android landing: https://waiter.cullinos.com")
     if pg_password_changed:
         print("Database was reset with new POSTGRES_PASSWORD — demo seed restored.")
+
+    healthy = '"status":"ok"' in out or '"status": "ok"' in out or ('"status":' in out and "ok" in out)
+    if healthy:
+        print("Snapshotting release for one-click rollback...")
+        snap_code, _, _ = run(
+            ssh,
+            f"bash {APP_DIR}/scripts/prod/snapshot-release.sh",
+            timeout=600,
+        )
+        if snap_code != 0:
+            print("Warning: release snapshot failed — rollback may be unavailable until you run snapshot-release.sh.", file=sys.stderr)
+    else:
+        print("Skipping release snapshot — API health check did not return ok.", file=sys.stderr)
+
     ssh.close()
     return 0
 

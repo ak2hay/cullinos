@@ -8,6 +8,7 @@ import {
 import { JwtService } from "@nestjs/jwt";
 import { Reflector } from "@nestjs/core";
 import { IS_PUBLIC_KEY } from "../../../common/decorators";
+import { getJwtSecret } from "../../../common/jwt-secret.util";
 
 @Injectable()
 export class SuperAdminGuard implements CanActivate {
@@ -29,7 +30,7 @@ export class SuperAdminGuard implements CanActivate {
     try {
       const token = authHeader.slice(7);
       const payload = this.jwt.verify(token, {
-        secret: process.env.JWT_SECRET || "dev-secret",
+        secret: getJwtSecret(),
       }) as { isSuperAdmin?: boolean };
       request.user = payload;
       if (!payload.isSuperAdmin) {
