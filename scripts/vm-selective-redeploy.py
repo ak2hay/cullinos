@@ -339,7 +339,7 @@ def main() -> int:
         print("\n======== SELECTIVE DEPLOY REPORT ========", flush=True)
         print("Rebuilt: api (cached docker compose build + force-recreate)", flush=True)
         print(f"Schema: prisma db push", flush=True)
-        print(f"Published SPAs: {', '.join(spa_apps)} → /var/www/cullinos/<app>/", flush=True)
+        print(f"Published SPAs: {', '.join(spa_apps)} -> /var/www/cullinos/<app>/", flush=True)
         print(f"Marketing web: {web_result}", flush=True)
         print(f"Health: {health_body.strip()}", flush=True)
         print(f"Smoke banners HTTP: {banners.strip()}", flush=True)
