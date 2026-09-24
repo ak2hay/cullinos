@@ -23,8 +23,10 @@ import { LoyaltyService } from "../loyalty/loyalty.service";
 import { GuestPushService } from "../guest/guest-push.service";
 import { RecipesService } from "../recipes/recipes.service";
 import { MailService } from "../mail/mail.service";
+import { buildReceiptEmail } from "../mail/templates";
 import { Msg91Service } from "../sms/msg91.service";
 import { FeedbackService } from "../feedback/feedback.service";
+import { smsEbill } from "../sms/sms-templates";
 
 type TaxComputation = {
   subtotal: number;
@@ -1158,14 +1160,15 @@ export class OrdersService {
       const to = order.customer?.email?.trim();
       if (!to) throw new BadRequestException("Order has no customer email");
       if (!this.mail) throw new BadRequestException("Mail service unavailable");
+      const tpl = buildReceiptEmail({
+        orderNumber: order.orderNumber,
+        bodyText: body,
+      });
       const sent = await this.mail.sendMail({
         to,
-        subject: `Your receipt · #${order.orderNumber}`,
-        text: body,
-        html: body
-          .split("\n")
-          .map((l) => (l.trim() ? `<p>${l}</p>` : "<br/>"))
-          .join(""),
+        subject: tpl.subject,
+        text: tpl.text,
+        html: tpl.html,
       });
       return { success: sent, channel: "email" as const };
     }
@@ -1175,7 +1178,11 @@ export class OrdersService {
     if (!this.sms) throw new BadRequestException("SMS service unavailable");
     const result = await this.sms.sendCampaignSms(
       [phone],
-      `Cullinos #${order.orderNumber} ₹${Number(order.total).toFixed(2)}${feedbackUrl ? ` Feedback: ${feedbackUrl}` : ""}`,
+      smsEbill({
+        orderNumber: order.orderNumber,
+        total: Number(order.total),
+        feedbackUrl,
+      }),
     );
     return {
       success: result.sent > 0,

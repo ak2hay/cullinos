@@ -14,6 +14,10 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { AuthService } from "../auth/auth.service";
 import { MailService } from "../mail/mail.service";
 import { Msg91Service } from "../sms/msg91.service";
+import {
+  smsOwnerCredentials,
+  smsPasswordReset,
+} from "../sms/sms-templates";
 import { TenantProvisioningService } from "../organizations/tenant-provisioning.service";
 import { SaasBillingService } from "../subscriptions/saas-billing.service";
 import {
@@ -368,7 +372,12 @@ export class SuperAdminService implements OnModuleDestroy {
       try {
         const sms = await this.msg91.sendTransactionalSms(
           user.phone,
-          `Cullinos: Password reset for ${user.organization.name}. Email: ${user.email}. Temp password: ${temporaryPassword}. Login: ${adminUrl}`,
+          smsPasswordReset({
+            organizationName: user.organization.name,
+            email: user.email,
+            temporaryPassword,
+            adminUrl,
+          }),
         );
         smsSent = sms.sent;
       } catch {
@@ -778,7 +787,12 @@ export class SuperAdminService implements OnModuleDestroy {
       try {
         const sms = await this.msg91.sendTransactionalSms(
           phone,
-          `Cullinos: Your ${input.companyName} admin login is ready. Email: ${ownerEmail}. Temp password: ${temporaryPassword}. Login: ${result.adminUrl}`,
+          smsOwnerCredentials({
+            companyName: input.companyName,
+            email: ownerEmail,
+            temporaryPassword,
+            adminUrl: result.adminUrl,
+          }),
         );
         smsSent = sms.sent;
       } catch {

@@ -18,7 +18,7 @@ export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.cullinos.com/api/
 echo ">>> Building shared packages"
 npm run build -w @cullinos/shared -w @cullinos/ui
 
-APPS=(admin management super-admin pos kds kiosk)
+APPS=(admin management super-admin app-ops pos kds kiosk)
 
 for app in "${APPS[@]}"; do
   echo ">>> Building @cullinos/$app"

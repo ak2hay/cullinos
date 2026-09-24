@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,11 +9,16 @@ import {
   Post,
   Put,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 import { CurrentUser } from "../../common/decorators";
 import type { JwtPayload } from "@cullinos/auth";
 import { SuperAdminGuard } from "../marketing/guards/super-admin.guard";
+import { MARKETING_UPLOAD_MAX_BYTES } from "../marketing/marketing-upload.service";
 import { GuestOpsService } from "./guest-ops.service";
 import { GuestAppPrivacyService } from "./guest-app-privacy.service";
 import type { BannerInput } from "./guest-marketing.service";
@@ -145,9 +151,28 @@ export class GuestOpsController {
       deepLink?: string | null;
       data?: Record<string, unknown>;
       scheduledAt?: string | null;
+      imageUrl?: string | null;
+      stylePreset?: string | null;
+      creative?: Record<string, unknown>;
     },
   ) {
     return this.ops.createPushDraft(body, user?.sub);
+  }
+
+  @Post("push-campaigns/upload-image")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: memoryStorage(),
+      limits: { fileSize: MARKETING_UPLOAD_MAX_BYTES },
+    }),
+  )
+  uploadPushImage(
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file?.buffer) throw new BadRequestException("No file uploaded.");
+    return this.ops.uploadPushImage(file, {
+      isSuperAdmin: true,
+    });
   }
 
   @Patch("push-campaigns/:id")
@@ -163,6 +188,9 @@ export class GuestOpsController {
       data?: Record<string, unknown>;
       organizationId?: string | null;
       scheduledAt?: string | null;
+      imageUrl?: string | null;
+      stylePreset?: string | null;
+      creative?: Record<string, unknown>;
     },
   ) {
     return this.ops.updatePushCampaign(id, body);

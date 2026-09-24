@@ -112,7 +112,7 @@ export function PhoneField({
         <select
           aria-label={`${label} country code`}
           className={cn(
-            'h-11 w-[6.75rem] flex-none rounded-lg border border-white/10 bg-bg-card pl-2 pr-1 text-sm text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
+            'h-11 w-[6.75rem] max-w-[6.75rem] flex-none shrink-0 rounded-lg border border-white/10 bg-bg-card pl-2 pr-1 text-sm text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
             error && 'border-status-error',
           )}
           value={dial}

@@ -9,4 +9,4 @@ data:
   GUEST_APP_URL: https://guest.cullinos.com
   ADMIN_APP_URL: https://admin.cullinos.com
   MARKETING_SITE_URL: https://cullinos.com
-  CORS_ORIGINS: https://admin.cullinos.com,https://manage.cullinos.com,https://platform.cullinos.com,https://guest.cullinos.com,https://pos.cullinos.com,https://kds.cullinos.com,https://kiosk.cullinos.com,https://cullinos.com
+  CORS_ORIGINS: https://admin.cullinos.com,https://manage.cullinos.com,https://platform.cullinos.com,https://app.cullinos.com,https://guest.cullinos.com,https://pos.cullinos.com,https://kds.cullinos.com,https://kiosk.cullinos.com,https://cullinos.com

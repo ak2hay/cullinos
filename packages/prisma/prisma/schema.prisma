@@ -1890,6 +1890,11 @@ model GuestPushCampaign {
   title          String
   body           String
   data           Json      @default("{}")
+  imageUrl       String?   @map("image_url")
+  /// offer | alert | promo | custom
+  stylePreset    String?   @map("style_preset")
+  /// { titleColor, bodyColor, bgColor, accentColor, fontFamily, ctaLabel, headlineSize? }
+  creative       Json      @default("{}")
   /// all | org_members | city | org | marketing_opt_in
   audience       String    @default("org_members")
   audienceFilter Json      @default("{}") @map("audience_filter")

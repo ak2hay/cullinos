@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { AppShell } from '@/components/layout/AppShell';
@@ -7,16 +8,6 @@ import { HealthPage } from '@/pages/HealthPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { PlansPage } from '@/pages/PlansPage';
 import { PromoEmailPage } from '@/pages/PromoEmailPage';
-import { GuestOpsOverviewPage } from '@/pages/guest-ops/OverviewPage';
-import { GuestOpsMarketplacePage } from '@/pages/guest-ops/MarketplacePage';
-import { GuestOpsDiscoverPage } from '@/pages/guest-ops/DiscoverPage';
-import { GuestOpsBannersPage } from '@/pages/guest-ops/BannersPage';
-import { GuestOpsPushPage } from '@/pages/guest-ops/PushPage';
-import { GuestOpsOffersPage } from '@/pages/guest-ops/OffersPage';
-import { GuestOpsReviewsPage } from '@/pages/guest-ops/ReviewsPage';
-import { GuestOpsUsersPage } from '@/pages/guest-ops/UsersPage';
-import { GuestOpsAnalyticsPage } from '@/pages/guest-ops/AnalyticsPage';
-import { GuestOpsRuntimePage } from '@/pages/guest-ops/RuntimePage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { SubscriptionsPage } from '@/pages/SubscriptionsPage';
 import { TenantDetailPage } from '@/pages/TenantDetailPage';
@@ -32,6 +23,7 @@ import { PagesEditorPage } from '@/pages/marketing/PagesEditorPage';
 import { PricingEditorPage } from '@/pages/marketing/PricingEditorPage';
 import { TestimonialsEditorPage } from '@/pages/marketing/TestimonialsEditorPage';
 import { ThemeEditorPage } from '@/pages/marketing/ThemeEditorPage';
+import { APP_OPS_URL } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
 function PublicOnly({ children }: { children: React.ReactNode }) {
@@ -40,6 +32,17 @@ function PublicOnly({ children }: { children: React.ReactNode }) {
     return <Navigate to="/" replace />;
   }
   return children;
+}
+
+function ExternalRedirect({ to }: { to: string }) {
+  useEffect(() => {
+    window.location.replace(to);
+  }, [to]);
+  return (
+    <p className="p-6 text-sm text-text-secondary">
+      Redirecting to Cullinos App Ops…
+    </p>
+  );
 }
 
 export default function App() {
@@ -76,19 +79,14 @@ export default function App() {
         <Route path="plans" element={<PlansPage />} />
         <Route path="subscriptions" element={<SubscriptionsPage />} />
         <Route path="promo-email" element={<PromoEmailPage />} />
-        <Route path="guest-ops" element={<GuestOpsOverviewPage />} />
-        <Route path="guest-ops/marketplace" element={<GuestOpsMarketplacePage />} />
-        <Route path="guest-ops/discover" element={<GuestOpsDiscoverPage />} />
-        <Route path="guest-ops/banners" element={<GuestOpsBannersPage />} />
-        <Route path="guest-ops/push" element={<GuestOpsPushPage />} />
-        <Route path="guest-ops/offers" element={<GuestOpsOffersPage />} />
-        <Route path="guest-ops/reviews" element={<GuestOpsReviewsPage />} />
-        <Route path="guest-ops/users" element={<GuestOpsUsersPage />} />
-        <Route path="guest-ops/analytics" element={<GuestOpsAnalyticsPage />} />
-        <Route path="guest-ops/runtime" element={<GuestOpsRuntimePage />} />
-        <Route path="guest-banners" element={<Navigate to="/guest-ops/banners" replace />} />
-        <Route path="guest-push" element={<Navigate to="/guest-ops/push" replace />} />
-        <Route path="guest-coupons" element={<Navigate to="/guest-ops/offers" replace />} />
+        <Route path="guest-ops" element={<ExternalRedirect to={APP_OPS_URL} />} />
+        <Route path="guest-ops/*" element={<ExternalRedirect to={APP_OPS_URL} />} />
+        <Route path="guest-banners" element={<ExternalRedirect to={`${APP_OPS_URL}/banners`} />} />
+        <Route
+          path="guest-push"
+          element={<ExternalRedirect to={`${APP_OPS_URL}/notifications`} />}
+        />
+        <Route path="guest-coupons" element={<ExternalRedirect to={`${APP_OPS_URL}/offers`} />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="health" element={<HealthPage />} />
         <Route path="marketing" element={<MarketingDashboardPage />} />

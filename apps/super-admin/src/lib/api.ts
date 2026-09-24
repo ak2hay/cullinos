@@ -1055,6 +1055,11 @@ export const RKYVES_BRAND = {
   tagline: 'Platform administration',
 } as const;
 
+export const APP_OPS_URL = (
+  import.meta.env.VITE_APP_OPS_URL?.trim() ||
+  (import.meta.env.PROD ? 'https://app.cullinos.com' : 'http://localhost:5184')
+).replace(/\/$/, '');
+
 export const ADMIN_APP_URL = (
   import.meta.env.VITE_ADMIN_URL?.trim() ||
   (import.meta.env.PROD ? 'https://admin.cullinos.com' : 'http://localhost:5173')

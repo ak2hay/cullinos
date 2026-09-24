@@ -62,6 +62,7 @@ SPA_PUBLISH = {
     "admin": "admin",
     "management": "management",
     "super-admin": "super-admin",
+    "app-ops": "app-ops",
     "pos": "pos",
     "kds": "kds",
     "kiosk": "kiosk",

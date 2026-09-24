@@ -10,7 +10,7 @@ import {
   isGuestThemePresetKey,
 } from "@cullinos/shared";
 import { PrismaService } from "../../prisma/prisma.service";
-import { MarketingUploadService } from "../marketing/marketing-upload.service";
+import { MarketingUploadService, uploadMaxBytesFor } from "../marketing/marketing-upload.service";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
 import { GuestPushService } from "./guest-push.service";
 import type { BannerInput } from "./guest-marketing.service";
@@ -374,6 +374,9 @@ export class GuestOpsService {
       deepLink?: string | null;
       data?: Record<string, unknown>;
       scheduledAt?: string | null;
+      imageUrl?: string | null;
+      stylePreset?: string | null;
+      creative?: Record<string, unknown>;
     },
     createdByUserId?: string,
   ) {
@@ -393,6 +396,13 @@ export class GuestOpsService {
     if (scope === "organization" && !body.organizationId) {
       throw new BadRequestException("organizationId required for org scope");
     }
+    const stylePreset = body.stylePreset?.trim() || null;
+    if (
+      stylePreset &&
+      !["offer", "alert", "promo", "custom"].includes(stylePreset)
+    ) {
+      throw new BadRequestException(`Invalid stylePreset: ${stylePreset}`);
+    }
 
     return this.prisma.guestPushCampaign.create({
       data: {
@@ -401,6 +411,9 @@ export class GuestOpsService {
         title,
         body: text,
         data: (body.data ?? {}) as Prisma.InputJsonValue,
+        imageUrl: body.imageUrl?.trim() || null,
+        stylePreset,
+        creative: (body.creative ?? {}) as Prisma.InputJsonValue,
         audience,
         audienceFilter: (body.audienceFilter ?? {}) as Prisma.InputJsonValue,
         deepLink: body.deepLink?.trim() || null,
@@ -422,6 +435,9 @@ export class GuestOpsService {
       data?: Record<string, unknown>;
       organizationId?: string | null;
       scheduledAt?: string | null;
+      imageUrl?: string | null;
+      stylePreset?: string | null;
+      creative?: Record<string, unknown>;
     },
   ) {
     const row = await this.prisma.guestPushCampaign.findUnique({
@@ -433,6 +449,21 @@ export class GuestOpsService {
     }
     if (body.audience && !PUSH_AUDIENCES.includes(body.audience as PushAudience)) {
       throw new BadRequestException(`Invalid audience: ${body.audience}`);
+    }
+    if (
+      body.stylePreset !== undefined &&
+      body.stylePreset !== null &&
+      body.stylePreset.trim() &&
+      !["offer", "alert", "promo", "custom"].includes(body.stylePreset.trim())
+    ) {
+      throw new BadRequestException(`Invalid stylePreset: ${body.stylePreset}`);
+    }
+
+    if (
+      body.imageUrl !== undefined &&
+      (body.imageUrl?.trim() || null) !== row.imageUrl
+    ) {
+      await this.upload.deleteManagedUrl(row.imageUrl);
     }
 
     return this.prisma.guestPushCampaign.update({
@@ -461,6 +492,15 @@ export class GuestOpsService {
                 ? new Date(body.scheduledAt)
                 : null,
             }
+          : {}),
+        ...(body.imageUrl !== undefined
+          ? { imageUrl: body.imageUrl?.trim() || null }
+          : {}),
+        ...(body.stylePreset !== undefined
+          ? { stylePreset: body.stylePreset?.trim() || null }
+          : {}),
+        ...(body.creative !== undefined
+          ? { creative: body.creative as Prisma.InputJsonValue }
           : {}),
       },
     });
@@ -508,8 +548,22 @@ export class GuestOpsService {
     if (row.status === "sending") {
       throw new BadRequestException("Cannot delete a campaign while it is sending");
     }
+    await this.upload.deleteManagedUrl(row.imageUrl);
     await this.prisma.guestPushCampaign.delete({ where: { id } });
     return { success: true };
+  }
+
+  async uploadPushImage(file: Express.Multer.File, actor?: { isSuperAdmin?: boolean }) {
+    if (!file?.buffer) {
+      throw new BadRequestException("No file uploaded.");
+    }
+    const result = await this.upload.saveUploadedFile(
+      file,
+      `push-${Date.now()}`,
+      "notification",
+      uploadMaxBytesFor(actor),
+    );
+    return { imageUrl: result.url };
   }
 
   private async resolveAudienceGuestIds(campaign: {
@@ -638,6 +692,22 @@ export class GuestOpsService {
         campaignId: campaign.id,
       };
       if (campaign.deepLink) dataPayload.deepLink = campaign.deepLink;
+      if (campaign.imageUrl) dataPayload.imageUrl = campaign.imageUrl;
+      if (campaign.stylePreset) dataPayload.stylePreset = campaign.stylePreset;
+      const creative =
+        campaign.creative &&
+        typeof campaign.creative === "object" &&
+        !Array.isArray(campaign.creative)
+          ? (campaign.creative as Record<string, unknown>)
+          : {};
+      if (Object.keys(creative).length > 0) {
+        dataPayload.creative = JSON.stringify(creative);
+        for (const [k, v] of Object.entries(creative)) {
+          if (v != null && typeof v !== "object") {
+            dataPayload[`creative_${k}`] = String(v);
+          }
+        }
+      }
       const existingData =
         campaign.data &&
         typeof campaign.data === "object" &&
@@ -653,6 +723,7 @@ export class GuestOpsService {
           const result = await this.push.notifyGuestUser(guestUserId, {
             title: campaign.title,
             body: campaign.body,
+            imageUrl: campaign.imageUrl,
             data: dataPayload,
           });
           if (result.sent > 0) sentCount += 1;
@@ -850,6 +921,7 @@ export class GuestOpsService {
   async searchGuestUsers(query: { q?: string; limit?: string | number }) {
     const limit = Math.min(parseIntParam(query.limit, 30), 100);
     const q = query.q?.trim();
+    const digits = q ? q.replace(/\D/g, "") : "";
     const where: Prisma.GuestUserWhereInput = {
       anonymizedAt: null,
       ...(q
@@ -857,6 +929,7 @@ export class GuestOpsService {
             OR: [
               { name: { contains: q, mode: "insensitive" } },
               { phone: { contains: q } },
+              ...(digits.length >= 6 ? [{ phone: { contains: digits } }] : []),
               { email: { contains: q, mode: "insensitive" } },
               { id: q },
             ],

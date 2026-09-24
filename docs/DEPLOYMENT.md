@@ -10,13 +10,15 @@ Legacy Docker Compose + `scripts/remote-deploy.py` is **emergency-only**. See [C
 |-----------|-----|---------------|------------------|
 | API + WebSocket | Deployment `api` | `api.cullinos.com` | `staging-api.cullinos.com` |
 | Postgres + Redis | In-cluster PVC | internal | internal |
-| Admin / Manage / Platform | SPA images | `admin` / `manage` / `platform` | `staging-*` |
+| Admin / Manage / Platform / App Ops | SPA images | `admin` / `manage` / `platform` / `app` | `staging-*` |
 | POS / KDS | SPA images | `pos` / `kds` | `staging-*` |
 | Guest / Waiter landings | SPA images | `guest` / `waiter` | `staging-*` |
 | Marketing | `web` (Next.js) | `cullinos.com` | `staging.cullinos.com` |
 | Grafana | monitoring ns | `grafana.cullinos.com` | — |
 
 Manifests: [`infrastructure/k8s/`](../infrastructure/k8s/). Cutover: [`infrastructure/k8s/scripts/cutover-checklist.md`](../infrastructure/k8s/scripts/cutover-checklist.md).
+
+**DNS (human):** add Cloudflare A records for `app.cullinos.com` and `staging-app.cullinos.com` pointing at the VM before first App Ops deploy.
 
 ```mermaid
 flowchart LR

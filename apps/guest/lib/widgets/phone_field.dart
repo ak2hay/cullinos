@@ -138,34 +138,32 @@ class _PhoneFieldState extends State<PhoneField> {
                 borderRadius: radius,
                 onTap: widget.enabled ? _pickDial : null,
                 child: SizedBox(
-                  height: 54,
-                  width: 116,
+                  height: 48,
+                  width: 96,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_current.flag, style: const TextStyle(fontSize: 20)),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          '${_current.iso} +${_current.dial}',
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: GuestColors.ink,
-                          ),
+                      Text(_current.flag, style: const TextStyle(fontSize: 18)),
+                      const SizedBox(width: 4),
+                      Text(
+                        '+${_current.dial}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: GuestColors.ink,
                         ),
                       ),
                       const Icon(Icons.keyboard_arrow_down_rounded,
-                          size: 20, color: GuestColors.muted),
+                          size: 18, color: GuestColors.muted),
                     ],
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: SizedBox(
-                height: 54,
+                height: 48,
                 child: TextField(
                   controller: widget.controller,
                   enabled: widget.enabled,
@@ -181,7 +179,7 @@ class _PhoneFieldState extends State<PhoneField> {
                     hintStyle: const TextStyle(color: GuestColors.muted, fontSize: 14),
                     prefixIcon: const Icon(Icons.phone_outlined,
                         color: GuestColors.muted, size: 20),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     filled: true,
                     fillColor: Colors.white,
                     enabledBorder: OutlineInputBorder(

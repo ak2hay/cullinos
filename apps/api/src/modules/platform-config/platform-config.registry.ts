@@ -156,7 +156,7 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
     id: "msg91",
     label: "Phone OTP (MSG91)",
     description:
-      "Guest + customer phone OTP. Prefer Widget (ID + tokenAuth); Flow SMS needs auth key + template + sender. Turn off Guest OTP debug once Flow works.",
+      "Guest + customer phone OTP. Prefer Widget (ID + tokenAuth); Flow SMS needs auth key + template + sender. OTP Flow expects OTP var; marketing Flow expects MESSAGE var (see sms-templates.ts). Turn off Guest OTP debug once Flow works.",
     keys: [
       { key: "MSG91_AUTH_KEY", isSecret: true, label: "Auth key (server verify)" },
       {

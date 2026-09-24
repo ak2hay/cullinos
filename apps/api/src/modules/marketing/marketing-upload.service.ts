@@ -37,7 +37,8 @@ export type ImageSlot =
   | "coupon"
   | "menuItem"
   | "outletCover"
-  | "outletGallery";
+  | "outletGallery"
+  | "notification";
 
 export type ImageSlotSpec = {
   slot: ImageSlot;
@@ -96,6 +97,14 @@ export const IMAGE_SLOT_SPECS: Record<ImageSlot, ImageSlotSpec> = {
     ratio: 4 / 3,
     targetWidth: 1200,
     targetHeight: 900,
+    maxBytes: MAX_BYTES,
+  },
+  notification: {
+    slot: "notification",
+    label: "Push notification hero",
+    ratio: 2 / 1,
+    targetWidth: 1200,
+    targetHeight: 600,
     maxBytes: MAX_BYTES,
   },
 };

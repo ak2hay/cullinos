@@ -20,6 +20,7 @@ import {
 } from "../../common/portal-context";
 import { AuditService } from "../audit/audit.service";
 import { Msg91Service } from "../sms/msg91.service";
+import { smsOwnerCredentials } from "../sms/sms-templates";
 import { TenantProvisioningService } from "../organizations/tenant-provisioning.service";
 import { generateTemporaryPassword } from "../../common/generate-password";
 import {
@@ -888,7 +889,12 @@ export class AuthService {
       try {
         const sms = await this.msg91.sendTransactionalSms(
           phone,
-          `Cullinos: Your ${companyName} admin login is ready. Email: ${ownerEmail}. Temp password: ${temporaryPassword}. Login: ${result.adminUrl}`,
+          smsOwnerCredentials({
+            companyName,
+            email: ownerEmail,
+            temporaryPassword,
+            adminUrl: result.adminUrl,
+          }),
         );
         smsSent = sms.sent;
       } catch (err) {

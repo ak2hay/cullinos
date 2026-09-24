@@ -35,6 +35,7 @@ Full product/feature catalogue: [PRODUCT.md](./PRODUCT.md).
 | Admin | `@cullinos/admin` | 5181 | Owner/manager dashboard + Portal POS |
 | Management | `@cullinos/management` | 5182 | Enterprise multi-outlet console |
 | Super Admin | `@cullinos/super-admin` | 5183 | Platform tenant + marketing CMS |
+| App Ops | `@cullinos/app-ops` | 5184 | Cullinos App ops (users, rich push, marketplace) |
 | POS | `@cullinos/pos` | 5173 | Cashier point of sale |
 | KDS | `@cullinos/kds` | 5174 | Kitchen display (+ CDS / promo / receipt modes) |
 | Cullinos Waiter | Flutter `apps/waiter_mobile` | — | Floor staff Android app (phone + tablet) |

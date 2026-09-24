@@ -1345,26 +1345,16 @@ class _GoogleButton extends StatelessWidget {
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  ShaderMask(
-                    shaderCallback: (rect) => const SweepGradient(
-                      colors: [
-                        Color(0xFF4285F4),
-                        Color(0xFF34A853),
-                        Color(0xFFFBBC05),
-                        Color(0xFFEA4335),
-                        Color(0xFF4285F4),
-                      ],
-                    ).createShader(rect),
-                    child: Text(
-                      'G',
-                      style: GoogleFonts.roboto(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Image.asset(
+                      'assets/images/google_g.png',
+                      width: 20,
+                      height: 20,
+                      filterQuality: FilterQuality.high,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   const Text(
                     'Continue with Google',
                     style: TextStyle(

@@ -12,6 +12,10 @@ import {
 import { PrismaService } from "../../prisma/prisma.service";
 import { MailService } from "../mail/mail.service";
 import { Msg91Service } from "../sms/msg91.service";
+import {
+  smsReservationConfirmed,
+  smsReservationInvite,
+} from "../sms/sms-templates";
 import { StorefrontService } from "../storefront/storefront.service";
 
 function bookingToken(): string {
@@ -266,7 +270,11 @@ export class ReservationsService {
         });
         const result = await this.sms.sendTransactionalSms(
           input.customerPhone,
-          `Reservation confirmed at ${input.outletName} on ${when} for ${input.partySize}. - Cullinos`,
+          smsReservationConfirmed({
+            outletName: input.outletName,
+            when,
+            partySize: input.partySize,
+          }),
         );
         smsSent = result.sent;
       } catch (err) {
@@ -484,7 +492,10 @@ export class ReservationsService {
       try {
         const result = await this.sms.sendTransactionalSms(
           invite.customerPhone,
-          `You're invited to reserve a table at ${outlet.name}. Book here: ${bookUrl}`,
+          smsReservationInvite({
+            outletName: outlet.name,
+            bookUrl,
+          }),
         );
         smsSent = result.sent;
       } catch (err) {
