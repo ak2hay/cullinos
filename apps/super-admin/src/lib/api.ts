@@ -282,12 +282,13 @@ export interface SmsStatus {
   otpTtlSeconds: number;
 }
 
-export type ConfigSource = 'database' | 'environment' | 'missing';
+export type ConfigSource = 'database' | 'environment' | 'default' | 'missing';
 
 export type PlatformSettingsField = {
   key: string;
   label: string;
   isSecret: boolean;
+  type?: 'boolean';
   configured: boolean;
   source: ConfigSource;
   value?: string | null;
@@ -396,7 +397,16 @@ export const superAdminApi = {
       body: JSON.stringify(payload),
     }),
 
-  runLabsSql: (sql: string) =>
+  startLabsStepUp: () =>
+    apiRequest<{ challengeToken: string }>('/super-admin/labs/step-up', { method: 'POST' }),
+
+  verifyLabsStepUp: (challengeToken: string, otp: string) =>
+    apiRequest<{ stepUpToken: string; expiresInSeconds: number }>(
+      '/super-admin/labs/step-up/verify',
+      { method: 'POST', body: JSON.stringify({ challengeToken, otp }) },
+    ),
+
+  runLabsSql: (sql: string, stepUpToken: string) =>
     apiRequest<{
       columns: string[];
       rows: Record<string, unknown>[];
@@ -405,6 +415,7 @@ export const superAdminApi = {
     }>('/super-admin/labs/sql', {
       method: 'POST',
       body: JSON.stringify({ sql }),
+      headers: { 'X-Step-Up-Token': stepUpToken },
     }),
 
   listLabsSqlAudits: (limit = 50) =>

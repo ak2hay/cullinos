@@ -14,10 +14,12 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
 
-import { OrgId, Public, RequireModule } from "../../common/decorators";
+import type { JwtPayload } from "@cullinos/auth";
+import { CurrentUser, OrgId, Public, RequireModule } from "../../common/decorators";
 import {
   MARKETING_UPLOAD_MAX_BYTES,
   MarketingUploadService,
+  uploadMaxBytesFor,
 } from "../marketing/marketing-upload.service";
 import { PromoDisplayService, type SlideInput } from "./promo-display.service";
 
@@ -44,6 +46,7 @@ export class PromoDisplayController {
   )
   async uploadSlideImage(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file?.buffer) throw new BadRequestException("No file uploaded.");
@@ -51,6 +54,7 @@ export class PromoDisplayController {
       file,
       `promo-slide-${orgId}-${Date.now()}`,
       "promoSlide",
+      uploadMaxBytesFor(user),
     );
     return { imageUrl: result.url };
   }

@@ -11,9 +11,22 @@ const ALLOWED_MIMES = new Set([
   "image/webp",
 ]);
 
-/** Platform-wide max for image uploads (multer + service + client). */
+/** Platform-wide max for image uploads (multer ceiling; super admins). */
 export const MARKETING_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
+/** Max for tenant (restaurant) accounts. Super admins and impersonation sessions are exempt. */
+export const TENANT_UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
 const MAX_BYTES = MARKETING_UPLOAD_MAX_BYTES;
+
+export type UploadActor =
+  | { isSuperAdmin?: boolean | null; impersonatedBy?: string | null }
+  | null
+  | undefined;
+
+/** Byte limit for the authenticated uploader. */
+export function uploadMaxBytesFor(actor: UploadActor): number {
+  if (actor?.isSuperAdmin || actor?.impersonatedBy) return MARKETING_UPLOAD_MAX_BYTES;
+  return TENANT_UPLOAD_MAX_BYTES;
+}
 /** Reject camera dumps larger than this on the longest side. */
 export const MARKETING_UPLOAD_MAX_PIXELS = 4096;
 const MARKETING_PREFIX = "marketing";
@@ -218,9 +231,9 @@ export class MarketingUploadService {
    * Slot validation: MIME + size + readable dims + max pixel bound.
    * Recommended aspect ratios are UI hints only — not hard-rejected.
    */
-  validateSlot(file: Express.Multer.File, slot: ImageSlot) {
+  validateSlot(file: Express.Multer.File, slot: ImageSlot, maxBytes = MAX_BYTES) {
     const spec = IMAGE_SLOT_SPECS[slot];
-    this.validateFile(file, spec.maxBytes);
+    this.validateFile(file, Math.min(spec.maxBytes, maxBytes));
     const dims = probeImageDimensions(file.buffer);
     if (!dims || dims.width < 1 || dims.height < 1) {
       throw new BadRequestException(
@@ -242,14 +255,15 @@ export class MarketingUploadService {
     file: Express.Multer.File,
     slotKey?: string,
     imageSlot?: ImageSlot,
+    maxBytes = MAX_BYTES,
   ) {
     if (!file?.buffer) {
       throw new BadRequestException("No file uploaded.");
     }
     if (imageSlot) {
-      this.validateSlot(file, imageSlot);
+      this.validateSlot(file, imageSlot, maxBytes);
     } else {
-      this.validateFile(file);
+      this.validateFile(file, maxBytes);
     }
     const ext = path.extname(file.originalname) || this.extFromMime(file.mimetype);
     const filename = slotKey ? `${slotKey}${ext}` : `${randomUUID()}${ext}`;

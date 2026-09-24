@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { assertProductionSecurityConfig } from "../../common/cors.util";
-import { sandboxAllowsEmailOtpSkip } from "../../common/sandbox-access.util";
+import {
+  sandboxAllowsEmailOtpSkip,
+  sandboxAllowsSmsOtpSkip,
+} from "../../common/sandbox-access.util";
 
 describe("auth OTP skip flag", () => {
   it("blocks AUTH_SKIP_EMAIL_OTP in production via assertProductionSecurityConfig", () => {
@@ -32,16 +35,36 @@ describe("auth OTP skip flag", () => {
     else process.env.AUTH_SKIP_EMAIL_OTP = prevSkip;
   });
 
-  it("sandbox org can skip email OTP even in production", () => {
-    const org = {
-      environmentClass: 0,
-      sandboxSkipEmailOtp: true,
-      sandboxSkipSmsOtp: true,
-      sandboxRelaxPassword: true,
-    };
-    expect(sandboxAllowsEmailOtpSkip(org)).toBe(true);
+  const sandboxOrg = {
+    environmentClass: 0,
+    sandboxSkipEmailOtp: true,
+    sandboxSkipSmsOtp: true,
+    sandboxRelaxPassword: true,
+  };
+  const prodEnv = { NODE_ENV: "production" } as NodeJS.ProcessEnv;
+
+  it("sandbox OTP skip is fail-closed on a production API by default", () => {
+    expect(sandboxAllowsEmailOtpSkip(sandboxOrg, prodEnv)).toBe(false);
+    expect(sandboxAllowsSmsOtpSkip(sandboxOrg, prodEnv)).toBe(false);
+  });
+
+  it("sandbox OTP skip in production requires explicit ALLOW_SANDBOX_OTP_SKIP=true", () => {
+    const env = { ...prodEnv, ALLOW_SANDBOX_OTP_SKIP: "true" } as NodeJS.ProcessEnv;
+    expect(sandboxAllowsEmailOtpSkip(sandboxOrg, env)).toBe(true);
     expect(
-      sandboxAllowsEmailOtpSkip({ ...org, environmentClass: 1 }),
+      sandboxAllowsEmailOtpSkip(sandboxOrg, { ...prodEnv, ALLOW_SANDBOX_OTP_SKIP: "1" }),
     ).toBe(false);
+  });
+
+  it("live tenants never skip OTP, even with the production opt-in", () => {
+    const env = { ...prodEnv, ALLOW_SANDBOX_OTP_SKIP: "true" } as NodeJS.ProcessEnv;
+    expect(sandboxAllowsEmailOtpSkip({ ...sandboxOrg, environmentClass: 1 }, env)).toBe(false);
+    expect(sandboxAllowsSmsOtpSkip({ ...sandboxOrg, environmentClass: 1 }, env)).toBe(false);
+  });
+
+  it("requires the org flag to be explicitly true", () => {
+    const devEnv = { NODE_ENV: "development" } as NodeJS.ProcessEnv;
+    expect(sandboxAllowsEmailOtpSkip({ environmentClass: 0 }, devEnv)).toBe(false);
+    expect(sandboxAllowsSmsOtpSkip({ environmentClass: 0 }, devEnv)).toBe(false);
   });
 });

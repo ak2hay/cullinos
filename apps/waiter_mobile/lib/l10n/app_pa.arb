@@ -96,5 +96,8 @@
   "usePhoneInstead": "Use phone instead",
   "confirmLanguage": "Confirm language",
   "languageChanged": "Language updated",
-  "allFloors": "All floors"
+  "allFloors": "All floors",
+  "portalDisabledTitle": "ਵੇਟਰ ਐਪ ਬੰਦ ਹੈ",
+  "portalDisabledBody": "Cullinos ਨੇ ਵੇਟਰ ਐਪ ਨੂੰ ਅਸਥਾਈ ਤੌਰ 'ਤੇ ਬੰਦ ਕੀਤਾ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਆਪਣੇ ਮੈਨੇਜਰ ਨਾਲ ਸੰਪਰਕ ਕਰੋ ਜਾਂ ਐਡਮਿਨ ਪੋਰਟਲ ਵਰਤੋ।",
+  "checkAgain": "ਦੁਬਾਰਾ ਜਾਂਚੋ"
 }

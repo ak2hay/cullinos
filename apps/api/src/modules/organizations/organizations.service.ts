@@ -65,6 +65,7 @@ export class OrganizationsService {
       currency: org.currency,
       setupCompleted: json.setupCompleted === true,
       loyaltySettings: json.loyaltySettings ?? null,
+      language: typeof json.language === "string" ? json.language : null,
       subscriptionStatus: subscription?.status ?? null,
       trialEndsAt: subscription?.trialEndsAt?.toISOString() ?? null,
       trialExpired,

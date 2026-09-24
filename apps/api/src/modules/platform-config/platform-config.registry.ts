@@ -1,4 +1,5 @@
 export type ConfigGroupId =
+  | "portals"
   | "smtp"
   | "resend"
   | "r2"
@@ -15,6 +16,10 @@ export type ConfigKeyDef = {
   key: string;
   isSecret: boolean;
   label: string;
+  /** Rendered as a toggle; stored as "true" / "false". */
+  type?: "boolean";
+  /** Effective value when neither DB nor environment sets the key. */
+  defaultValue?: string;
 };
 
 export type ConfigGroupDef = {
@@ -25,6 +30,39 @@ export type ConfigGroupDef = {
 };
 
 export const CONFIG_GROUPS: ConfigGroupDef[] = [
+  {
+    id: "portals",
+    label: "Portals",
+    description:
+      "Platform-wide switches. Turning a portal off blocks sign-in and API calls from that client for every tenant (existing sessions get the disabled message on their next request). Admin portal and super admin are never affected.",
+    keys: [
+      {
+        key: "PORTAL_MANAGEMENT_ENABLED",
+        isSecret: false,
+        label: "Management web (manage.cullinos.com)",
+        type: "boolean",
+        defaultValue: "true",
+      },
+      {
+        key: "PORTAL_WAITER_ENABLED",
+        isSecret: false,
+        label: "Waiter app (Android)",
+        type: "boolean",
+        defaultValue: "true",
+      },
+      {
+        key: "PORTAL_DISABLED_MESSAGE",
+        isSecret: false,
+        label: "Message shown when a portal is off (optional)",
+      },
+      {
+        key: "WAITER_APP_PLAY_STORE_URL",
+        isSecret: false,
+        label:
+          "Waiter app Play Store URL (waiter.cullinos.com shows 'coming soon' while empty)",
+      },
+    ],
+  },
   {
     id: "smtp",
     label: "SMTP (transactional / staff OTP)",

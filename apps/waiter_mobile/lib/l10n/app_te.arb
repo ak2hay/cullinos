@@ -96,5 +96,8 @@
   "usePhoneInstead": "Use phone instead",
   "confirmLanguage": "Confirm language",
   "languageChanged": "Language updated",
-  "allFloors": "All floors"
+  "allFloors": "All floors",
+  "portalDisabledTitle": "వెయిటర్ యాప్ ఆపివేయబడింది",
+  "portalDisabledBody": "Cullinos వెయిటర్ యాప్‌ను తాత్కాలికంగా ఆపివేసింది. దయచేసి మీ మేనేజర్‌ను సంప్రదించండి లేదా అడ్మిన్ పోర్టల్‌ను ఉపయోగించండి.",
+  "checkAgain": "మళ్లీ తనిఖీ చేయండి"
 }

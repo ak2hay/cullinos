@@ -17,6 +17,11 @@ import paramiko
 
 ROOT = Path(__file__).resolve().parents[1]
 HOST = os.environ.get("DEPLOY_HOST", "95.135.254.46")
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from deploy_git import local_git_commit  # noqa: E402
+
+GIT_COMMIT = local_git_commit()
 APP_DIR = "/opt/cullinos"
 
 # API / shared packages that affect the api image build context
@@ -239,7 +244,7 @@ def main() -> int:
         print("\n=== Cached docker build api + recreate ===", flush=True)
         code, log = run_detached(
             ssh,
-            f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml build api "
+            f"cd {APP_DIR} && GIT_COMMIT={GIT_COMMIT} docker compose -f docker-compose.prod.yml build api "
             f"&& docker compose -f docker-compose.prod.yml up -d --force-recreate --no-deps api",
             "/tmp/cullinos-selective-api-build.log",
             timeout_sec=2400,

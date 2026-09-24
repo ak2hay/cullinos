@@ -166,6 +166,10 @@ export const paymentsApi = {
     apiRequest<{ orderId: string; total: number; remaining: number; paid: number }>(
       `/payments/orders/${orderId}/balance`,
     ),
+  gatewayStatus: (outletId: string) =>
+    apiRequest<{ onlineEnabled: boolean; provider: 'razorpay' | 'cashfree' | null }>(
+      `/payments/gateways/status?outletId=${encodeURIComponent(outletId)}`,
+    ),
 
   createIntent: (orderId: string, amount?: number, provider?: 'razorpay' | 'cashfree') =>
     apiRequest<OnlineIntent>('/payments/online/intent', {

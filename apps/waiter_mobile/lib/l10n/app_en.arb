@@ -96,5 +96,8 @@
   "usePhoneInstead": "Use phone instead",
   "confirmLanguage": "Confirm language",
   "languageChanged": "Language updated",
-  "allFloors": "All floors"
+  "allFloors": "All floors",
+  "portalDisabledTitle": "Waiter app is turned off",
+  "portalDisabledBody": "Cullinos has temporarily turned off the waiter app. Please contact your manager or use the admin portal.",
+  "checkAgain": "Check again"
 }

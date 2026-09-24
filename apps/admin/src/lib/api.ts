@@ -223,7 +223,15 @@ export interface OrderItem {
   name: string;
   quantity: number;
   unitPrice: number;
+  taxAmount?: number;
+  lineTotal?: number;
   notes: string | null;
+}
+
+export interface OrderTaxLine {
+  taxName: string;
+  rate: number;
+  amount: number;
 }
 
 export interface Order {
@@ -236,7 +244,11 @@ export interface Order {
   notes?: string | null;
   totalAmount: number;
   subtotal: number;
+  taxTotal?: number;
+  discountTotal?: number;
+  taxLines?: OrderTaxLine[];
   tipAmount?: number;
+  tableName?: string | null;
   createdAt: string;
   scheduledPickupAt?: string | null;
   outletId: string;
@@ -522,6 +534,7 @@ export interface OrganizationCurrent {
   currency?: string;
   setupCompleted: boolean;
   loyaltySettings?: Record<string, unknown> | null;
+  language?: string | null;
   subscriptionStatus?: string | null;
   trialEndsAt?: string | null;
   trialExpired?: boolean;
@@ -735,10 +748,22 @@ export const menuApi = {
 };
 
 export const ordersApi = {
-  list: (params?: { outletId?: string; status?: OrderStatus; limit?: number }) => {
+  list: (params?: {
+    outletId?: string;
+    status?: OrderStatus | OrderStatus[];
+    from?: string;
+    to?: string;
+    page?: number;
+    limit?: number;
+  }) => {
     const search = new URLSearchParams();
     if (params?.outletId) search.set('outletId', params.outletId);
-    if (params?.status) search.set('status', params.status);
+    if (params?.status) {
+      search.set('status', Array.isArray(params.status) ? params.status.join(',') : params.status);
+    }
+    if (params?.from) search.set('from', params.from);
+    if (params?.to) search.set('to', params.to);
+    if (params?.page) search.set('page', String(params.page));
     if (params?.limit) search.set('limit', String(params.limit));
     const qs = search.toString();
     return apiRequest<PaginatedResponse<Order>>(`/orders${qs ? `?${qs}` : ''}`);
@@ -1051,6 +1076,19 @@ export const tablesApi = {
     apiRequest<FloorPlanFloor>(`/tables/outlets/${outletId}/floors`, {
       method: 'POST',
       body: JSON.stringify(payload),
+    }),
+  updateFloor: (
+    outletId: string,
+    floorId: string,
+    payload: { name?: string; sortOrder?: number },
+  ) =>
+    apiRequest<FloorPlanFloor>(`/tables/outlets/${outletId}/floors/${floorId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  deleteFloor: (outletId: string, floorId: string) =>
+    apiRequest<{ id: string; deleted: boolean }>(`/tables/outlets/${outletId}/floors/${floorId}`, {
+      method: 'DELETE',
     }),
   createSection: (
     outletId: string,
@@ -2056,6 +2094,14 @@ export const usersApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  update: (
+    id: string,
+    payload: { name?: string; phone?: string | null; roleSlug?: string },
+  ) =>
+    apiRequest<Pick<StaffUser, 'id' | 'email' | 'name' | 'phone' | 'status'>>(`/users/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
   deactivate: (id: string) =>
     apiRequest(`/users/${id}/deactivate`, { method: 'PATCH' }),
   activate: (id: string) =>
@@ -2494,6 +2540,10 @@ export const paymentsApi = {
   getBalance: (orderId: string) =>
     apiRequest<{ orderId: string; total: number; remaining: number; paid: number }>(
       `/payments/orders/${orderId}/balance`,
+    ),
+  gatewayStatus: (outletId: string) =>
+    apiRequest<{ onlineEnabled: boolean; provider: 'razorpay' | 'cashfree' | null }>(
+      `/payments/gateways/status?outletId=${encodeURIComponent(outletId)}`,
     ),
 
   createIntent: (orderId: string, amount?: number, provider?: 'razorpay' | 'cashfree') =>

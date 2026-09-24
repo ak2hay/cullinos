@@ -25,6 +25,9 @@ const UI_TO_DB: Record<string, string> = {
   CANCELLED: "cancelled",
 };
 
+/** KOTs of finished orders never belong on the kitchen board, even if a ticket was left open. */
+const TERMINAL_ORDER_STATUSES = ["completed", "cancelled", "voided"] as const;
+
 function toUiStatus(status: string): UiStatus {
   return DB_TO_UI[status.toLowerCase()] ?? "NEW";
 }
@@ -49,7 +52,7 @@ export class KitchenService {
   list(orgId: string) {
     return this.prisma.kOT.findMany({
       where: {
-        order: { organizationId: orgId },
+        order: { organizationId: orgId, status: { notIn: [...TERMINAL_ORDER_STATUSES] } },
         status: { in: ["pending", "preparing"] },
       },
       include: { items: true, order: true },
@@ -123,26 +126,14 @@ export class KitchenService {
     };
   }
 
-  async getOutletDisplay(outletId: string) {
-    const outlet = await this.prisma.outlet.findUnique({
-      where: { id: outletId },
+  async getOutletDisplay(orgId: string, outletId: string) {
+    const outlet = await this.prisma.outlet.findFirst({
+      where: { id: outletId, organizationId: orgId },
     });
     if (!outlet) throw new NotFoundException("Outlet not found");
 
     const READY_TTL_MS = 10 * 60 * 1000;
     const readyCutoff = new Date(Date.now() - READY_TTL_MS);
-
-    await this.prisma.order.updateMany({
-      where: {
-        outletId,
-        status: "ready",
-        OR: [
-          { readyAt: { lt: readyCutoff } },
-          { readyAt: null, updatedAt: { lt: readyCutoff } },
-        ],
-      },
-      data: { status: "served" },
-    });
 
     const [stations, kitchenOrders, pickupOrders] = await Promise.all([
       this.prisma.kitchenStation.findMany({
@@ -152,7 +143,11 @@ export class KitchenService {
       }),
       this.prisma.kOT.findMany({
         where: {
-          order: { outletId },
+          order: {
+            outletId,
+            organizationId: orgId,
+            status: { notIn: [...TERMINAL_ORDER_STATUSES] },
+          },
           status: { in: ["pending", "preparing", "ready"] },
         },
         include: {
@@ -174,6 +169,7 @@ export class KitchenService {
       this.prisma.order.findMany({
         where: {
           outletId,
+          organizationId: orgId,
           type: { in: ["takeaway", "qr", "online", "dine_in"] },
           OR: [
             { status: { in: ["confirmed", "preparing"] } },
@@ -261,10 +257,10 @@ export class KitchenService {
     };
   }
 
-  async updateItemStatus(itemId: string, status: string) {
+  async updateItemStatus(orgId: string, itemId: string, status: string) {
     const dbStatus = toDbStatus(status);
-    const item = await this.prisma.kOTItem.findUnique({
-      where: { id: itemId },
+    const item = await this.prisma.kOTItem.findFirst({
+      where: { id: itemId, kot: { order: { organizationId: orgId } } },
       include: {
         orderItem: true,
         kot: {
@@ -313,7 +309,6 @@ export class KitchenService {
     // Roll up parent order for CDS board
     const orderId = item.kot.orderId;
     const outletId = item.kot.order.outletId;
-    const orgId = item.kot.order.organizationId;
     const allKots = await this.prisma.kOT.findMany({
       where: { orderId },
       include: { items: true },

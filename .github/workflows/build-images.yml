@@ -50,6 +50,10 @@ jobs:
             file: Dockerfile.spa
             context: .
             app_name: kds
+          - name: spa-kiosk
+            file: Dockerfile.spa
+            context: .
+            app_name: kiosk
           - name: spa-guest-landing
             file: Dockerfile.spa
             context: .
@@ -71,6 +75,7 @@ jobs:
             echo "kds_url=https://kds.cullinos.com" >> "$GITHUB_OUTPUT"
             echo "pos_url=https://pos.cullinos.com" >> "$GITHUB_OUTPUT"
             echo "guest_url=https://guest.cullinos.com" >> "$GITHUB_OUTPUT"
+            echo "kiosk_url=https://kiosk.cullinos.com" >> "$GITHUB_OUTPUT"
             echo "admin_url=https://admin.cullinos.com" >> "$GITHUB_OUTPUT"
             echo "site_url=https://cullinos.com" >> "$GITHUB_OUTPUT"
             echo "channel=latest" >> "$GITHUB_OUTPUT"
@@ -80,6 +85,7 @@ jobs:
             echo "kds_url=https://staging-kds.cullinos.com" >> "$GITHUB_OUTPUT"
             echo "pos_url=https://staging-pos.cullinos.com" >> "$GITHUB_OUTPUT"
             echo "guest_url=https://staging-guest.cullinos.com" >> "$GITHUB_OUTPUT"
+            echo "kiosk_url=https://staging-kiosk.cullinos.com" >> "$GITHUB_OUTPUT"
             echo "admin_url=https://staging-admin.cullinos.com" >> "$GITHUB_OUTPUT"
             echo "site_url=https://staging.cullinos.com" >> "$GITHUB_OUTPUT"
             echo "channel=staging" >> "$GITHUB_OUTPUT"
@@ -113,12 +119,14 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
           build-args: |
+            GIT_COMMIT=${{ github.sha }}
             APP_NAME=${{ matrix.app_name }}
             VITE_API_URL=${{ steps.urls.outputs.api_url }}
             VITE_WS_URL=${{ steps.urls.outputs.ws_url }}
             VITE_KDS_URL=${{ steps.urls.outputs.kds_url }}
             VITE_POS_URL=${{ steps.urls.outputs.pos_url }}
             VITE_GUEST_APP_URL=${{ steps.urls.outputs.guest_url }}
+            VITE_KIOSK_APP_URL=${{ steps.urls.outputs.kiosk_url }}
             VITE_ADMIN_URL=${{ steps.urls.outputs.admin_url }}
             VITE_MARKETING_WEB_URL=${{ steps.urls.outputs.site_url }}
             NEXT_PUBLIC_API_URL=${{ steps.urls.outputs.api_url }}

@@ -96,5 +96,8 @@
   "usePhoneInstead": "Use phone instead",
   "confirmLanguage": "Confirm language",
   "languageChanged": "Language updated",
-  "allFloors": "All floors"
+  "allFloors": "All floors",
+  "portalDisabledTitle": "ವೇಟರ್ ಆ್ಯಪ್ ಆಫ್ ಆಗಿದೆ",
+  "portalDisabledBody": "Cullinos ವೇಟರ್ ಆ್ಯಪ್ ಅನ್ನು ತಾತ್ಕಾಲಿಕವಾಗಿ ಆಫ್ ಮಾಡಿದೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಮ್ಯಾನೇಜರ್ ಅನ್ನು ಸಂಪರ್ಕಿಸಿ ಅಥವಾ ಅಡ್ಮಿನ್ ಪೋರ್ಟಲ್ ಬಳಸಿ.",
+  "checkAgain": "ಮತ್ತೆ ಪರಿಶೀಲಿಸಿ"
 }

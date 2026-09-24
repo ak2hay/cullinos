@@ -96,5 +96,8 @@
   "usePhoneInstead": "Use phone instead",
   "confirmLanguage": "Confirm language",
   "languageChanged": "Language updated",
-  "allFloors": "All floors"
+  "allFloors": "All floors",
+  "portalDisabledTitle": "વેઇટર ઍપ બંધ છે",
+  "portalDisabledBody": "Cullinos એ વેઇટર ઍપ હંગામી ધોરણે બંધ કરી છે. કૃપા કરીને તમારા મેનેજરનો સંપર્ક કરો અથવા એડમિન પોર્ટલનો ઉપયોગ કરો.",
+  "checkAgain": "ફરી તપાસો"
 }

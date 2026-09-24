@@ -299,4 +299,14 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get allFloors => 'All floors';
+
+  @override
+  String get portalDisabledTitle => 'வெயிட்டர் ஆப் முடக்கப்பட்டுள்ளது';
+
+  @override
+  String get portalDisabledBody =>
+      'Cullinos வெயிட்டர் ஆப்பை தற்காலிகமாக முடக்கியுள்ளது. உங்கள் மேலாளரைத் தொடர்பு கொள்ளவும் அல்லது அட்மின் போர்ட்டலைப் பயன்படுத்தவும்.';
+
+  @override
+  String get checkAgain => 'மீண்டும் சரிபார்க்கவும்';
 }

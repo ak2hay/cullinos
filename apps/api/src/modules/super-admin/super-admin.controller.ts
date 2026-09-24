@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
@@ -281,8 +282,26 @@ export class SuperAdminController {
     return this.service.updateOrganizationEnvironment(id, body);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post("labs/step-up")
+  startLabsStepUp(@CurrentUser() user: JwtPayload) {
+    return this.service.startLabsStepUp(user.sub, user.email);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post("labs/step-up/verify")
+  verifyLabsStepUp(@Body() dto: VerifyOtpDto, @CurrentUser() user: JwtPayload) {
+    return this.service.verifyLabsStepUp(user.sub, dto.challengeToken, dto.otp);
+  }
+
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post("labs/sql")
-  runLabsSql(@Body() body: LabsSqlDto, @CurrentUser() user: JwtPayload) {
+  runLabsSql(
+    @Body() body: LabsSqlDto,
+    @CurrentUser() user: JwtPayload,
+    @Headers("x-step-up-token") stepUpToken?: string,
+  ) {
+    this.service.assertLabsStepUp(user.sub, stepUpToken);
     return this.service.runLabsSql(body.sql, user.email);
   }
 

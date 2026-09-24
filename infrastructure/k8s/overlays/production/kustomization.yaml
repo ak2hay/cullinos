@@ -26,6 +26,8 @@ images:
     newTag: latest
   - name: ghcr.io/ak2hay/cullinos-spa-kds
     newTag: latest
+  - name: ghcr.io/ak2hay/cullinos-spa-kiosk
+    newTag: latest
   - name: ghcr.io/ak2hay/cullinos-spa-guest-landing
     newTag: latest
   - name: ghcr.io/ak2hay/cullinos-spa-waiter-landing

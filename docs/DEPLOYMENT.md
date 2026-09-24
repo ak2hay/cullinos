@@ -73,6 +73,19 @@ kubectl apply -k infrastructure/k8s/overlays/production
 kubectl -n production rollout status deployment/api
 ```
 
+## Build commit in `/health`
+
+`GET /api/v1/health` reports `commit` from `GIT_COMMIT` (or `DEPLOY_COMMIT`); it shows `unknown` when neither is set.
+
+- **Images (GHCR):** `build-images.yml` passes `GIT_COMMIT=${{ github.sha }}` as a Docker build arg.
+- **Compose:** `scripts/remote-deploy.py`, `vm-redeploy-frontends-api.py` and `vm-selective-redeploy.py` read the local `git rev-parse` and run `GIT_COMMIT=<sha> docker compose -f docker-compose.prod.yml build api`. By hand:
+
+  ```bash
+  GIT_COMMIT=$(git rev-parse --short HEAD) docker compose -f docker-compose.prod.yml up -d --build api
+  ```
+
+After a deploy, check `curl -s https://api.cullinos.com/api/v1/health` returns the SHA you shipped.
+
 ## Rollback
 
 - **App:** Actions → Deploy Production → `workflow_dispatch` with prior image SHA tag.

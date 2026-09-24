@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { type Tenant, superAdminApi } from '@/lib/api';
+import { ApiRequestError, type Tenant, superAdminApi } from '@/lib/api';
+
+type StepUp = { token: string; expiresAt: number };
 
 function EnvBadge({ environmentClass }: { environmentClass?: number }) {
   const sandbox = environmentClass === 0;
@@ -44,6 +46,33 @@ export function LabsPage() {
   } | null>(null);
   const [sqlError, setSqlError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [stepUp, setStepUp] = useState<StepUp | null>(null);
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [otp, setOtp] = useState('');
+  const stepUpActive = stepUp != null && stepUp.expiresAt > Date.now();
+
+  const startStepUpMutation = useMutation({
+    mutationFn: () => superAdminApi.startLabsStepUp(),
+    onSuccess: (res) => {
+      setChallengeToken(res.challengeToken);
+      setOtp('');
+      setSqlError(null);
+      setMessage('Verification code sent to your email');
+    },
+    onError: (err: Error) => setSqlError(err.message),
+  });
+
+  const verifyStepUpMutation = useMutation({
+    mutationFn: () => superAdminApi.verifyLabsStepUp(challengeToken!, otp.trim()),
+    onSuccess: (res) => {
+      setStepUp({ token: res.stepUpToken, expiresAt: Date.now() + res.expiresInSeconds * 1000 });
+      setChallengeToken(null);
+      setOtp('');
+      setSqlError(null);
+      setMessage('Labs SQL unlocked for 10 minutes');
+    },
+    onError: (err: Error) => setSqlError(err.message),
+  });
 
   const orgsQuery = useQuery({
     queryKey: ['super-admin', 'organizations', 'labs'],
@@ -90,7 +119,7 @@ export function LabsPage() {
   });
 
   const sqlMutation = useMutation({
-    mutationFn: () => superAdminApi.runLabsSql(sql),
+    mutationFn: () => superAdminApi.runLabsSql(sql, stepUp?.token ?? ''),
     onSuccess: (result) => {
       setSqlError(null);
       setSqlResult(result);
@@ -98,6 +127,9 @@ export function LabsPage() {
     },
     onError: (err: Error) => {
       setSqlResult(null);
+      if (err instanceof ApiRequestError && err.code === 'STEP_UP_REQUIRED') {
+        setStepUp(null);
+      }
       setSqlError(err.message);
       auditsQuery.refetch();
     },
@@ -110,7 +142,7 @@ export function LabsPage() {
     const ok = window.confirm(
       `Change ${tenant.name} from ${from} to ${to}?${
         nextClass === 0
-          ? '\n\nSandbox can skip email MFA, SMS OTP, and relax passwords.'
+          ? '\n\nSandbox can skip email MFA, SMS OTP, and relax passwords. On the production API, OTP skip also requires ALLOW_SANDBOX_OTP_SKIP=true.'
           : '\n\nLive tenants always enforce normal OTP and password rules.'
       }`,
     );
@@ -292,8 +324,43 @@ export function LabsPage() {
       <section className="space-y-4">
         <h2 className="text-lg font-medium">SQL console (SELECT only)</h2>
         <p className="text-sm text-text-muted">
-          Max 200 rows, ~5s timeout. Multi-statement and DML/DDL are rejected server-side.
+          Max 200 rows, ~5s timeout, read-only transaction. Multi-statement and DML/DDL are
+          rejected server-side. Requires an emailed verification code every 10 minutes.
         </p>
+        {!stepUpActive ? (
+          <div className="flex flex-wrap items-end gap-2 rounded-lg border border-status-warning/30 bg-status-warning/5 p-3">
+            {challengeToken ? (
+              <>
+                <label className="space-y-1 text-sm">
+                  <span className="text-text-secondary">Verification code</span>
+                  <input
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    className="block w-32 rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 font-mono text-sm outline-none focus:border-brand-accent"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={otp.length !== 6 || verifyStepUpMutation.isPending}
+                  onClick={() => verifyStepUpMutation.mutate()}
+                  className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-text-primary hover:opacity-90 disabled:opacity-60"
+                >
+                  {verifyStepUpMutation.isPending ? 'Verifying…' : 'Verify'}
+                </button>
+              </>
+            ) : null}
+            <button
+              type="button"
+              disabled={startStepUpMutation.isPending}
+              onClick={() => startStepUpMutation.mutate()}
+              className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
+            >
+              {challengeToken ? 'Resend code' : 'Email me a code to unlock'}
+            </button>
+          </div>
+        ) : null}
         <textarea
           value={sql}
           onChange={(e) => setSql(e.target.value)}
@@ -304,7 +371,7 @@ export function LabsPage() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            disabled={sqlMutation.isPending || !sql.trim()}
+            disabled={sqlMutation.isPending || !sql.trim() || !stepUpActive}
             onClick={() => sqlMutation.mutate()}
             className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-text-primary hover:opacity-90 disabled:opacity-60"
           >

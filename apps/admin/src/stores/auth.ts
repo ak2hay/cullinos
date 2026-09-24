@@ -42,6 +42,7 @@ export interface AuthUser {
   lastLoginAt: string | null;
   createdAt: string;
   mustChangePassword?: boolean;
+  isSuperAdmin?: boolean;
   organizationName?: string;
   organizationSlug?: string;
 }

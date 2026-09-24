@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button, Card, Drawer, Input, PageShell, Tabs, useToast } from '@cullinos/ui';
 import { ImageUploadField } from '@/components/ImageUploadField';
 import {
@@ -19,6 +20,14 @@ import { useAuthStore } from '@/stores/auth';
 
 type Tab = 'categories' | 'items' | 'combos' | 'schedules' | 'outlet-prices';
 
+const TAB_LABEL_KEYS: Record<Tab, string> = {
+  categories: 'menu.categories',
+  items: 'menu.menuItems',
+  combos: 'menu.combos',
+  schedules: 'menu.dayparts',
+  'outlet-prices': 'menu.outletPrices',
+};
+
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const EMPTY_VARIANT: MenuItemVariant = { name: '', price: 0 };
@@ -31,10 +40,12 @@ const EMPTY_MODIFIER_GROUP: MenuModifierGroup = {
 };
 
 export function MenuPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const toast = useToast();
   const outletId = useAuthStore((s) => s.selectedOutletId);
   const [activeTab, setActiveTab] = useState<Tab>('categories');
+  const [missingPhotosOnly, setMissingPhotosOnly] = useState(false);
 
   const [categoryForm, setCategoryForm] = useState({ name: '', description: '' });
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
@@ -306,6 +317,8 @@ export function MenuPage() {
 
   const categories = categoriesQuery.data ?? [];
   const items = itemsQuery.data ?? [];
+  const missingPhotoCount = items.filter((item) => !item.imageUrl).length;
+  const visibleItems = missingPhotosOnly ? items.filter((item) => !item.imageUrl) : items;
   const combos = combosQuery.data ?? [];
   const schedules = schedulesQuery.data ?? [];
   const outletPrices = outletPricesQuery.data ?? [];
@@ -393,13 +406,13 @@ export function MenuPage() {
   const tabs: Tab[] = ['categories', 'items', 'combos', 'schedules', 'outlet-prices'];
   const tabItems = tabs.map((tab) => ({
     id: tab,
-    label: tab.replace('-', ' '),
+    label: t(TAB_LABEL_KEYS[tab]),
   }));
 
   return (
     <PageShell
-      title="Menu"
-      description="Categories, items, variants, combos, dayparts, and outlet pricing."
+      title={t('menu.title')}
+      description={t('menu.description')}
       actions={
         <Tabs items={tabItems} value={activeTab} onChange={setActiveTab} />
       }
@@ -442,7 +455,7 @@ export function MenuPage() {
             </form>
           </div>
           <div className="rounded-xl border border-white/5 bg-bg-card p-5">
-            <h2 className="font-semibold">Categories</h2>
+            <h2 className="font-semibold">{t('menu.categories')}</h2>
             {categoriesQuery.isLoading ? (
               <p className="mt-4 text-sm text-text-muted">Loading…</p>
             ) : categories.length === 0 ? (
@@ -475,18 +488,31 @@ export function MenuPage() {
       {activeTab === 'items' ? (
         <Card>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-display font-semibold tracking-tight">Menu items</h2>
-            <Button type="button" onClick={openNewItemDrawer}>
-              Add item
-            </Button>
+            <h2 className="font-display font-semibold tracking-tight">{t('menu.menuItems')}</h2>
+            <div className="flex flex-wrap items-center gap-3">
+              {missingPhotoCount > 0 || missingPhotosOnly ? (
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-text-secondary">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-brand-primary"
+                    checked={missingPhotosOnly}
+                    onChange={(e) => setMissingPhotosOnly(e.target.checked)}
+                  />
+                  {t('menu.missingPhotosOnly')} ({missingPhotoCount})
+                </label>
+              ) : null}
+              <Button type="button" onClick={openNewItemDrawer}>
+                Add item
+              </Button>
+            </div>
           </div>
           {itemsQuery.isLoading ? (
-            <p className="text-sm text-text-muted">Loading…</p>
-          ) : items.length === 0 ? (
+            <p className="text-sm text-text-muted">{t('common.loading')}</p>
+          ) : visibleItems.length === 0 ? (
             <p className="text-sm text-text-muted">No items yet.</p>
           ) : (
             <ul className="divide-y divide-white/5">
-              {items.map((item) => (
+              {visibleItems.map((item) => (
                 <li key={item.id} className="flex items-start justify-between gap-3 py-3">
                   <div className="flex min-w-0 items-start gap-3">
                     {item.imageUrl ? (
@@ -496,12 +522,18 @@ export function MenuPage() {
                         className="h-12 w-12 shrink-0 rounded-lg object-cover"
                       />
                     ) : (
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-dashed border-white/15 text-[10px] text-text-muted">
-                        No photo
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => loadItemForEdit(item)}
+                        title={t('menu.addPhoto')}
+                        className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-dashed border-white/15 text-[10px] leading-tight text-text-muted transition hover:border-brand-primary hover:text-brand-primary"
+                      >
+                        <span aria-hidden="true" className="text-base leading-none">+</span>
+                        {t('menu.addPhoto')}
+                      </button>
                     )}
-                    <div>
-                    <p className="font-medium">{item.name}</p>
+                    <div className="min-w-0">
+                    <p className="break-words font-medium">{item.name}</p>
                     <p className="text-sm text-text-muted">
                       {formatMoney(item.basePrice)}
                       {(item.packagingCharge ?? 0) > 0 ? ` · pkg ${formatMoney(item.packagingCharge!)}` : ''}
@@ -543,7 +575,7 @@ export function MenuPage() {
           <Drawer
             open={itemDrawerOpen}
             onClose={closeItemDrawer}
-            title={editingItem ? 'Edit item' : 'New menu item'}
+            title={editingItem ? t('menu.editItem') : t('menu.newItem')}
             description="Variants and modifiers live with the item."
             width="xl"
             footer={

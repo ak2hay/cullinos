@@ -44,7 +44,9 @@ export function assertSelectOnlySql(raw: string): string {
   }
 
   // Strip string literals so keywords inside quotes do not false-positive
-  const forKeywordCheck = sql.replace(/'(?:''|[^'])*'/g, "''").replace(/\$\$[\s\S]*?\$\$/g, "''");
+  const forKeywordCheck = sql
+    .replace(/'(?:''|[^'])*'/g, "''")
+    .replace(/\$([A-Za-z_][A-Za-z0-9_]*)?\$[\s\S]*?\$\1\$/g, "''");
 
   if (/\bFOR\s+UPDATE\b/i.test(forKeywordCheck)) {
     throw new BadRequestException("FOR UPDATE is not allowed");

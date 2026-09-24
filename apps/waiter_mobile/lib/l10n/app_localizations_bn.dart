@@ -300,4 +300,14 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get allFloors => 'All floors';
+
+  @override
+  String get portalDisabledTitle => 'ওয়েটার অ্যাপ বন্ধ আছে';
+
+  @override
+  String get portalDisabledBody =>
+      'Cullinos ওয়েটার অ্যাপটি সাময়িকভাবে বন্ধ করেছে। অনুগ্রহ করে আপনার ম্যানেজারের সাথে যোগাযোগ করুন বা অ্যাডমিন পোর্টাল ব্যবহার করুন।';
+
+  @override
+  String get checkAgain => 'আবার দেখুন';
 }

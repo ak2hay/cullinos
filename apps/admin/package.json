@@ -13,8 +13,10 @@
     "@cullinos/shared": "*",
     "@cullinos/ui": "*",
     "@tanstack/react-query": "^5.64.2",
+    "i18next": "^25.10.10",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-i18next": "^15.7.4",
     "react-router-dom": "^7.1.1",
     "zustand": "^5.0.3"
   },

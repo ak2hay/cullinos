@@ -2,166 +2,164 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Open Cullinos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#006D5B" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Get the Cullinos app</title>
     <style>
       :root {
         color-scheme: light;
-        --bg: #f5f6f8;
+        --bg: #f4f7f6;
         --card: #ffffff;
-        --text: #1a1a1a;
-        --muted: #6b7280;
-        --brand: #1b5e3b;
+        --text: #0f1f1c;
+        --muted: #5f6f6b;
+        --brand: #006d5b;
+        --brand-dark: #00503f;
+        --border: #e3ebe9;
       }
       * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
       body {
-        margin: 0;
         min-height: 100vh;
-        font-family: system-ui, -apple-system, sans-serif;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
         background: var(--bg);
         color: var(--text);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 24px;
+        -webkit-font-smoothing: antialiased;
       }
-      main {
-        max-width: 420px;
-        width: 100%;
-        background: var(--card);
+      .hero {
+        position: relative;
+        height: 260px;
+        background:
+          radial-gradient(circle at 20% 20%, rgba(255,255,255,0.18), transparent 45%),
+          radial-gradient(circle at 85% 70%, rgba(255,255,255,0.12), transparent 40%),
+          linear-gradient(160deg, #008a73 0%, var(--brand) 55%, var(--brand-dark) 100%);
+        color: #fff;
+        padding: calc(env(safe-area-inset-top, 0px) + 36px) 24px 0;
+        text-align: center;
+        overflow: hidden;
+      }
+      .hero .logo {
+        width: 64px; height: 64px; margin: 0 auto 14px;
         border-radius: 20px;
-        padding: 28px 24px;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+        background: rgba(255,255,255,0.16);
+        display: flex; align-items: center; justify-content: center;
+        border: 1px solid rgba(255,255,255,0.28);
       }
-      h1 { font-size: 1.4rem; margin: 0 0 8px; }
-      p { color: var(--muted); line-height: 1.45; margin: 0 0 16px; }
-      a.btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 48px;
-        border-radius: 14px;
-        text-decoration: none;
-        font-weight: 700;
-        margin-top: 10px;
+      .hero h1 { margin: 0; font-size: 2rem; letter-spacing: -0.02em; font-weight: 800; }
+      .hero p { margin: 8px 0 0; font-size: 1.02rem; opacity: 0.92; }
+      main {
+        position: relative;
+        max-width: 440px;
+        margin: -56px auto 32px;
+        padding: 0 16px;
       }
-      a.primary { background: var(--brand); color: #fff; }
-      a.secondary {
-        background: #fff;
-        color: var(--brand);
-        border: 1.5px solid var(--brand);
+      .card {
+        background: var(--card);
+        border-radius: 24px;
+        padding: 28px 22px 24px;
+        box-shadow: 0 18px 40px rgba(0, 60, 50, 0.12);
       }
-      a.link { color: var(--muted); text-align: center; margin-top: 16px; display: block; font-size: 0.9rem; }
-      #status { font-size: 0.85rem; color: var(--muted); margin-top: 12px; }
+      .venue {
+        display: none;
+        align-items: center; gap: 10px;
+        padding: 10px 12px; margin-bottom: 18px;
+        background: #eef6f4; border-radius: 14px;
+        font-size: 0.92rem; color: var(--brand-dark); font-weight: 600;
+      }
+      .venue img { width: 32px; height: 32px; border-radius: 10px; object-fit: cover; }
+      h2 { margin: 0 0 6px; font-size: 1.45rem; letter-spacing: -0.01em; }
+      .sub { margin: 0 0 22px; color: var(--muted); line-height: 1.5; font-size: 0.97rem; }
+      .store {
+        display: flex; align-items: center; gap: 14px;
+        width: 100%; min-height: 64px;
+        padding: 12px 16px; margin-top: 12px;
+        border-radius: 16px;
+        border: 1.5px solid var(--border);
+        background: #fff; color: var(--text);
+        text-decoration: none; text-align: left;
+        transition: border-color .15s, transform .1s, box-shadow .15s;
+      }
+      .store:active { transform: scale(0.99); }
+      .store:hover { border-color: var(--brand); box-shadow: 0 6px 18px rgba(0,109,91,0.12); }
+      .store.recommended { border-color: var(--brand); background: #f3faf8; }
+      .store .icon {
+        width: 40px; height: 40px; flex: none;
+        border-radius: 12px; display: flex; align-items: center; justify-content: center;
+        background: var(--brand); color: #fff;
+      }
+      .store .label { flex: 1; min-width: 0; }
+      .store .label small { display: block; color: var(--muted); font-size: 0.78rem; }
+      .store .label strong { display: block; font-size: 1.05rem; }
+      .store .arrow { color: var(--brand); font-size: 1.3rem; }
+      .store .tag {
+        display: none; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em;
+        color: var(--brand); background: #dff1ec; padding: 3px 8px; border-radius: 999px;
+      }
+      .store.recommended .tag { display: inline-block; }
+      .store.disabled { opacity: 0.55; pointer-events: none; }
+      .open {
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        width: 100%; height: 52px; margin-top: 20px;
+        border: 0; border-radius: 999px;
+        background: var(--brand); color: #fff;
+        font-size: 1rem; font-weight: 700; text-decoration: none;
+      }
+      .open:active { background: var(--brand-dark); }
+      #status { margin: 14px 0 0; font-size: 0.85rem; color: var(--muted); text-align: center; min-height: 1.2em; }
+      .foot { margin-top: 18px; text-align: center; color: var(--muted); font-size: 0.8rem; }
+      .note {
+        margin: 16px 0 0; padding: 10px 12px; border-radius: 12px;
+        background: #f6f8f7; border: 1px solid var(--border);
+        color: var(--muted); font-size: 0.85rem; line-height: 1.45;
+      }
     </style>
   </head>
   <body>
+    <header class="hero">
+      <div class="logo" aria-hidden="true">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
+          <line x1="6" y1="17" x2="18" y2="17"/>
+        </svg>
+      </div>
+      <h1>Cullinos</h1>
+      <p>Good food brings people together.</p>
+    </header>
+
     <main>
-      <h1>Open this restaurant</h1>
-      <p id="blurb">Opening Cullinos Guest… If the app is not installed, we will take you to the store.</p>
-      <a class="btn primary" id="play" href="https://play.google.com/store/apps/details?id=com.cullinos.guest">Get on Google Play</a>
-      <a class="btn secondary" id="open" href="#">Open in app</a>
-      <a class="btn secondary" id="ios" href="#" style="display:none">Get on the App Store</a>
-      <p id="status">Trying to open the app…</p>
+      <section class="card">
+        <div class="venue" id="venue">
+          <img id="venue-logo" alt="" hidden />
+          <span id="venue-name"></span>
+        </div>
+        <h2>Get the Cullinos app</h2>
+        <p class="sub">Browse the menu and order from your table with the Cullinos app. Please ask the staff to take your order in the meantime.</p>
+
+        <a class="store disabled" id="android" href="#" rel="noopener" aria-disabled="true">
+          <span class="icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M3.6 2.3c-.3.3-.4.7-.4 1.2v17c0 .5.1.9.4 1.2l9.3-9.7L3.6 2.3zm10.5 8.5 2.8-2.9L5.3 1.3c-.3-.2-.7-.3-1-.2l9.8 9.7zm0 2.4-9.8 9.7c.3.1.7 0 1-.2l11.6-6.6-2.8-2.9zm6.1-3.5-2.6-1.5-3.1 3.2 3.1 3.2 2.6-1.5c.8-.5.8-2.9 0-3.4z"/></svg>
+          </span>
+          <span class="label"><small>Android</small><strong id="android-title">Google Play &middot; coming soon</strong></span>
+          <span class="tag">YOUR PHONE</span>
+          <span class="arrow" aria-hidden="true">&rsaquo;</span>
+        </a>
+
+        <a class="store disabled" id="ios" href="#" rel="noopener" aria-disabled="true">
+          <span class="icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.8-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.6-1-2.6-4.1zM13.9 5c.7-.9 1.2-2 1-3.2-1 0-2.3.7-3 1.5-.7.8-1.2 2-1.1 3.1 1.2.1 2.3-.6 3.1-1.4z"/></svg>
+          </span>
+          <span class="label"><small>iPhone &amp; iPad</small><strong id="ios-title">App Store &middot; coming soon</strong></span>
+          <span class="tag">YOUR PHONE</span>
+          <span class="arrow" aria-hidden="true">&rsaquo;</span>
+        </a>
+
+        <a class="open" id="open" href="#">Already installed? Open the app</a>
+        <p id="status"></p>
+        <p class="note">The Cullinos guest app is Android-first. iPhone and desktop ordering are not available yet.</p>
+      </section>
+      <p class="foot">&copy; Cullinos</p>
     </main>
-    <script>
-      (function () {
-        var params = new URLSearchParams(location.search);
-        var pathMatch = location.pathname.match(/^\/o\/([^\/]+)\/([^\/]+)/);
-        var org = params.get('org') || params.get('orgSlug') || (pathMatch && pathMatch[1]) || '';
-        var outlet = params.get('outlet') || params.get('outletSlug') || (pathMatch && pathMatch[2]) || '';
-        var table = params.get('table') || '';
-        var session = params.get('session') || '';
-        var q = new URLSearchParams();
-        if (table) q.set('table', table);
-        if (session) q.set('session', session);
-        var qs = q.toString() ? '?' + q.toString() : '';
-        var guestBase = 'https://guest.cullinos.com';
-        var httpsApp = org && outlet
-          ? guestBase + '/o/' + encodeURIComponent(org) + '/' + encodeURIComponent(outlet) + qs
-          : guestBase + '/';
-        var scheme = org && outlet
-          ? 'cullinos://outlet/' + encodeURIComponent(org) + '/' + encodeURIComponent(outlet) + qs
-          : 'cullinos://outlet';
-        var deepPath = org && outlet
-          ? 'outlet/' + encodeURIComponent(org) + '/' + encodeURIComponent(outlet) + qs
-          : 'outlet';
-        var playBase = 'https://play.google.com/store/apps/details?id=com.cullinos.guest';
-        var referrer = encodeURIComponent(
-          'utm_source=table_qr&utm_medium=qr&deep_link=' + encodeURIComponent(scheme)
-        );
-        var playUrl = playBase + '&referrer=' + referrer;
-        var intentUrl =
-          'intent://' + deepPath +
-          '#Intent;scheme=cullinos;package=com.cullinos.guest;S.browser_fallback_url=' +
-          encodeURIComponent(playUrl) + ';end';
 
-        try {
-          localStorage.setItem('cullinos_pending_deep_link', scheme);
-        } catch (e) {}
-
-        var openBtn = document.getElementById('open');
-        var playBtn = document.getElementById('play');
-        var iosBtn = document.getElementById('ios');
-        var statusEl = document.getElementById('status');
-        playBtn.href = playUrl;
-        openBtn.href = scheme;
-
-        var ua = navigator.userAgent || '';
-        var isAndroid = /Android/i.test(ua);
-        var isIOS = /iPhone|iPad|iPod/i.test(ua);
-
-        fetch('https://api.cullinos.com/api/v1/public/marketplace/app-config')
-          .then(function (r) { return r.ok ? r.json() : null; })
-          .then(function (body) {
-            if (!body) return;
-            if (body.playStoreUrl) {
-              playBtn.href = body.playStoreUrl + (body.playStoreUrl.indexOf('?') >= 0 ? '&' : '?') + 'referrer=' + referrer;
-            }
-            if (body.appStoreUrl) {
-              iosBtn.href = body.appStoreUrl;
-              iosBtn.style.display = 'flex';
-            }
-          })
-          .catch(function () {});
-
-        function tryOpenApp() {
-          if (isAndroid) {
-            window.location.href = intentUrl;
-            return;
-          }
-          var iframe = document.createElement('iframe');
-          iframe.style.display = 'none';
-          iframe.src = scheme;
-          document.body.appendChild(iframe);
-          setTimeout(function () { iframe.remove(); }, 1500);
-          // Also try top-level for iOS
-          if (isIOS) {
-            window.location.href = scheme;
-          }
-        }
-
-        tryOpenApp();
-
-        var left = false;
-        document.addEventListener('visibilitychange', function () {
-          if (document.hidden) left = true;
-        });
-        window.addEventListener('pagehide', function () { left = true; });
-
-        setTimeout(function () {
-          if (left || document.hidden) {
-            statusEl.textContent = 'App opened (or opening)…';
-            return;
-          }
-          statusEl.textContent = 'App not detected — opening the store…';
-          if (isIOS && iosBtn.href && iosBtn.href !== '#') {
-            window.location.href = iosBtn.href;
-          } else {
-            window.location.href = playBtn.href;
-          }
-        }, 2200);
-      })();
-    </script>
+    <script src="/landing.js" defer></script>
   </body>
 </html>

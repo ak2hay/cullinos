@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -219,6 +220,7 @@ export class TablesService {
     if (!outlet) throw new NotFoundException("Outlet not found");
     const name = data.name?.trim();
     if (!name) throw new BadRequestException("Floor name is required");
+    await this.assertFloorNameAvailable(outletId, name);
 
     const floor = await this.prisma.floor.create({
       data: {
@@ -234,6 +236,79 @@ export class TablesService {
     return this.listFloors(orgId, outletId).then((floors) =>
       floors.find((f) => f.id === floor.id),
     );
+  }
+
+  private async assertFloorNameAvailable(
+    outletId: string,
+    name: string,
+    excludeFloorId?: string,
+  ) {
+    const clash = await this.prisma.floor.findFirst({
+      where: {
+        outletId,
+        name: { equals: name, mode: "insensitive" },
+        ...(excludeFloorId ? { id: { not: excludeFloorId } } : {}),
+      },
+      select: { id: true },
+    });
+    if (clash) {
+      throw new ConflictException(`A floor named "${name}" already exists in this outlet`);
+    }
+  }
+
+  private async findScopedFloor(orgId: string, outletId: string, floorId: string) {
+    const floor = await this.prisma.floor.findFirst({
+      where: { id: floorId, outletId, outlet: { organizationId: orgId } },
+    });
+    if (!floor) throw new NotFoundException("Floor not found");
+    return floor;
+  }
+
+  async updateFloor(
+    orgId: string,
+    outletId: string,
+    floorId: string,
+    data: { name?: string; sortOrder?: number },
+  ) {
+    await this.findScopedFloor(orgId, outletId, floorId);
+
+    const patch: { name?: string; sortOrder?: number } = {};
+    if (data.name !== undefined) {
+      const name = String(data.name).trim();
+      if (!name) throw new BadRequestException("Floor name is required");
+      if (name.length > 80) throw new BadRequestException("Floor name is too long");
+      await this.assertFloorNameAvailable(outletId, name, floorId);
+      patch.name = name;
+    }
+    if (data.sortOrder !== undefined) {
+      const sortOrder = Number(data.sortOrder);
+      if (!Number.isInteger(sortOrder)) {
+        throw new BadRequestException("sortOrder must be an integer");
+      }
+      patch.sortOrder = sortOrder;
+    }
+
+    if (Object.keys(patch).length > 0) {
+      await this.prisma.floor.update({ where: { id: floorId }, data: patch });
+    }
+    return this.listFloors(orgId, outletId).then((floors) =>
+      floors.find((f) => f.id === floorId),
+    );
+  }
+
+  /** Sections cascade-delete their tables, so refuse while any table remains on the floor. */
+  async deleteFloor(orgId: string, outletId: string, floorId: string) {
+    await this.findScopedFloor(orgId, outletId, floorId);
+    const tableCount = await this.prisma.table.count({
+      where: { section: { floorId } },
+    });
+    if (tableCount > 0) {
+      throw new BadRequestException(
+        `This floor still has ${tableCount} table${tableCount === 1 ? "" : "s"}. Move or delete its tables first.`,
+      );
+    }
+    await this.prisma.floor.delete({ where: { id: floorId } });
+    return { id: floorId, deleted: true };
   }
 
   async createSection(

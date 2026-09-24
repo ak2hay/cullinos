@@ -16,8 +16,9 @@ import {
   type ResolvedOrderItem,
 } from "../../common/order-items.util";
 import { generatePickupCode } from "../../common/pickup-code.util";
-import { fromApiStatus } from "../../common/status.util";
+import { normalizeOrderStatusFilter } from "../../common/status.util";
 import { toPaise } from "../../common/money.util";
+import { orderGrandTotal, orderLineTotal, pickDefaultTaxGroup } from "./order-tax.util";
 import { LoyaltyService } from "../loyalty/loyalty.service";
 import { GuestPushService } from "../guest/guest-push.service";
 import { RecipesService } from "../recipes/recipes.service";
@@ -31,7 +32,17 @@ type TaxComputation = {
   total: number;
   taxLines: Array<{ name: string; rate: number; amount: number; type?: string }>;
   itemTaxes: number[];
+  itemInclusive: boolean[];
 };
+
+const ORDER_CLIENT_INCLUDE = {
+  items: true,
+  table: true,
+  customer: true,
+  taxLines: true,
+} as const;
+
+const TERMINAL_ORDER_STATUSES = ["completed", "cancelled", "voided"];
 
 type CreateOrderDto = {
   outletId: string;
@@ -86,30 +97,30 @@ export class OrdersService {
     orgId: string,
     resolvedItems: ResolvedOrderItem[],
   ): Promise<TaxComputation> {
-    const taxGroupIds = [
-      ...new Set(resolvedItems.map((i) => i.taxGroupId).filter(Boolean)),
-    ] as string[];
-
-    const groups = taxGroupIds.length
-      ? await this.prisma.taxGroup.findMany({
-          where: { organizationId: orgId, id: { in: taxGroupIds } },
-          include: { rates: true },
-        })
-      : [];
-
-    let defaultGroup = await this.prisma.taxGroup.findFirst({
-      where: { organizationId: orgId },
-      include: { rates: true },
-      orderBy: { name: "asc" },
-    });
+    const [groups, settingsRow] = await Promise.all([
+      this.prisma.taxGroup.findMany({
+        where: { organizationId: orgId },
+        include: { rates: true },
+      }),
+      this.prisma.organizationSettings.findUnique({
+        where: { organizationId: orgId },
+        select: { settings: true },
+      }),
+    ]);
+    const settings = (settingsRow?.settings ?? {}) as Record<string, unknown>;
+    const configuredDefault =
+      typeof settings.defaultTaxGroupId === "string" ? settings.defaultTaxGroupId : null;
+    const defaultGroup = pickDefaultTaxGroup(groups, configuredDefault);
 
     const groupById = new Map(groups.map((g) => [g.id, g]));
 
+    const inclusiveFlags: boolean[] = [];
     const taxable = resolvedItems.map((item) => {
       const group =
         (item.taxGroupId ? groupById.get(item.taxGroupId) : undefined) ??
         defaultGroup ??
         null;
+      inclusiveFlags.push(Boolean(group?.isInclusive && group.rates.length));
       const rates: TaxLineInput[] = (group?.rates ?? []).map((r) => ({
         name: r.name,
         rate: Number(r.rate),
@@ -129,7 +140,85 @@ export class OrdersService {
       total: result.total,
       taxLines: result.taxLines,
       itemTaxes: result.itemTaxes,
+      itemInclusive: inclusiveFlags,
     };
+  }
+
+  /**
+   * Recompute every line's tax from its menu item's tax group, persist per-line tax/total,
+   * and rewrite order totals + taxLines from the same engine result so they cannot drift.
+   */
+  private async recomputeOrderFromItems(orgId: string, orderId: string, event: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, organizationId: orgId },
+    });
+    if (!order) throw new NotFoundException("Order not found");
+
+    const allItems = await this.prisma.orderItem.findMany({
+      where: { orderId },
+      include: { menuItem: { select: { taxGroupId: true } } },
+      orderBy: { id: "asc" },
+    });
+    const tax = await this.computeTax(
+      orgId,
+      allItems.map((i) => ({
+        menuItemId: i.menuItemId,
+        variantId: i.variantId,
+        name: i.name,
+        quantity: i.quantity,
+        unitPrice: Number(i.unitPrice),
+        notes: i.notes,
+        modifiers: null,
+        taxGroupId: i.menuItem?.taxGroupId ?? null,
+      })),
+    );
+
+    await this.prisma.$transaction(
+      allItems.map((item, index) => {
+        const taxAmount = tax.itemTaxes[index] ?? 0;
+        return this.prisma.orderItem.update({
+          where: { id: item.id },
+          data: {
+            taxAmount,
+            total: orderLineTotal(
+              Number(item.unitPrice) * item.quantity,
+              taxAmount,
+              tax.itemInclusive[index] ?? false,
+            ),
+          },
+        });
+      }),
+    );
+
+    const meta = (order.metadata ?? {}) as Record<string, unknown>;
+    const updated = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        subtotal: tax.subtotal,
+        taxTotal: tax.taxTotal,
+        total: orderGrandTotal({
+          subtotal: tax.subtotal,
+          taxTotal: tax.taxTotal,
+          tipAmount: Number(order.tipAmount ?? 0),
+          deliveryFee: Number(meta.deliveryFee ?? 0),
+          discountTotal: Number(order.discountTotal ?? 0),
+        }),
+        timeline: { create: { event, metadata: {} } },
+        taxLines: {
+          deleteMany: {},
+          create: tax.taxLines.map((t) => ({
+            taxName: t.name,
+            rate: t.rate,
+            amount: t.amount,
+          })),
+        },
+      },
+      include: ORDER_CLIENT_INCLUDE,
+    });
+
+    const mapped = mapOrderToClient(updated);
+    this.ws.emitToOutlet(order.outletId, "order.updated", mapped);
+    return mapped;
   }
 
   async list(
@@ -138,38 +227,48 @@ export class OrdersService {
       outletId?: string;
       tableId?: string;
       status?: string;
+      from?: string;
+      to?: string;
       page?: number;
       limit?: number;
     },
   ) {
-    const page = filters.page ?? 1;
+    const page = Math.max(1, filters.page ?? 1);
     const limit = Math.min(Math.max(1, filters.limit ?? 50), 100);
     const skip = (page - 1) * limit;
 
-    const statusParts = filters.status
-      ?.split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((s) => fromApiStatus(s))
-      .filter(Boolean);
+    const statusParts = [
+      ...new Set(
+        (filters.status ?? "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((s) => normalizeOrderStatusFilter(s)),
+      ),
+    ];
     const statusFilter =
-      statusParts && statusParts.length > 0
+      statusParts.length > 0
         ? statusParts.length === 1
           ? { status: statusParts[0] as never }
           : { status: { in: statusParts as never[] } }
         : {};
+
+    const createdAt: { gte?: Date; lt?: Date } = {};
+    if (filters.from) createdAt.gte = parseDateFilter(filters.from, "from");
+    if (filters.to) createdAt.lt = parseDateFilter(filters.to, "to");
 
     const where = {
       organizationId: orgId,
       ...(filters.outletId ? { outletId: filters.outletId } : {}),
       ...(filters.tableId ? { tableId: filters.tableId } : {}),
       ...statusFilter,
+      ...(createdAt.gte || createdAt.lt ? { createdAt } : {}),
     };
 
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
         where,
-        include: { items: true, table: true, customer: true },
+        include: ORDER_CLIENT_INCLUDE,
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
@@ -179,14 +278,14 @@ export class OrdersService {
 
     return {
       data: orders.map((order) => mapOrderToClient(order)),
-      meta: { total, page, limit },
+      meta: { total, page, limit, hasMore: skip + orders.length < total },
     };
   }
 
   async get(orgId: string, orderId: string) {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, organizationId: orgId },
-      include: { items: true, table: true, customer: true },
+      include: ORDER_CLIENT_INCLUDE,
     });
     if (!order) throw new NotFoundException("Order not found");
     return mapOrderToClient(order);
@@ -278,7 +377,12 @@ export class OrdersService {
       }
     }
 
-    const totalWithTip = taxResult.total + tipRupees + deliveryFee;
+    const totalWithTip = orderGrandTotal({
+      subtotal: taxResult.subtotal,
+      taxTotal: taxResult.taxTotal,
+      tipAmount: tipRupees,
+      deliveryFee,
+    });
     const initialStatus = dto.autoConfirm ? "confirmed" : "draft";
 
     const order = await this.prisma.order.create({
@@ -330,7 +434,11 @@ export class OrdersService {
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               taxAmount,
-              total: lineSubtotal + taxAmount,
+              total: orderLineTotal(
+                lineSubtotal,
+                taxAmount,
+                taxResult.itemInclusive[index] ?? false,
+              ),
               notes: item.notes,
               modifiers: item.modifiers ?? undefined,
             };
@@ -419,76 +527,22 @@ export class OrdersService {
       items,
     );
 
-    const taxForNew = await this.computeTax(orgId, resolvedItems);
-
     await this.prisma.orderItem.createMany({
-      data: resolvedItems.map((item, index) => {
-        const lineSubtotal = item.unitPrice * item.quantity;
-        const taxAmount = taxForNew.itemTaxes[index] ?? 0;
-        return {
-          orderId: order.id,
-          menuItemId: item.menuItemId,
-          variantId: item.variantId,
-          name: item.name,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          taxAmount,
-          total: lineSubtotal + taxAmount,
-          notes: item.notes,
-          modifiers: item.modifiers ?? undefined,
-        };
-      }),
-    });
-
-    const allItems = await this.prisma.orderItem.findMany({ where: { orderId } });
-    const recomputed = await this.computeTax(
-      orgId,
-      allItems.map((i) => ({
-        menuItemId: i.menuItemId,
-        variantId: i.variantId,
-        name: i.name,
-        quantity: i.quantity,
-        unitPrice: Number(i.unitPrice),
-        notes: i.notes,
-        modifiers: null,
-        taxGroupId: null,
+      data: resolvedItems.map((item) => ({
+        orderId: order.id,
+        menuItemId: item.menuItemId,
+        variantId: item.variantId,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        taxAmount: 0,
+        total: item.unitPrice * item.quantity,
+        notes: item.notes,
+        modifiers: item.modifiers ?? undefined,
       })),
-    );
-
-    // Prefer stored line tax totals when full tax groups are unavailable for historical rows.
-    const subtotal = allItems.reduce(
-      (s, i) => s + Number(i.unitPrice) * i.quantity,
-      0,
-    );
-    const taxTotal = allItems.reduce((s, i) => s + Number(i.taxAmount), 0);
-
-    const updated = await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        subtotal,
-        taxTotal,
-        total: subtotal + taxTotal + Number(order.tipAmount ?? 0),
-        timeline: {
-          create: { event: "order.items_added", metadata: { count: items.length } },
-        },
-        taxLines: {
-          deleteMany: {},
-          create: (recomputed.taxLines.length
-            ? recomputed.taxLines
-            : [{ name: "Tax", rate: 0, amount: taxTotal }]
-          ).map((t) => ({
-            taxName: t.name,
-            rate: t.rate,
-            amount: t.amount,
-          })),
-        },
-      },
-      include: { items: true },
     });
 
-    const mapped = mapOrderToClient(updated);
-    this.ws.emitToOutlet(order.outletId, "order.updated", mapped);
-    return mapped;
+    return this.recomputeOrderFromItems(orgId, orderId, "order.items_added");
   }
 
   async updateItem(
@@ -514,22 +568,12 @@ export class OrdersService {
       throw new BadRequestException("quantity must be at least 1");
     }
 
-    const qty = Math.floor(quantity);
-    const lineSubtotal = Number(existing.unitPrice) * qty;
-    const unitTax =
-      existing.quantity > 0 ? Number(existing.taxAmount) / existing.quantity : 0;
-    const taxAmount = Math.round(unitTax * qty);
-
     await this.prisma.orderItem.update({
       where: { id: itemId },
-      data: {
-        quantity: qty,
-        taxAmount,
-        total: lineSubtotal + taxAmount,
-      },
+      data: { quantity: Math.floor(quantity) },
     });
 
-    return this.recalculateOrderTotals(orgId, orderId, order.outletId, "order.item_updated");
+    return this.recomputeOrderFromItems(orgId, orderId, "order.item_updated");
   }
 
   async removeItem(orgId: string, orderId: string, itemId: string) {
@@ -546,68 +590,7 @@ export class OrdersService {
     if (!existing) throw new NotFoundException("Order item not found");
 
     await this.prisma.orderItem.delete({ where: { id: itemId } });
-    return this.recalculateOrderTotals(orgId, orderId, order.outletId, "order.item_removed");
-  }
-
-  private async recalculateOrderTotals(
-    orgId: string,
-    orderId: string,
-    outletId: string,
-    event: string,
-  ) {
-    const order = await this.prisma.order.findFirst({
-      where: { id: orderId, organizationId: orgId },
-    });
-    if (!order) throw new NotFoundException("Order not found");
-
-    const allItems = await this.prisma.orderItem.findMany({ where: { orderId } });
-    const recomputed = await this.computeTax(
-      orgId,
-      allItems.map((i) => ({
-        menuItemId: i.menuItemId,
-        variantId: i.variantId,
-        name: i.name,
-        quantity: i.quantity,
-        unitPrice: Number(i.unitPrice),
-        notes: i.notes,
-        modifiers: null,
-        taxGroupId: null,
-      })),
-    );
-
-    const subtotal = allItems.reduce(
-      (s, i) => s + Number(i.unitPrice) * i.quantity,
-      0,
-    );
-    const taxTotal = allItems.reduce((s, i) => s + Number(i.taxAmount), 0);
-
-    const updated = await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        subtotal,
-        taxTotal,
-        total: subtotal + taxTotal + Number(order.tipAmount ?? 0),
-        timeline: {
-          create: { event, metadata: {} },
-        },
-        taxLines: {
-          deleteMany: {},
-          create: (recomputed.taxLines.length
-            ? recomputed.taxLines
-            : [{ name: "Tax", rate: 0, amount: taxTotal }]
-          ).map((t) => ({
-            taxName: t.name,
-            rate: t.rate,
-            amount: t.amount,
-          })),
-        },
-      },
-      include: { items: true },
-    });
-
-    const mapped = mapOrderToClient(updated);
-    this.ws.emitToOutlet(outletId, "order.updated", mapped);
-    return mapped;
+    return this.recomputeOrderFromItems(orgId, orderId, "order.item_removed");
   }
 
   async confirm(orgId: string, orderId: string) {
@@ -626,7 +609,7 @@ export class OrdersService {
         status: "confirmed",
         timeline: { create: { event: "order.confirmed", metadata: {} } },
       },
-      include: { items: true },
+      include: ORDER_CLIENT_INCLUDE,
     });
 
     const kot = await this.createKot(updated);
@@ -637,7 +620,10 @@ export class OrdersService {
   }
 
   async updateStatus(orgId: string, orderId: string, status: string) {
-    const apiStatus = fromApiStatus(status);
+    const apiStatus = normalizeOrderStatusFilter(status ?? "");
+    if (apiStatus === "cancelled") {
+      return this.cancel(orgId, orderId);
+    }
     const existing = await this.prisma.order.findFirst({
       where: { id: orderId, organizationId: orgId },
       select: { status: true, readyAt: true, metadata: true },
@@ -656,8 +642,12 @@ export class OrdersService {
           create: { event: "order.status_changed", metadata: { status } },
         },
       },
-      include: { items: true, table: true },
+      include: ORDER_CLIENT_INCLUDE,
     });
+
+    if (apiStatus === "completed" || apiStatus === "served" || apiStatus === "voided") {
+      await this.closeOpenKots(order.id, order.outletId, apiStatus === "voided" ? "cancelled" : "served");
+    }
 
     const shouldDeductStock =
       (apiStatus === "completed" || apiStatus === "served") &&
@@ -707,7 +697,7 @@ export class OrdersService {
       where: { id: orderId, organizationId: orgId },
     });
     if (!existing) throw new NotFoundException("Order not found");
-    if (["completed", "cancelled", "voided"].includes(existing.status)) {
+    if (TERMINAL_ORDER_STATUSES.includes(existing.status)) {
       throw new BadRequestException(`Cannot cancel order in status ${existing.status}`);
     }
 
@@ -726,11 +716,53 @@ export class OrdersService {
           },
         },
       },
-      include: { items: true },
+      include: ORDER_CLIENT_INCLUDE,
     });
+    await this.closeOpenKots(order.id, order.outletId, "cancelled");
     const mapped = mapOrderToClient(order);
     this.ws.emitToOutlet(order.outletId, "order.updated", mapped);
+    if (this.guestPush && order.customerId) {
+      void this.guestPush.notifyCustomerOrder(order.customerId, {
+        title: "Order cancelled",
+        body: `Order #${order.orderNumber}`,
+        data: { orderId: order.id, type: "order.status", status: "cancelled" },
+      });
+    }
     return mapped;
+  }
+
+  /** Move any still-open kitchen tickets for this order off the KDS (order is terminal). */
+  private async closeOpenKots(
+    orderId: string,
+    outletId: string,
+    target: "served" | "cancelled",
+  ) {
+    const open = await this.prisma.kOT.findMany({
+      where: { orderId, status: { in: ["pending", "preparing", "ready"] } },
+      select: { id: true },
+    });
+    if (open.length === 0) return;
+    const kotIds = open.map((k) => k.id);
+    await this.prisma.$transaction([
+      this.prisma.kOTItem.updateMany({
+        where: {
+          kotId: { in: kotIds },
+          status: { notIn: ["served", "cancelled"] },
+        },
+        data: { status: target },
+      }),
+      this.prisma.kOT.updateMany({
+        where: { id: { in: kotIds } },
+        data: { status: target },
+      }),
+    ]);
+    for (const kotId of kotIds) {
+      this.ws.emitToOutlet(outletId, "kot.updated", {
+        kotId,
+        orderId,
+        status: target === "served" ? "SERVED" : "CANCELLED",
+      });
+    }
   }
 
   async hold(orgId: string, orderId: string) {
@@ -858,7 +890,7 @@ export class OrdersService {
             },
           },
         },
-        include: { items: true, discounts: true },
+        include: { ...ORDER_CLIENT_INCLUDE, discounts: true },
       });
     });
 
@@ -959,9 +991,12 @@ export class OrdersService {
       });
     });
 
-    const parent = await this.get(orgId, orderId);
-    const childMapped = mapOrderToClient(child);
-    this.ws.emitToOutlet(order.outletId, "order.updated", parent);
+    const parent = await this.recomputeOrderFromItems(orgId, orderId, "order.totals_recomputed");
+    const childMapped = await this.recomputeOrderFromItems(
+      orgId,
+      child.id,
+      "order.totals_recomputed",
+    );
     this.ws.emitToOutlet(order.outletId, "order.created", childMapped);
     return { original: parent, split: childMapped };
   }
@@ -1174,4 +1209,12 @@ export class OrdersService {
     if (tableId) return "dine_in";
     return "takeaway";
   }
+}
+
+function parseDateFilter(value: string, field: string): Date {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new BadRequestException(`Invalid ${field} date`);
+  }
+  return date;
 }

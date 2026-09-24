@@ -5,7 +5,9 @@ import {
   MARKETING_UPLOAD_MAX_BYTES,
   MARKETING_UPLOAD_MAX_PIXELS,
   MarketingUploadService,
+  TENANT_UPLOAD_MAX_BYTES,
   probeImageDimensions,
+  uploadMaxBytesFor,
 } from "./marketing-upload.service";
 
 const ALLOWED_MIMES = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -143,6 +145,38 @@ describe("MarketingUploadService.validateSlot", () => {
     expect(() => service.validateSlot(file, "menuItem")).toThrow(
       /too large|Maximum dimension/i,
     );
+  });
+});
+
+describe("tenant vs super-admin upload limits", () => {
+  const { service } = makeUploadService();
+  const threeMb = 3 * 1024 * 1024;
+
+  it("caps tenant users at 2 MB", () => {
+    expect(TENANT_UPLOAD_MAX_BYTES).toBe(2 * 1024 * 1024);
+    expect(uploadMaxBytesFor({ isSuperAdmin: false })).toBe(TENANT_UPLOAD_MAX_BYTES);
+    expect(uploadMaxBytesFor(undefined)).toBe(TENANT_UPLOAD_MAX_BYTES);
+  });
+
+  it("exempts super admins and impersonation sessions", () => {
+    expect(uploadMaxBytesFor({ isSuperAdmin: true })).toBe(MARKETING_UPLOAD_MAX_BYTES);
+    expect(uploadMaxBytesFor({ isSuperAdmin: false, impersonatedBy: "sa-1" })).toBe(
+      MARKETING_UPLOAD_MAX_BYTES,
+    );
+  });
+
+  it("rejects a 3 MB tenant upload", () => {
+    const file = fakeMulterFile({ size: threeMb });
+    expect(() =>
+      service.validateSlot(file, "menuItem", uploadMaxBytesFor({ isSuperAdmin: false })),
+    ).toThrow(/too large/i);
+  });
+
+  it("accepts a 3 MB super-admin upload", () => {
+    const file = fakeMulterFile({ size: threeMb });
+    expect(() =>
+      service.validateSlot(file, "menuItem", uploadMaxBytesFor({ isSuperAdmin: true })),
+    ).not.toThrow();
   });
 });
 

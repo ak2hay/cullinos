@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
@@ -10,6 +12,12 @@ import { createHash, randomBytes, randomInt } from "crypto";
 import { PrismaService } from "../../prisma/prisma.service";
 import { MailService } from "../mail/mail.service";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
+import { PortalStatusService } from "../platform-config/portal-status.service";
+import {
+  currentRequestPortal,
+  parsePortal,
+  type SwitchablePortal,
+} from "../../common/portal-context";
 import { AuditService } from "../audit/audit.service";
 import { Msg91Service } from "../sms/msg91.service";
 import { TenantProvisioningService } from "../organizations/tenant-provisioning.service";
@@ -39,7 +47,9 @@ const LOGIN_FAIL_MAX_DELAY_MS = 8_000;
 const DUMMY_PASSWORD_HASH =
   "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
 
-type OtpPurpose = "login_2fa" | "password_reset";
+type OtpPurpose = "login_2fa" | "password_reset" | "labs_step_up";
+
+const STEP_UP_TTL = "10m";
 
 type ChallengePayload = {
   sub: string;
@@ -63,6 +73,7 @@ export class AuthService {
     private audit: AuditService,
     private msg91: Msg91Service,
     private provisioning: TenantProvisioningService,
+    private portalStatus: PortalStatusService,
   ) {}
 
   /** Email MFA skip: sandbox org flag, or legacy AUTH_SKIP_EMAIL_OTP outside production. */
@@ -234,6 +245,45 @@ export class AuthService {
     return this.issueLoginResponse(user);
   }
 
+  /** Step-up for sensitive super-admin tools: always emails an OTP (no sandbox skip). */
+  async startStepUp(userId: string, email: string) {
+    const challengeToken = await this.createAndSendOtp(userId, email, "labs_step_up");
+    return { challengeToken };
+  }
+
+  async verifyStepUp(userId: string, challengeToken: string, otp: string) {
+    const record = await this.consumeOtp(challengeToken, otp, "labs_step_up");
+    if (record.userId !== userId) {
+      throw new UnauthorizedException("Step-up belongs to another user");
+    }
+    const stepUpToken = this.jwt.sign(
+      { sub: userId, type: "step_up", scope: "labs_sql" },
+      { expiresIn: STEP_UP_TTL },
+    );
+    return { stepUpToken, expiresInSeconds: 600 };
+  }
+
+  assertStepUp(userId: string, token: string | undefined) {
+    if (!token) {
+      throw new ForbiddenException({
+        code: "STEP_UP_REQUIRED",
+        message: "Verify with an emailed code to run Labs SQL",
+      });
+    }
+    try {
+      const payload = this.jwt.verify<{ sub?: string; type?: string; scope?: string }>(token);
+      if (payload.type === "step_up" && payload.scope === "labs_sql" && payload.sub === userId) {
+        return;
+      }
+    } catch {
+      /* fall through */
+    }
+    throw new ForbiddenException({
+      code: "STEP_UP_REQUIRED",
+      message: "Step-up expired — verify again",
+    });
+  }
+
   async resendOtp(challengeToken: string) {
     const payload = this.verifyChallengeToken(challengeToken);
     const existing = await this.prisma.emailOtp.findUnique({
@@ -277,9 +327,9 @@ export class AuthService {
   }
 
   async refreshAccessToken(refreshToken: string) {
-    let payload: { sub?: string; type?: string };
+    let payload: { sub?: string; type?: string; portal?: string };
     try {
-      payload = this.jwt.verify(refreshToken) as { sub?: string; type?: string };
+      payload = this.jwt.verify(refreshToken) as { sub?: string; type?: string; portal?: string };
     } catch {
       throw new UnauthorizedException("Invalid refresh token");
     }
@@ -296,7 +346,7 @@ export class AuthService {
     }
 
     // Rotate: issue a new refresh + access pair.
-    return this.issueLoginResponse(user);
+    return this.issueLoginResponse(user, parsePortal(payload.portal));
   }
 
   async resetPassword(email: string, otp: string, newPassword: string) {
@@ -552,8 +602,18 @@ export class AuthService {
         sandboxRelaxPassword?: boolean;
       };
     },
+    sessionPortal: SwitchablePortal | null = null,
   ) {
     const permissions = await this.getUserPermissions(user.id);
+    const portal = currentRequestPortal() ?? sessionPortal;
+    if (portal && !user.isSuperAdmin && !(await this.portalStatus.isEnabled(portal))) {
+      const status = await this.portalStatus.getStatus();
+      throw new ServiceUnavailableException({
+        code: "PORTAL_DISABLED",
+        message: status.message,
+        details: { portal },
+      });
+    }
 
     const defaultOu = await this.prisma.outletUser.findFirst({
       where: { userId: user.id, isDefault: true },
@@ -578,6 +638,7 @@ export class AuthService {
       email: user.email,
       isSuperAdmin: user.isSuperAdmin,
       permissions,
+      ...(portal ? { portal } : {}),
     });
 
     await this.prisma.user.update({
@@ -587,7 +648,7 @@ export class AuthService {
 
     const nameParts = user.name.trim().split(/\s+/);
     const refreshToken = this.jwt.sign(
-      { sub: user.id, type: "refresh" },
+      { sub: user.id, type: "refresh", ...(portal ? { portal } : {}) },
       { expiresIn: "30d" },
     );
 
@@ -638,18 +699,20 @@ export class AuthService {
         isSuperAdmin: false,
       },
       include: { organization: true },
+      orderBy: [{ lastLoginAt: { sort: "desc", nulls: "last" } }, { createdAt: "asc" }],
     });
-    // Legacy rows: match by last 10 digits if exact variants miss
+    // Legacy rows stored with spaces/dashes: match on the last 10 digits.
     if (!user && phone.length >= 10) {
       const local = phone.slice(-10);
       const candidates = await this.prisma.user.findMany({
         where: {
           status: "active",
           isSuperAdmin: false,
-          phone: { not: null },
+          phone: { contains: local.slice(-4) },
         },
         include: { organization: true },
-        take: 500,
+        orderBy: [{ lastLoginAt: { sort: "desc", nulls: "last" } }, { createdAt: "asc" }],
+        take: 200,
       });
       user =
         candidates.find((u) => {

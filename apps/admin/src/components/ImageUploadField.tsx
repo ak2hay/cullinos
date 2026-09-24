@@ -2,10 +2,20 @@ import { useRef, useState } from 'react';
 import { Button } from '@cullinos/ui';
 import { API_BASE } from '@/lib/api';
 import { ImageCropModal } from '@/components/ImageCropModal';
+import { useAuthStore } from '@/stores/auth';
 
-/** Platform-wide max image upload size (must match API MARKETING_UPLOAD_MAX_BYTES). */
-export const IMAGE_UPLOAD_MAX_MB = 5;
+/** Tenant max image upload size (must match API TENANT_UPLOAD_MAX_BYTES). */
+export const IMAGE_UPLOAD_MAX_MB = 2;
+/** Super-admin / impersonation max (must match API MARKETING_UPLOAD_MAX_BYTES). */
+export const PLATFORM_IMAGE_UPLOAD_MAX_MB = 5;
 export const IMAGE_UPLOAD_MAX_PIXELS = 4096;
+
+/** Effective upload limit for the signed-in user; super admins are exempt from the tenant cap. */
+export function useImageUploadMaxMb(): number {
+  const impersonation = useAuthStore((s) => s.impersonation);
+  const isSuperAdmin = useAuthStore((s) => Boolean(s.user?.isSuperAdmin));
+  return impersonation || isSuperAdmin ? PLATFORM_IMAGE_UPLOAD_MAX_MB : IMAGE_UPLOAD_MAX_MB;
+}
 
 /** Resolve relative `/cms/...` upload URLs against the API host (not the SPA origin). */
 export function resolvePublicImageSrc(url: string): string {
@@ -124,12 +134,13 @@ function readImageDimensions(file: File): Promise<{ width: number; height: numbe
 export async function validateClientImageFile(
   file: File,
   hint?: ImageSlotHint,
+  maxMbOverride?: number,
 ): Promise<void> {
   const allowed = new Set(['image/png', 'image/jpeg', 'image/webp']);
   if (!allowed.has(file.type)) {
     throw new Error('Unsupported file type. Use PNG, JPG, or WebP.');
   }
-  const maxMb = hint?.maxMb ?? IMAGE_UPLOAD_MAX_MB;
+  const maxMb = maxMbOverride ?? hint?.maxMb ?? IMAGE_UPLOAD_MAX_MB;
   const maxBytes = maxMb * 1024 * 1024;
   if (file.size > maxBytes) {
     throw new Error(`File too large. Maximum size is ${maxMb}MB.`);
@@ -153,6 +164,7 @@ export function ImageUploadField({
   bare,
 }: Props) {
   const hint = IMAGE_SLOT_HINTS[slot];
+  const maxMb = useImageUploadMaxMb();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -162,7 +174,7 @@ export function ImageUploadField({
     setUploading(true);
     setError(null);
     try {
-      await validateClientImageFile(file, hint);
+      await validateClientImageFile(file, hint, maxMb);
       const url = await onUpload(file);
       onChange(url);
     } catch (err) {
@@ -177,7 +189,7 @@ export function ImageUploadField({
     if (!file) return;
     setError(null);
     try {
-      await validateClientImageFile(file, hint);
+      await validateClientImageFile(file, hint, maxMb);
       if (hint.cropBeforeUpload) {
         setCropFile(file);
         return;
@@ -190,8 +202,8 @@ export function ImageUploadField({
   }
 
   const hintText = hint.cropBeforeUpload
-    ? `Any ratio OK — crop to ${hint.targetWidth}×${hint.targetHeight}px before upload. PNG/JPG/WebP, max ${hint.maxMb} MB.`
-    : `Recommended ${hint.targetWidth}×${hint.targetHeight}px (${hint.ratioLabel}), PNG/JPG/WebP, max ${hint.maxMb} MB.`;
+    ? `Any ratio OK — crop to ${hint.targetWidth}×${hint.targetHeight}px before upload. PNG/JPG/WebP, max ${maxMb} MB.`
+    : `Recommended ${hint.targetWidth}×${hint.targetHeight}px (${hint.ratioLabel}), PNG/JPG/WebP, max ${maxMb} MB.`;
 
   const body = (
     <>

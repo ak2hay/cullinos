@@ -300,4 +300,14 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get allFloors => 'All floors';
+
+  @override
+  String get portalDisabledTitle => 'ವೇಟರ್ ಆ್ಯಪ್ ಆಫ್ ಆಗಿದೆ';
+
+  @override
+  String get portalDisabledBody =>
+      'Cullinos ವೇಟರ್ ಆ್ಯಪ್ ಅನ್ನು ತಾತ್ಕಾಲಿಕವಾಗಿ ಆಫ್ ಮಾಡಿದೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಮ್ಯಾನೇಜರ್ ಅನ್ನು ಸಂಪರ್ಕಿಸಿ ಅಥವಾ ಅಡ್ಮಿನ್ ಪೋರ್ಟಲ್ ಬಳಸಿ.';
+
+  @override
+  String get checkAgain => 'ಮತ್ತೆ ಪರಿಶೀಲಿಸಿ';
 }

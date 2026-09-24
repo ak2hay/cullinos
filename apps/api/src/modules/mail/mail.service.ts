@@ -177,12 +177,23 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async sendOtpEmail(to: string, code: string, purpose: "login_2fa" | "password_reset"): Promise<boolean> {
+  async sendOtpEmail(
+    to: string,
+    code: string,
+    purpose: "login_2fa" | "password_reset" | "labs_step_up",
+  ): Promise<boolean> {
     const isReset = purpose === "password_reset";
+    const isStepUp = purpose === "labs_step_up";
     const subject = isReset
       ? "Your Cullinos password reset code"
-      : "Your Cullinos login verification code";
-    const action = isReset ? "reset your password" : "complete your login";
+      : isStepUp
+        ? "Your Cullinos Labs SQL verification code"
+        : "Your Cullinos login verification code";
+    const action = isReset
+      ? "reset your password"
+      : isStepUp
+        ? "unlock Labs SQL for 10 minutes"
+        : "complete your login";
     const text = [
       `Your verification code is: ${code}`,
       "",

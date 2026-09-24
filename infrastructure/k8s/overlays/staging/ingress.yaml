@@ -16,6 +16,7 @@ spec:
         - staging-platform.cullinos.com
         - staging-pos.cullinos.com
         - staging-kds.cullinos.com
+        - staging-kiosk.cullinos.com
         - staging-guest.cullinos.com
         - staging-waiter.cullinos.com
         - staging.cullinos.com
@@ -78,6 +79,16 @@ spec:
             backend:
               service:
                 name: spa-kds
+                port:
+                  number: 80
+    - host: staging-kiosk.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-kiosk
                 port:
                   number: 80
     - host: staging-guest.cullinos.com

@@ -59,6 +59,8 @@ export function TablesPage() {
   const [floorId, setFloorId] = useState('');
   const [sectionId, setSectionId] = useState('');
   const [newFloorName, setNewFloorName] = useState('');
+  const [editingFloorId, setEditingFloorId] = useState<string | null>(null);
+  const [editingFloorName, setEditingFloorName] = useState('');
   const [floorFilter, setFloorFilter] = useState<string>('all');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +137,58 @@ export function TablesPage() {
       setMessage(null);
     },
   });
+
+  const renameFloorMutation = useMutation({
+    mutationFn: (payload: { floorId: string; name: string }) =>
+      tablesApi.updateFloor(outletId!, payload.floorId, { name: payload.name }),
+    onSuccess: (floor) => {
+      setMessage(`Floor renamed to “${floor?.name ?? ''}”.`);
+      setError(null);
+      setEditingFloorId(null);
+      queryClient.invalidateQueries({ queryKey: ['floors', outletId] });
+      queryClient.invalidateQueries({ queryKey: ['tables', outletId] });
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+      setMessage(null);
+    },
+  });
+
+  const deleteFloorMutation = useMutation({
+    mutationFn: (floor: FloorPlanFloor) => tablesApi.deleteFloor(outletId!, floor.id),
+    onSuccess: (_data, floor) => {
+      setMessage(`Floor “${floor.name}” deleted.`);
+      setError(null);
+      if (floorFilter === floor.id) setFloorFilter('all');
+      if (floorId === floor.id) {
+        setFloorId('');
+        setSectionId('');
+      }
+      queryClient.invalidateQueries({ queryKey: ['floors', outletId] });
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+      setMessage(null);
+    },
+  });
+
+  function floorTableCount(floor: FloorPlanFloor) {
+    return floor.sections.reduce((sum, s) => sum + s.tableCount, 0);
+  }
+
+  function confirmDeleteFloor(floor: FloorPlanFloor) {
+    const count = floorTableCount(floor);
+    if (count > 0) {
+      setError(
+        `“${floor.name}” still has ${count} table${count === 1 ? '' : 's'}. Move or delete its tables first.`,
+      );
+      setMessage(null);
+      return;
+    }
+    if (window.confirm(`Delete floor “${floor.name}”? This cannot be undone.`)) {
+      deleteFloorMutation.mutate(floor);
+    }
+  }
 
   const mergeMutation = useMutation({
     mutationFn: () => tablesApi.merge(outletId!, primaryId, selectedIds),
@@ -376,17 +430,93 @@ export function TablesPage() {
           </p>
         ) : (
           <ul className="mt-4 space-y-2 text-sm">
-            {floors.map((f) => (
-              <li
-                key={f.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
-              >
-                <span className="font-medium text-text-primary">{f.name}</span>
-                <span className="text-xs text-text-muted">
-                  {f.sections.map((s) => `${s.name} (${s.tableCount})`).join(' · ') || 'No sections'}
-                </span>
-              </li>
-            ))}
+            {floors.map((f) => {
+              const isEditing = editingFloorId === f.id;
+              const trimmed = editingFloorName.trim();
+              return (
+                <li
+                  key={f.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                >
+                  {isEditing ? (
+                    <form
+                      className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!trimmed || trimmed === f.name) {
+                          setEditingFloorId(null);
+                          return;
+                        }
+                        renameFloorMutation.mutate({ floorId: f.id, name: trimmed });
+                      }}
+                    >
+                      <input
+                        autoFocus
+                        aria-label={`Rename floor ${f.name}`}
+                        className="h-9 min-w-[10rem] flex-1 rounded-lg border border-white/10 bg-bg-card px-3 text-sm text-text-primary outline-none focus:border-brand-primary"
+                        value={editingFloorName}
+                        maxLength={80}
+                        onChange={(e) => setEditingFloorName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') setEditingFloorId(null);
+                        }}
+                      />
+                      <Button
+                        type="submit"
+                        size="sm"
+                        loading={renameFloorMutation.isPending}
+                        disabled={!trimmed}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditingFloorId(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="min-w-0">
+                        <span className="font-medium text-text-primary">{f.name}</span>
+                        <span className="ml-2 text-xs text-text-muted">
+                          {f.sections.map((s) => `${s.name} (${s.tableCount})`).join(' · ') ||
+                            'No sections'}
+                        </span>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingFloorId(f.id);
+                            setEditingFloorName(f.name);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-status-error"
+                          loading={
+                            deleteFloorMutation.isPending && deleteFloorMutation.variables?.id === f.id
+                          }
+                          onClick={() => confirmDeleteFloor(f)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>

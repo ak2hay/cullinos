@@ -3,11 +3,12 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  OnModuleDestroy,
   UnauthorizedException,
 } from "@nestjs/common";
 import { createHash, randomBytes } from "crypto";
 import { hashPassword, verifyPassword } from "@cullinos/auth";
-import type { Prisma } from "@prisma/client";
+import { PrismaClient, type Prisma } from "@prisma/client";
 import { generateTemporaryPassword } from "../../common/generate-password";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuthService } from "../auth/auth.service";
@@ -52,7 +53,13 @@ function buildDaySeries(days: number, start: Date): string[] {
 }
 
 @Injectable()
-export class SuperAdminService {
+export class SuperAdminService implements OnModuleDestroy {
+  private labsClient: PrismaClient | null = null;
+
+  async onModuleDestroy() {
+    await this.labsClient?.$disconnect();
+  }
+
   constructor(
     private prisma: PrismaService,
     private provisioning: TenantProvisioningService,
@@ -1189,6 +1196,31 @@ export class SuperAdminService {
     };
   }
 
+  /**
+   * Labs SQL connection. Set LABS_DATABASE_URL to a read-only Postgres role in production;
+   * falls back to the app connection (still wrapped in a READ ONLY transaction).
+   */
+  private labsDb(): PrismaClient {
+    const url = process.env.LABS_DATABASE_URL?.trim();
+    if (!url) return this.prisma;
+    if (!this.labsClient) {
+      this.labsClient = new PrismaClient({ datasources: { db: { url } } });
+    }
+    return this.labsClient;
+  }
+
+  startLabsStepUp(userId: string, email: string) {
+    return this.auth.startStepUp(userId, email);
+  }
+
+  verifyLabsStepUp(userId: string, challengeToken: string, otp: string) {
+    return this.auth.verifyStepUp(userId, challengeToken, otp);
+  }
+
+  assertLabsStepUp(userId: string, token: string | undefined) {
+    this.auth.assertStepUp(userId, token);
+  }
+
   async runLabsSql(sqlRaw: string, actorEmail: string) {
     const preview = sqlRaw.trim().slice(0, LABS_SQL_PREVIEW_CHARS);
     const started = Date.now();
@@ -1212,8 +1244,10 @@ export class SuperAdminService {
     const limitedSql = `SELECT * FROM (${sql}) AS labs_q LIMIT ${LABS_SQL_MAX_ROWS + 1}`;
 
     try {
-      const rows = await this.prisma.$transaction(
+      const rows = await this.labsDb().$transaction(
         async (tx) => {
+          // Must be the first statement: Postgres rejects any write for the rest of the tx.
+          await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");
           await tx.$executeRawUnsafe(
             `SET LOCAL statement_timeout = '${LABS_SQL_TIMEOUT_MS}'`,
           );

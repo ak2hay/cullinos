@@ -13,7 +13,9 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(
+    () => localStorage.getItem(POS_REMEMBER_KEY) === 'true',
+  );
   const [captchaToken, setCaptchaToken] = useState('');
   const turnstileOn = isTurnstileEnabled(TURNSTILE_SITE_KEY);
   const onCaptchaToken = useCallback((token: string) => setCaptchaToken(token), []);

@@ -56,6 +56,8 @@ export class MarketplaceService {
         this.platformConfig.get("GUEST_APP_MAINTENANCE") || null,
       playStoreUrl:
         this.platformConfig.get("GUEST_APP_PLAY_STORE_URL") || null,
+      waiterPlayStoreUrl:
+        this.platformConfig.get("WAITER_APP_PLAY_STORE_URL") || null,
       supportUrl: this.platformConfig.get("GUEST_APP_SUPPORT_URL") || null,
       privacyUrl: this.platformConfig.get("GUEST_APP_PRIVACY_URL") || null,
       termsUrl: this.platformConfig.get("GUEST_APP_TERMS_URL") || null,

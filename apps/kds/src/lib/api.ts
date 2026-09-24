@@ -191,9 +191,8 @@ export const outletsApi = {
 
 export const kitchenApi = {
   getDisplay: (outletId: string, stationId?: string) => {
-    const query = stationId ? `?stationId=${stationId}` : '';
-    // Display board is public; still send auth when available for consistency.
-    return apiRequest<KitchenDisplayData>(`/kitchen/outlets/${outletId}/display${query}`, {}, false);
+    const query = stationId ? `?stationId=${encodeURIComponent(stationId)}` : '';
+    return apiRequest<KitchenDisplayData>(`/kitchen/outlets/${outletId}/display${query}`);
   },
 
   updateItemStatus: (itemId: string, status: KotItemStatus) =>

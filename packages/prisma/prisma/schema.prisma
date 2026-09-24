@@ -31,6 +31,7 @@ enum UserStatus {
 enum EmailOtpPurpose {
   login_2fa
   password_reset
+  labs_step_up
 }
 
 enum EmailCampaignScope {

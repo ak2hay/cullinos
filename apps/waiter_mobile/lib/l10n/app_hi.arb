@@ -96,5 +96,8 @@
   "usePhoneInstead": "Use phone instead",
   "confirmLanguage": "Confirm language",
   "languageChanged": "Language updated",
-  "allFloors": "All floors"
+  "allFloors": "All floors",
+  "portalDisabledTitle": "वेटर ऐप बंद है",
+  "portalDisabledBody": "Cullinos ने वेटर ऐप को अस्थायी रूप से बंद कर दिया है। कृपया अपने मैनेजर से संपर्क करें या एडमिन पोर्टल का उपयोग करें।",
+  "checkAgain": "फिर से जाँचें"
 }

@@ -96,5 +96,8 @@
   "usePhoneInstead": "Use phone instead",
   "confirmLanguage": "Confirm language",
   "languageChanged": "Language updated",
-  "allFloors": "All floors"
+  "allFloors": "All floors",
+  "portalDisabledTitle": "ওয়েটার অ্যাপ বন্ধ আছে",
+  "portalDisabledBody": "Cullinos ওয়েটার অ্যাপটি সাময়িকভাবে বন্ধ করেছে। অনুগ্রহ করে আপনার ম্যানেজারের সাথে যোগাযোগ করুন বা অ্যাডমিন পোর্টাল ব্যবহার করুন।",
+  "checkAgain": "আবার দেখুন"
 }

@@ -37,14 +37,18 @@ describe("sandbox-access.util", () => {
   });
 
   it("honors sandbox flags when environment is sandbox", () => {
-    expect(sandboxAllowsEmailOtpSkip(sandbox)).toBe(true);
-    expect(sandboxAllowsSmsOtpSkip(sandbox)).toBe(true);
+    const devEnv = { NODE_ENV: "development" } as NodeJS.ProcessEnv;
+    expect(sandboxAllowsEmailOtpSkip(sandbox, devEnv)).toBe(true);
+    expect(sandboxAllowsSmsOtpSkip(sandbox, devEnv)).toBe(true);
     expect(sandboxAllowsRelaxedPassword(sandbox)).toBe(true);
     expect(
-      sandboxAllowsEmailOtpSkip({
-        ...sandbox,
-        sandboxSkipEmailOtp: false,
-      }),
+      sandboxAllowsEmailOtpSkip(
+        {
+          ...sandbox,
+          sandboxSkipEmailOtp: false,
+        },
+        devEnv,
+      ),
     ).toBe(false);
   });
 

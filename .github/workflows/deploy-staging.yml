@@ -68,7 +68,7 @@ jobs:
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
           NS=staging
-          for d in api web spa-admin spa-management spa-super-admin spa-pos spa-kds spa-guest-landing spa-waiter-landing; do
+          for d in api web spa-admin spa-management spa-super-admin spa-pos spa-kds spa-kiosk spa-guest-landing spa-waiter-landing; do
             IMG="ghcr.io/ak2hay/cullinos-${d/spa-/spa-}"
             case "$d" in
               api) IMG=ghcr.io/ak2hay/cullinos-api ;;
@@ -78,6 +78,7 @@ jobs:
               spa-super-admin) IMG=ghcr.io/ak2hay/cullinos-spa-super-admin ;;
               spa-pos) IMG=ghcr.io/ak2hay/cullinos-spa-pos ;;
               spa-kds) IMG=ghcr.io/ak2hay/cullinos-spa-kds ;;
+              spa-kiosk) IMG=ghcr.io/ak2hay/cullinos-spa-kiosk ;;
               spa-guest-landing) IMG=ghcr.io/ak2hay/cullinos-spa-guest-landing ;;
               spa-waiter-landing) IMG=ghcr.io/ak2hay/cullinos-spa-waiter-landing ;;
             esac

@@ -299,4 +299,14 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get allFloors => 'All floors';
+
+  @override
+  String get portalDisabledTitle => 'वेटर ऐप बंद है';
+
+  @override
+  String get portalDisabledBody =>
+      'Cullinos ने वेटर ऐप को अस्थायी रूप से बंद कर दिया है। कृपया अपने मैनेजर से संपर्क करें या एडमिन पोर्टल का उपयोग करें।';
+
+  @override
+  String get checkAgain => 'फिर से जाँचें';
 }

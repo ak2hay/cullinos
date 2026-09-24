@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PhoneField } from '@cullinos/ui';
 import { formatMoney } from '@/lib/format';
 import { useCartStore } from './cartStore';
@@ -19,6 +20,8 @@ interface CartSidebarProps {
   onCash: () => void;
   onOnline: () => void;
   cashDisabled?: boolean;
+  /** When set, UPI/card tender is unavailable (e.g. no gateway configured). */
+  onlineDisabledReason?: string | null;
   unpaidOrder?: UnpaidTicket | null;
   unpaidBalance?: { total: number; remaining: number; paid: number } | null;
   splitItems?: Array<{ id: string; name: string; quantity: number }>;
@@ -57,12 +60,14 @@ interface CartSidebarProps {
   onManualDiscountChange?: (amount: number) => void;
   partialCashAmount?: number;
   onPartialCashAmountChange?: (amount: number | undefined) => void;
+  onBack?: () => void;
 }
 
 export function CartSidebar({
   onCash,
   onOnline,
   cashDisabled = false,
+  onlineDisabledReason = null,
   unpaidOrder,
   unpaidBalance = null,
   splitItems = [],
@@ -101,7 +106,9 @@ export function CartSidebar({
   onManualDiscountChange,
   partialCashAmount,
   onPartialCashAmountChange,
+  onBack,
 }: CartSidebarProps) {
+  const { t } = useTranslation();
   const lines = useCartStore((s) => s.lines);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
@@ -117,10 +124,20 @@ export function CartSidebar({
   const duePaise = Math.max(0, subtotal + tipPaise - discountPaise);
 
   return (
-    <aside className="flex h-full min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-white/5 bg-bg-secondary lg:w-[26rem] lg:border-l lg:border-t-0">
-      <div className="flex shrink-0 items-center justify-between border-b border-white/5 px-5 py-4">
-        <div>
-          <h2 className="text-lg font-semibold">Current order</h2>
+    <aside className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden border-t border-white/5 bg-bg-secondary lg:w-[26rem] lg:flex-none lg:border-l lg:border-t-0">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/5 px-4 py-3 lg:px-5 lg:py-4">
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex h-10 shrink-0 items-center gap-1 rounded-lg border border-white/10 px-3 text-sm font-medium text-text-secondary active:scale-95 lg:hidden"
+            aria-label="Back to menu"
+          >
+            <span aria-hidden="true">←</span> Menu
+          </button>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-semibold">{t('pos.currentOrder')}</h2>
           <p className="text-sm text-text-muted">
             {itemCount} {itemCount === 1 ? 'item' : 'items'}
           </p>
@@ -135,8 +152,8 @@ export function CartSidebar({
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {lines.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/10 bg-bg-primary/40 px-4 py-8 text-center">
-            <p className="text-sm font-medium text-text-secondary">Cart is empty</p>
-            <p className="text-xs text-text-muted">Tap menu items to build the order</p>
+            <p className="text-sm font-medium text-text-secondary">{t('pos.cartEmpty')}</p>
+            <p className="text-xs text-text-muted">{t('pos.cartEmptyHint')}</p>
           </div>
         ) : (
           <ul className="space-y-2">
@@ -367,7 +384,8 @@ export function CartSidebar({
               </button>
               <button
                 type="button"
-                disabled={checkoutLoading}
+                disabled={checkoutLoading || Boolean(onlineDisabledReason)}
+                title={onlineDisabledReason ?? undefined}
                 onClick={onRetryUnpaidOnline}
                 className="rounded-lg border border-white/10 px-2 py-2 text-xs font-semibold disabled:opacity-40"
               >
@@ -408,13 +426,13 @@ export function CartSidebar({
       <div className="shrink-0 space-y-3 border-t border-white/5 bg-bg-secondary p-4">
         {discountPaise > 0 ? (
           <div className="flex items-center justify-between text-sm text-text-muted">
-            <span>Loyalty discount</span>
+            <span>{t('pos.loyaltyDiscount')}</span>
             <span className="font-mono">−{formatMoney(discountPaise)}</span>
           </div>
         ) : null}
         <div className="flex items-center justify-between text-lg">
           <span className="text-text-secondary">
-            {unpaidBalance ? 'Remaining' : 'Subtotal'}
+            {unpaidBalance ? t('pos.remaining') : t('pos.subtotal')}
           </span>
           <span className="font-mono font-semibold text-brand-primary">
             {unpaidBalance
@@ -430,12 +448,12 @@ export function CartSidebar({
           className="h-14 w-full rounded-2xl bg-brand-primary text-lg font-bold text-bg-primary shadow-lg shadow-brand-primary/20 transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
         >
           {checkoutLoading
-            ? 'Processing…'
+            ? t('pos.processing')
             : unpaidOrder
-              ? 'Pay remainder'
+              ? t('pos.payRemainder')
               : partialCashAmount
-                ? 'Pay amount'
-                : 'Pay full'}
+                ? t('pos.payAmount')
+                : t('pos.payFull')}
         </button>
 
         {tenderOpen && (canCharge || unpaidOrder) ? (
@@ -449,19 +467,23 @@ export function CartSidebar({
               }}
               className="h-12 rounded-xl bg-brand-primary/20 font-medium text-brand-primary disabled:opacity-40"
             >
-              {cashDisabled ? 'Cash (open shift)' : 'Cash (Enter)'}
+              {cashDisabled ? t('pos.cashOpenShift') : t('pos.cashEnter')}
             </button>
             <button
               type="button"
-              disabled={checkoutLoading}
+              disabled={checkoutLoading || Boolean(onlineDisabledReason)}
+              title={onlineDisabledReason ?? undefined}
               onClick={() => {
                 setTenderOpen(false);
                 onOnline();
               }}
               className="h-12 rounded-xl border border-white/10 font-medium disabled:opacity-40"
             >
-              UPI / card
+              {t('pos.upiCard')}
             </button>
+            {onlineDisabledReason ? (
+              <p className="col-span-2 text-xs text-text-muted">{onlineDisabledReason}</p>
+            ) : null}
           </div>
         ) : null}
 
@@ -472,7 +494,7 @@ export function CartSidebar({
             onClick={onHold}
             className="h-12 rounded-xl border border-white/10 bg-bg-elevated font-medium transition active:scale-[0.98] disabled:opacity-40"
           >
-            {holdLoading ? 'Holding…' : 'Hold (H)'}
+            {holdLoading ? t('pos.holding') : t('pos.hold')}
           </button>
           <button
             type="button"

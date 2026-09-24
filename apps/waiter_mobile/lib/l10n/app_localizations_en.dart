@@ -300,4 +300,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get allFloors => 'All floors';
+
+  @override
+  String get portalDisabledTitle => 'Waiter app is turned off';
+
+  @override
+  String get portalDisabledBody =>
+      'Cullinos has temporarily turned off the waiter app. Please contact your manager or use the admin portal.';
+
+  @override
+  String get checkAgain => 'Check again';
 }

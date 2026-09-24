@@ -10,7 +10,7 @@ import {
   paymentsApi,
   posApi,
 } from '@/lib/api';
-import { generateIdempotencyKey } from '@/lib/format';
+import { formatMoney, generateIdempotencyKey } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
 import { CartSidebar, type PosCustomer } from './CartSidebar';
 import { CategoryTabs } from './CategoryTabs';
@@ -80,7 +80,17 @@ export function PortalPosPage() {
   const [splitSelectIds, setSplitSelectIds] = useState<string[]>([]);
   const [ebillOrderId, setEbillOrderId] = useState<string | null>(null);
   const [recentIds, setRecentIds] = useState<string[]>(() => loadRecentIds());
+  const [mobileView, setMobileView] = useState<'menu' | 'cart'>('menu');
   const redeemAppliedOrderId = useRef<string | null>(null);
+  const prevLineCount = useRef(lines.length);
+  const cartItemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
+
+  useEffect(() => {
+    if (prevLineCount.current > 0 && lines.length === 0 && !unpaidOrder) {
+      setMobileView('menu');
+    }
+    prevLineCount.current = lines.length;
+  }, [lines.length, unpaidOrder]);
 
   const outletsQuery = useQuery({
     queryKey: ['outlets'],
@@ -108,6 +118,17 @@ export function PortalPosPage() {
     | null
     | undefined;
   const hasOpenShift = Boolean(openShift?.id);
+
+  const gatewayStatusQuery = useQuery({
+    queryKey: ['payments', 'gateway-status', outletId],
+    queryFn: () => paymentsApi.gatewayStatus(outletId!),
+    enabled: Boolean(outletId),
+    staleTime: 60_000,
+  });
+  const onlineDisabledReason =
+    gatewayStatusQuery.data?.onlineEnabled === false
+      ? 'UPI/card is off: connect Razorpay or Cashfree in Settings → Payments.'
+      : null;
 
   const unpaidBalanceQuery = useQuery({
     queryKey: ['pos', 'balance', unpaidOrder?.id],
@@ -404,7 +425,7 @@ export function PortalPosPage() {
       try {
         if (intent.provider === 'cashfree') {
           if (!intent.paymentSessionId || !intent.cashfreeOrderId) {
-            throw new Error('Cashfree session is missing. Configure Payments for this restaurant.');
+            throw new Error('Cashfree session is missing. Configure it in Settings → Payments.');
           }
           await openCashfreeCheckout({
             paymentSessionId: intent.paymentSessionId,
@@ -419,7 +440,7 @@ export function PortalPosPage() {
           const key = intent.keyId;
           if (!key || !intent.razorpayOrderId) {
             throw new Error(
-              'Razorpay is not configured. Add Key ID under Payments for this restaurant.',
+              'Razorpay is not configured. Add the Key ID in Settings → Payments.',
             );
           }
           const result = await openRazorpayCheckout({
@@ -671,12 +692,14 @@ export function PortalPosPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[radial-gradient(ellipse_at_top,_var(--color-bg-secondary)_0%,_var(--color-bg-primary)_55%)]">
-      <div className="flex shrink-0 items-center gap-3 border-b border-white/5 px-4 py-2.5">
+      <div className="flex shrink-0 items-center gap-2 border-b border-white/5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
         <div className="min-w-0 flex-1">
           <SearchBar ref={searchRef} value={search} onChange={setSearch} />
         </div>
-        <KeyboardHints />
-        <div className="relative">
+        <div className="hidden lg:block">
+          <KeyboardHints />
+        </div>
+        <div className="relative shrink-0">
           <HeldOrdersPanel
             orders={heldOrders}
             onResume={resumeHeld}
@@ -687,10 +710,10 @@ export function PortalPosPage() {
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/5 bg-bg-elevated/60 px-4 py-2 text-sm">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/5 bg-bg-elevated/60 px-3 py-1.5 text-xs sm:gap-3 sm:px-4 sm:py-2 sm:text-sm">
         {hasOpenShift ? (
           <>
-            <p className="text-text-secondary">
+            <p className="min-w-0 truncate text-text-secondary">
               Shift open
               {openShift?.openedAt
                 ? ` · since ${new Date(openShift.openedAt).toLocaleTimeString()}`
@@ -707,7 +730,7 @@ export function PortalPosPage() {
           </>
         ) : (
           <>
-            <p className="text-status-warning">No open shift — cash tender blocked</p>
+            <p className="min-w-0 truncate text-status-warning">No open shift — cash tender blocked</p>
             <button
               type="button"
               disabled={openShiftMutation.isPending}
@@ -756,7 +779,11 @@ export function PortalPosPage() {
       ) : null}
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <main className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
+        <main
+          className={`${
+            mobileView === 'cart' ? 'hidden lg:flex' : 'flex'
+          } min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4`}
+        >
           {menuQuery.isLoading ? (
             <div className="flex flex-1 items-center justify-center text-text-muted">
               Loading menu…
@@ -809,11 +836,39 @@ export function PortalPosPage() {
           )}
         </main>
 
-        <div className="flex h-full min-h-0 w-full shrink-0 flex-col lg:w-[26rem]">
+        {mobileView === 'menu' && (cartItemCount > 0 || unpaidOrder) ? (
+          <div className="shrink-0 border-t border-white/5 bg-bg-secondary px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileView('cart')}
+              className="flex h-12 w-full items-center justify-between gap-3 rounded-xl bg-brand-primary px-4 text-bg-primary shadow-lg active:scale-[0.99]"
+            >
+              <span className="flex items-center gap-2 text-sm font-semibold">
+                <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-bg-primary/20 px-2 font-mono">
+                  {cartItemCount}
+                </span>
+                {cartItemCount === 1 ? 'item' : 'items'}
+              </span>
+              <span className="flex items-center gap-2 text-sm font-bold">
+                {unpaidOrder && cartItemCount === 0 ? 'Pending payment' : formatMoney(subtotal())}
+                <span aria-hidden="true">→</span>
+                <span>View cart</span>
+              </span>
+            </button>
+          </div>
+        ) : null}
+
+        <div
+          className={`${
+            mobileView === 'menu' ? 'hidden lg:flex' : 'flex'
+          } min-h-0 w-full flex-1 flex-col lg:h-full lg:w-[26rem] lg:flex-none`}
+        >
         <CartSidebar
+          onBack={() => setMobileView('menu')}
           onCash={handleCash}
           onOnline={handleOnline}
           cashDisabled={!hasOpenShift}
+          onlineDisabledReason={onlineDisabledReason}
           unpaidOrder={unpaidOrder}
           unpaidBalance={unpaidBalanceQuery.data ?? null}
           splitItems={(unpaidDetailQuery.data?.items ?? []).map((it) => ({

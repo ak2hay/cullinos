@@ -72,7 +72,7 @@ jobs:
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
           NS=production
-          for d in api web spa-admin spa-management spa-super-admin spa-pos spa-kds spa-guest-landing spa-waiter-landing; do
+          for d in api web spa-admin spa-management spa-super-admin spa-pos spa-kds spa-kiosk spa-guest-landing spa-waiter-landing; do
             case "$d" in
               api) IMG=ghcr.io/ak2hay/cullinos-api; CTR=api ;;
               web) IMG=ghcr.io/ak2hay/cullinos-web; CTR=web ;;
@@ -81,6 +81,7 @@ jobs:
               spa-super-admin) IMG=ghcr.io/ak2hay/cullinos-spa-super-admin; CTR=nginx ;;
               spa-pos) IMG=ghcr.io/ak2hay/cullinos-spa-pos; CTR=nginx ;;
               spa-kds) IMG=ghcr.io/ak2hay/cullinos-spa-kds; CTR=nginx ;;
+              spa-kiosk) IMG=ghcr.io/ak2hay/cullinos-spa-kiosk; CTR=nginx ;;
               spa-guest-landing) IMG=ghcr.io/ak2hay/cullinos-spa-guest-landing; CTR=nginx ;;
               spa-waiter-landing) IMG=ghcr.io/ak2hay/cullinos-spa-waiter-landing; CTR=nginx ;;
             esac

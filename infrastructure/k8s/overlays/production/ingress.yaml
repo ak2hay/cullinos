@@ -17,6 +17,7 @@ spec:
         - platform.cullinos.com
         - pos.cullinos.com
         - kds.cullinos.com
+        - kiosk.cullinos.com
         - guest.cullinos.com
         - waiter.cullinos.com
         - cullinos.com
@@ -80,6 +81,16 @@ spec:
             backend:
               service:
                 name: spa-kds
+                port:
+                  number: 80
+    - host: kiosk.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-kiosk
                 port:
                   number: 80
     - host: guest.cullinos.com

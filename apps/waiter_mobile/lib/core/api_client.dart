@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cullinos_waiter/core/config.dart';
+import 'package:cullinos_waiter/core/portal_status.dart';
 import 'package:cullinos_waiter/features/auth/auth_controller.dart';
 
 final dioProvider = Provider<Dio>((ref) {
@@ -9,7 +10,11 @@ final dioProvider = Provider<Dio>((ref) {
       baseUrl: AppConfig.current.apiBaseUrl,
       connectTimeout: const Duration(seconds: 20),
       receiveTimeout: const Duration(seconds: 30),
-      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Cullinos-Portal': waiterPortalId,
+      },
     ),
   );
   dio.interceptors.add(
@@ -23,6 +28,11 @@ final dioProvider = Provider<Dio>((ref) {
       },
       onError: (e, handler) {
         if (e.response?.statusCode == 401) {
+          ref.read(authControllerProvider).clearUnauthorizedSession();
+        }
+        final disabledMessage = portalDisabledMessageFrom(e);
+        if (disabledMessage != null) {
+          ref.read(portalStatusProvider).markDisabled(disabledMessage);
           ref.read(authControllerProvider).clearUnauthorizedSession();
         }
         handler.next(e);
