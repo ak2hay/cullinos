@@ -19,6 +19,8 @@ interface CartSidebarProps {
   onCash: () => void;
   onOnline: () => void;
   cashDisabled?: boolean;
+  /** When set, UPI/card tender is unavailable (e.g. no gateway configured). */
+  onlineDisabledReason?: string | null;
   unpaidOrder?: UnpaidTicket | null;
   unpaidBalance?: { total: number; remaining: number; paid: number } | null;
   splitItems?: Array<{ id: string; name: string; quantity: number }>;
@@ -57,12 +59,14 @@ interface CartSidebarProps {
   onManualDiscountChange?: (amount: number) => void;
   partialCashAmount?: number;
   onPartialCashAmountChange?: (amount: number | undefined) => void;
+  onBack?: () => void;
 }
 
 export function CartSidebar({
   onCash,
   onOnline,
   cashDisabled = false,
+  onlineDisabledReason = null,
   unpaidOrder,
   unpaidBalance = null,
   splitItems = [],
@@ -101,6 +105,7 @@ export function CartSidebar({
   onManualDiscountChange,
   partialCashAmount,
   onPartialCashAmountChange,
+  onBack,
 }: CartSidebarProps) {
   const lines = useCartStore((s) => s.lines);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
@@ -117,9 +122,19 @@ export function CartSidebar({
   const duePaise = Math.max(0, subtotal + tipPaise - discountPaise);
 
   return (
-    <aside className="flex h-full min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-white/5 bg-bg-secondary lg:w-[26rem] lg:border-l lg:border-t-0">
-      <div className="flex shrink-0 items-center justify-between border-b border-white/5 px-5 py-4">
-        <div>
+    <aside className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden border-t border-white/5 bg-bg-secondary lg:w-[26rem] lg:flex-none lg:border-l lg:border-t-0">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/5 px-4 py-3 lg:px-5 lg:py-4">
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex h-10 shrink-0 items-center gap-1 rounded-lg border border-white/10 px-3 text-sm font-medium text-text-secondary active:scale-95 lg:hidden"
+            aria-label="Back to menu"
+          >
+            <span aria-hidden="true">←</span> Menu
+          </button>
+        ) : null}
+        <div className="min-w-0 flex-1">
           <h2 className="text-lg font-semibold">Current order</h2>
           <p className="text-sm text-text-muted">
             {itemCount} {itemCount === 1 ? 'item' : 'items'}
@@ -366,7 +381,8 @@ export function CartSidebar({
               </button>
               <button
                 type="button"
-                disabled={checkoutLoading}
+                disabled={checkoutLoading || Boolean(onlineDisabledReason)}
+                title={onlineDisabledReason ?? undefined}
                 onClick={onRetryUnpaidOnline}
                 className="rounded-lg border border-white/10 px-2 py-2 text-xs font-semibold disabled:opacity-40"
               >
@@ -452,7 +468,8 @@ export function CartSidebar({
             </button>
             <button
               type="button"
-              disabled={checkoutLoading}
+              disabled={checkoutLoading || Boolean(onlineDisabledReason)}
+              title={onlineDisabledReason ?? undefined}
               onClick={() => {
                 setTenderOpen(false);
                 onOnline();
@@ -461,6 +478,9 @@ export function CartSidebar({
             >
               UPI / card
             </button>
+            {onlineDisabledReason ? (
+              <p className="col-span-2 text-xs text-text-muted">{onlineDisabledReason}</p>
+            ) : null}
           </div>
         ) : null}
 

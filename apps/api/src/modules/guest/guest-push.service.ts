@@ -5,13 +5,13 @@ import { PlatformConfigService } from "../platform-config/platform-config.servic
 type PushPayload = {
   title: string;
   body: string;
+  imageUrl?: string | null;
   data?: Record<string, string>;
 };
 
 /**
- * FCM HTTP v1 sender. Uses platform setting `fcm.server_key` (legacy) or
- * `fcm.service_account_json` when available. In development without config,
- * logs and no-ops so guest flows stay usable.
+ * FCM legacy HTTP sender. Uses platform setting `FCM_SERVER_KEY`.
+ * Supports optional notification.image for Android tray BigPicture.
  */
 @Injectable()
 export class GuestPushService {
@@ -30,7 +30,10 @@ export class GuestPushService {
           title: payload.title,
           body: payload.body,
           type: payload.data?.type || "push",
-          data: payload.data ?? {},
+          data: {
+            ...(payload.data ?? {}),
+            ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {}),
+          },
         },
       });
     } catch (err) {
@@ -85,7 +88,17 @@ export class GuestPushService {
       return false;
     }
 
+    const imageUrl = payload.imageUrl?.trim() || payload.data?.imageUrl?.trim();
+    const data: Record<string, string> = { ...(payload.data ?? {}) };
+    if (imageUrl) data.imageUrl = imageUrl;
+
     try {
+      const notification: Record<string, string> = {
+        title: payload.title,
+        body: payload.body,
+      };
+      if (imageUrl) notification.image = imageUrl;
+
       const res = await fetch("https://fcm.googleapis.com/fcm/send", {
         method: "POST",
         headers: {
@@ -94,11 +107,8 @@ export class GuestPushService {
         },
         body: JSON.stringify({
           to: token,
-          notification: {
-            title: payload.title,
-            body: payload.body,
-          },
-          data: payload.data ?? {},
+          notification,
+          data,
           priority: "high",
         }),
       });

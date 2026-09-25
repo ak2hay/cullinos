@@ -436,6 +436,16 @@ class GuestApi {
     await _dio.post('/public/guest/notifications/read-all');
   }
 
+  Future<void> deleteNotification(String id) async {
+    await _dio.delete('/public/guest/notifications/$id');
+  }
+
+  Future<int> unreadNotificationCount() async {
+    final res = await _dio.get('/public/guest/notifications/unread-count');
+    final data = Map<String, dynamic>.from(res.data as Map);
+    return (data['count'] as num?)?.toInt() ?? 0;
+  }
+
   Future<Map<String, dynamic>> notificationPrefs() async {
     final res = await _dio.get('/public/guest/notification-preferences');
     return Map<String, dynamic>.from(res.data as Map);

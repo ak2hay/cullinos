@@ -31,6 +31,7 @@ enum UserStatus {
 enum EmailOtpPurpose {
   login_2fa
   password_reset
+  labs_step_up
 }
 
 enum EmailCampaignScope {
@@ -1682,6 +1683,8 @@ model GuestUser {
   marketingEmailOptIn Boolean   @default(false) @map("marketing_email_opt_in")
   marketingSmsOptIn   Boolean   @default(false) @map("marketing_sms_opt_in")
   anonymizedAt        DateTime? @map("anonymized_at")
+  suspendedAt         DateTime? @map("suspended_at")
+  suspendReason       String?   @map("suspend_reason")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
@@ -1889,6 +1892,11 @@ model GuestPushCampaign {
   title          String
   body           String
   data           Json      @default("{}")
+  imageUrl       String?   @map("image_url")
+  /// offer | alert | promo | custom
+  stylePreset    String?   @map("style_preset")
+  /// { titleColor, bodyColor, bgColor, accentColor, fontFamily, ctaLabel, headlineSize? }
+  creative       Json      @default("{}")
   /// all | org_members | city | org | marketing_opt_in
   audience       String    @default("org_members")
   audienceFilter Json      @default("{}") @map("audience_filter")

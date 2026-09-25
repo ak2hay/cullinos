@@ -22,9 +22,13 @@ images:
     newTag: latest
   - name: ghcr.io/ak2hay/cullinos-spa-super-admin
     newTag: latest
+  - name: ghcr.io/ak2hay/cullinos-spa-app-ops
+    newTag: latest
   - name: ghcr.io/ak2hay/cullinos-spa-pos
     newTag: latest
   - name: ghcr.io/ak2hay/cullinos-spa-kds
+    newTag: latest
+  - name: ghcr.io/ak2hay/cullinos-spa-kiosk
     newTag: latest
   - name: ghcr.io/ak2hay/cullinos-spa-guest-landing
     newTag: latest

@@ -300,4 +300,24 @@ class AppLocalizationsPa extends AppLocalizations {
 
   @override
   String get allFloors => 'All floors';
+
+  @override
+  String get portalDisabledTitle => 'ਵੇਟਰ ਐਪ ਬੰਦ ਹੈ';
+
+  @override
+  String get portalDisabledBody =>
+      'Cullinos ਨੇ ਵੇਟਰ ਐਪ ਨੂੰ ਅਸਥਾਈ ਤੌਰ \'ਤੇ ਬੰਦ ਕੀਤਾ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਆਪਣੇ ਮੈਨੇਜਰ ਨਾਲ ਸੰਪਰਕ ਕਰੋ ਜਾਂ ਐਡਮਿਨ ਪੋਰਟਲ ਵਰਤੋ।';
+
+  @override
+  String get portalMaintenanceLabel => 'MAINTENANCE';
+
+  @override
+  String get portalMaintenanceTitle => 'Waiter app is under maintenance';
+
+  @override
+  String get portalMaintenanceBody =>
+      'Cullinos is performing maintenance on the waiter app. Please try again shortly.';
+
+  @override
+  String get checkAgain => 'ਦੁਬਾਰਾ ਜਾਂਚੋ';
 }

@@ -66,6 +66,34 @@ export const FEATURE_TO_MODULE: Partial<Record<FeatureKey, string>> = {
   [FEATURES.COUNTER_MODE]: 'pos',
 };
 
+/** Canonical subscription entitlement module keys for plan editors. */
+export const PLAN_MODULES = [
+  'pos',
+  'kds',
+  'admin',
+  'waiter',
+  'customer',
+  'menu',
+  'orders',
+  'tables',
+  'billing',
+  'tax',
+  'inventory',
+  'crm',
+  'loyalty',
+  'management',
+  'franchise',
+  'hotel',
+  'analytics',
+  'delivery',
+  'settings',
+  'reports',
+  'events',
+  'production',
+] as const;
+
+export type PlanModule = (typeof PLAN_MODULES)[number];
+
 export const PLAN_FEATURES: Record<string, FeatureKey[]> = {
   STARTER: [
     FEATURES.POS,

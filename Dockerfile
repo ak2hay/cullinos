@@ -19,12 +19,18 @@ RUN npm ci --include=dev \
 
 FROM node:22-alpine AS runner
 
+# Baked build SHA served by GET /api/v1/health (commit). CI passes github.sha;
+# Compose passes GIT_COMMIT from the host (see docs/DEPLOYMENT.md).
+ARG GIT_COMMIT=unknown
+
 WORKDIR /app
 
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    GIT_COMMIT=${GIT_COMMIT}
 
 LABEL org.opencontainers.image.title="cullinos-api" \
-      org.opencontainers.image.source="https://github.com/ak2hay/cullinos"
+      org.opencontainers.image.source="https://github.com/ak2hay/cullinos" \
+      org.opencontainers.image.revision="${GIT_COMMIT}"
 
 RUN apk add --no-cache openssl \
   && addgroup --system --gid 1001 nodejs \

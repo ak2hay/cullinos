@@ -224,7 +224,7 @@ export class PaymentCredentialsService {
 
     if (parsed.length === 0) {
       throw new BadRequestException(
-        "Online payments are not configured. Add Razorpay or Cashfree credentials under Payments.",
+        "Online payments are not configured. Add Razorpay or Cashfree credentials in Settings → Payments.",
       );
     }
 
@@ -248,6 +248,29 @@ export class PaymentCredentialsService {
 
     const entry = parsed.find((p) => p.provider === provider)!;
     return this.resolveFromConfig(orgId, outletId ?? null, provider, entry.config);
+  }
+
+  /** Whether online (UPI/card) checkout can run for this org/outlet, without exposing secrets. */
+  async onlineStatus(
+    orgId: string,
+    outletId?: string | null,
+  ): Promise<{ onlineEnabled: boolean; provider: PaymentGatewayProvider | null }> {
+    if (outletId) {
+      const outlet = await this.prisma.outlet.findFirst({
+        where: { id: outletId, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!outlet) throw new NotFoundException("Outlet not found");
+    }
+    try {
+      const resolved = await this.resolve(orgId, outletId ?? null);
+      return { onlineEnabled: true, provider: resolved.provider };
+    } catch (err) {
+      if (err instanceof BadRequestException) {
+        return { onlineEnabled: false, provider: null };
+      }
+      throw err;
+    }
   }
 
   /** Resolve credentials for a known provider (e.g. webhook verification). */
@@ -288,7 +311,7 @@ export class PaymentCredentialsService {
 
     if (!keyId || !secretEnc) {
       throw new BadRequestException(
-        `${provider} credentials are incomplete for this outlet. Configure them under Payments.`,
+        `${provider} credentials are incomplete for this outlet. Configure them in Settings → Payments.`,
       );
     }
 

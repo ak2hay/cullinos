@@ -14,10 +14,12 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
-import { OrgId, Public, RequireModule } from "../../common/decorators";
+import type { JwtPayload } from "@cullinos/auth";
+import { CurrentUser, OrgId, Public, RequireModule } from "../../common/decorators";
 import {
   MARKETING_UPLOAD_MAX_BYTES,
   MarketingUploadService,
+  uploadMaxBytesFor,
 } from "../marketing/marketing-upload.service";
 import { MenuService } from "./menu.service";
 
@@ -100,11 +102,17 @@ export class MenuController {
   )
   async uploadItemImage(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @Param("id") id: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file?.buffer) throw new BadRequestException("No file uploaded.");
-    const result = await this.uploadService.saveUploadedFile(file, `menu-item-${id}`, "menuItem");
+    const result = await this.uploadService.saveUploadedFile(
+      file,
+      `menu-item-${id}`,
+      "menuItem",
+      uploadMaxBytesFor(user),
+    );
     await this.service.setItemImageUrl(orgId, id, result.url);
     return { imageUrl: result.url, url: result.url };
   }

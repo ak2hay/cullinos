@@ -13,6 +13,11 @@ import paramiko
 
 ROOT = Path(__file__).resolve().parents[1]
 HOST = os.environ.get("DEPLOY_HOST", "95.135.254.46")
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from deploy_git import local_git_commit  # noqa: E402
+
+GIT_COMMIT = local_git_commit()
 PASSWORD = os.environ.get("DEPLOY_PASSWORD", "")
 APP_DIR = "/opt/cullinos"
 
@@ -169,13 +174,13 @@ def main() -> int:
         f"echo 'AUTH_SKIP_EMAIL_OTP=true' >> {APP_DIR}/.env; "
         f"grep -q '^NODE_ENV=' {APP_DIR}/.env || echo 'NODE_ENV=production' >> {APP_DIR}/.env; "
         f"grep -q '^CORS_ORIGINS=' {APP_DIR}/.env || "
-        f"echo 'CORS_ORIGINS=https://admin.cullinos.com,https://manage.cullinos.com,https://platform.cullinos.com,https://guest.cullinos.com,https://pos.cullinos.com,https://kds.cullinos.com,https://cullinos.com' >> {APP_DIR}/.env",
+        f"echo 'CORS_ORIGINS=https://admin.cullinos.com,https://manage.cullinos.com,https://platform.cullinos.com,https://guest.cullinos.com,https://pos.cullinos.com,https://kds.cullinos.com,https://kiosk.cullinos.com,https://cullinos.com' >> {APP_DIR}/.env",
     )
 
     print("Rebuilding API container from uploaded sources...", flush=True)
     code, log = run_detached(
         ssh,
-        f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml build api "
+        f"cd {APP_DIR} && GIT_COMMIT={GIT_COMMIT} docker compose -f docker-compose.prod.yml build api "
         f"&& docker compose -f docker-compose.prod.yml up -d postgres redis "
         f"&& docker compose -f docker-compose.prod.yml up -d --force-recreate api",
         "/tmp/cullinos-api-build.log",

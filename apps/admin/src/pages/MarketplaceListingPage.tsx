@@ -17,6 +17,7 @@ import {
 import {
   IMAGE_SLOT_HINTS,
   ImageUploadField,
+  useImageUploadMaxMb,
   validateClientImageFile,
 } from '@/components/ImageUploadField';
 import { outletsApi, type Outlet, type OutletPhoto, API_BASE } from '@/lib/api';
@@ -81,6 +82,7 @@ export function MarketplaceListingPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const selectedOutletId = useAuthStore((s) => s.selectedOutletId);
+  const uploadMaxMb = useImageUploadMaxMb();
   const [outletId, setOutletId] = useState('');
   const [form, setForm] = useState({
     marketplaceListed: false,
@@ -223,7 +225,7 @@ export function MarketplaceListingPage() {
     }
     setGalleryUploading(true);
     try {
-      await validateClientImageFile(file, IMAGE_SLOT_HINTS.outletGallery);
+      await validateClientImageFile(file, IMAGE_SLOT_HINTS.outletGallery, uploadMaxMb);
       await outletsApi.uploadPhoto(outletId, file, { setAsCover: photos.length === 0 });
       queryClient.invalidateQueries({ queryKey: ['outlets', outletId, 'photos'] });
       queryClient.invalidateQueries({ queryKey: ['outlets'] });
@@ -355,7 +357,7 @@ export function MarketplaceListingPage() {
               <p className="text-sm font-medium text-text-secondary">Restaurant photos</p>
               <p className="text-xs text-text-muted">
                 Gallery shown on the guest app menu (up to 8). Recommended 1200×900px (4:3),
-                PNG/JPG/WebP, max 5 MB. Cover is used as the hero.
+                PNG/JPG/WebP, max {uploadMaxMb} MB. Cover is used as the hero.
               </p>
             </div>
             <div>

@@ -21,7 +21,7 @@ import {
 import { printReceipt, type PrintableOrder } from '@/lib/printHelper';
 import { openRazorpayCheckout } from '@/lib/razorpay-checkout';
 import { openCashfreeCheckout } from '@/lib/cashfree-checkout';
-import { generateIdempotencyKey } from '@/lib/format';
+import { formatMoney, generateIdempotencyKey } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
 import { useCartStore } from '@/stores/cart';
 import { useHeldOrdersStore, type HeldOrder } from '@/stores/heldOrders';
@@ -83,7 +83,17 @@ export function PosPage() {
   const [splitSelectIds, setSplitSelectIds] = useState<string[]>([]);
   const [ebillOrderId, setEbillOrderId] = useState<string | null>(null);
   const [recentIds, setRecentIds] = useState<string[]>(() => loadRecentIds());
+  const [mobileView, setMobileView] = useState<'menu' | 'cart'>('menu');
   const redeemAppliedOrderId = useRef<string | null>(null);
+  const prevLineCount = useRef(lines.length);
+  const cartItemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
+
+  useEffect(() => {
+    if (prevLineCount.current > 0 && lines.length === 0 && !unpaidOrder) {
+      setMobileView('menu');
+    }
+    prevLineCount.current = lines.length;
+  }, [lines.length, unpaidOrder]);
 
   const outletsQuery = useQuery({
     queryKey: ['outlets'],
@@ -111,6 +121,17 @@ export function PosPage() {
     | null
     | undefined;
   const hasOpenShift = Boolean(openShift?.id);
+
+  const gatewayStatusQuery = useQuery({
+    queryKey: ['payments', 'gateway-status', outletId],
+    queryFn: () => paymentsApi.gatewayStatus(outletId!),
+    enabled: Boolean(outletId),
+    staleTime: 60_000,
+  });
+  const onlineDisabledReason =
+    gatewayStatusQuery.data?.onlineEnabled === false
+      ? 'UPI/card is off: ask an admin to connect Razorpay or Cashfree in Settings → Payments.'
+      : null;
 
   const unpaidBalanceQuery = useQuery({
     queryKey: ['pos', 'balance', unpaidOrder?.id],
@@ -395,7 +416,7 @@ export function PosPage() {
       try {
         if (intent.provider === 'cashfree') {
           if (!intent.paymentSessionId || !intent.cashfreeOrderId) {
-            throw new Error('Cashfree session is missing. Configure Payments for this restaurant.');
+            throw new Error('Cashfree session is missing. Configure it in Settings → Payments.');
           }
           await openCashfreeCheckout({
             paymentSessionId: intent.paymentSessionId,
@@ -410,7 +431,7 @@ export function PosPage() {
           const key = intent.keyId;
           if (!key || !intent.razorpayOrderId) {
             throw new Error(
-              'Razorpay is not configured. Add Key ID under Payments for this restaurant.',
+              'Razorpay is not configured. Add the Key ID in Settings → Payments.',
             );
           }
           const result = await openRazorpayCheckout({
@@ -649,15 +670,15 @@ export function PosPage() {
   const emptyMenu = !menuQuery.isLoading && (menuQuery.data?.items?.length ?? 0) === 0;
 
   return (
-    <div className="flex h-screen flex-col bg-[radial-gradient(ellipse_at_top,_var(--color-bg-secondary)_0%,_var(--color-bg-primary)_55%)]">
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-white/5 bg-bg-secondary/90 px-4 py-3 backdrop-blur">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-primary font-mono font-bold text-bg-primary shadow-md shadow-brand-primary/30">
+    <div className="flex h-[100dvh] flex-col bg-[radial-gradient(ellipse_at_top,_var(--color-bg-secondary)_0%,_var(--color-bg-primary)_55%)]">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-white/5 bg-bg-secondary/90 px-3 py-2 backdrop-blur sm:flex-nowrap sm:gap-4 sm:px-4 sm:py-3">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-primary font-mono font-bold text-bg-primary shadow-md shadow-brand-primary/30 sm:h-10 sm:w-10">
             C
           </div>
-          <div>
-            <p className="font-semibold tracking-tight">{CULLINOS_BRAND.name} POS</p>
-            <p className="text-xs text-text-muted">
+          <div className="min-w-0">
+            <p className="truncate font-semibold tracking-tight">{CULLINOS_BRAND.name} POS</p>
+            <p className="hidden truncate text-xs text-text-muted sm:block">
               {user?.firstName} {user?.lastName}
               {selectedOutlet ? ` · ${selectedOutlet.name}` : ''}
             </p>
@@ -668,12 +689,15 @@ export function PosPage() {
           <SearchBar ref={searchRef} value={search} onChange={setSearch} />
         </div>
 
-        <div className="flex items-center gap-3">
-          <KeyboardHints />
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <div className="hidden lg:block">
+            <KeyboardHints />
+          </div>
           <select
             value={outletId ?? ''}
             onChange={(e) => setSelectedOutlet(e.target.value || null)}
-            className="h-10 rounded-xl border border-white/10 bg-bg-elevated px-3 text-sm"
+            aria-label="Outlet"
+            className="h-9 min-w-0 max-w-[9rem] rounded-xl border border-white/10 bg-bg-elevated px-2 text-sm sm:h-10 sm:max-w-none sm:px-3"
           >
             {(outletsQuery.data ?? []).map((outlet) => (
               <option key={outlet.id} value={outlet.id}>
@@ -693,22 +717,22 @@ export function PosPage() {
           <button
             type="button"
             onClick={handleLogout}
-            className="rounded-xl border border-white/10 px-3 py-2 text-sm text-text-secondary hover:text-text-primary"
+            className="shrink-0 rounded-xl border border-white/10 px-2.5 py-2 text-xs text-text-secondary hover:text-text-primary sm:px-3 sm:text-sm"
           >
             Sign out
           </button>
         </div>
       </header>
 
-      <div className="border-b border-white/5 px-4 py-2 md:hidden">
+      <div className="border-b border-white/5 px-3 py-2 md:hidden">
         <SearchBar ref={searchRef} value={search} onChange={setSearch} />
       </div>
 
       {outletId ? (
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/5 bg-bg-elevated/60 px-4 py-2 text-sm">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/5 bg-bg-elevated/60 px-3 py-1.5 text-xs sm:gap-3 sm:px-4 sm:py-2 sm:text-sm">
           {hasOpenShift ? (
             <>
-              <p className="text-text-secondary">
+              <p className="min-w-0 truncate text-text-secondary">
                 Shift open
                 {openShift?.openedAt
                   ? ` · since ${new Date(openShift.openedAt).toLocaleTimeString()}`
@@ -725,7 +749,7 @@ export function PosPage() {
             </>
           ) : (
             <>
-              <p className="text-status-warning">No open shift — cash tender blocked</p>
+              <p className="min-w-0 truncate text-status-warning">No open shift — cash tender blocked</p>
               <button
                 type="button"
                 disabled={openShiftMutation.isPending}
@@ -775,7 +799,11 @@ export function PosPage() {
       ) : null}
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <main className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
+        <main
+          className={`${
+            mobileView === 'cart' ? 'hidden lg:flex' : 'flex'
+          } min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4`}
+        >
           {menuQuery.isLoading ? (
             <div className="flex flex-1 items-center justify-center text-text-muted">
               Loading menu…
@@ -823,11 +851,39 @@ export function PosPage() {
           )}
         </main>
 
-        <div className="flex h-full min-h-0 w-full shrink-0 flex-col lg:w-[26rem]">
+        {mobileView === 'menu' && (cartItemCount > 0 || unpaidOrder) ? (
+          <div className="shrink-0 border-t border-white/5 bg-bg-secondary px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileView('cart')}
+              className="flex h-12 w-full items-center justify-between gap-3 rounded-xl bg-brand-primary px-4 text-bg-primary shadow-lg active:scale-[0.99]"
+            >
+              <span className="flex items-center gap-2 text-sm font-semibold">
+                <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-bg-primary/20 px-2 font-mono">
+                  {cartItemCount}
+                </span>
+                {cartItemCount === 1 ? 'item' : 'items'}
+              </span>
+              <span className="flex items-center gap-2 text-sm font-bold">
+                {unpaidOrder && cartItemCount === 0 ? 'Pending payment' : formatMoney(subtotal())}
+                <span aria-hidden="true">→</span>
+                <span>View cart</span>
+              </span>
+            </button>
+          </div>
+        ) : null}
+
+        <div
+          className={`${
+            mobileView === 'menu' ? 'hidden lg:flex' : 'flex'
+          } min-h-0 w-full flex-1 flex-col lg:h-full lg:w-[26rem] lg:flex-none`}
+        >
           <CartSidebar
+            onBack={() => setMobileView('menu')}
             onCash={handleCash}
             onOnline={handleOnline}
             cashDisabled={!hasOpenShift}
+            onlineDisabledReason={onlineDisabledReason}
             unpaidOrder={unpaidOrder}
             unpaidBalance={unpaidBalanceQuery.data ?? null}
             splitItems={(unpaidDetailQuery.data?.items ?? []).map((it) => ({

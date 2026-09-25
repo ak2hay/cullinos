@@ -31,6 +31,7 @@ const fallbackColumns = [
     groupKey: 'contact',
     links: [
       { href: '/contact', label: 'Get in touch' },
+      { href: '/faq', label: 'FAQ' },
       { href: '/about', label: 'About us' },
       { href: `mailto:${BUSINESS_NAP.email}`, label: BUSINESS_NAP.email },
     ],

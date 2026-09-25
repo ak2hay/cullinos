@@ -127,4 +127,94 @@ export class GuestAppPrivacyService {
       message: "Guest user personal data anonymized; FCM devices removed",
     };
   }
+
+  async suspendGuestUser(
+    id: string,
+    reason: string | undefined,
+    actorUserId?: string,
+  ) {
+    const user = await this.prisma.guestUser.findUnique({
+      where: { id },
+      include: {
+        memberships: { select: { organizationId: true }, take: 1 },
+      },
+    });
+    if (!user) throw new NotFoundException("Guest user not found");
+    if (user.anonymizedAt) {
+      throw new BadRequestException("Guest user already anonymized");
+    }
+    if (user.suspendedAt) {
+      throw new BadRequestException("Guest user already suspended");
+    }
+
+    const suspendReason = reason?.trim() || null;
+    const updated = await this.prisma.guestUser.update({
+      where: { id },
+      data: {
+        suspendedAt: new Date(),
+        suspendReason,
+      },
+    });
+
+    // Drop push devices so suspended accounts stop receiving FCM.
+    await this.prisma.guestDevice.deleteMany({ where: { guestUserId: id } });
+
+    const orgId = user.memberships[0]?.organizationId;
+    if (orgId) {
+      await this.audit.log({
+        organizationId: orgId,
+        userId: actorUserId,
+        action: "guest_user_suspended",
+        entityType: "GuestUser",
+        entityId: id,
+        metadata: { reason: suspendReason },
+      });
+    }
+
+    return {
+      id: updated.id,
+      suspendedAt: updated.suspendedAt?.toISOString() ?? null,
+      suspendReason: updated.suspendReason,
+      message: "Guest user suspended",
+    };
+  }
+
+  async unsuspendGuestUser(id: string, actorUserId?: string) {
+    const user = await this.prisma.guestUser.findUnique({
+      where: { id },
+      include: {
+        memberships: { select: { organizationId: true }, take: 1 },
+      },
+    });
+    if (!user) throw new NotFoundException("Guest user not found");
+    if (!user.suspendedAt) {
+      throw new BadRequestException("Guest user is not suspended");
+    }
+
+    const updated = await this.prisma.guestUser.update({
+      where: { id },
+      data: {
+        suspendedAt: null,
+        suspendReason: null,
+      },
+    });
+
+    const orgId = user.memberships[0]?.organizationId;
+    if (orgId) {
+      await this.audit.log({
+        organizationId: orgId,
+        userId: actorUserId,
+        action: "guest_user_unsuspended",
+        entityType: "GuestUser",
+        entityId: id,
+        metadata: {},
+      });
+    }
+
+    return {
+      id: updated.id,
+      suspendedAt: null,
+      message: "Guest user unsuspended",
+    };
+  }
 }

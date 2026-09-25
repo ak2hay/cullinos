@@ -282,12 +282,13 @@ export interface SmsStatus {
   otpTtlSeconds: number;
 }
 
-export type ConfigSource = 'database' | 'environment' | 'missing';
+export type ConfigSource = 'database' | 'environment' | 'default' | 'missing';
 
 export type PlatformSettingsField = {
   key: string;
   label: string;
   isSecret: boolean;
+  type?: 'boolean';
   configured: boolean;
   source: ConfigSource;
   value?: string | null;
@@ -396,7 +397,16 @@ export const superAdminApi = {
       body: JSON.stringify(payload),
     }),
 
-  runLabsSql: (sql: string) =>
+  startLabsStepUp: () =>
+    apiRequest<{ challengeToken: string }>('/super-admin/labs/step-up', { method: 'POST' }),
+
+  verifyLabsStepUp: (challengeToken: string, otp: string) =>
+    apiRequest<{ stepUpToken: string; expiresInSeconds: number }>(
+      '/super-admin/labs/step-up/verify',
+      { method: 'POST', body: JSON.stringify({ challengeToken, otp }) },
+    ),
+
+  runLabsSql: (sql: string, stepUpToken: string) =>
     apiRequest<{
       columns: string[];
       rows: Record<string, unknown>[];
@@ -405,6 +415,7 @@ export const superAdminApi = {
     }>('/super-admin/labs/sql', {
       method: 'POST',
       body: JSON.stringify({ sql }),
+      headers: { 'X-Step-Up-Token': stepUpToken },
     }),
 
   listLabsSqlAudits: (limit = 50) =>
@@ -460,10 +471,10 @@ export const superAdminApi = {
       body: JSON.stringify({}),
     }),
 
-  deactivateOrganizationUser: (orgId: string, userId: string) =>
+  deactivateOrganizationUser: (orgId: string, userId: string, reason?: string) =>
     apiRequest<{ id: string; email: string; status: string }>(
       `/super-admin/organizations/${orgId}/users/${userId}/deactivate`,
-      { method: 'PATCH' },
+      { method: 'PATCH', body: JSON.stringify({ reason }) },
     ),
 
   activateOrganizationUser: (orgId: string, userId: string) =>
@@ -478,9 +489,16 @@ export const superAdminApi = {
       body: JSON.stringify({ reason }),
     }),
 
-  listAuditLogs: (page = 1, limit = 50, organizationId?: string) => {
+  listAuditLogs: (
+    page = 1,
+    limit = 50,
+    filters?: { organizationId?: string; action?: string; from?: string; to?: string },
+  ) => {
     const sp = new URLSearchParams({ page: String(page), limit: String(limit) });
-    if (organizationId) sp.set('organizationId', organizationId);
+    if (filters?.organizationId) sp.set('organizationId', filters.organizationId);
+    if (filters?.action) sp.set('action', filters.action);
+    if (filters?.from) sp.set('from', filters.from);
+    if (filters?.to) sp.set('to', filters.to);
     return apiRequest<{
       data: Array<{
         id: string;
@@ -494,6 +512,35 @@ export const superAdminApi = {
       }>;
       meta: { total: number; page: number; limit: number; hasMore: boolean };
     }>(`/super-admin/audit-logs?${sp}`);
+  },
+
+  listUsers: (params?: {
+    page?: number;
+    limit?: number;
+    organizationId?: string;
+    status?: string;
+    q?: string;
+  }) => {
+    const sp = new URLSearchParams();
+    if (params?.page) sp.set('page', String(params.page));
+    if (params?.limit) sp.set('limit', String(params.limit));
+    if (params?.organizationId) sp.set('organizationId', params.organizationId);
+    if (params?.status) sp.set('status', params.status);
+    if (params?.q) sp.set('q', params.q);
+    const qs = sp.toString();
+    return apiRequest<{
+      data: Array<{
+        id: string;
+        name: string;
+        email: string;
+        phone: string | null;
+        status: string;
+        lastLoginAt: string | null;
+        createdAt: string;
+        organization: { id: string; name: string; slug: string };
+      }>;
+      meta: { total: number; page: number; limit: number; hasMore: boolean };
+    }>(`/super-admin/users${qs ? `?${qs}` : ''}`);
   },
 
   suspendOrganization: (id: string, reason: string) =>
@@ -1043,6 +1090,11 @@ export const RKYVES_BRAND = {
   product: 'Cullinos',
   tagline: 'Platform administration',
 } as const;
+
+export const APP_OPS_URL = (
+  import.meta.env.VITE_APP_OPS_URL?.trim() ||
+  (import.meta.env.PROD ? 'https://app.cullinos.com' : 'http://localhost:5184')
+).replace(/\/$/, '');
 
 export const ADMIN_APP_URL = (
   import.meta.env.VITE_ADMIN_URL?.trim() ||

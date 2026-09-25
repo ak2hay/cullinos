@@ -3,16 +3,21 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  OnModuleDestroy,
   UnauthorizedException,
 } from "@nestjs/common";
 import { createHash, randomBytes } from "crypto";
 import { hashPassword, verifyPassword } from "@cullinos/auth";
-import type { Prisma } from "@prisma/client";
+import { PrismaClient, type Prisma } from "@prisma/client";
 import { generateTemporaryPassword } from "../../common/generate-password";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuthService } from "../auth/auth.service";
 import { MailService } from "../mail/mail.service";
 import { Msg91Service } from "../sms/msg91.service";
+import {
+  smsOwnerCredentials,
+  smsPasswordReset,
+} from "../sms/sms-templates";
 import { TenantProvisioningService } from "../organizations/tenant-provisioning.service";
 import { SaasBillingService } from "../subscriptions/saas-billing.service";
 import {
@@ -52,7 +57,13 @@ function buildDaySeries(days: number, start: Date): string[] {
 }
 
 @Injectable()
-export class SuperAdminService {
+export class SuperAdminService implements OnModuleDestroy {
+  private labsClient: PrismaClient | null = null;
+
+  async onModuleDestroy() {
+    await this.labsClient?.$disconnect();
+  }
+
   constructor(
     private prisma: PrismaService,
     private provisioning: TenantProvisioningService,
@@ -361,7 +372,12 @@ export class SuperAdminService {
       try {
         const sms = await this.msg91.sendTransactionalSms(
           user.phone,
-          `Cullinos: Password reset for ${user.organization.name}. Email: ${user.email}. Temp password: ${temporaryPassword}. Login: ${adminUrl}`,
+          smsPasswordReset({
+            organizationName: user.organization.name,
+            email: user.email,
+            temporaryPassword,
+            adminUrl,
+          }),
         );
         smsSent = sms.sent;
       } catch {
@@ -390,7 +406,12 @@ export class SuperAdminService {
     };
   }
 
-  async deactivateOrganizationUser(orgId: string, userId: string, actorUserId?: string) {
+  async deactivateOrganizationUser(
+    orgId: string,
+    userId: string,
+    actorUserId?: string,
+    reason?: string,
+  ) {
     const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
     if (!org) throw new NotFoundException("Organization not found");
 
@@ -412,7 +433,7 @@ export class SuperAdminService {
       });
       if (otherActiveOwners === 0) {
         throw new ForbiddenException(
-          "Cannot deactivate the last active owner. Assign another owner first.",
+          "Cannot suspend the last active owner. Assign another owner first.",
         );
       }
     }
@@ -426,10 +447,14 @@ export class SuperAdminService {
       data: {
         organizationId: orgId,
         userId: actorUserId ?? null,
-        action: "deactivate_user",
+        action: "suspend_user",
         entityType: "user",
         entityId: userId,
-        metadata: { email: user.email, wasOwner: isOwner },
+        metadata: {
+          email: user.email,
+          wasOwner: isOwner,
+          reason: reason?.trim() || null,
+        },
       },
     });
 
@@ -472,9 +497,32 @@ export class SuperAdminService {
     };
   }
 
-  async listAuditLogs(page = 1, limit = 50, organizationId?: string) {
+  async listAuditLogs(
+    page = 1,
+    limit = 50,
+    organizationId?: string,
+    filters?: { action?: string; from?: string; to?: string },
+  ) {
     const skip = (page - 1) * limit;
-    const where: Prisma.AuditLogWhereInput = organizationId ? { organizationId } : {};
+    const where: Prisma.AuditLogWhereInput = {};
+    if (organizationId) where.organizationId = organizationId;
+    if (filters?.action?.trim()) {
+      where.action = { contains: filters.action.trim(), mode: "insensitive" };
+    }
+    if (filters?.from || filters?.to) {
+      where.createdAt = {};
+      if (filters.from) {
+        const from = new Date(filters.from);
+        if (!Number.isNaN(from.getTime())) where.createdAt.gte = from;
+      }
+      if (filters.to) {
+        const to = new Date(filters.to);
+        if (!Number.isNaN(to.getTime())) {
+          to.setHours(23, 59, 59, 999);
+          where.createdAt.lte = to;
+        }
+      }
+    }
     const [logs, total] = await Promise.all([
       this.prisma.auditLog.findMany({
         where,
@@ -501,6 +549,63 @@ export class SuperAdminService {
         organization: a.organization,
       })),
       meta: { total, page, limit, hasMore: skip + logs.length < total },
+    };
+  }
+
+  async listPlatformUsers(query: {
+    page?: number;
+    limit?: number;
+    organizationId?: string;
+    status?: string;
+    q?: string;
+  }) {
+    const page = Math.max(1, query.page ?? 1);
+    const limit = Math.min(Math.max(1, query.limit ?? 50), 200);
+    const skip = (page - 1) * limit;
+    const where: Prisma.UserWhereInput = { isSuperAdmin: false };
+    if (query.organizationId) where.organizationId = query.organizationId;
+    if (query.status) where.status = query.status as "active" | "inactive" | "invited";
+    const q = query.q?.trim();
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+        { phone: { contains: q } },
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [{ lastLoginAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          status: true,
+          lastLoginAt: true,
+          createdAt: true,
+          organization: { select: { id: true, name: true, slug: true } },
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return {
+      data: users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        status: u.status,
+        lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
+        createdAt: u.createdAt.toISOString(),
+        organization: u.organization,
+      })),
+      meta: { total, page, limit, hasMore: skip + users.length < total },
     };
   }
 
@@ -771,7 +876,12 @@ export class SuperAdminService {
       try {
         const sms = await this.msg91.sendTransactionalSms(
           phone,
-          `Cullinos: Your ${input.companyName} admin login is ready. Email: ${ownerEmail}. Temp password: ${temporaryPassword}. Login: ${result.adminUrl}`,
+          smsOwnerCredentials({
+            companyName: input.companyName,
+            email: ownerEmail,
+            temporaryPassword,
+            adminUrl: result.adminUrl,
+          }),
         );
         smsSent = sms.sent;
       } catch {
@@ -1189,6 +1299,31 @@ export class SuperAdminService {
     };
   }
 
+  /**
+   * Labs SQL connection. Set LABS_DATABASE_URL to a read-only Postgres role in production;
+   * falls back to the app connection (still wrapped in a READ ONLY transaction).
+   */
+  private labsDb(): PrismaClient {
+    const url = process.env.LABS_DATABASE_URL?.trim();
+    if (!url) return this.prisma;
+    if (!this.labsClient) {
+      this.labsClient = new PrismaClient({ datasources: { db: { url } } });
+    }
+    return this.labsClient;
+  }
+
+  startLabsStepUp(userId: string, email: string) {
+    return this.auth.startStepUp(userId, email);
+  }
+
+  verifyLabsStepUp(userId: string, challengeToken: string, otp: string) {
+    return this.auth.verifyStepUp(userId, challengeToken, otp);
+  }
+
+  assertLabsStepUp(userId: string, token: string | undefined) {
+    this.auth.assertStepUp(userId, token);
+  }
+
   async runLabsSql(sqlRaw: string, actorEmail: string) {
     const preview = sqlRaw.trim().slice(0, LABS_SQL_PREVIEW_CHARS);
     const started = Date.now();
@@ -1212,8 +1347,10 @@ export class SuperAdminService {
     const limitedSql = `SELECT * FROM (${sql}) AS labs_q LIMIT ${LABS_SQL_MAX_ROWS + 1}`;
 
     try {
-      const rows = await this.prisma.$transaction(
+      const rows = await this.labsDb().$transaction(
         async (tx) => {
+          // Must be the first statement: Postgres rejects any write for the rest of the tx.
+          await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");
           await tx.$executeRawUnsafe(
             `SET LOCAL statement_timeout = '${LABS_SQL_TIMEOUT_MS}'`,
           );

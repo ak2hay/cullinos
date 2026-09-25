@@ -7,6 +7,7 @@ import { JwtAuthGuard } from "../../common/jwt-auth.guard";
 import { SuperAdminGuard } from "../../common/super-admin.guard";
 import { PermissionsGuard } from "../../common/guards/permissions.guard";
 import { EntitlementGuard } from "../../common/entitlement.guard";
+import { PortalGuard } from "../../common/guards/portal.guard";
 import { MailModule } from "../mail/mail.module";
 import { AuditModule } from "../audit/audit.module";
 import { SmsModule } from "../sms/sms.module";
@@ -25,6 +26,7 @@ const jwtModule = JwtModule.register({
   providers: [
     AuthService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: PortalGuard },
     { provide: APP_GUARD, useClass: SuperAdminGuard },
     { provide: APP_GUARD, useClass: EntitlementGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },

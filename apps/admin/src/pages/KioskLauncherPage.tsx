@@ -8,6 +8,10 @@ const GUEST_APP_BASE =
   (import.meta.env.VITE_GUEST_APP_URL as string | undefined) ??
   'https://guest.cullinos.com';
 
+const KIOSK_APP_BASE =
+  (import.meta.env.VITE_KIOSK_APP_URL as string | undefined) ??
+  (import.meta.env.PROD ? 'https://kiosk.cullinos.com' : 'http://localhost:5177');
+
 const KDS_BASE =
   (import.meta.env.VITE_KDS_URL as string | undefined) ??
   (import.meta.env.PROD ? 'https://kds.cullinos.com' : 'http://localhost:5174');
@@ -41,7 +45,10 @@ export function KioskLauncherPage() {
     orgSlug && outletSlug
       ? `${GUEST_APP_BASE.replace(/\/$/, '')}/o/${encodeURIComponent(orgSlug)}/${encodeURIComponent(outletSlug)}`
       : null;
-  const kioskUrl = menuUrl ? `${menuUrl}/kiosk` : null;
+  const kioskUrl =
+    orgSlug && outletSlug
+      ? `${KIOSK_APP_BASE.replace(/\/$/, '')}/o/${encodeURIComponent(orgSlug)}/${encodeURIComponent(outletSlug)}`
+      : null;
   const receiptUrl = `${KDS_BASE.replace(/\/$/, '')}/?mode=receipt&outletId=${encodeURIComponent(outletId)}`;
 
   async function copy(id: string, url: string) {
@@ -55,7 +62,7 @@ export function KioskLauncherPage() {
       id: 'kiosk',
       title: 'Ordering kiosk',
       description:
-        'Touch tablet for in-store self-order. Prints a 6-character QR ticket on the kiosk printer after place.',
+        'Open in any tablet browser (full-screen) for in-store self-order. Guests pay at the counter with their pickup code.',
       url: kioskUrl,
     },
     ...(phoneMenuQrEnabled

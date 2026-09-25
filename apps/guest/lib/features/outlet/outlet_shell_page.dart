@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -419,23 +420,11 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(
                       GuestSpacing.page, 0, GuestSpacing.page, 12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      GuestPillButton(
-                        label: 'Reserve a table',
-                        icon: Icons.event_seat_rounded,
-                        onPressed: () => context.push(
-                            '/o/${widget.orgSlug}/${widget.outletSlug}/book'),
-                      ),
-                      const SizedBox(height: 8),
-                      GuestPillButton(
-                        label: 'View Full Menu',
-                        icon: Icons.restaurant_menu_rounded,
-                        onPressed: () => context.push(
-                            '/o/${widget.orgSlug}/${widget.outletSlug}/menu'),
-                      ),
-                    ],
+                  child: GuestPillButton(
+                    label: 'View Full Menu',
+                    icon: Icons.restaurant_menu_rounded,
+                    onPressed: () => context.push(
+                        '/o/${widget.orgSlug}/${widget.outletSlug}/menu'),
                   ),
                 ),
               )
@@ -793,45 +782,64 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                 separatorBuilder: (_, __) => const SizedBox(width: 10),
                 itemBuilder: (_, i) {
                   final offer = _offers[i];
+                  final code = offer['code']?.toString();
                   final title = offer['title']?.toString().isNotEmpty == true
                       ? offer['title'].toString()
-                      : offer['code']?.toString() ?? 'Offer';
+                      : code ?? 'Offer';
                   final desc = offer['description']?.toString() ??
-                      (offer['code'] != null
-                          ? 'Use code ${offer['code']}'
-                          : '');
-                  return Container(
-                    width: 220,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: GuestColors.surface,
+                      (code != null ? 'Use code $code' : '');
+                  return Material(
+                    color: GuestColors.surface,
+                    borderRadius:
+                        BorderRadius.circular(GuestSpacing.radiusMd),
+                    child: InkWell(
                       borderRadius:
                           BorderRadius.circular(GuestSpacing.radiusMd),
-                      border: Border.all(color: GuestColors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
+                      onTap: code == null || code.isEmpty
+                          ? null
+                          : () async {
+                              await Clipboard.setData(ClipboardData(text: code));
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Copied $code'),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                      child: Container(
+                        width: 220,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          borderRadius:
+                              BorderRadius.circular(GuestSpacing.radiusMd),
+                          border: Border.all(color: GuestColors.border),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          desc,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: GuestColors.muted,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              desc,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: GuestColors.muted,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   );
                 },
@@ -920,7 +928,7 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                         SnackBar(
                           content: Text(
                               '${item['name']} added to cart'),
-                          duration: const Duration(seconds: 1),
+                          duration: const Duration(seconds: 2),
                         ),
                       );
                     } else {
@@ -1271,8 +1279,22 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
 
           // ── Loyalty ──────────────────────────────────────────────────
           const SizedBox(height: 16),
+          GuestPillButton(
+            label: 'Reserve a table',
+            icon: Icons.event_seat_rounded,
+            onPressed: () => context.push(
+                '/o/${widget.orgSlug}/${widget.outletSlug}/book'),
+          ),
+          const SizedBox(height: 8),
           TextButton(
-            onPressed: () => context.push('/wallets'),
+            onPressed: () {
+              final orgId = org['id']?.toString();
+              if (orgId != null && orgId.isNotEmpty) {
+                context.push('/wallets?orgId=$orgId');
+              } else {
+                context.push('/wallets');
+              }
+            },
             child: const Text('View loyalty at this place'),
           ),
 

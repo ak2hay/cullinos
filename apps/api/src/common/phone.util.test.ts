@@ -1,3 +1,4 @@
+import { describe, expect, it } from "vitest";
 import { normalizeStaffPhone, staffPhoneLookupVariants } from "./phone.util";
 
 describe("phone.util", () => {

@@ -52,7 +52,8 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | **Customer** | *(decommissioned web)* → Cullinos App | Guests | Use Android Cullinos App / guest deep links |
 | **Guest** | Android app · guest.cullinos.com deep links | Consumers | Marketplace discover + outlet ordering |
 | **Management** | manage.cullinos.com | Multi-outlet ops | Network KPIs, stock transfer, franchise |
-| **Super Admin** | platform.cullinos.com | Rkyves | Tenants, plans, CMS, **Cullinos App Ops** |
+| **Super Admin** | platform.cullinos.com | Rkyves | Tenants, plans, CMS |
+| **Cullinos App Ops** | app.cullinos.com | Rkyves | Guest users, rich FCM, marketplace, Discover, banners, runtime |
 | **Web** | cullinos.com | Prospects | Marketing site, pricing, blog |
 
 ---

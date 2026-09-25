@@ -176,7 +176,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/wallets',
-        builder: (_, __) => const WalletsPage(),
+        builder: (_, state) => WalletsPage(
+          initialOrgId: state.uri.queryParameters['orgId'],
+        ),
       ),
       GoRoute(
         path: '/coins',

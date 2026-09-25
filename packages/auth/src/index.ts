@@ -13,6 +13,8 @@ export type JwtPayload = {
   impersonation?: boolean;
   impersonatedBy?: string;
   permissions?: string[];
+  /** Client portal the session was opened from (e.g. "management", "waiter"). */
+  portal?: string;
 };
 
 function assertPasswordLength(password: string): void {

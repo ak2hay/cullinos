@@ -24,15 +24,20 @@ export class OrdersController {
     @Query("outletId") outletId?: string,
     @Query("tableId") tableId?: string,
     @Query("status") status?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
     @Query("page") page?: string,
     @Query("limit") limit?: string,
   ) {
     const parsedLimit = limit ? Number(limit) : undefined;
+    const parsedPage = page ? Number(page) : undefined;
     return this.service.list(orgId, {
       outletId,
       tableId,
       status,
-      page: page ? Number(page) : undefined,
+      from,
+      to,
+      page: parsedPage && Number.isFinite(parsedPage) ? Math.floor(parsedPage) : undefined,
       limit:
         parsedLimit && Number.isFinite(parsedLimit)
           ? Math.min(Math.max(1, Math.floor(parsedLimit)), 100)

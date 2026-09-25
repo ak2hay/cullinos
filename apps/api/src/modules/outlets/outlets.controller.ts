@@ -24,6 +24,7 @@ import { RequirePermissions } from "../../common/decorators/permissions.decorato
 import {
   MARKETING_UPLOAD_MAX_BYTES,
   MarketingUploadService,
+  uploadMaxBytesFor,
 } from "../marketing/marketing-upload.service";
 import { OrgRolesService } from "../organizations/org-roles.service";
 import { OutletAccessService } from "./outlet-access.service";
@@ -106,6 +107,7 @@ export class OutletsController {
       file,
       `outlet-cover-${id}`,
       "outletCover",
+      uploadMaxBytesFor(user),
     );
     const updated = await this.service.update(orgId, id, { coverImageUrl: result.url });
     return { coverImageUrl: updated.coverImageUrl, url: result.url };
@@ -145,6 +147,7 @@ export class OutletsController {
       file,
       `outlet-photo-${id}-${randomUUID()}`,
       "outletGallery",
+      uploadMaxBytesFor(user),
     );
     const photo = await this.service.addPhoto(orgId, id, {
       url: result.url,

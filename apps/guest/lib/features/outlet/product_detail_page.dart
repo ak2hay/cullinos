@@ -154,6 +154,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Added ${item['name']} to cart'),
+        duration: const Duration(seconds: 2),
         action: SnackBarAction(
           label: 'View Cart',
           onPressed: () => context.push(

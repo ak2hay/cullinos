@@ -695,6 +695,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'All floors'**
   String get allFloors;
+
+  /// No description provided for @portalDisabledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiter app is turned off'**
+  String get portalDisabledTitle;
+
+  /// No description provided for @portalDisabledBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Cullinos has temporarily turned off the waiter app. Please contact your manager or use the admin portal.'**
+  String get portalDisabledBody;
+
+  /// No description provided for @portalMaintenanceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'MAINTENANCE'**
+  String get portalMaintenanceLabel;
+
+  /// No description provided for @portalMaintenanceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiter app is under maintenance'**
+  String get portalMaintenanceTitle;
+
+  /// No description provided for @portalMaintenanceBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Cullinos is performing maintenance on the waiter app. Please try again shortly.'**
+  String get portalMaintenanceBody;
+
+  /// No description provided for @checkAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Check again'**
+  String get checkAgain;
 }
 
 class _AppLocalizationsDelegate

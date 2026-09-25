@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { Button, ErrorBanner, Input, PageHeader, useToast } from '@cullinos/ui';
+import { Button, ErrorBanner, Input, useToast } from '@cullinos/ui';
 import { outletsApi, paymentGatewaysApi, type PaymentGatewayRow } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
@@ -11,7 +11,7 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   cashfree: 'Cashfree',
 };
 
-export function PaymentsPage() {
+export function PaymentsSettingsPanel() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const selectedOutletId = useAuthStore((s) => s.selectedOutletId);
@@ -106,10 +106,13 @@ export function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Payments"
-        description="Connect each restaurant’s own Razorpay or Cashfree account. Online diner payments settle to that merchant — Cullinos SaaS billing stays on the platform account."
-      />
+      <div>
+        <h2 className="font-semibold">Payment gateways</h2>
+        <p className="mt-1 text-sm text-text-secondary">
+          Connect each restaurant’s own Razorpay or Cashfree account. Online diner payments settle
+          to that merchant — Cullinos SaaS billing stays on the platform account.
+        </p>
+      </div>
 
       {gatewaysQuery.error ? (
         <ErrorBanner>

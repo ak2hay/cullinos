@@ -23,7 +23,7 @@ import {
 } from "../privacy/privacy.constants";
 import { newUnsubscribeToken } from "../privacy/privacy.crypto";
 import {
-  PHONE_OTP_SMS_UNAVAILABLE_MESSAGE,
+  phoneOtpSmsFailureMessage,
   shouldFailPhoneOtpWhenUnsent,
 } from "./phone-otp-request.util";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
@@ -105,7 +105,7 @@ export class CustomerAuthController {
 
     if (shouldFailPhoneOtpWhenUnsent(send.sent)) {
       await this.prisma.phoneOtp.delete({ where: { id: challenge.id } }).catch(() => undefined);
-      throw new ServiceUnavailableException(PHONE_OTP_SMS_UNAVAILABLE_MESSAGE);
+      throw new ServiceUnavailableException(phoneOtpSmsFailureMessage(send.failureKind));
     }
 
     return {

@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final guestFirestoreServiceProvider = Provider<GuestFirestoreService>((ref) {
@@ -50,6 +53,7 @@ class GuestProfile {
 
 class GuestFirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   CollectionReference<Map<String, dynamic>> get _guests =>
       _db.collection('guests');
@@ -78,5 +82,36 @@ class GuestFirestoreService {
       if (!doc.exists) return null;
       return GuestProfile.fromFirestore(doc);
     });
+  }
+
+  /// Uploads under `guest-profiles/{uid}/avatar.jpg` and saves [photoUrl] on GuestProfile.
+  Future<String> uploadProfilePhoto({
+    required String uid,
+    required File file,
+  }) async {
+    final ref = _storage.ref().child('guest-profiles/$uid/avatar.jpg');
+    await ref.putFile(
+      file,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+    final url = await ref.getDownloadURL();
+    await _guests.doc(uid).set(
+      {
+        'photoUrl': url,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    return url;
+  }
+
+  Future<void> updatePhotoUrl(String uid, String photoUrl) async {
+    await _guests.doc(uid).set(
+      {
+        'photoUrl': photoUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
   }
 }

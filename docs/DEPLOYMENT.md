@@ -10,13 +10,15 @@ Legacy Docker Compose + `scripts/remote-deploy.py` is **emergency-only**. See [C
 |-----------|-----|---------------|------------------|
 | API + WebSocket | Deployment `api` | `api.cullinos.com` | `staging-api.cullinos.com` |
 | Postgres + Redis | In-cluster PVC | internal | internal |
-| Admin / Manage / Platform | SPA images | `admin` / `manage` / `platform` | `staging-*` |
+| Admin / Manage / Platform / App Ops | SPA images | `admin` / `manage` / `platform` / `app` | `staging-*` |
 | POS / KDS | SPA images | `pos` / `kds` | `staging-*` |
 | Guest / Waiter landings | SPA images | `guest` / `waiter` | `staging-*` |
 | Marketing | `web` (Next.js) | `cullinos.com` | `staging.cullinos.com` |
 | Grafana | monitoring ns | `grafana.cullinos.com` | — |
 
 Manifests: [`infrastructure/k8s/`](../infrastructure/k8s/). Cutover: [`infrastructure/k8s/scripts/cutover-checklist.md`](../infrastructure/k8s/scripts/cutover-checklist.md).
+
+**DNS (human):** add Cloudflare A records for `app.cullinos.com` and `staging-app.cullinos.com` pointing at the VM before first App Ops deploy.
 
 ```mermaid
 flowchart LR
@@ -72,6 +74,19 @@ kubectl apply -k infrastructure/k8s/overlays/staging
 kubectl apply -k infrastructure/k8s/overlays/production
 kubectl -n production rollout status deployment/api
 ```
+
+## Build commit in `/health`
+
+`GET /api/v1/health` reports `commit` from `GIT_COMMIT` (or `DEPLOY_COMMIT`); it shows `unknown` when neither is set.
+
+- **Images (GHCR):** `build-images.yml` passes `GIT_COMMIT=${{ github.sha }}` as a Docker build arg.
+- **Compose:** `scripts/remote-deploy.py`, `vm-redeploy-frontends-api.py` and `vm-selective-redeploy.py` read the local `git rev-parse` and run `GIT_COMMIT=<sha> docker compose -f docker-compose.prod.yml build api`. By hand:
+
+  ```bash
+  GIT_COMMIT=$(git rev-parse --short HEAD) docker compose -f docker-compose.prod.yml up -d --build api
+  ```
+
+After a deploy, check `curl -s https://api.cullinos.com/api/v1/health` returns the SHA you shipped.
 
 ## Rollback
 

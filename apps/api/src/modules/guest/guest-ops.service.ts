@@ -10,7 +10,7 @@ import {
   isGuestThemePresetKey,
 } from "@cullinos/shared";
 import { PrismaService } from "../../prisma/prisma.service";
-import { MarketingUploadService } from "../marketing/marketing-upload.service";
+import { MarketingUploadService, uploadMaxBytesFor } from "../marketing/marketing-upload.service";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
 import { GuestPushService } from "./guest-push.service";
 import type { BannerInput } from "./guest-marketing.service";
@@ -374,6 +374,9 @@ export class GuestOpsService {
       deepLink?: string | null;
       data?: Record<string, unknown>;
       scheduledAt?: string | null;
+      imageUrl?: string | null;
+      stylePreset?: string | null;
+      creative?: Record<string, unknown>;
     },
     createdByUserId?: string,
   ) {
@@ -393,6 +396,13 @@ export class GuestOpsService {
     if (scope === "organization" && !body.organizationId) {
       throw new BadRequestException("organizationId required for org scope");
     }
+    const stylePreset = body.stylePreset?.trim() || null;
+    if (
+      stylePreset &&
+      !["offer", "alert", "promo", "custom"].includes(stylePreset)
+    ) {
+      throw new BadRequestException(`Invalid stylePreset: ${stylePreset}`);
+    }
 
     return this.prisma.guestPushCampaign.create({
       data: {
@@ -401,6 +411,9 @@ export class GuestOpsService {
         title,
         body: text,
         data: (body.data ?? {}) as Prisma.InputJsonValue,
+        imageUrl: body.imageUrl?.trim() || null,
+        stylePreset,
+        creative: (body.creative ?? {}) as Prisma.InputJsonValue,
         audience,
         audienceFilter: (body.audienceFilter ?? {}) as Prisma.InputJsonValue,
         deepLink: body.deepLink?.trim() || null,
@@ -422,6 +435,9 @@ export class GuestOpsService {
       data?: Record<string, unknown>;
       organizationId?: string | null;
       scheduledAt?: string | null;
+      imageUrl?: string | null;
+      stylePreset?: string | null;
+      creative?: Record<string, unknown>;
     },
   ) {
     const row = await this.prisma.guestPushCampaign.findUnique({
@@ -433,6 +449,21 @@ export class GuestOpsService {
     }
     if (body.audience && !PUSH_AUDIENCES.includes(body.audience as PushAudience)) {
       throw new BadRequestException(`Invalid audience: ${body.audience}`);
+    }
+    if (
+      body.stylePreset !== undefined &&
+      body.stylePreset !== null &&
+      body.stylePreset.trim() &&
+      !["offer", "alert", "promo", "custom"].includes(body.stylePreset.trim())
+    ) {
+      throw new BadRequestException(`Invalid stylePreset: ${body.stylePreset}`);
+    }
+
+    if (
+      body.imageUrl !== undefined &&
+      (body.imageUrl?.trim() || null) !== row.imageUrl
+    ) {
+      await this.upload.deleteManagedUrl(row.imageUrl);
     }
 
     return this.prisma.guestPushCampaign.update({
@@ -461,6 +492,15 @@ export class GuestOpsService {
                 ? new Date(body.scheduledAt)
                 : null,
             }
+          : {}),
+        ...(body.imageUrl !== undefined
+          ? { imageUrl: body.imageUrl?.trim() || null }
+          : {}),
+        ...(body.stylePreset !== undefined
+          ? { stylePreset: body.stylePreset?.trim() || null }
+          : {}),
+        ...(body.creative !== undefined
+          ? { creative: body.creative as Prisma.InputJsonValue }
           : {}),
       },
     });
@@ -508,8 +548,22 @@ export class GuestOpsService {
     if (row.status === "sending") {
       throw new BadRequestException("Cannot delete a campaign while it is sending");
     }
+    await this.upload.deleteManagedUrl(row.imageUrl);
     await this.prisma.guestPushCampaign.delete({ where: { id } });
     return { success: true };
+  }
+
+  async uploadPushImage(file: Express.Multer.File, actor?: { isSuperAdmin?: boolean }) {
+    if (!file?.buffer) {
+      throw new BadRequestException("No file uploaded.");
+    }
+    const result = await this.upload.saveUploadedFile(
+      file,
+      `push-${Date.now()}`,
+      "notification",
+      uploadMaxBytesFor(actor),
+    );
+    return { imageUrl: result.url };
   }
 
   private async resolveAudienceGuestIds(campaign: {
@@ -638,6 +692,22 @@ export class GuestOpsService {
         campaignId: campaign.id,
       };
       if (campaign.deepLink) dataPayload.deepLink = campaign.deepLink;
+      if (campaign.imageUrl) dataPayload.imageUrl = campaign.imageUrl;
+      if (campaign.stylePreset) dataPayload.stylePreset = campaign.stylePreset;
+      const creative =
+        campaign.creative &&
+        typeof campaign.creative === "object" &&
+        !Array.isArray(campaign.creative)
+          ? (campaign.creative as Record<string, unknown>)
+          : {};
+      if (Object.keys(creative).length > 0) {
+        dataPayload.creative = JSON.stringify(creative);
+        for (const [k, v] of Object.entries(creative)) {
+          if (v != null && typeof v !== "object") {
+            dataPayload[`creative_${k}`] = String(v);
+          }
+        }
+      }
       const existingData =
         campaign.data &&
         typeof campaign.data === "object" &&
@@ -653,6 +723,7 @@ export class GuestOpsService {
           const result = await this.push.notifyGuestUser(guestUserId, {
             title: campaign.title,
             body: campaign.body,
+            imageUrl: campaign.imageUrl,
             data: dataPayload,
           });
           if (result.sent > 0) sentCount += 1;
@@ -850,6 +921,7 @@ export class GuestOpsService {
   async searchGuestUsers(query: { q?: string; limit?: string | number }) {
     const limit = Math.min(parseIntParam(query.limit, 30), 100);
     const q = query.q?.trim();
+    const digits = q ? q.replace(/\D/g, "") : "";
     const where: Prisma.GuestUserWhereInput = {
       anonymizedAt: null,
       ...(q
@@ -857,6 +929,7 @@ export class GuestOpsService {
             OR: [
               { name: { contains: q, mode: "insensitive" } },
               { phone: { contains: q } },
+              ...(digits.length >= 6 ? [{ phone: { contains: digits } }] : []),
               { email: { contains: q, mode: "insensitive" } },
               { id: q },
             ],
@@ -872,6 +945,8 @@ export class GuestOpsService {
         phone: true,
         email: true,
         createdAt: true,
+        suspendedAt: true,
+        suspendReason: true,
         _count: {
           select: { memberships: true, devices: true, reviews: true },
         },
@@ -886,6 +961,8 @@ export class GuestOpsService {
       phone: maskPhone(u.phone),
       email: maskEmail(u.email),
       createdAt: u.createdAt,
+      suspendedAt: u.suspendedAt,
+      suspendReason: u.suspendReason,
       counts: u._count,
     }));
   }
@@ -923,6 +1000,124 @@ export class GuestOpsService {
     });
     if (!user) throw new NotFoundException("Guest user not found");
     return user;
+  }
+
+  async getGuestUserActivity(id: string) {
+    const user = await this.prisma.guestUser.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        suspendedAt: true,
+        anonymizedAt: true,
+        createdAt: true,
+        cullinosCoins: true,
+      },
+    });
+    if (!user) throw new NotFoundException("Guest user not found");
+
+    const [devices, reviews, coinLedger, memberships, notifications] = await Promise.all([
+      this.prisma.guestDevice.findMany({
+        where: { guestUserId: id },
+        orderBy: { lastSeenAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          platform: true,
+          lastSeenAt: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.guestOutletReview.findMany({
+        where: { guestUserId: id },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          rating: true,
+          status: true,
+          createdAt: true,
+          outlet: { select: { id: true, name: true, city: true } },
+        },
+      }),
+      this.prisma.guestCoinLedger.findMany({
+        where: { guestUserId: id },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      this.prisma.guestOrgMembership.findMany({
+        where: { guestUserId: id },
+        include: {
+          organization: { select: { id: true, name: true, slug: true } },
+          customer: {
+            select: {
+              id: true,
+              loyaltyPoints: true,
+              orders: {
+                orderBy: { createdAt: "desc" },
+                take: 20,
+                select: {
+                  id: true,
+                  orderNumber: true,
+                  status: true,
+                  total: true,
+                  createdAt: true,
+                  outlet: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.guestNotification.findMany({
+        where: { guestUserId: id },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+        select: {
+          id: true,
+          title: true,
+          body: true,
+          createdAt: true,
+          readAt: true,
+        },
+      }),
+    ]);
+
+    const orders = memberships.flatMap((m) =>
+      (m.customer?.orders ?? []).map((o) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        status: o.status,
+        total: o.total,
+        createdAt: o.createdAt,
+        outlet: o.outlet,
+        organizationId: m.organizationId,
+        organizationName: m.organization.name,
+      })),
+    );
+
+    return {
+      user: {
+        ...user,
+        phone: maskPhone(user.phone),
+        email: maskEmail(user.email),
+      },
+      devices,
+      reviews,
+      coinLedger,
+      notifications,
+      orders: orders
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, 50),
+      memberships: memberships.map((m) => ({
+        organizationId: m.organizationId,
+        organizationName: m.organization.name,
+        customerId: m.customerId,
+        loyaltyPoints: m.customer?.loyaltyPoints ?? 0,
+      })),
+    };
   }
 
   async analyticsSummary() {

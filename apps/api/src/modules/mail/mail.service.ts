@@ -4,6 +4,15 @@ import type { Transporter } from "nodemailer";
 import { Resend } from "resend";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
 import { redactEmail, redactRecipientList } from "../../common/pii-redact.util";
+import {
+  buildOtpEmail,
+  buildOwnerCredentialsEmail,
+  buildPromoEmail,
+  buildReservationConfirmationEmail,
+  buildReservationInviteEmail,
+  buildSmtpTestEmail,
+  type OtpPurpose,
+} from "./templates";
 
 export type OwnerCredentialsEmailInput = {
   to: string;
@@ -121,16 +130,12 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
       return { ok: true, message: "SMTP connection verified" };
     }
 
+    const tpl = buildSmtpTestEmail();
     const sent = await this.sendMail({
       to: recipient,
-      subject: "Cullinos SMTP test",
-      text: [
-        "This is a test email from Cullinos platform settings.",
-        "If you received this, SMTP is connected and sending correctly.",
-        "",
-        "— Cullinos",
-      ].join("\n"),
-      html: `<p>This is a test email from Cullinos platform settings.</p><p>If you received this, SMTP is connected and sending correctly.</p><p>— Cullinos</p>`,
+      subject: tpl.subject,
+      text: tpl.text,
+      html: tpl.html,
     });
 
     if (!sent) {
@@ -177,28 +182,18 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async sendOtpEmail(to: string, code: string, purpose: "login_2fa" | "password_reset"): Promise<boolean> {
-    const isReset = purpose === "password_reset";
-    const subject = isReset
-      ? "Your Cullinos password reset code"
-      : "Your Cullinos login verification code";
-    const action = isReset ? "reset your password" : "complete your login";
-    const text = [
-      `Your verification code is: ${code}`,
-      "",
-      `Enter this code to ${action}.`,
-      "It expires in 10 minutes. If you did not request this, you can ignore this email.",
-      "",
-      "— Cullinos",
-    ].join("\n");
-    const html = `
-      <p>Your verification code is:</p>
-      <p style="font-size:24px;font-weight:bold;letter-spacing:4px">${code}</p>
-      <p>Enter this code to ${action}. It expires in 10 minutes.</p>
-      <p style="color:#666">If you did not request this, you can ignore this email.</p>
-      <p>— Cullinos</p>
-    `;
-    return this.sendMail({ to, subject, text, html });
+  async sendOtpEmail(
+    to: string,
+    code: string,
+    purpose: OtpPurpose,
+  ): Promise<boolean> {
+    const tpl = buildOtpEmail(code, purpose);
+    return this.sendMail({
+      to,
+      subject: tpl.subject,
+      text: tpl.text,
+      html: tpl.html,
+    });
   }
 
   async sendPromoEmail(
@@ -207,24 +202,13 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     body: string,
     opts?: { unsubscribeUrl?: string },
   ): Promise<boolean> {
+    const tpl = buildPromoEmail(subject, body, opts);
     const unsub = opts?.unsubscribeUrl;
-    const footerText = unsub
-      ? `\n\n---\nYou are receiving this because you opted in to promotional emails. Unsubscribe: ${unsub}`
-      : "";
-    const footerHtml = unsub
-      ? `<hr/><p style="color:#666;font-size:12px">You are receiving this because you opted in to promotional emails. <a href="${escapeHtml(unsub)}">Unsubscribe</a></p>`
-      : "";
-    const text = `${body}${footerText}`;
-    const html =
-      body
-        .split("\n")
-        .map((line) => (line.trim() ? `<p>${escapeHtml(line)}</p>` : "<br/>"))
-        .join("\n") + footerHtml;
     return this.sendMail({
       to,
-      subject,
-      text,
-      html,
+      subject: tpl.subject,
+      text: tpl.text,
+      html: tpl.html,
       marketing: true,
       headers: unsub
         ? {
@@ -238,20 +222,13 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
   async sendOwnerCredentials(input: OwnerCredentialsEmailInput): Promise<boolean> {
     const apiKey = this.config.get("RESEND_API_KEY");
     const fromEmail = this.config.get("MAIL_FROM_EMAIL") ?? "onboarding@resend.dev";
-    const subject = `Your Cullinos admin login for ${input.restaurantName}`;
-    const text = [
-      `Hi ${input.ownerName},`,
-      "",
-      `Your restaurant "${input.restaurantName}" has been onboarded on Cullinos.`,
-      "",
-      `Admin login: ${input.adminUrl}`,
-      `Email: ${input.to}`,
-      `Temporary password: ${input.temporaryPassword}`,
-      "",
-      "You must change this password on first login.",
-      "",
-      "— Cullinos / Rkyves",
-    ].join("\n");
+    const tpl = buildOwnerCredentialsEmail({
+      ownerName: input.ownerName,
+      restaurantName: input.restaurantName,
+      email: input.to,
+      temporaryPassword: input.temporaryPassword,
+      adminUrl: input.adminUrl,
+    });
 
     if (!apiKey) {
       this.logger.warn(
@@ -265,8 +242,9 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
       const result = await resend.emails.send({
         from: `Cullinos <${fromEmail}>`,
         to: [input.to],
-        subject,
-        text,
+        subject: tpl.subject,
+        text: tpl.text,
+        html: tpl.html,
       });
       if (result.error) {
         this.logger.error(
@@ -291,18 +269,12 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     outletName: string;
     bookUrl: string;
   }): Promise<boolean> {
+    const tpl = buildReservationInviteEmail(input);
     return this.sendMail({
       to: input.to,
-      subject: `You're invited to reserve a table at ${input.outletName}`,
-      text: [
-        `Hi ${input.customerName},`,
-        "",
-        `You've been invited to book a table at ${input.outletName}.`,
-        `Choose your slot: ${input.bookUrl}`,
-        "",
-        "— Cullinos",
-      ].join("\n"),
-      html: `<p>Hi ${escapeHtml(input.customerName)},</p><p>You've been invited to book a table at <strong>${escapeHtml(input.outletName)}</strong>.</p><p><a href="${escapeHtml(input.bookUrl)}">Choose your slot</a></p>`,
+      subject: tpl.subject,
+      text: tpl.text,
+      html: tpl.html,
     });
   }
 
@@ -318,27 +290,17 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
       dateStyle: "medium",
       timeStyle: "short",
     });
+    const tpl = buildReservationConfirmationEmail({
+      customerName: input.customerName,
+      outletName: input.outletName,
+      when,
+      partySize: input.partySize,
+    });
     return this.sendMail({
       to: input.to,
-      subject: `Reservation confirmed — ${input.outletName}`,
-      text: [
-        `Hi ${input.customerName},`,
-        "",
-        `Your reservation at ${input.outletName} is confirmed.`,
-        `When: ${when}`,
-        `Party size: ${input.partySize}`,
-        "",
-        "— Cullinos",
-      ].join("\n"),
-      html: `<p>Hi ${escapeHtml(input.customerName)},</p><p>Your reservation at <strong>${escapeHtml(input.outletName)}</strong> is confirmed.</p><p>When: ${escapeHtml(when)}<br/>Party size: ${input.partySize}</p>`,
+      subject: tpl.subject,
+      text: tpl.text,
+      html: tpl.html,
     });
   }
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }

@@ -3,7 +3,7 @@
 # Usage:
 #   docker build -f Dockerfile.spa --build-arg APP_NAME=admin -t cullinos-spa-admin .
 #   docker build -f Dockerfile.spa --build-arg APP_NAME=guest-landing -t cullinos-spa-guest-landing .
-# APP_NAME: admin | management | super-admin | pos | kds | guest-landing | waiter-landing
+# APP_NAME: admin | management | super-admin | app-ops | pos | kds | kiosk | guest-landing | waiter-landing
 
 ARG APP_NAME=admin
 
@@ -15,7 +15,10 @@ ARG VITE_WS_URL=https://api.cullinos.com
 ARG VITE_KDS_URL=https://kds.cullinos.com
 ARG VITE_POS_URL=https://pos.cullinos.com
 ARG VITE_GUEST_APP_URL=https://guest.cullinos.com
+ARG VITE_KIOSK_APP_URL=https://kiosk.cullinos.com
 ARG VITE_ADMIN_URL=https://admin.cullinos.com
+ARG VITE_PLATFORM_URL=https://platform.cullinos.com
+ARG VITE_APP_OPS_URL=https://app.cullinos.com
 ARG VITE_MARKETING_WEB_URL=https://cullinos.com
 
 WORKDIR /app
@@ -27,7 +30,10 @@ ENV VITE_API_URL=$VITE_API_URL \
     VITE_KDS_URL=$VITE_KDS_URL \
     VITE_POS_URL=$VITE_POS_URL \
     VITE_GUEST_APP_URL=$VITE_GUEST_APP_URL \
+    VITE_KIOSK_APP_URL=$VITE_KIOSK_APP_URL \
     VITE_ADMIN_URL=$VITE_ADMIN_URL \
+    VITE_PLATFORM_URL=$VITE_PLATFORM_URL \
+    VITE_APP_OPS_URL=$VITE_APP_OPS_URL \
     VITE_MARKETING_WEB_URL=$VITE_MARKETING_WEB_URL
 
 COPY package.json package-lock.json .npmrc ./

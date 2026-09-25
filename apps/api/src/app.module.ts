@@ -2,6 +2,7 @@ import { Module, NestModule, MiddlewareConsumer } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { SecurityHeadersMiddleware } from "./common/security-headers.middleware";
+import { PortalContextMiddleware } from "./common/portal-context";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PlatformConfigModule } from "./modules/platform-config/platform-config.module";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -135,6 +136,6 @@ import { GeoController } from "./modules/geo/geo.controller";
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(SecurityHeadersMiddleware).forRoutes("*");
+    consumer.apply(SecurityHeadersMiddleware, PortalContextMiddleware).forRoutes("*");
   }
 }

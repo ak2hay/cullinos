@@ -22,6 +22,7 @@ SPA_PUBLISH = {
     "waiter": "waiter",
     "kds": "kds",
     "super-admin": "super-admin",
+    "app-ops": "app-ops",
 }
 
 EXCLUDE_DIR_NAMES = {

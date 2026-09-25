@@ -18,6 +18,7 @@ import type { JwtPayload } from "@cullinos/auth";
 import {
   MARKETING_UPLOAD_MAX_BYTES,
   MarketingUploadService,
+  uploadMaxBytesFor,
 } from "../marketing/marketing-upload.service";
 import {
   GuestMarketingService,
@@ -70,6 +71,7 @@ export class GuestMarketingAdminController {
   )
   async uploadBannerImage(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file?.buffer) throw new BadRequestException("No file uploaded.");
@@ -77,6 +79,7 @@ export class GuestMarketingAdminController {
       file,
       `banner-${orgId}-${Date.now()}`,
       "banner",
+      uploadMaxBytesFor(user),
     );
     return { imageUrl: result.url };
   }

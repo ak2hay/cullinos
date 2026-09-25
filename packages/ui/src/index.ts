@@ -25,6 +25,7 @@ export {
   DEFAULT_DIAL_CODE,
   parsePhoneValue,
   composePhone,
+  isoToFlag,
   type PhoneFieldProps,
   type DialCodeOption,
 } from './components/PhoneField';

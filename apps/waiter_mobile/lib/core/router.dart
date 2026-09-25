@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cullinos_waiter/core/connectivity_controller.dart';
+import 'package:cullinos_waiter/core/portal_status.dart';
 import 'package:cullinos_waiter/core/waiter_colors.dart';
 import 'package:cullinos_waiter/features/auth/auth_controller.dart';
 import 'package:cullinos_waiter/features/auth/login_page.dart';
@@ -9,6 +10,8 @@ import 'package:cullinos_waiter/features/calls/calls_page.dart';
 import 'package:cullinos_waiter/features/floor/floor_page.dart';
 import 'package:cullinos_waiter/features/order/table_detail_page.dart';
 import 'package:cullinos_waiter/features/orders/orders_hub_page.dart';
+import 'package:cullinos_waiter/features/portal/portal_disabled_page.dart';
+import 'package:cullinos_waiter/features/portal/portal_maintenance_page.dart';
 import 'package:cullinos_waiter/features/settings/settings_page.dart';
 import 'package:cullinos_waiter/features/splash/splash_page.dart';
 import 'package:cullinos_waiter/l10n/app_localizations.dart';
@@ -18,14 +21,25 @@ final waiterRootKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.read(authControllerProvider);
+  final portal = ref.read(portalStatusProvider);
   return GoRouter(
     navigatorKey: waiterRootKey,
     initialLocation: '/splash',
-    refreshListenable: auth,
+    refreshListenable: Listenable.merge([auth, portal]),
     redirect: (context, state) {
       final a = ref.read(authControllerProvider);
       final loc = state.matchedLocation;
       if (!a.hydrated) return loc == '/splash' ? null : '/splash';
+      final portalStatus = ref.read(portalStatusProvider);
+      if (portalStatus.inMaintenance) {
+        return loc == '/portal-maintenance' ? null : '/portal-maintenance';
+      }
+      if (portalStatus.disabled) {
+        return loc == '/portal-disabled' ? null : '/portal-disabled';
+      }
+      if (loc == '/portal-disabled' || loc == '/portal-maintenance') {
+        return a.isAuthenticated ? '/' : '/login';
+      }
       final loggingIn = loc == '/login';
       if (!a.isAuthenticated) {
         if (loggingIn || loc == '/splash') return loggingIn ? null : '/login';
@@ -37,6 +51,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/splash', builder: (_, __) => const SplashPage()),
       GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
+      GoRoute(
+        path: '/portal-disabled',
+        builder: (_, __) => const PortalDisabledPage(),
+      ),
+      GoRoute(
+        path: '/portal-maintenance',
+        builder: (_, __) => const PortalMaintenancePage(),
+      ),
       GoRoute(
         path: '/table/:tableId',
         builder: (_, state) => TableDetailPage(

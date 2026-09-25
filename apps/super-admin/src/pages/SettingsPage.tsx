@@ -11,11 +11,17 @@ function sourceBadge(source: PlatformSettingsField['source']) {
   const styles =
     source === 'database'
       ? 'border-status-success/30 bg-status-success/10 text-status-success'
-      : source === 'environment'
+      : source === 'environment' || source === 'default'
         ? 'border-white/15 bg-white/5 text-text-secondary'
         : 'border-status-warning/30 bg-status-warning/10 text-status-warning';
   const label =
-    source === 'database' ? 'Database' : source === 'environment' ? 'Environment' : 'Missing';
+    source === 'database'
+      ? 'Database'
+      : source === 'environment'
+        ? 'Environment'
+        : source === 'default'
+          ? 'Default'
+          : 'Missing';
   return (
     <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${styles}`}>
       {label}
@@ -77,6 +83,7 @@ function GroupForm({
     e.preventDefault();
     const values: Record<string, string> = {};
     for (const field of group.fields) {
+      if (field.type === 'boolean') continue;
       const raw = draft[field.key] ?? '';
       if (field.isSecret) {
         if (raw !== '') values[field.key] = raw;
@@ -94,6 +101,18 @@ function GroupForm({
 
   function clearOverride(key: string) {
     saveMutation.mutate({ [key]: '' });
+  }
+
+  function toggleBoolean(field: PlatformSettingsField) {
+    const next = field.value === 'false' ? 'true' : 'false';
+    if (
+      next === 'false' &&
+      group.id === 'portals' &&
+      !window.confirm(`Turn off "${field.label}" for every tenant? Signed-in users are blocked on their next request.`)
+    ) {
+      return;
+    }
+    saveMutation.mutate({ [field.key]: next });
   }
 
   const needsEncryption = group.fields.some((f) => f.isSecret);
@@ -128,7 +147,38 @@ function GroupForm({
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {group.fields.map((field) => (
+        {group.fields.map((field) =>
+          field.type === 'boolean' ? (
+          <div
+            key={field.key}
+            className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-bg-elevated px-3 py-3 sm:col-span-1"
+          >
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-sm text-text-secondary">
+                {field.label}
+                {sourceBadge(field.source)}
+              </p>
+              <p className="font-mono text-[10px] text-text-muted">{field.key}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={field.value !== 'false'}
+              aria-label={field.label}
+              disabled={saveMutation.isPending}
+              onClick={() => toggleBoolean(field)}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-60 ${
+                field.value !== 'false' ? 'bg-status-success' : 'bg-white/15'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
+                  field.value !== 'false' ? 'left-[22px]' : 'left-0.5'
+                }`}
+              />
+            </button>
+          </div>
+          ) : (
           <label key={field.key} className="block sm:col-span-1">
             <span className="mb-1.5 flex items-center gap-2 text-sm text-text-secondary">
               {field.label}
@@ -164,7 +214,8 @@ function GroupForm({
               ) : null}
             </span>
           </label>
-        ))}
+          ),
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -240,9 +291,9 @@ export function SettingsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Platform settings</h1>
           <p className="mt-1 max-w-2xl text-text-secondary">
-            Configure SMTP (staff OTP), MSG91 (phone OTP), FCM (Cullinos App push), Razorpay, and
-            Cullinos App release flags. Database values override environment variables. No Google
-            Sign-In group in this release.
+            Turn client portals on or off, and configure SMTP (staff OTP), MSG91 (phone OTP), FCM
+            (Cullinos App push), Razorpay, and Cullinos App release flags. Database values override
+            environment variables.
           </p>
         </div>
         <button

@@ -13,11 +13,13 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
-import { OrgId, RequireModule } from "../../common/decorators";
+import type { JwtPayload } from "@cullinos/auth";
+import { CurrentUser, OrgId, RequireModule } from "../../common/decorators";
 import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import {
   MARKETING_UPLOAD_MAX_BYTES,
   MarketingUploadService,
+  uploadMaxBytesFor,
 } from "../marketing/marketing-upload.service";
 import { CouponsService } from "./coupons.service";
 
@@ -45,6 +47,7 @@ export class CouponsController {
   )
   async uploadImage(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file?.buffer) throw new BadRequestException("No file uploaded.");
@@ -52,6 +55,7 @@ export class CouponsController {
       file,
       `coupon-${orgId}-${Date.now()}`,
       "coupon",
+      uploadMaxBytesFor(user),
     );
     return { imageUrl: result.url };
   }

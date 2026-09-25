@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
@@ -281,8 +282,26 @@ export class SuperAdminController {
     return this.service.updateOrganizationEnvironment(id, body);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post("labs/step-up")
+  startLabsStepUp(@CurrentUser() user: JwtPayload) {
+    return this.service.startLabsStepUp(user.sub, user.email);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post("labs/step-up/verify")
+  verifyLabsStepUp(@Body() dto: VerifyOtpDto, @CurrentUser() user: JwtPayload) {
+    return this.service.verifyLabsStepUp(user.sub, dto.challengeToken, dto.otp);
+  }
+
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post("labs/sql")
-  runLabsSql(@Body() body: LabsSqlDto, @CurrentUser() user: JwtPayload) {
+  runLabsSql(
+    @Body() body: LabsSqlDto,
+    @CurrentUser() user: JwtPayload,
+    @Headers("x-step-up-token") stepUpToken?: string,
+  ) {
+    this.service.assertLabsStepUp(user.sub, stepUpToken);
     return this.service.runLabsSql(body.sql, user.email);
   }
 
@@ -310,8 +329,9 @@ export class SuperAdminController {
     @Param("id") id: string,
     @Param("userId") userId: string,
     @CurrentUser() user: JwtPayload,
+    @Body() body?: { reason?: string },
   ) {
-    return this.service.deactivateOrganizationUser(id, userId, user.sub);
+    return this.service.deactivateOrganizationUser(id, userId, user.sub, body?.reason);
   }
 
   @Patch("organizations/:id/users/:userId/activate")
@@ -337,12 +357,32 @@ export class SuperAdminController {
     @Query("page") page?: string,
     @Query("limit") limit?: string,
     @Query("organizationId") organizationId?: string,
+    @Query("action") action?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
   ) {
-    return this.service.listAuditLogs(
-      Number(page) || 1,
-      Number(limit) || 50,
+    return this.service.listAuditLogs(Number(page) || 1, Number(limit) || 50, organizationId, {
+      action,
+      from,
+      to,
+    });
+  }
+
+  @Get("users")
+  listPlatformUsers(
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+    @Query("organizationId") organizationId?: string,
+    @Query("status") status?: string,
+    @Query("q") q?: string,
+  ) {
+    return this.service.listPlatformUsers({
+      page: Number(page) || 1,
+      limit: Number(limit) || 50,
       organizationId,
-    );
+      status,
+      q,
+    });
   }
 
   @Delete("organizations/:id")

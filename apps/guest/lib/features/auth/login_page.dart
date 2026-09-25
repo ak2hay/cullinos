@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:cullinos_guest/core/firebase/firebase_auth_service.dart';
 import 'package:cullinos_guest/core/firebase/guest_firestore_service.dart';
 import 'package:cullinos_guest/core/guest_colors.dart';
@@ -13,9 +14,8 @@ import 'package:cullinos_guest/core/guest_spacing.dart';
 import 'package:cullinos_guest/data/guest_api.dart';
 import 'package:cullinos_guest/features/auth/auth_controller.dart';
 import 'package:cullinos_guest/features/orders/push_service.dart';
-import 'package:cullinos_guest/widgets/guest_brand_wordmark.dart';
 import 'package:cullinos_guest/widgets/guest_pill_button.dart';
-import 'package:cullinos_guest/widgets/guest_soft_card.dart';
+import 'package:cullinos_guest/widgets/google_g_logo.dart';
 import 'package:cullinos_guest/widgets/phone_field.dart';
 import 'package:cullinos_guest/widgets/turnstile_field.dart';
 
@@ -80,6 +80,8 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage> {
+  static const _heroHeight = 330.0;
+
   final _phone = TextEditingController();
   final _code = TextEditingController();
   final _name = TextEditingController();
@@ -604,86 +606,77 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         if (!didPop) _handleBack();
       },
       child: Scaffold(
-        backgroundColor: GuestColors.scaffold,
-        appBar: AppBar(
-          backgroundColor: GuestColors.scaffold,
-          foregroundColor: GuestColors.ink,
-          elevation: 0,
-          leading: IconButton(
-            icon: Container(
-              decoration: const BoxDecoration(
-                color: GuestColors.primarySoft,
-                shape: BoxShape.circle,
-              ),
-              padding: const EdgeInsets.all(6),
-              child: const Icon(
-                Icons.arrow_back_rounded,
-                color: GuestColors.primary,
-                size: 18,
-              ),
-            ),
-            onPressed: _handleBack,
-          ),
-        ),
-        body: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(GuestSpacing.page),
+        backgroundColor: Colors.white,
+        body: SingleChildScrollView(
+          child: Stack(
             children: [
-              // ── Brand header ─────────────────────────────────────────────
+              _LoginHero(height: _heroHeight, onBack: _handleBack),
               Center(
-                child: Column(
-                  children: [
-                    // Forest-green brand icon
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        gradient: GuestColors.heroTeal,
-                        borderRadius: BorderRadius.circular(18),
-                        boxShadow: GuestSpacing.softShadow(
-                          color: GuestColors.primary,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.restaurant_rounded,
-                        color: Colors.white,
-                        size: 28,
-                      ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      GuestSpacing.page,
+                      _heroHeight - 44,
+                      GuestSpacing.page,
+                      GuestSpacing.page,
                     ),
-                    const SizedBox(height: 10),
-                    const GuestBrandWordmark(),
+              // ── Auth card ─────────────────────────────────────────────────
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 30,
+                      offset: const Offset(0, 10),
+                    ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Discover · Order · Dine\nScan a table QR for seamless in-restaurant dining.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: GuestColors.muted,
-                      height: 1.35,
-                      fontSize: 13,
-                    ),
-              ),
-              const SizedBox(height: 20),
-
-              // ── Auth card ─────────────────────────────────────────────────
-              GuestSoftCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (_step == _AuthStep.phone) ...[
-                      GuestPillButton(
-                        label: 'Continue with Google',
-                        icon: Icons.g_mobiledata_rounded,
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            const TextSpan(text: 'Welcome to '),
+                            TextSpan(
+                              text: 'Cullinos',
+                              style: TextStyle(color: GuestColors.primaryOf(context)),
+                            ),
+                          ],
+                        ),
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          color: GuestColors.ink,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Discover great restaurants, order your favorite food '
+                        'and enjoy a seamless dining experience.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: GuestColors.muted,
+                          fontSize: 13.5,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _GoogleButton(
                         loading: _loading,
                         onPressed: _loading ? null : _signInWithGoogle,
                       ),
-                      const SizedBox(height: 10),
-                      GuestPillButton(
+                      const SizedBox(height: 12),
+                      _BrandButton(
                         label: 'Continue with Email',
-                        secondary: true,
-                        icon: Icons.email_outlined,
+                        leading: Icons.mail_outline_rounded,
                         onPressed: _loading
                             ? null
                             : () => setState(() {
@@ -691,7 +684,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   _error = null;
                                 }),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 18),
                       Row(
                         children: [
                           Expanded(
@@ -703,7 +696,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 12),
                             child: Text(
-                              'or phone',
+                              'or continue with phone',
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
@@ -720,9 +713,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       const SizedBox(height: 16),
                       PhoneField(
                         controller: _phone,
-                        labelText: 'Mobile number',
                         textInputAction: TextInputAction.done,
                         onComposedChanged: (v) => setState(() => _composedPhone = v),
+                        onSubmitted: (_) {
+                          if (_phoneOk && !_loading) _continuePhone();
+                        },
                       ),
                       if (TurnstileField.isEnabled) ...[
                         const SizedBox(height: 12),
@@ -731,25 +726,32 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           onExpire: () => setState(() => _captchaToken = ''),
                         ),
                       ],
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
                       CheckboxListTile(
                         contentPadding: EdgeInsets.zero,
+                        dense: true,
                         value: _staySignedIn,
                         onChanged: (v) =>
                             setState(() => _staySignedIn = v ?? true),
                         controlAffinity: ListTileControlAffinity.leading,
-                        activeColor: GuestColors.primary,
-                        title: Text(
+                        activeColor: GuestColors.primaryOf(context),
+                        title: const Text(
                           'Stay signed in',
-                          style: Theme.of(context).textTheme.bodySmall,
+                          style: TextStyle(fontSize: 14, color: GuestColors.ink),
                         ),
                       ),
-                      GuestPillButton(
+                      const SizedBox(height: 6),
+                      _BrandButton(
                         label: 'Continue with Phone',
-                        icon: Icons.arrow_forward_rounded,
+                        trailingArrow: true,
                         loading: _loading,
                         onPressed:
                             _phoneOk && !_loading ? _continuePhone : null,
+                      ),
+                      const SizedBox(height: 16),
+                      _TermsLine(
+                        onTerms: () => context.push('/terms'),
+                        onPrivacy: () => context.push('/privacy'),
                       ),
                     ],
 
@@ -1147,10 +1149,327 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ],
                 ),
               ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LoginHero extends StatefulWidget {
+  const _LoginHero({required this.height, required this.onBack});
+
+  final double height;
+  final VoidCallback onBack;
+
+  @override
+  State<_LoginHero> createState() => _LoginHeroState();
+}
+
+class _LoginHeroState extends State<_LoginHero> {
+  static const _features = [
+    (Icons.restaurant_menu_rounded, 'Discover'),
+    (Icons.shopping_bag_outlined, 'Order'),
+    (Icons.groups_outlined, 'Dine In'),
+  ];
+
+  int _active = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) setState(() => _active = (_active + 1) % _features.length);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top;
+    final primary = GuestColors.primaryOf(context);
+    return SizedBox(
+      height: widget.height,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'assets/images/login_hero.jpg',
+            fit: BoxFit.cover,
+            alignment: Alignment.centerRight,
+            errorBuilder: (_, __, ___) =>
+                const DecoratedBox(decoration: BoxDecoration(gradient: GuestColors.heroTeal)),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Colors.white.withValues(alpha: 0.94),
+                  Colors.white.withValues(alpha: 0.6),
+                  Colors.white.withValues(alpha: 0.0),
+                ],
+                stops: const [0.0, 0.48, 0.8],
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(20, top + 6, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                IconButton(
+                  tooltip: 'Back',
+                  onPressed: widget.onBack,
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.85),
+                  ),
+                  icon: Icon(Icons.arrow_back_rounded, color: primary, size: 20),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Cullinos',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 40,
+                    height: 1.0,
+                    fontWeight: FontWeight.w800,
+                    color: GuestColors.primaryDeepOf(context),
+                    letterSpacing: -1.2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Good Food Brings\nPeople Together.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    height: 1.3,
+                    color: GuestColors.ink,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.75),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < _features.length; i++)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _features[i].$1,
+                                size: 22,
+                                color: i == _active ? primary : GuestColors.ink,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _features[i].$2,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: i == _active ? FontWeight.w700 : FontWeight.w500,
+                                  color: i == _active ? primary : GuestColors.ink,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    for (var i = 0; i < _features.length; i++)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        margin: const EdgeInsets.only(right: 6),
+                        width: i == _active ? 30 : 22,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: i == _active ? primary : GuestColors.border,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoogleButton extends StatelessWidget {
+  const _GoogleButton({required this.loading, required this.onPressed});
+
+  final bool loading;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 54,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: GuestColors.border),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        child: loading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.4),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const GoogleGLogo(size: 22),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Continue with Google',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: GuestColors.ink,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+class _BrandButton extends StatelessWidget {
+  const _BrandButton({
+    required this.label,
+    required this.onPressed,
+    this.leading,
+    this.trailingArrow = false,
+    this.loading = false,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final IconData? leading;
+  final bool trailingArrow;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = GuestColors.primaryOf(context);
+    return SizedBox(
+      height: 56,
+      child: FilledButton(
+        onPressed: loading ? null : onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: bg,
+          disabledBackgroundColor: bg.withValues(alpha: 0.45),
+          disabledForegroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(trailingArrow ? 28 : 16),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 40,
+              child: leading != null ? Icon(leading, color: Colors.white, size: 22) : null,
+            ),
+            Expanded(
+              child: Center(
+                child: loading
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                      )
+                    : Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+              ),
+            ),
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: trailingArrow
+                  ? DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.arrow_forward_rounded,
+                          color: Colors.white, size: 20),
+                    )
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TermsLine extends StatelessWidget {
+  const _TermsLine({required this.onTerms, required this.onPrivacy});
+
+  final VoidCallback onTerms;
+  final VoidCallback onPrivacy;
+
+  @override
+  Widget build(BuildContext context) {
+    final link = TextStyle(
+      color: GuestColors.primaryOf(context),
+      fontWeight: FontWeight.w600,
+      decoration: TextDecoration.underline,
+    );
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Text(
+          'By continuing, you agree to our ',
+          style: TextStyle(fontSize: 12, color: GuestColors.muted),
+        ),
+        GestureDetector(
+          onTap: onTerms,
+          child: Text('Terms of Service', style: link.copyWith(fontSize: 12)),
+        ),
+        const Text(' and ', style: TextStyle(fontSize: 12, color: GuestColors.muted)),
+        GestureDetector(
+          onTap: onPrivacy,
+          child: Text('Privacy Policy', style: link.copyWith(fontSize: 12)),
+        ),
+      ],
     );
   }
 }

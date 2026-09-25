@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { cn } from '../utils';
-import { Field, controlClassName, fieldId } from './Field';
+import { Field, fieldId } from './Field';
 
 export type DialCodeOption = {
   /** Digits only, e.g. "91" */
@@ -29,6 +29,14 @@ export const DIAL_CODES: DialCodeOption[] = [
 ];
 
 export const DEFAULT_DIAL_CODE = '91';
+
+/** Regional-indicator flag emoji for a 2-letter ISO code (falls back to letters where unsupported). */
+export function isoToFlag(iso: string): string {
+  if (!/^[A-Za-z]{2}$/.test(iso)) return iso;
+  return String.fromCodePoint(
+    ...iso.toUpperCase().split('').map((c) => 0x1f1e6 + c.charCodeAt(0) - 65),
+  );
+}
 
 function digitsOnly(value: string): string {
   return value.replace(/\D/g, '');
@@ -100,12 +108,11 @@ export function PhoneField({
 
   return (
     <Field label={label} htmlFor={inputId} error={error} className={className}>
-      <div className="flex gap-2">
+      <div className="flex w-full min-w-0 items-stretch gap-2">
         <select
           aria-label={`${label} country code`}
           className={cn(
-            controlClassName,
-            'w-[8.5rem] shrink-0',
+            'h-11 w-[6.75rem] max-w-[6.75rem] flex-none shrink-0 rounded-lg border border-white/10 bg-bg-card pl-2 pr-1 text-sm text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
             error && 'border-status-error',
           )}
           value={dial}
@@ -114,25 +121,40 @@ export function PhoneField({
         >
           {DIAL_CODES.map((opt) => (
             <option key={opt.dial} value={opt.dial}>
-              {opt.iso} +{opt.dial}
+              {isoToFlag(opt.iso)} +{opt.dial}
             </option>
           ))}
         </select>
-        <input
-          id={inputId}
-          type="tel"
-          inputMode="numeric"
-          autoComplete="tel-national"
-          required={required}
-          disabled={disabled}
-          placeholder={placeholder}
-          className={cn(
-            'h-11 min-w-0 flex-1 rounded-lg border border-white/10 bg-bg-card px-3 text-sm text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
-            error && 'border-status-error',
-          )}
-          value={national}
-          onChange={(e) => emit(dial, e.target.value.replace(/\D/g, ''))}
-        />
+        <div className="relative min-w-0 flex-1">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary"
+          >
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.1 9.9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+          </svg>
+          <input
+            id={inputId}
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel-national"
+            maxLength={15}
+            required={required}
+            disabled={disabled}
+            placeholder={placeholder}
+            className={cn(
+              'h-11 w-full min-w-0 rounded-lg border border-white/10 bg-bg-card pl-9 pr-3 text-sm text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
+              error && 'border-status-error',
+            )}
+            value={national}
+            onChange={(e) => emit(dial, e.target.value.replace(/\D/g, ''))}
+          />
+        </div>
       </div>
     </Field>
   );

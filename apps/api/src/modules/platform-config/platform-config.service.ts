@@ -19,12 +19,13 @@ import {
   isConfigGroupId,
 } from "./platform-config.registry";
 
-export type ConfigSource = "database" | "environment" | "missing";
+export type ConfigSource = "database" | "environment" | "default" | "missing";
 
 export type FieldStatus = {
   key: string;
   label: string;
   isSecret: boolean;
+  type?: "boolean";
   configured: boolean;
   source: ConfigSource;
   /** Non-secret effective value (never for secrets). */
@@ -217,12 +218,16 @@ export class PlatformConfigService implements OnModuleInit {
         } else if (envValue) {
           source = "environment";
           effective = envValue;
+        } else if (keyDef.defaultValue !== undefined) {
+          source = "default";
+          effective = keyDef.defaultValue;
         }
 
         fields.push({
           key: keyDef.key,
           label: keyDef.label,
           isSecret: keyDef.isSecret,
+          ...(keyDef.type ? { type: keyDef.type } : {}),
           configured: Boolean(effective),
           source: effective ? source : "missing",
           value: keyDef.isSecret ? null : (effective ?? null),
@@ -270,6 +275,10 @@ export class PlatformConfigService implements OnModuleInit {
         this.cache.set(keyDef.key, { value: undefined, loaded: true });
         changedKeys.push(keyDef.key);
         continue;
+      }
+
+      if (keyDef.type === "boolean" && raw !== "true" && raw !== "false") {
+        throw new BadRequestException(`${keyDef.key} must be "true" or "false"`);
       }
 
       if (keyDef.isSecret && !encryptionKeyConfigured()) {

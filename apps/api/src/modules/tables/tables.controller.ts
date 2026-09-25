@@ -50,6 +50,30 @@ export class TablesController {
     });
   }
 
+  @Patch("outlets/:outletId/floors/:floorId")
+  @RequireModule("tables")
+  updateFloor(
+    @OrgId() orgId: string,
+    @Param("outletId") outletId: string,
+    @Param("floorId") floorId: string,
+    @Body() body: { name?: string; sortOrder?: number },
+  ) {
+    return this.service.updateFloor(orgId, outletId, floorId, {
+      name: typeof body?.name === "string" ? body.name : undefined,
+      sortOrder: body?.sortOrder,
+    });
+  }
+
+  @Delete("outlets/:outletId/floors/:floorId")
+  @RequireModule("tables")
+  deleteFloor(
+    @OrgId() orgId: string,
+    @Param("outletId") outletId: string,
+    @Param("floorId") floorId: string,
+  ) {
+    return this.service.deleteFloor(orgId, outletId, floorId);
+  }
+
   @Post("outlets/:outletId/floors/:floorId/sections")
   @RequireModule("tables")
   createSection(

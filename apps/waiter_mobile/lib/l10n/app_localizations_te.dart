@@ -300,4 +300,24 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get allFloors => 'All floors';
+
+  @override
+  String get portalDisabledTitle => 'వెయిటర్ యాప్ ఆపివేయబడింది';
+
+  @override
+  String get portalDisabledBody =>
+      'Cullinos వెయిటర్ యాప్‌ను తాత్కాలికంగా ఆపివేసింది. దయచేసి మీ మేనేజర్‌ను సంప్రదించండి లేదా అడ్మిన్ పోర్టల్‌ను ఉపయోగించండి.';
+
+  @override
+  String get portalMaintenanceLabel => 'MAINTENANCE';
+
+  @override
+  String get portalMaintenanceTitle => 'Waiter app is under maintenance';
+
+  @override
+  String get portalMaintenanceBody =>
+      'Cullinos is performing maintenance on the waiter app. Please try again shortly.';
+
+  @override
+  String get checkAgain => 'మళ్లీ తనిఖీ చేయండి';
 }

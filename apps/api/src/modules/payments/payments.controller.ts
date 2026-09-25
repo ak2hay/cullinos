@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   Req,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -148,6 +149,12 @@ export class PaymentsController {
   @Get()
   list(@OrgId() orgId: string) {
     return this.service.list(orgId);
+  }
+
+  @Get("gateways/status")
+  @RequireModule("pos")
+  gatewayStatus(@OrgId() orgId: string, @Query("outletId") outletId?: string) {
+    return this.credentials.onlineStatus(orgId, outletId || null);
   }
 
   @Get("gateways")

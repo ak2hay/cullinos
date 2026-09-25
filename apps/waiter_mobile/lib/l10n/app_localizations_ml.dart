@@ -300,4 +300,24 @@ class AppLocalizationsMl extends AppLocalizations {
 
   @override
   String get allFloors => 'All floors';
+
+  @override
+  String get portalDisabledTitle => 'വെയിറ്റർ ആപ്പ് ഓഫ് ആണ്';
+
+  @override
+  String get portalDisabledBody =>
+      'Cullinos വെയിറ്റർ ആപ്പ് താൽക്കാലികമായി ഓഫ് ചെയ്തിരിക്കുന്നു. ദയവായി നിങ്ങളുടെ മാനേജറെ ബന്ധപ്പെടുക അല്ലെങ്കിൽ അഡ്മിൻ പോർട്ടൽ ഉപയോഗിക്കുക.';
+
+  @override
+  String get portalMaintenanceLabel => 'MAINTENANCE';
+
+  @override
+  String get portalMaintenanceTitle => 'Waiter app is under maintenance';
+
+  @override
+  String get portalMaintenanceBody =>
+      'Cullinos is performing maintenance on the waiter app. Please try again shortly.';
+
+  @override
+  String get checkAgain => 'വീണ്ടും പരിശോധിക്കുക';
 }

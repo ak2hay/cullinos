@@ -9,6 +9,18 @@ export function formatMoney(paise: number): string {
   return inrFormatter.format(paise / 100);
 }
 
+const inrExactFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** Paise-precise money for bills / tax breakdowns. */
+export function formatMoneyExact(paise: number): string {
+  return inrExactFormatter.format(paise / 100);
+}
+
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('en-IN', {
     dateStyle: 'medium',

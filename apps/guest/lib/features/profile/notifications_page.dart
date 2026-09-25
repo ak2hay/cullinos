@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:cullinos_guest/core/guest_colors.dart';
 import 'package:cullinos_guest/core/guest_spacing.dart';
 import 'package:cullinos_guest/data/guest_api.dart';
@@ -8,6 +11,54 @@ import 'package:cullinos_guest/features/orders/push_service.dart';
 import 'package:cullinos_guest/widgets/guest_back_button.dart';
 import 'package:cullinos_guest/widgets/guest_empty_state.dart';
 import 'package:cullinos_guest/widgets/guest_soft_card.dart';
+
+TextStyle _fontFor(String? family, {double? size, FontWeight? weight, Color? color}) {
+  final name = (family ?? 'Inter').trim();
+  switch (name) {
+    case 'Poppins':
+      return GoogleFonts.poppins(fontSize: size, fontWeight: weight, color: color);
+    case 'Montserrat':
+      return GoogleFonts.montserrat(fontSize: size, fontWeight: weight, color: color);
+    case 'Playfair Display':
+      return GoogleFonts.playfairDisplay(fontSize: size, fontWeight: weight, color: color);
+    case 'Inter':
+    default:
+      return GoogleFonts.inter(fontSize: size, fontWeight: weight, color: color);
+  }
+}
+
+Color? _parseColor(dynamic raw) {
+  if (raw == null) return null;
+  final s = raw.toString().trim();
+  if (s.isEmpty) return null;
+  var hex = s.replaceFirst('#', '');
+  if (hex.length == 6) hex = 'FF$hex';
+  if (hex.length != 8) return null;
+  final value = int.tryParse(hex, radix: 16);
+  if (value == null) return null;
+  return Color(value);
+}
+
+Map<String, dynamic> _creativeFromData(Map<String, dynamic> data) {
+  final nested = data['creative'];
+  if (nested is Map) {
+    return Map<String, dynamic>.from(nested);
+  }
+  if (nested is String && nested.isNotEmpty) {
+    try {
+      final decoded = jsonDecode(nested);
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {}
+  }
+  return {
+    if (data['creative_titleColor'] != null) 'titleColor': data['creative_titleColor'],
+    if (data['creative_bodyColor'] != null) 'bodyColor': data['creative_bodyColor'],
+    if (data['creative_bgColor'] != null) 'bgColor': data['creative_bgColor'],
+    if (data['creative_accentColor'] != null) 'accentColor': data['creative_accentColor'],
+    if (data['creative_fontFamily'] != null) 'fontFamily': data['creative_fontFamily'],
+    if (data['creative_ctaLabel'] != null) 'ctaLabel': data['creative_ctaLabel'],
+  };
+}
 
 class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
@@ -35,6 +86,32 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       setState(() => _rows = []);
     } finally {
       setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _openNotification(Map<String, dynamic> n) async {
+    final id = n['id'].toString();
+    try {
+      await ref.read(guestApiProvider).markNotificationRead(id);
+      await ref.read(guestApiProvider).deleteNotification(id);
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _rows = _rows
+          .where((r) => Map<String, dynamic>.from(r as Map)['id']?.toString() != id)
+          .toList();
+    });
+    final data = n['data'] is Map
+        ? Map<String, dynamic>.from(n['data'] as Map)
+        : <String, dynamic>{};
+    final orderId = data['orderId']?.toString();
+    final deepLink = data['deepLink']?.toString();
+    if (orderId != null && orderId.isNotEmpty) {
+      context.push('/orders/$orderId');
+      return;
+    }
+    if (deepLink != null && deepLink.isNotEmpty) {
+      GuestPushService.openDeepLink(deepLink);
     }
   }
 
@@ -76,9 +153,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
               padding: const EdgeInsets.only(right: 8),
               child: TextButton.icon(
                 onPressed: () async {
-                  await ref
-                      .read(guestApiProvider)
-                      .markAllNotificationsRead();
+                  await ref.read(guestApiProvider).markAllNotificationsRead();
                   await _load();
                 },
                 icon: const Icon(Icons.done_all_rounded, size: 18),
@@ -107,86 +182,28 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                     final data = n['data'] is Map
                         ? Map<String, dynamic>.from(n['data'] as Map)
                         : <String, dynamic>{};
+                    final creative = _creativeFromData(data);
+                    final imageUrl = (data['imageUrl'] ?? creative['imageUrl'])
+                        ?.toString();
+                    final hasRich = (imageUrl != null && imageUrl.isNotEmpty) ||
+                        creative.isNotEmpty;
+
+                    if (hasRich) {
+                      return _RichNotificationCard(
+                        title: n['title']?.toString() ?? '',
+                        body: n['body']?.toString() ?? '',
+                        unread: unread,
+                        imageUrl: imageUrl,
+                        creative: creative,
+                        onTap: () => _openNotification(n),
+                      );
+                    }
+
                     return GuestSoftCard(
                       color: unread
                           ? GuestColors.primarySoft
                           : GuestColors.surface,
-                      onTap: () async {
-                        await ref
-                            .read(guestApiProvider)
-                            .markNotificationRead(n['id'].toString());
-                        if (!context.mounted) return;
-                        final orderId = data['orderId']?.toString();
-                        final deepLink = data['deepLink']?.toString();
-                        if (orderId != null && orderId.isNotEmpty) {
-                          context.push('/orders/$orderId');
-                          return;
-                        }
-                        if (deepLink != null && deepLink.isNotEmpty) {
-                          GuestPushService.openDeepLink(deepLink);
-                          await _load();
-                          return;
-                        }
-                        final title = n['title']?.toString() ?? 'Notification';
-                        final body = n['body']?.toString() ?? '';
-                        await showModalBottomSheet<void>(
-                          context: context,
-                          backgroundColor: GuestColors.surface,
-                          shape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.vertical(
-                              top: Radius.circular(24),
-                            ),
-                          ),
-                          builder: (ctx) => Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Center(
-                                  child: Container(
-                                    width: 40,
-                                    height: 4,
-                                    decoration: BoxDecoration(
-                                      color: GuestColors.borderLight,
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                Text(
-                                  title,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    color: GuestColors.ink,
-                                  ),
-                                ),
-                                if (body.isNotEmpty) ...[
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    body,
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      height: 1.4,
-                                      color: GuestColors.muted,
-                                    ),
-                                  ),
-                                ],
-                                const SizedBox(height: 20),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: TextButton(
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: const Text('Close'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                        await _load();
-                      },
+                      onTap: () => _openNotification(n),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -204,8 +221,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                                   ? Icons.notifications_active_rounded
                                   : Icons.notifications_outlined,
                               size: 18,
-                              color:
-                                  unread ? Colors.white : GuestColors.muted,
+                              color: unread ? Colors.white : GuestColors.muted,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -213,29 +229,14 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        n['title']?.toString() ?? '',
-                                        style: TextStyle(
-                                          fontWeight: unread
-                                              ? FontWeight.w800
-                                              : FontWeight.w600,
-                                          color: GuestColors.ink,
-                                        ),
-                                      ),
-                                    ),
-                                    if (unread)
-                                      Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: const BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: GuestColors.primary,
-                                        ),
-                                      ),
-                                  ],
+                                Text(
+                                  n['title']?.toString() ?? '',
+                                  style: TextStyle(
+                                    fontWeight: unread
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
+                                    color: GuestColors.ink,
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -253,6 +254,130 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                     );
                   },
                 ),
+    );
+  }
+}
+
+class _RichNotificationCard extends StatelessWidget {
+  const _RichNotificationCard({
+    required this.title,
+    required this.body,
+    required this.unread,
+    required this.creative,
+    required this.onTap,
+    this.imageUrl,
+  });
+
+  final String title;
+  final String body;
+  final bool unread;
+  final String? imageUrl;
+  final Map<String, dynamic> creative;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = _parseColor(creative['bgColor']) ?? GuestColors.surface;
+    final titleColor = _parseColor(creative['titleColor']) ?? GuestColors.ink;
+    final bodyColor = _parseColor(creative['bodyColor']) ?? GuestColors.muted;
+    final accent = _parseColor(creative['accentColor']) ?? GuestColors.primary;
+    final font = creative['fontFamily']?.toString();
+    final cta = creative['ctaLabel']?.toString() ?? 'Open';
+    final headlineSize =
+        double.tryParse(creative['headlineSize']?.toString() ?? '') ?? 17;
+
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (imageUrl != null && imageUrl!.isNotEmpty)
+              AspectRatio(
+                aspectRatio: 2,
+                child: Image.network(
+                  imageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: GuestColors.borderLight,
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.image_not_supported_outlined),
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: _fontFor(
+                            font,
+                            size: headlineSize,
+                            weight: FontWeight.w800,
+                            color: titleColor,
+                          ),
+                        ),
+                      ),
+                      if (unread)
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: accent,
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (body.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      body,
+                      style: _fontFor(
+                        font,
+                        size: 13.5,
+                        weight: FontWeight.w500,
+                        color: bodyColor,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: onTap,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: accent,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        cta,
+                        style: _fontFor(
+                          font,
+                          size: 14,
+                          weight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

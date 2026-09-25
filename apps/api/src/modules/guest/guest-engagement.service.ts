@@ -243,6 +243,28 @@ export class GuestEngagementService {
     return { success: true };
   }
 
+  async deleteNotification(guestUserId: string, id: string) {
+    const row = await this.prisma.guestNotification.findFirst({
+      where: { id, guestUserId },
+    });
+    if (!row) throw new NotFoundException("Notification not found");
+    await this.prisma.guestNotification.delete({ where: { id } });
+    return { success: true };
+  }
+
+  async deleteAllReadNotifications(guestUserId: string) {
+    await this.prisma.guestNotification.deleteMany({
+      where: { guestUserId, readAt: { not: null } },
+    });
+    return { success: true };
+  }
+
+  async unreadNotificationCount(guestUserId: string) {
+    return this.prisma.guestNotification.count({
+      where: { guestUserId, readAt: null },
+    });
+  }
+
   async getNotificationPrefs(guestUserId: string) {
     return this.prisma.guestNotificationPreference.upsert({
       where: { guestUserId },

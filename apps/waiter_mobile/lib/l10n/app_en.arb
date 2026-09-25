@@ -96,5 +96,11 @@
   "usePhoneInstead": "Use phone instead",
   "confirmLanguage": "Confirm language",
   "languageChanged": "Language updated",
-  "allFloors": "All floors"
+  "allFloors": "All floors",
+  "portalDisabledTitle": "Waiter app is turned off",
+  "portalDisabledBody": "Cullinos has temporarily turned off the waiter app. Please contact your manager or use the admin portal.",
+  "portalMaintenanceLabel": "MAINTENANCE",
+  "portalMaintenanceTitle": "Waiter app is under maintenance",
+  "portalMaintenanceBody": "Cullinos is performing maintenance on the waiter app. Please try again shortly.",
+  "checkAgain": "Check again"
 }

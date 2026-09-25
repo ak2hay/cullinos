@@ -7,6 +7,7 @@ const navItems: Array<{
   to: string;
   label: string;
   end?: boolean;
+  external?: boolean;
   children?: Array<{ to: string; label: string }>;
 }> = [
   { to: '/', label: 'Dashboard', end: true },
@@ -14,23 +15,19 @@ const navItems: Array<{
   { to: '/labs', label: 'Tenant labs' },
   { to: '/plans', label: 'Plans' },
   { to: '/subscriptions', label: 'Subscriptions' },
+  { to: '/audit', label: 'Audit & activity' },
+  { to: '/users-report', label: 'Users report' },
   {
-    to: '/guest-ops',
-    label: 'Cullinos App',
-    children: [
-      { to: '/guest-ops', label: 'Overview' },
-      { to: '/guest-ops/marketplace', label: 'Marketplace' },
-      { to: '/guest-ops/discover', label: 'Discover' },
-      { to: '/guest-ops/banners', label: 'Banners' },
-      { to: '/guest-ops/push', label: 'Push' },
-      { to: '/guest-ops/offers', label: 'Offers' },
-      { to: '/guest-ops/reviews', label: 'Reviews' },
-      { to: '/guest-ops/users', label: 'Users' },
-      { to: '/guest-ops/analytics', label: 'Analytics' },
-      { to: '/guest-ops/runtime', label: 'Runtime' },
-      { to: '/promo-email', label: 'Promo email' },
-    ],
+    to:
+      (import.meta.env.VITE_APP_OPS_URL?.trim() ||
+        (import.meta.env.PROD ? 'https://app.cullinos.com' : 'http://localhost:5184')).replace(
+        /\/$/,
+        '',
+      ),
+    label: 'Cullinos App Ops',
+    external: true,
   },
+  { to: '/promo-email', label: 'Promo email' },
   { to: '/settings', label: 'Settings' },
   { to: '/health', label: 'System health' },
   {
@@ -66,12 +63,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const admin = useAuthStore((s) => s.admin);
   const logout = useAuthStore((s) => s.logout);
-  const hashClean = location.hash.replace(/^#/, '');
   const marketingOpen = location.pathname.startsWith('/marketing');
-  const cullinosSectionOpen =
-    location.pathname.startsWith('/guest-ops') ||
-    location.pathname === '/promo-email' ||
-    (location.pathname === '/settings' && hashClean === 'guest_app');
 
   function handleLogout() {
     logout();
@@ -96,13 +88,24 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {navItems.map((item) => {
-          const isCullinosApp = item.label === 'Cullinos App';
           const isMarketing = item.label === 'Marketing CMS';
-          const sectionOpen = isCullinosApp
-            ? cullinosSectionOpen
-            : isMarketing
-              ? marketingOpen
-              : false;
+          const sectionOpen = isMarketing ? marketingOpen : false;
+
+          if (item.external) {
+            return (
+              <div key={item.to + item.label}>
+                <a
+                  href={item.to}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={onNavigate}
+                  className="block rounded-lg px-3 py-2.5 text-sm text-text-secondary transition hover:bg-white/5 hover:text-text-primary"
+                >
+                  {item.label} ↗
+                </a>
+              </div>
+            );
+          }
 
           return (
             <div key={item.to + item.label}>
@@ -132,7 +135,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                       <NavLink
                         key={child.to}
                         to={child.to}
-                        end={child.to === '/marketing' || child.to === '/guest-ops'}
+                        end={child.to === '/marketing'}
                         onClick={onNavigate}
                         className={() =>
                           `block rounded-md px-2 py-1.5 text-xs transition ${

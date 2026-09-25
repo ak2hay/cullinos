@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { PLAN_MODULES } from '@cullinos/shared';
 import { superAdminApi, type PlanSummary } from '@/lib/api';
 
 function planModules(plan: PlanSummary): string[] {
@@ -15,7 +16,7 @@ type PlanDraft = {
   maxOutlets: string;
   maxTerminals: string;
   isActive: boolean;
-  modulesCsv: string;
+  modules: string[];
 };
 
 function draftFromPlan(plan: PlanSummary): PlanDraft {
@@ -27,7 +28,7 @@ function draftFromPlan(plan: PlanSummary): PlanDraft {
     maxOutlets: String(plan.maxOutlets ?? 1),
     maxTerminals: String(plan.maxTerminals ?? 2),
     isActive: plan.isActive !== false,
-    modulesCsv: planModules(plan).join(', '),
+    modules: planModules(plan),
   };
 }
 
@@ -40,8 +41,40 @@ const emptyCreate: PlanDraft & { slug: string } = {
   maxOutlets: '1',
   maxTerminals: '2',
   isActive: true,
-  modulesCsv: '',
+  modules: [],
 };
+
+function ModuleChecklist({
+  selected,
+  onChange,
+  catalog,
+}: {
+  selected: string[];
+  onChange: (next: string[]) => void;
+  catalog: string[];
+}) {
+  function toggle(mod: string) {
+    if (selected.includes(mod)) {
+      onChange(selected.filter((m) => m !== mod));
+    } else {
+      onChange([...selected, mod]);
+    }
+  }
+
+  return (
+    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+      {catalog.map((mod) => (
+        <label
+          key={mod}
+          className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-bg-elevated px-2 py-1.5 text-xs"
+        >
+          <input type="checkbox" checked={selected.includes(mod)} onChange={() => toggle(mod)} />
+          <span className="font-mono">{mod}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
 
 export function PlansPage() {
   const queryClient = useQueryClient();
@@ -69,11 +102,7 @@ export function PlansPage() {
         maxTerminals: Number(next.maxTerminals) || 2,
         isActive: next.isActive,
       });
-      const modules = next.modulesCsv
-        .split(',')
-        .map((m) => m.trim())
-        .filter(Boolean);
-      return superAdminApi.updatePlanModules(id, modules);
+      return superAdminApi.updatePlanModules(id, next.modules);
     },
     onSuccess: () => {
       setEditingId(null);
@@ -94,10 +123,7 @@ export function PlansPage() {
         priceYearly: Number(createDraft.priceYearly) || 0,
         maxOutlets: Number(createDraft.maxOutlets) || 1,
         maxTerminals: Number(createDraft.maxTerminals) || 2,
-        modules: createDraft.modulesCsv
-          .split(',')
-          .map((m) => m.trim())
-          .filter(Boolean),
+        modules: createDraft.modules,
       }),
     onSuccess: () => {
       setShowCreate(false);
@@ -114,8 +140,8 @@ export function PlansPage() {
     onError: (err: Error) => setSaveError(err.message),
   });
 
-  const allKnownModules = useMemo(() => {
-    const set = new Set<string>();
+  const moduleCatalog = useMemo(() => {
+    const set = new Set<string>(PLAN_MODULES);
     for (const plan of plans) {
       for (const m of planModules(plan)) set.add(m);
       for (const f of plan.features ?? []) set.add(f.module);
@@ -272,20 +298,14 @@ export function PlansPage() {
                       />
                       Active
                     </label>
-                    <label className="block text-sm sm:col-span-2">
-                      <span className="text-text-muted">Modules (comma-separated)</span>
-                      <textarea
-                        value={draft.modulesCsv}
-                        onChange={(e) => setDraft({ ...draft, modulesCsv: e.target.value })}
-                        rows={3}
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 font-mono text-xs outline-none focus:border-brand-accent"
+                    <div className="sm:col-span-2">
+                      <span className="text-sm text-text-muted">Modules</span>
+                      <ModuleChecklist
+                        selected={draft.modules}
+                        catalog={moduleCatalog}
+                        onChange={(modules) => setDraft({ ...draft, modules })}
                       />
-                      {allKnownModules.length > 0 ? (
-                        <span className="mt-1 block text-xs text-text-muted">
-                          Known: {allKnownModules.join(', ')}
-                        </span>
-                      ) : null}
-                    </label>
+                    </div>
                     <div className="flex gap-2 sm:col-span-2">
                       <button
                         type="button"
@@ -330,7 +350,7 @@ export function PlansPage() {
 
       {showCreate ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-white/10 bg-bg-secondary p-6">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-white/10 bg-bg-secondary p-6">
             <h2 className="text-lg font-medium">Create plan</h2>
             <div className="mt-4 grid gap-3">
               <label className="block text-sm">
@@ -360,15 +380,14 @@ export function PlansPage() {
                   className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
                 />
               </label>
-              <label className="block text-sm">
-                <span className="text-text-muted">Modules (comma-separated)</span>
-                <textarea
-                  value={createDraft.modulesCsv}
-                  onChange={(e) => setCreateDraft({ ...createDraft, modulesCsv: e.target.value })}
-                  rows={3}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 font-mono text-xs"
+              <div>
+                <span className="text-sm text-text-muted">Modules</span>
+                <ModuleChecklist
+                  selected={createDraft.modules}
+                  catalog={moduleCatalog}
+                  onChange={(modules) => setCreateDraft({ ...createDraft, modules })}
                 />
-              </label>
+              </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button

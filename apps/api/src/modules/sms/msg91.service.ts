@@ -9,6 +9,8 @@ import { redactPhone } from "../../common/pii-redact.util";
 export type SendOtpResult = {
   sent: boolean;
   provider: "msg91" | "log";
+  /** Set when sent is false — distinguishes missing Flow config from API/network failure. */
+  failureKind?: "not_configured" | "provider_failed";
 };
 
 export type SendCampaignSmsResult = {
@@ -280,7 +282,7 @@ export class Msg91Service {
       this.logger.warn(
         `MSG91 Flow not configured. Skipping OTP SMS to ${redactPhone(mobile)}`,
       );
-      return { sent: false, provider: "log" };
+      return { sent: false, provider: "log", failureKind: "not_configured" };
     }
 
     try {
@@ -307,7 +309,7 @@ export class Msg91Service {
       if (!res.ok) {
         const text = await res.text();
         this.logger.error(`MSG91 send failed (${res.status}): ${text}`);
-        return { sent: false, provider: "log" };
+        return { sent: false, provider: "log", failureKind: "provider_failed" };
       }
 
       return { sent: true, provider: "msg91" };
@@ -315,7 +317,7 @@ export class Msg91Service {
       this.logger.error(
         `MSG91 error: ${err instanceof Error ? err.message : String(err)}`,
       );
-      return { sent: false, provider: "log" };
+      return { sent: false, provider: "log", failureKind: "provider_failed" };
     }
   }
 

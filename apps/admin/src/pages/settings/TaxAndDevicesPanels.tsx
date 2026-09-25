@@ -7,7 +7,9 @@ import { useMemo, useState } from 'react';
 import { Button, Input, useToast } from '@cullinos/ui';
 import {
   devicesApi,
+  menuApi,
   outletsApi,
+  settingsApi,
   taxApi,
   type DeviceRow,
   type TaxGroupRow,
@@ -56,6 +58,26 @@ export function TaxGroupsSettingsPanel() {
   const [exciseRate, setExciseRate] = useState('0');
 
   const taxQuery = useQuery({ queryKey: ['tax'], queryFn: taxApi.list });
+  const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get });
+  const menuItemsQuery = useQuery({ queryKey: ['menu', 'items'], queryFn: menuApi.listItems });
+
+  const groups = taxQuery.data ?? [];
+  const configuredDefault =
+    typeof settingsQuery.data?.settings?.defaultTaxGroupId === 'string'
+      ? (settingsQuery.data.settings.defaultTaxGroupId as string)
+      : '';
+  const effectiveDefault =
+    groups.find((g) => g.id === configuredDefault) ?? (groups.length === 1 ? groups[0] : null);
+  const itemsWithoutGroup = (menuItemsQuery.data ?? []).filter((i) => !i.taxGroupId).length;
+
+  const defaultGroupMutation = useMutation({
+    mutationFn: (id: string) => settingsApi.update({ defaultTaxGroupId: id || null }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      toast.success('Default tax group saved');
+    },
+    onError: (err: Error) => toast.error(err.message ?? 'Failed to save default tax group.'),
+  });
 
   const createTaxMutation = useMutation({
     mutationFn: () => {
@@ -130,6 +152,39 @@ export function TaxGroupsSettingsPanel() {
           Seed India presets
         </Button>
       </div>
+      {groups.length > 0 ? (
+        <div className="space-y-2 rounded-lg border border-white/5 bg-bg-elevated/50 p-3">
+          <label className="block space-y-1 text-sm">
+            <span className="text-text-secondary">Default tax group</span>
+            <select
+              value={configuredDefault}
+              disabled={defaultGroupMutation.isPending}
+              onChange={(e) => defaultGroupMutation.mutate(e.target.value)}
+              className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+            >
+              <option value="">
+                {groups.length === 1 ? `Use ${groups[0].name} (only group)` : 'None — untaxed'}
+              </option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="text-xs text-text-muted">
+            Applied to menu items and custom items that have no tax group of their own.
+          </p>
+          {itemsWithoutGroup > 0 ? (
+            <p className="text-xs text-status-warning">
+              {itemsWithoutGroup} menu item{itemsWithoutGroup === 1 ? '' : 's'} have no tax group
+              {effectiveDefault
+                ? ` — they will be billed with ${effectiveDefault.name}.`
+                : ' and will be billed without tax. Assign groups in Menu or pick a default.'}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <ul className="divide-y divide-white/5">
         {(taxQuery.data ?? []).map((group: TaxGroupRow) => (
           <li key={group.id} className="flex items-start justify-between gap-3 py-3">

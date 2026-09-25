@@ -187,6 +187,7 @@ export function mapOrderToClient(order: {
   taxTotal?: unknown;
   total?: unknown;
   tipAmount?: unknown;
+  discountTotal?: unknown;
   customerName?: string | null;
   notes?: string | null;
   scheduledPickupAt?: Date | null;
@@ -203,6 +204,8 @@ export function mapOrderToClient(order: {
     name: string;
     quantity: number;
     unitPrice: unknown;
+    taxAmount?: unknown;
+    total?: unknown;
     notes: string | null;
     menuItemId?: string | null;
     menuItem?: { hsnCode?: string | null } | null;
@@ -225,6 +228,7 @@ export function mapOrderToClient(order: {
     subtotal: toPaise(Number(order.subtotal)),
     taxTotal: order.taxTotal != null ? toPaise(Number(order.taxTotal)) : 0,
     tipAmount: order.tipAmount != null ? toPaise(Number(order.tipAmount)) : 0,
+    discountTotal: order.discountTotal != null ? toPaise(Number(order.discountTotal)) : 0,
     total: order.total != null ? toPaise(Number(order.total)) : undefined,
     totalAmount:
       order.total != null ? toPaise(Number(order.total)) : toPaise(Number(order.subtotal)),
@@ -239,6 +243,8 @@ export function mapOrderToClient(order: {
       name: item.name,
       quantity: item.quantity,
       unitPrice: toPaise(Number(item.unitPrice)),
+      taxAmount: item.taxAmount != null ? toPaise(Number(item.taxAmount)) : 0,
+      lineTotal: item.total != null ? toPaise(Number(item.total)) : undefined,
       notes: item.notes,
       hsnCode: item.menuItem?.hsnCode ?? null,
     })),
