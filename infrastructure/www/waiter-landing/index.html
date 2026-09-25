@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <title>Cullinos Waiter</title>
     <style>
-      :root { color-scheme: dark; --bg:#0f0f1a; --text:#f5f5f7; --muted:#9ca3af; --brand:#006D5B; --border:#2a2a3a; }
+      :root { color-scheme: dark; --bg:#0f0f1a; --text:#f5f5f7; --muted:#9ca3af; --brand:#006D5B; --border:#2a2a3a; --amber:#D4A017; --amber-bg:#1a1408; }
       body { margin:0; min-height:100vh; font-family:system-ui,sans-serif; background:var(--bg); color:var(--text);
         display:flex; align-items:center; justify-content:center; padding:24px; }
       main { max-width:420px; width:100%; }
@@ -17,18 +17,33 @@
       a.btn.disabled { background:transparent; border:1px solid var(--border); color:var(--muted); pointer-events:none; }
       .note { margin-top:16px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; font-size:0.85rem; }
       .note a { color:var(--text); }
+      #blocked { display:none; text-align:center; }
+      #blocked.visible { display:block; }
+      #content.hidden { display:none; }
+      .maint-label { font-size:0.75rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--amber); margin:0 0 8px; }
+      body.maintenance { background:var(--amber-bg); }
+      body.maintenance #blocked { border:1px solid rgba(212,160,23,0.35); border-radius:16px; padding:28px 20px; background:rgba(0,0,0,0.25); }
+      #block-msg { margin-top:12px; font-size:0.9rem; }
     </style>
   </head>
   <body>
     <main>
-      <h1>Cullinos Waiter</h1>
-      <p>The waiter app runs on Android phones and tablets. Staff sign in with the credentials their restaurant admin gives them.</p>
-      <a class="btn disabled" id="play" href="#" aria-disabled="true">Google Play &middot; coming soon</a>
-      <p class="note">
-        Android only &mdash; iPhone and desktop are not supported yet. Managers can use
-        <a href="https://manage.cullinos.com">manage.cullinos.com</a> and owners
-        <a href="https://admin.cullinos.com">admin.cullinos.com</a> from any browser.
-      </p>
+      <div id="blocked" aria-live="polite">
+        <p class="maint-label" id="block-label" hidden>Maintenance</p>
+        <h1 id="block-title">Cullinos Waiter</h1>
+        <p id="block-body"></p>
+        <p id="block-msg"></p>
+      </div>
+      <div id="content">
+        <h1>Cullinos Waiter</h1>
+        <p>The waiter app runs on Android phones and tablets. Staff sign in with the credentials their restaurant admin gives them.</p>
+        <a class="btn disabled" id="play" href="#" aria-disabled="true">Google Play &middot; coming soon</a>
+        <p class="note">
+          Android only &mdash; iPhone and desktop are not supported yet. Managers can use
+          <a href="https://manage.cullinos.com">manage.cullinos.com</a> and owners
+          <a href="https://admin.cullinos.com">admin.cullinos.com</a> from any browser.
+        </p>
+      </div>
     </main>
     <script src="/landing.js" defer></script>
   </body>

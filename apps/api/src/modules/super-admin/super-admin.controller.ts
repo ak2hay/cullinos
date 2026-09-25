@@ -329,8 +329,9 @@ export class SuperAdminController {
     @Param("id") id: string,
     @Param("userId") userId: string,
     @CurrentUser() user: JwtPayload,
+    @Body() body?: { reason?: string },
   ) {
-    return this.service.deactivateOrganizationUser(id, userId, user.sub);
+    return this.service.deactivateOrganizationUser(id, userId, user.sub, body?.reason);
   }
 
   @Patch("organizations/:id/users/:userId/activate")
@@ -356,12 +357,32 @@ export class SuperAdminController {
     @Query("page") page?: string,
     @Query("limit") limit?: string,
     @Query("organizationId") organizationId?: string,
+    @Query("action") action?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
   ) {
-    return this.service.listAuditLogs(
-      Number(page) || 1,
-      Number(limit) || 50,
+    return this.service.listAuditLogs(Number(page) || 1, Number(limit) || 50, organizationId, {
+      action,
+      from,
+      to,
+    });
+  }
+
+  @Get("users")
+  listPlatformUsers(
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+    @Query("organizationId") organizationId?: string,
+    @Query("status") status?: string,
+    @Query("q") q?: string,
+  ) {
+    return this.service.listPlatformUsers({
+      page: Number(page) || 1,
+      limit: Number(limit) || 50,
       organizationId,
-    );
+      status,
+      q,
+    });
   }
 
   @Delete("organizations/:id")

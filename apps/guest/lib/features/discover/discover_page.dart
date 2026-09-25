@@ -32,6 +32,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
   List<dynamic> _favorites = [];
   List<dynamic> _memberships = [];
   int _coinsBalance = 0;
+  int _unreadNotifications = 0;
   bool _loading = true;
   String? _error;
 
@@ -85,6 +86,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
       List<dynamic> favs = [];
       List<dynamic> wallets = [];
       int coins = 0;
+      int unread = 0;
       if (ref.read(authControllerProvider).isAuthenticated) {
         try {
           recent = await api.orders();
@@ -101,6 +103,9 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
               (coinsData['coins'] as num?)?.toInt() ??
               0;
         } catch (_) {}
+        try {
+          unread = await api.unreadNotificationCount();
+        } catch (_) {}
       }
 
       if (!mounted) return;
@@ -112,6 +117,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
         _favorites = favs;
         _memberships = wallets;
         _coinsBalance = coins;
+        _unreadNotifications = unread;
       });
     } catch (e) {
       if (!mounted) return;
@@ -241,21 +247,24 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
                       '/login?next=${Uri.encodeComponent('/notifications')}');
                   return;
                 }
-                context.push('/notifications');
+                context.push('/notifications').then((_) {
+                  if (mounted) _load();
+                });
               },
             ),
-            Positioned(
-              right: 2,
-              top: 2,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: GuestColors.popularRed,
-                  shape: BoxShape.circle,
+            if (authed && _unreadNotifications > 0)
+              Positioned(
+                right: 2,
+                top: 2,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: GuestColors.popularRed,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ],

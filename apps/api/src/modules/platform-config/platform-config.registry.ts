@@ -34,7 +34,7 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
     id: "portals",
     label: "Portals",
     description:
-      "Platform-wide switches. Turning a portal off blocks sign-in and API calls from that client for every tenant (existing sessions get the disabled message on their next request). Admin portal and super admin are never affected.",
+      "Platform-wide switches and maintenance. Turning a portal off blocks sign-in and API calls from that client for every tenant. Non-empty maintenance text puts the portal in maintenance (separate UI from disabled). Super Admin (platform.cullinos.com) is never gated.",
     keys: [
       {
         key: "PORTAL_MANAGEMENT_ENABLED",
@@ -44,11 +44,81 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
         defaultValue: "true",
       },
       {
+        key: "PORTAL_MANAGEMENT_MAINTENANCE",
+        isSecret: false,
+        label: "Management maintenance message (empty = off)",
+      },
+      {
+        key: "PORTAL_ADMIN_ENABLED",
+        isSecret: false,
+        label: "Admin web (admin.cullinos.com)",
+        type: "boolean",
+        defaultValue: "true",
+      },
+      {
+        key: "PORTAL_ADMIN_MAINTENANCE",
+        isSecret: false,
+        label: "Admin maintenance message (empty = off)",
+      },
+      {
+        key: "PORTAL_POS_ENABLED",
+        isSecret: false,
+        label: "POS web",
+        type: "boolean",
+        defaultValue: "true",
+      },
+      {
+        key: "PORTAL_POS_MAINTENANCE",
+        isSecret: false,
+        label: "POS maintenance message (empty = off)",
+      },
+      {
+        key: "PORTAL_KDS_ENABLED",
+        isSecret: false,
+        label: "KDS web",
+        type: "boolean",
+        defaultValue: "true",
+      },
+      {
+        key: "PORTAL_KDS_MAINTENANCE",
+        isSecret: false,
+        label: "KDS maintenance message (empty = off)",
+      },
+      {
+        key: "PORTAL_APP_OPS_ENABLED",
+        isSecret: false,
+        label: "App Ops (app.cullinos.com)",
+        type: "boolean",
+        defaultValue: "true",
+      },
+      {
+        key: "PORTAL_APP_OPS_MAINTENANCE",
+        isSecret: false,
+        label: "App Ops maintenance message (empty = off)",
+      },
+      {
         key: "PORTAL_WAITER_ENABLED",
         isSecret: false,
         label: "Waiter app (Android)",
         type: "boolean",
         defaultValue: "true",
+      },
+      {
+        key: "PORTAL_WAITER_MAINTENANCE",
+        isSecret: false,
+        label: "Waiter app maintenance message (empty = off)",
+      },
+      {
+        key: "PORTAL_WAITER_LANDING_ENABLED",
+        isSecret: false,
+        label: "Waiter landing (waiter.cullinos.com)",
+        type: "boolean",
+        defaultValue: "true",
+      },
+      {
+        key: "PORTAL_WAITER_LANDING_MAINTENANCE",
+        isSecret: false,
+        label: "Waiter landing maintenance message (empty = off)",
       },
       {
         key: "PORTAL_DISABLED_MESSAGE",
@@ -156,23 +226,23 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
     id: "msg91",
     label: "Phone OTP (MSG91)",
     description:
-      "Guest + customer phone OTP. Prefer Widget (ID + tokenAuth); Flow SMS needs auth key + template + sender. OTP Flow expects OTP var; marketing Flow expects MESSAGE var (see sms-templates.ts). Turn off Guest OTP debug once Flow works.",
+      "Guest app prefers Widget (ID + tokenAuth). Waiter/staff phone OTP requires Flow: Auth key + Flow template ID (+ sender). Widget alone is not enough for Waiter. OTP Flow expects OTP var; marketing Flow expects MESSAGE var.",
     keys: [
       { key: "MSG91_AUTH_KEY", isSecret: true, label: "Auth key (server verify)" },
       {
         key: "MSG91_WIDGET_ID",
         isSecret: false,
-        label: "Widget ID",
+        label: "Widget ID (guest app)",
       },
       {
         key: "MSG91_WIDGET_TOKEN",
         isSecret: true,
-        label: "Widget tokenAuth (client)",
+        label: "Widget tokenAuth (guest client)",
       },
       {
         key: "MSG91_TEMPLATE_ID",
         isSecret: false,
-        label: "Flow template ID (fallback SMS)",
+        label: "Flow template ID (required for Waiter/staff SMS OTP)",
       },
       {
         key: "MSG91_MARKETING_TEMPLATE_ID",

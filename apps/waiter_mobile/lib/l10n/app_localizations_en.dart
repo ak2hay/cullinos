@@ -309,5 +309,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'Cullinos has temporarily turned off the waiter app. Please contact your manager or use the admin portal.';
 
   @override
+  String get portalMaintenanceLabel => 'MAINTENANCE';
+
+  @override
+  String get portalMaintenanceTitle => 'Waiter app is under maintenance';
+
+  @override
+  String get portalMaintenanceBody =>
+      'Cullinos is performing maintenance on the waiter app. Please try again shortly.';
+
+  @override
   String get checkAgain => 'Check again';
 }

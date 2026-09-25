@@ -15,6 +15,7 @@ import 'package:cullinos_guest/data/guest_api.dart';
 import 'package:cullinos_guest/features/auth/auth_controller.dart';
 import 'package:cullinos_guest/features/orders/push_service.dart';
 import 'package:cullinos_guest/widgets/guest_pill_button.dart';
+import 'package:cullinos_guest/widgets/google_g_logo.dart';
 import 'package:cullinos_guest/widgets/phone_field.dart';
 import 'package:cullinos_guest/widgets/turnstile_field.dart';
 
@@ -1345,16 +1346,8 @@ class _GoogleButton extends StatelessWidget {
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Image.asset(
-                      'assets/images/google_g.png',
-                      width: 20,
-                      height: 20,
-                      filterQuality: FilterQuality.high,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
+                  const GoogleGLogo(size: 22),
+                  const SizedBox(width: 12),
                   const Text(
                     'Continue with Google',
                     style: TextStyle(

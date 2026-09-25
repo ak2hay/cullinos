@@ -11,6 +11,8 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   zomato: 'Zomato',
 };
 
+const COMING_SOON = true;
+
 export function AggregatorsPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -23,6 +25,7 @@ export function AggregatorsPage() {
   const aggregatorsQuery = useQuery({
     queryKey: ['aggregators'],
     queryFn: aggregatorsApi.list,
+    enabled: !COMING_SOON,
   });
 
   const providerData = aggregatorsQuery.data?.find((p) => p.provider === activeProvider);
@@ -75,7 +78,17 @@ export function AggregatorsPage() {
       <PageHeader
         title="Aggregators"
         description="Connect Swiggy and Zomato, toggle online menu sync per outlet, and ingest webhook orders."
+        actions={
+          <span className="rounded-full border border-brand-accent/40 bg-brand-accent/15 px-2.5 py-0.5 text-xs font-semibold text-brand-accent">
+            Coming soon
+          </span>
+        }
       />
+
+      <div className="rounded-xl border border-brand-accent/25 bg-brand-accent/10 px-4 py-3 text-sm text-text-secondary">
+        Aggregator connect and menu sync are not available yet. You can preview the layout below;
+        Connect, Generate secret, and Sync stay disabled until launch.
+      </div>
 
       {aggregatorsQuery.error ? (
         <ErrorBanner>
@@ -105,7 +118,7 @@ export function AggregatorsPage() {
         ))}
       </div>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-4 space-y-4">
+      <section className="rounded-xl border border-white/5 bg-bg-card p-4 space-y-4 opacity-70">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold">{PROVIDER_LABELS[activeProvider]} connection</h2>
@@ -116,8 +129,12 @@ export function AggregatorsPage() {
           </div>
           <Button
             type="button"
-            loading={toggleMutation.isPending}
-            onClick={() => toggleMutation.mutate(!providerData?.isActive)}
+            disabled={COMING_SOON}
+            loading={!COMING_SOON && toggleMutation.isPending}
+            onClick={() => {
+              if (COMING_SOON) return;
+              toggleMutation.mutate(!providerData?.isActive);
+            }}
           >
             {providerData?.isActive ? 'Disconnect' : 'Connect'}
           </Button>
@@ -126,7 +143,7 @@ export function AggregatorsPage() {
         <div className="rounded-lg bg-bg-elevated p-3 text-sm space-y-2">
           <p>
             <span className="text-text-muted">Webhook URL:</span>{' '}
-            <code className="text-xs">{providerData?.webhookPath}</code>
+            <code className="text-xs">{providerData?.webhookPath ?? '—'}</code>
           </p>
           <p>
             <span className="text-text-muted">Secret fingerprint:</span>{' '}
@@ -143,15 +160,19 @@ export function AggregatorsPage() {
           <Button
             type="button"
             variant="secondary"
-            loading={regenerateSecretMutation.isPending}
-            onClick={() => regenerateSecretMutation.mutate()}
+            disabled={COMING_SOON}
+            loading={!COMING_SOON && regenerateSecretMutation.isPending}
+            onClick={() => {
+              if (COMING_SOON) return;
+              regenerateSecretMutation.mutate();
+            }}
           >
             {providerData?.webhookSecretFingerprint ? 'Regenerate secret' : 'Generate secret'}
           </Button>
         </div>
       </section>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-4">
+      <section className="rounded-xl border border-white/5 bg-bg-card p-4 opacity-70">
         <h2 className="font-semibold">Per-outlet settings</h2>
         <p className="mt-1 text-sm text-text-secondary">
           Enable connection and online menu sync for each outlet.
@@ -177,13 +198,15 @@ export function AggregatorsPage() {
                   <input
                     type="checkbox"
                     checked={cfg.connected}
-                    onChange={(e) =>
+                    disabled={COMING_SOON}
+                    onChange={(e) => {
+                      if (COMING_SOON) return;
                       outletMutation.mutate({
                         outletId: outlet.id,
                         connected: e.target.checked,
                         menuSyncEnabled: cfg.menuSyncEnabled,
-                      })
-                    }
+                      });
+                    }}
                   />
                   Connected
                 </label>
@@ -191,23 +214,27 @@ export function AggregatorsPage() {
                   <input
                     type="checkbox"
                     checked={cfg.menuSyncEnabled}
-                    disabled={!cfg.connected}
-                    onChange={(e) =>
+                    disabled={COMING_SOON || !cfg.connected}
+                    onChange={(e) => {
+                      if (COMING_SOON) return;
                       outletMutation.mutate({
                         outletId: outlet.id,
                         connected: cfg.connected,
                         menuSyncEnabled: e.target.checked,
-                      })
-                    }
+                      });
+                    }}
                   />
                   Menu sync
                 </label>
                 <Button
                   type="button"
                   size="sm"
-                  disabled={!cfg.connected || !cfg.menuSyncEnabled}
-                  loading={syncMutation.isPending}
-                  onClick={() => syncMutation.mutate(outlet.id)}
+                  disabled={COMING_SOON || !cfg.connected || !cfg.menuSyncEnabled}
+                  loading={!COMING_SOON && syncMutation.isPending}
+                  onClick={() => {
+                    if (COMING_SOON) return;
+                    syncMutation.mutate(outlet.id);
+                  }}
                 >
                   Sync now
                 </Button>

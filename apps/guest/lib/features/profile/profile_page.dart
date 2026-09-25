@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cullinos_guest/core/firebase/guest_firestore_service.dart';
 import 'package:cullinos_guest/core/friendly_api_error.dart';
 import 'package:cullinos_guest/core/guest_colors.dart';
 import 'package:cullinos_guest/core/guest_spacing.dart';
@@ -33,6 +36,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   int _totalLoyaltyPts = 0;
   int _coinsBalance = 0;
   int _orderCount = 0;
+  String? _photoUrl;
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
@@ -94,6 +99,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         final orders = await api.orders();
         orderCount = orders.length;
       } catch (_) {}
+      String? photoUrl;
+      try {
+        final uid = FirebaseAuth.instance.currentUser?.uid ??
+            ref.read(authControllerProvider).guestId;
+        if (uid != null && uid.isNotEmpty) {
+          final profile =
+              await ref.read(guestFirestoreServiceProvider).fetchProfile(uid);
+          photoUrl = profile?.photoUrl ??
+              FirebaseAuth.instance.currentUser?.photoURL;
+        }
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _addresses = addresses;
@@ -103,10 +119,84 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         _totalLoyaltyPts = totalPts;
         _coinsBalance = coins;
         _orderCount = orderCount;
+        _photoUrl = photoUrl;
       });
     } catch (_) {
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _setProfilePicture() async {
+    if (_uploadingPhoto) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid ??
+        ref.read(authControllerProvider).guestId;
+    if (uid == null || uid.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to set a profile picture.')),
+      );
+      return;
+    }
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: GuestColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (picked == null || !mounted) return;
+      setState(() => _uploadingPhoto = true);
+      final url = await ref.read(guestFirestoreServiceProvider).uploadProfilePhoto(
+            uid: uid,
+            file: File(picked.path),
+          );
+      if (!mounted) return;
+      setState(() {
+        _photoUrl = url;
+        _uploadingPhoto = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile picture updated'),
+          backgroundColor: GuestColors.primary,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _uploadingPhoto = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyApiError(e))),
+      );
     }
   }
 
@@ -551,13 +641,26 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       name: auth.name?.isNotEmpty == true
                           ? auth.name!
                           : 'Guest',
-                      trailing: IconButton(
-                        onPressed: _editProfile,
-                        icon: const Icon(
-                          Icons.edit_rounded,
-                          color: GuestColors.primary,
-                        ),
-                      ),
+                      photoUrl: _photoUrl,
+                      onAvatarTap:
+                          _uploadingPhoto ? null : _setProfilePicture,
+                      showSetPhotoHint: true,
+                      trailing: _uploadingPhoto
+                          ? const SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: GuestColors.primary,
+                              ),
+                            )
+                          : IconButton(
+                              onPressed: _editProfile,
+                              icon: const Icon(
+                                Icons.edit_rounded,
+                                color: GuestColors.primary,
+                              ),
+                            ),
                     ),
                     const SizedBox(height: 4),
                     if (auth.phone != null && auth.phone!.isNotEmpty)

@@ -77,6 +77,7 @@ export function ReservationsPage() {
     () => (slotsQuery.data?.slots ?? []).filter((s) => s.available),
     [slotsQuery.data],
   );
+  const allSlots = useMemo(() => slotsQuery.data?.slots ?? [], [slotsQuery.data]);
 
   const createMutation = useMutation({
     mutationFn: reservationsApi.create,
@@ -353,33 +354,54 @@ export function ReservationsPage() {
             className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
           />
         </label>
-        <label className="block text-sm md:col-span-2">
-          <span className="mb-1.5 block text-text-secondary">Available slot</span>
-          <select
-            required
-            value={form.slotStart}
-            onChange={(e) => setForm((f) => ({ ...f, slotStart: e.target.value }))}
-            className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
-          >
-            <option value="">
-              {slotsQuery.isLoading ? 'Loading slots…' : 'Select a slot'}
-            </option>
-            {availableSlots.map((s) => (
-              <option key={s.startAt} value={s.startAt}>
-                {new Date(s.startAt).toLocaleTimeString([], {
+        <div className="md:col-span-2">
+          <span className="mb-1.5 block text-sm text-text-secondary">Available slot</span>
+          {slotsQuery.isLoading ? (
+            <p className="text-sm text-text-muted">Loading slots…</p>
+          ) : allSlots.length === 0 ? (
+            <p className="text-xs text-text-muted">
+              No slots for this date / party size. Check opening hours and capacity settings.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {allSlots.map((s) => {
+                const selected = form.slotStart === s.startAt;
+                const label = new Date(s.startAt).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
-                })}{' '}
-                · {s.coversAvailable} covers left
-              </option>
-            ))}
-          </select>
-          {!slotsQuery.isLoading && availableSlots.length === 0 ? (
+                });
+                const base =
+                  'rounded-lg border px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed';
+                const tone = selected
+                  ? 'border-brand-primary bg-brand-primary text-bg-primary'
+                  : s.available
+                    ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:border-emerald-400'
+                    : 'border-amber-500/40 bg-amber-500/15 text-amber-200/80 line-through opacity-80';
+                return (
+                  <button
+                    key={s.startAt}
+                    type="button"
+                    disabled={!s.available}
+                    onClick={() => setForm((f) => ({ ...f, slotStart: s.startAt }))}
+                    className={`${base} ${tone}`}
+                    title={
+                      s.available
+                        ? `${s.coversAvailable} covers left`
+                        : 'Unavailable / full'
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {!slotsQuery.isLoading && availableSlots.length === 0 && allSlots.length > 0 ? (
             <span className="mt-1 block text-xs text-text-muted">
-              No open slots for this date / party size. Check opening hours and capacity settings.
+              All slots are full for this party size.
             </span>
           ) : null}
-        </label>
+        </div>
         <label className="block text-sm md:col-span-2">
           <span className="mb-1.5 block text-text-secondary">Notes</span>
           <textarea

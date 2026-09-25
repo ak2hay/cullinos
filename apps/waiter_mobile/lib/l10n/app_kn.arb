@@ -99,5 +99,8 @@
   "allFloors": "All floors",
   "portalDisabledTitle": "ವೇಟರ್ ಆ್ಯಪ್ ಆಫ್ ಆಗಿದೆ",
   "portalDisabledBody": "Cullinos ವೇಟರ್ ಆ್ಯಪ್ ಅನ್ನು ತಾತ್ಕಾಲಿಕವಾಗಿ ಆಫ್ ಮಾಡಿದೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಮ್ಯಾನೇಜರ್ ಅನ್ನು ಸಂಪರ್ಕಿಸಿ ಅಥವಾ ಅಡ್ಮಿನ್ ಪೋರ್ಟಲ್ ಬಳಸಿ.",
+  "portalMaintenanceLabel": "MAINTENANCE",
+  "portalMaintenanceTitle": "Waiter app is under maintenance",
+  "portalMaintenanceBody": "Cullinos is performing maintenance on the waiter app. Please try again shortly.",
   "checkAgain": "ಮತ್ತೆ ಪರಿಶೀಲಿಸಿ"
 }

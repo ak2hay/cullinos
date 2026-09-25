@@ -24,7 +24,7 @@ import { smsOwnerCredentials } from "../sms/sms-templates";
 import { TenantProvisioningService } from "../organizations/tenant-provisioning.service";
 import { generateTemporaryPassword } from "../../common/generate-password";
 import {
-  PHONE_OTP_SMS_UNAVAILABLE_MESSAGE,
+  phoneOtpSmsFailureMessage,
   shouldFailPhoneOtpWhenUnsent,
 } from "../customers/phone-otp-request.util";
 import {
@@ -607,13 +607,23 @@ export class AuthService {
   ) {
     const permissions = await this.getUserPermissions(user.id);
     const portal = currentRequestPortal() ?? sessionPortal;
-    if (portal && !user.isSuperAdmin && !(await this.portalStatus.isEnabled(portal))) {
+    if (portal) {
       const status = await this.portalStatus.getStatus();
-      throw new ServiceUnavailableException({
-        code: "PORTAL_DISABLED",
-        message: status.message,
-        details: { portal },
-      });
+      const entry = status.portals[portal];
+      if (!entry.enabled) {
+        throw new ServiceUnavailableException({
+          code: "PORTAL_DISABLED",
+          message: status.message,
+          details: { portal },
+        });
+      }
+      if (entry.maintenanceMessage) {
+        throw new ServiceUnavailableException({
+          code: "PORTAL_MAINTENANCE",
+          message: entry.maintenanceMessage,
+          details: { portal },
+        });
+      }
     }
 
     const defaultOu = await this.prisma.outletUser.findFirst({
@@ -761,7 +771,7 @@ export class AuthService {
     const send = await this.msg91.sendOtp(canonical, otp);
     if (shouldFailPhoneOtpWhenUnsent(send.sent)) {
       await this.prisma.phoneOtp.delete({ where: { id: challenge.id } }).catch(() => undefined);
-      throw new BadRequestException(PHONE_OTP_SMS_UNAVAILABLE_MESSAGE);
+      throw new BadRequestException(phoneOtpSmsFailureMessage(send.failureKind));
     }
 
     return {

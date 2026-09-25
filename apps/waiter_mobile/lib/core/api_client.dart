@@ -30,9 +30,14 @@ final dioProvider = Provider<Dio>((ref) {
         if (e.response?.statusCode == 401) {
           ref.read(authControllerProvider).clearUnauthorizedSession();
         }
-        final disabledMessage = portalDisabledMessageFrom(e);
-        if (disabledMessage != null) {
-          ref.read(portalStatusProvider).markDisabled(disabledMessage);
+        final block = portalBlockMessageFrom(e);
+        if (block != null) {
+          final portal = ref.read(portalStatusProvider);
+          if (block.maintenance) {
+            portal.markMaintenance(block.message);
+          } else {
+            portal.markDisabled(block.message);
+          }
           ref.read(authControllerProvider).clearUnauthorizedSession();
         }
         handler.next(e);

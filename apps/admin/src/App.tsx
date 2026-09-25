@@ -3,6 +3,7 @@ import { defaultPortalMode, PERMISSIONS } from '@cullinos/shared';
 import { ErpAccessRoute } from '@/components/auth/ErpAccessRoute';
 import { PermissionRoute } from '@/components/auth/PermissionRoute';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { PortalGate } from '@/components/PortalGate';
 import { AppShell } from '@/components/layout/AppShell';
 import { BusinessTypeRoute } from '@/components/layout/BusinessTypeRoute';
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
@@ -58,6 +59,7 @@ function ErpPage({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <PortalGate>
     <Routes>
       <Route
         path="/login"
@@ -436,5 +438,6 @@ export default function App() {
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </PortalGate>
   );
 }

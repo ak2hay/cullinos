@@ -44,7 +44,7 @@ const navSections: NavSectionDef[] = [
       { to: '/displays', label: 'Displays' },
       { to: '/kiosk', label: 'Digital Ordering' },
       { to: '/delivery', label: 'Delivery' },
-      { to: '/aggregators', label: 'Aggregators' },
+      { to: '/aggregators', label: 'Aggregators (Coming soon)' },
     ],
   },
   {
@@ -285,11 +285,7 @@ function SidebarNav({
   );
 }
 
-function PortalModeSwitch({
-  businessType,
-}: {
-  businessType: BusinessType | null;
-}) {
+function PortalModeSwitch() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -297,13 +293,10 @@ function PortalModeSwitch({
   const portalMode = useAuthStore((s) => s.portalMode);
   const setPortalMode = useAuthStore((s) => s.setPortalMode);
 
-  if (!isQsrPortalOrg(businessType)) return null;
-
   const canErp = canAccessPortalMode(permissions, 'erp');
   const canPos = canAccessPortalMode(permissions, 'pos');
-  if (!canErp && !canPos) return null;
-  if (canErp && !canPos) return null;
-  if (!canErp && canPos) return null;
+  // Dual-mode switch: need POS_ACCESS plus at least one ERP capability.
+  if (!canPos || !canErp) return null;
 
   function switchMode(mode: PortalMode) {
     if (!canAccessPortalMode(permissions, mode)) return;
@@ -369,11 +362,10 @@ export function AppShell({ compact, children }: AppShellProps) {
   useOrgDefaultLanguage(org?.language);
   const businessType = parseBusinessType(org?.businessType);
   const restaurantSize = parseRestaurantSize(org?.restaurantSize);
-  const qsrPortal = isQsrPortalOrg(businessType);
   const canErp = canAccessPortalMode(permissions, 'erp');
   const canPos = canAccessPortalMode(permissions, 'pos');
-  const posOnly = qsrPortal && canPos && !canErp;
-  const inPosMode = !compact && qsrPortal && (posOnly || location.pathname === '/pos');
+  const posOnly = canPos && !canErp;
+  const inPosMode = !compact && canPos && (posOnly || location.pathname === '/pos');
 
   const visibleNavItems = useMemo(() => {
     return translateSections(t, navSections).flatMap((section) =>
@@ -398,7 +390,7 @@ export function AppShell({ compact, children }: AppShellProps) {
   );
 
   useEffect(() => {
-    if (compact || !qsrPortal) return;
+    if (compact || !canPos) return;
     if (posOnly) {
       if (portalMode !== 'pos') setPortalMode('pos');
       if (location.pathname !== '/pos') navigate('/pos', { replace: true });
@@ -411,7 +403,6 @@ export function AppShell({ compact, children }: AppShellProps) {
     }
   }, [
     compact,
-    qsrPortal,
     posOnly,
     portalMode,
     location.pathname,
@@ -451,7 +442,7 @@ export function AppShell({ compact, children }: AppShellProps) {
             <p className="hidden text-xs text-text-muted sm:block">
               {user?.firstName} · POS
             </p>
-            <PortalModeSwitch businessType={businessType} />
+            <PortalModeSwitch />
           </div>
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <div className="min-w-0">
@@ -542,7 +533,7 @@ export function AppShell({ compact, children }: AppShellProps) {
                   </kbd>
                 </button>
               ) : null}
-              {!compact ? <PortalModeSwitch businessType={businessType} /> : null}
+              {!compact ? <PortalModeSwitch /> : null}
             </div>
           </header>
 

@@ -296,6 +296,11 @@ export class GuestOpsController {
     return this.ops.getGuestUser(id);
   }
 
+  @Get("users/:id/activity")
+  getGuestUserActivity(@Param("id") id: string) {
+    return this.ops.getGuestUserActivity(id);
+  }
+
   @Get("users/:id/export")
   exportGuestUser(
     @CurrentUser() user: JwtPayload,
@@ -310,5 +315,22 @@ export class GuestOpsController {
     @Param("id") id: string,
   ) {
     return this.privacy.eraseGuestUser(id, user?.sub);
+  }
+
+  @Post("users/:id/suspend")
+  suspendGuestUser(
+    @CurrentUser() user: JwtPayload,
+    @Param("id") id: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.privacy.suspendGuestUser(id, body?.reason, user?.sub);
+  }
+
+  @Post("users/:id/unsuspend")
+  unsuspendGuestUser(
+    @CurrentUser() user: JwtPayload,
+    @Param("id") id: string,
+  ) {
+    return this.privacy.unsuspendGuestUser(id, user?.sub);
   }
 }

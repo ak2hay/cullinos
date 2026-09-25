@@ -412,6 +412,25 @@ export class GuestController {
 
   @Public()
   @GuestAuth()
+  @Delete("notifications/:id")
+  deleteNotification(
+    @CurrentGuest() guest: GuestJwtPayload,
+    @Param("id") id: string,
+  ) {
+    return this.engagement.deleteNotification(guest.sub, id);
+  }
+
+  @Public()
+  @GuestAuth()
+  @Get("notifications/unread-count")
+  unreadCount(@CurrentGuest() guest: GuestJwtPayload) {
+    return this.engagement.unreadNotificationCount(guest.sub).then((count) => ({
+      count,
+    }));
+  }
+
+  @Public()
+  @GuestAuth()
   @Get("notification-preferences")
   getPrefs(@CurrentGuest() guest: GuestJwtPayload) {
     return this.engagement.getNotificationPrefs(guest.sub);

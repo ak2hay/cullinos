@@ -1,6 +1,9 @@
 import { resolveViteApiBase } from '@cullinos/shared';
 import type { ApiError } from '@cullinos/shared';
 import { useAuthStore } from '../stores/auth';
+import { usePortalStore } from '../stores/portal';
+
+export const PORTAL_ID = 'app_ops';
 
 export const API_BASE = resolveViteApiBase({
   viteApiUrl: import.meta.env.VITE_API_URL,
@@ -48,6 +51,7 @@ export async function apiRequest<T>(
   authenticated = true,
 ): Promise<T> {
   const headers = new Headers(options.headers);
+  headers.set('X-Cullinos-Portal', PORTAL_ID);
   if (!(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
@@ -65,7 +69,16 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
-    throw await parseError(response);
+    const err = await parseError(response);
+    if (err.status === 503 && err.code === 'PORTAL_DISABLED') {
+      usePortalStore.getState().setDisabled(err.message);
+      useAuthStore.getState().logout();
+    }
+    if (err.status === 503 && err.code === 'PORTAL_MAINTENANCE') {
+      usePortalStore.getState().setMaintenance(err.message);
+      useAuthStore.getState().logout();
+    }
+    throw err;
   }
 
   if (response.status === 204) {
@@ -74,6 +87,20 @@ export async function apiRequest<T>(
 
   return response.json() as Promise<T>;
 }
+
+export interface PortalEntryStatus {
+  enabled: boolean;
+  maintenanceMessage: string | null;
+}
+
+export interface PortalStatusResponse {
+  portals: Record<string, PortalEntryStatus>;
+  message: string;
+}
+
+export const portalApi = {
+  status: () => apiRequest<PortalStatusResponse>('/public/portal-status', {}, false),
+};
 
 export interface LoginPayload {
   email: string;
@@ -327,6 +354,8 @@ export interface GuestOpsUserSearchRow {
   phone: string | null;
   email: string | null;
   createdAt: string;
+  suspendedAt?: string | null;
+  suspendReason?: string | null;
   counts: { memberships: number; devices: number; reviews: number };
 }
 
@@ -493,6 +522,9 @@ export const guestOpsApi = {
 
   getUser: (id: string) => apiRequest<Record<string, unknown>>(`/super-admin/guest-ops/users/${id}`),
 
+  getUserActivity: (id: string) =>
+    apiRequest<Record<string, unknown>>(`/super-admin/guest-ops/users/${id}/activity`),
+
   exportUser: (id: string) =>
     apiRequest<Record<string, unknown>>(`/super-admin/guest-ops/users/${id}/export`),
 
@@ -501,6 +533,24 @@ export const guestOpsApi = {
       method: 'POST',
       body: JSON.stringify({}),
     }),
+
+  suspendUser: (id: string, reason?: string) =>
+    apiRequest<{ id: string; suspendedAt: string | null; message: string }>(
+      `/super-admin/guest-ops/users/${id}/suspend`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      },
+    ),
+
+  unsuspendUser: (id: string) =>
+    apiRequest<{ id: string; suspendedAt: null; message: string }>(
+      `/super-admin/guest-ops/users/${id}/unsuspend`,
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+      },
+    ),
 };
 
 export const RKYVES_BRAND = {

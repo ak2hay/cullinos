@@ -13,10 +13,13 @@ import {
 } from "../portal-context";
 
 /**
- * Blocks requests from a portal that super admin switched off platform-wide.
+ * Blocks requests from a portal that super admin switched off or put in maintenance.
  * The portal comes from the X-Cullinos-Portal header, or from the `portal` claim
  * stamped into the JWT at sign-in (so sessions stay tied to their portal).
  * Must run after JwtAuthGuard so `request.user` is populated.
+ *
+ * Super-admin JWT alone does not bypass a declared switchable portal (so App Ops
+ * can be turned off). Super Admin SPA should not send X-Cullinos-Portal.
  */
 @Injectable()
 export class PortalGuard implements CanActivate {
@@ -35,19 +38,28 @@ export class PortalGuard implements CanActivate {
     if (allow) return true;
 
     const request = context.switchToHttp().getRequest();
-    const user = request.user as { isSuperAdmin?: boolean; portal?: unknown } | undefined;
-    if (user?.isSuperAdmin) return true;
+    const user = request.user as { portal?: unknown } | undefined;
 
     const portal = parsePortal(request.headers?.[PORTAL_HEADER]) ?? parsePortal(user?.portal);
     if (!portal) return true;
 
     const status = await this.portalStatus.getStatus();
-    if (status.portals[portal].enabled) return true;
+    const entry = status.portals[portal];
+    if (!entry.enabled) {
+      throw new ServiceUnavailableException({
+        code: "PORTAL_DISABLED",
+        message: status.message,
+        details: { portal },
+      });
+    }
+    if (entry.maintenanceMessage) {
+      throw new ServiceUnavailableException({
+        code: "PORTAL_MAINTENANCE",
+        message: entry.maintenanceMessage,
+        details: { portal },
+      });
+    }
 
-    throw new ServiceUnavailableException({
-      code: "PORTAL_DISABLED",
-      message: status.message,
-      details: { portal },
-    });
+    return true;
   }
 }

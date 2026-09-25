@@ -308,5 +308,15 @@ class AppLocalizationsGu extends AppLocalizations {
       'Cullinos એ વેઇટર ઍપ હંગામી ધોરણે બંધ કરી છે. કૃપા કરીને તમારા મેનેજરનો સંપર્ક કરો અથવા એડમિન પોર્ટલનો ઉપયોગ કરો.';
 
   @override
+  String get portalMaintenanceLabel => 'MAINTENANCE';
+
+  @override
+  String get portalMaintenanceTitle => 'Waiter app is under maintenance';
+
+  @override
+  String get portalMaintenanceBody =>
+      'Cullinos is performing maintenance on the waiter app. Please try again shortly.';
+
+  @override
   String get checkAgain => 'ફરી તપાસો';
 }

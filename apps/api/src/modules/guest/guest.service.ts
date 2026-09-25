@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -13,7 +14,7 @@ import { getJwtSecret } from "../../common/jwt-secret.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import { Msg91Service } from "../sms/msg91.service";
 import {
-  PHONE_OTP_SMS_UNAVAILABLE_MESSAGE,
+  phoneOtpSmsFailureMessage,
 } from "../customers/phone-otp-request.util";
 import {
   DPDP_NOTICE_VERSION,
@@ -105,7 +106,7 @@ export class GuestService {
       await this.prisma.guestPhoneOtp
         .delete({ where: { id: challenge.id } })
         .catch(() => undefined);
-      throw new ServiceUnavailableException(PHONE_OTP_SMS_UNAVAILABLE_MESSAGE);
+      throw new ServiceUnavailableException(phoneOtpSmsFailureMessage(send.failureKind));
     }
 
     return {
@@ -175,6 +176,8 @@ export class GuestService {
         anonymizedAt: null,
       },
     });
+
+    this.assertGuestActive(guest);
 
     const accessToken = this.signGuestToken(guest.id, guest.phone);
     const requiresPinSetup = !guest.pinHash;
@@ -371,6 +374,8 @@ export class GuestService {
       },
     });
 
+    this.assertGuestActive(guest);
+
     return {
       accessToken: this.signGuestToken(guest.id, guest.phone),
       guest: this.mapGuest(guest),
@@ -387,6 +392,7 @@ export class GuestService {
     if (!guest || guest.anonymizedAt) {
       throw new NotFoundException("Guest not found");
     }
+    this.assertGuestActive(guest);
     const pinHash = await hashPassword(pin!.trim());
     const updated = await this.prisma.guestUser.update({
       where: { id: guestUserId },
@@ -411,6 +417,7 @@ export class GuestService {
     if (!guest || guest.anonymizedAt || !guest.pinHash) {
       throw new UnauthorizedException("Invalid phone or PIN");
     }
+    this.assertGuestActive(guest);
     const ok = await verifyPassword(pin!.trim(), guest.pinHash);
     if (!ok) {
       throw new UnauthorizedException("Invalid phone or PIN");
@@ -495,6 +502,8 @@ export class GuestService {
         },
       });
     }
+
+    this.assertGuestActive(guest);
 
     return {
       accessToken: this.signGuestToken(guest.id, guest.phone),
@@ -706,17 +715,36 @@ export class GuestService {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
       take: 100,
     });
-    return rows.map((r) => ({
-      membershipId: r.id,
-      organization: r.organization,
-      customerId: r.customerId,
-      loyaltyPoints: r.customer.loyaltyPoints,
-      stampCount: r.customer.stampCount,
-      customerName: r.customer.name,
-    }));
+    const customerIds = rows.map((r) => r.customerId);
+    const visitRows = customerIds.length
+      ? await this.prisma.order.groupBy({
+          by: ["customerId"],
+          where: {
+            customerId: { in: customerIds },
+            status: { notIn: ["draft", "cancelled", "voided"] },
+          },
+          _count: { _all: true },
+        })
+      : [];
+    const visitsByCustomer = new Map(
+      visitRows.map((row) => [row.customerId, row._count._all]),
+    );
+    return rows
+      .map((r) => ({
+        membershipId: r.id,
+        organization: r.organization,
+        customerId: r.customerId,
+        loyaltyPoints: r.customer.loyaltyPoints,
+        stampCount: r.customer.stampCount,
+        customerName: r.customer.name,
+        visitCount: visitsByCustomer.get(r.customerId) ?? 0,
+      }))
+      .sort((a, b) => {
+        if (b.visitCount !== a.visitCount) return b.visitCount - a.visitCount;
+        return b.loyaltyPoints - a.loyaltyPoints;
+      });
   }
 
   async registerDevice(
@@ -870,6 +898,18 @@ export class GuestService {
     return m.customerId;
   }
 
+  private assertGuestActive(guest: {
+    anonymizedAt?: Date | null;
+    suspendedAt?: Date | null;
+  }) {
+    if (guest.anonymizedAt) {
+      throw new UnauthorizedException("Account not available");
+    }
+    if (guest.suspendedAt) {
+      throw new ForbiddenException("This guest account has been suspended");
+    }
+  }
+
   private mapGuest(guest: {
     id: string;
     phone: string | null;
@@ -879,6 +919,7 @@ export class GuestService {
     marketingSmsOptIn: boolean;
     pinHash?: string | null;
     cullinosCoins?: number;
+    suspendedAt?: Date | null;
   }) {
     return {
       id: guest.id,
@@ -890,6 +931,7 @@ export class GuestService {
       hasPin: Boolean(guest.pinHash),
       cullinosCoins:
         typeof guest.cullinosCoins === "number" ? guest.cullinosCoins : 0,
+      suspended: Boolean(guest.suspendedAt),
     };
   }
 

@@ -99,5 +99,8 @@
   "allFloors": "All floors",
   "portalDisabledTitle": "वेटर ऐप बंद है",
   "portalDisabledBody": "Cullinos ने वेटर ऐप को अस्थायी रूप से बंद कर दिया है। कृपया अपने मैनेजर से संपर्क करें या एडमिन पोर्टल का उपयोग करें।",
+  "portalMaintenanceLabel": "MAINTENANCE",
+  "portalMaintenanceTitle": "Waiter app is under maintenance",
+  "portalMaintenanceBody": "Cullinos is performing maintenance on the waiter app. Please try again shortly.",
   "checkAgain": "फिर से जाँचें"
 }

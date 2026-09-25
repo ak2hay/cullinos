@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { fuzzyMatchScore } from "./marketplace-search.util";
 
 function haversineKm(
   lat1: number,
@@ -56,5 +57,12 @@ describe("guest marketplace helpers", () => {
     expect(matchZone(zones, "560001")?.id).toBe("z1");
     expect(matchZone(zones, "999999")).toBeUndefined();
     expect(matchZone(zones, undefined, "z2")?.id).toBe("z2");
+  });
+
+  it("fuzzy-matches prefixes and small typos", () => {
+    expect(fuzzyMatchScore("shiv", ["SHIV CAFE"])).toBeGreaterThan(0);
+    expect(fuzzyMatchScore("shi", ["SHIV CAFE"])).toBeGreaterThan(0);
+    expect(fuzzyMatchScore("shv", ["SHIV CAFE"])).toBeGreaterThan(0);
+    expect(fuzzyMatchScore("pizza", ["SHIV CAFE"])).toBe(0);
   });
 });

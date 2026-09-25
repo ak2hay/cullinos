@@ -142,7 +142,7 @@ export function LabsPage() {
     const ok = window.confirm(
       `Change ${tenant.name} from ${from} to ${to}?${
         nextClass === 0
-          ? '\n\nSandbox can skip email MFA, SMS OTP, and relax passwords. On the production API, OTP skip also requires ALLOW_SANDBOX_OTP_SKIP=true.'
+          ? '\n\nSandbox can skip email MFA and SMS OTP when the Skip OTP toggles are on (default), and can relax passwords.'
           : '\n\nLive tenants always enforce normal OTP and password rules.'
       }`,
     );

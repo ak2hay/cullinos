@@ -11,6 +11,7 @@ import 'package:cullinos_waiter/features/floor/floor_page.dart';
 import 'package:cullinos_waiter/features/order/table_detail_page.dart';
 import 'package:cullinos_waiter/features/orders/orders_hub_page.dart';
 import 'package:cullinos_waiter/features/portal/portal_disabled_page.dart';
+import 'package:cullinos_waiter/features/portal/portal_maintenance_page.dart';
 import 'package:cullinos_waiter/features/settings/settings_page.dart';
 import 'package:cullinos_waiter/features/splash/splash_page.dart';
 import 'package:cullinos_waiter/l10n/app_localizations.dart';
@@ -29,10 +30,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       final a = ref.read(authControllerProvider);
       final loc = state.matchedLocation;
       if (!a.hydrated) return loc == '/splash' ? null : '/splash';
-      if (ref.read(portalStatusProvider).disabled) {
+      final portalStatus = ref.read(portalStatusProvider);
+      if (portalStatus.inMaintenance) {
+        return loc == '/portal-maintenance' ? null : '/portal-maintenance';
+      }
+      if (portalStatus.disabled) {
         return loc == '/portal-disabled' ? null : '/portal-disabled';
       }
-      if (loc == '/portal-disabled') return a.isAuthenticated ? '/' : '/login';
+      if (loc == '/portal-disabled' || loc == '/portal-maintenance') {
+        return a.isAuthenticated ? '/' : '/login';
+      }
       final loggingIn = loc == '/login';
       if (!a.isAuthenticated) {
         if (loggingIn || loc == '/splash') return loggingIn ? null : '/login';
@@ -47,6 +54,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/portal-disabled',
         builder: (_, __) => const PortalDisabledPage(),
+      ),
+      GoRoute(
+        path: '/portal-maintenance',
+        builder: (_, __) => const PortalMaintenancePage(),
       ),
       GoRoute(
         path: '/table/:tableId',

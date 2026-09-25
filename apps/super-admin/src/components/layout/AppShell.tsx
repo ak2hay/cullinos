@@ -15,6 +15,8 @@ const navItems: Array<{
   { to: '/labs', label: 'Tenant labs' },
   { to: '/plans', label: 'Plans' },
   { to: '/subscriptions', label: 'Subscriptions' },
+  { to: '/audit', label: 'Audit & activity' },
+  { to: '/users-report', label: 'Users report' },
   {
     to:
       (import.meta.env.VITE_APP_OPS_URL?.trim() ||

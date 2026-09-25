@@ -99,5 +99,8 @@
   "allFloors": "All floors",
   "portalDisabledTitle": "வெயிட்டர் ஆப் முடக்கப்பட்டுள்ளது",
   "portalDisabledBody": "Cullinos வெயிட்டர் ஆப்பை தற்காலிகமாக முடக்கியுள்ளது. உங்கள் மேலாளரைத் தொடர்பு கொள்ளவும் அல்லது அட்மின் போர்ட்டலைப் பயன்படுத்தவும்.",
+  "portalMaintenanceLabel": "MAINTENANCE",
+  "portalMaintenanceTitle": "Waiter app is under maintenance",
+  "portalMaintenanceBody": "Cullinos is performing maintenance on the waiter app. Please try again shortly.",
   "checkAgain": "மீண்டும் சரிபார்க்கவும்"
 }

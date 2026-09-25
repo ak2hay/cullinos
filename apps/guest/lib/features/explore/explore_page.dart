@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -25,6 +27,7 @@ class ExplorePage extends ConsumerStatefulWidget {
 
 class _ExplorePageState extends ConsumerState<ExplorePage> {
   final _search = TextEditingController();
+  Timer? _searchDebounce;
   List<dynamic> _outlets = [];
   List<dynamic> _offers = [];
   List<Map<String, dynamic>> _banners = [];
@@ -84,8 +87,18 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _search.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      _load(soft: true);
+    });
+    setState(() {});
   }
 
   Future<void> _load({bool soft = false}) async {
@@ -170,7 +183,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
         _specials = specials;
         _recentOrders = recent.take(5).toList();
         _favorites = favs.take(8).toList();
-        _memberships = wallets.take(3).toList();
+        _memberships = wallets;
         _resultSummary = count == 1 ? '1 place' : '$count places';
       });
     } catch (e) {
@@ -292,6 +305,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   void _openFilterSheet() {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: GuestColors.surface,
       shape: const RoundedRectangleBorder(
@@ -400,6 +414,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                               sliver: SliverList(
                                 delegate: SliverChildListDelegate([
                                   _buildSearchRow(),
+                                  if (_search.text.trim().length >= 2)
+                                    _buildSearchSuggestions(),
                                   if (_resultSummary != null) ...[
                                     const SizedBox(height: 10),
                                     Text(
@@ -451,11 +467,12 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                               ),
                             ),
                             if (_outlets.isEmpty)
-                              const SliverFillRemaining(
+                              SliverFillRemaining(
                                 hasScrollBody: false,
                                 child: GuestEmptyState(
-                                  message:
-                                      'No listed outlets nearby yet. Scan a table QR to order.',
+                                  message: _search.text.trim().length >= 2
+                                      ? 'No restaurants match "${_search.text.trim()}".'
+                                      : 'No listed outlets nearby yet. Scan a table QR to order.',
                                 ),
                               ),
                           ],
@@ -535,7 +552,11 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
         Expanded(
           child: TextField(
             controller: _search,
-            onSubmitted: (_) => _load(),
+            onChanged: _onSearchChanged,
+            onSubmitted: (_) {
+              _searchDebounce?.cancel();
+              _load(soft: true);
+            },
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: 'Search restaurants, cuisine…',
@@ -589,6 +610,96 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
         ),
       ],
     );
+  }
+
+  Widget _buildSearchSuggestions() {
+    final q = _search.text.trim();
+    final items = _searchSuggestions(q);
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Material(
+        color: GuestColors.surface,
+        elevation: 2,
+        borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
+        child: Column(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const Divider(height: 1, color: GuestColors.borderLight),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.storefront_outlined,
+                    color: GuestColors.primary),
+                title: Text(
+                  items[i].name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  items[i].area,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => _openSuggestion(items[i]),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<_SearchSuggestion> _searchSuggestions(String q) {
+    final seenOrgs = <String>{};
+    final items = <_SearchSuggestion>[];
+    for (final raw in _outlets) {
+      if (items.length >= 6) break;
+      final o = Map<String, dynamic>.from(raw as Map);
+      final org = o['organization'] is Map
+          ? Map<String, dynamic>.from(o['organization'] as Map)
+          : <String, dynamic>{};
+      final orgId = org['id']?.toString() ?? '';
+      if (orgId.isNotEmpty) seenOrgs.add(orgId);
+      final city = o['city']?.toString() ?? '';
+      final address = o['address']?.toString() ?? '';
+      items.add(_SearchSuggestion(
+        name: o['name']?.toString() ?? org['name']?.toString() ?? 'Restaurant',
+        area: [city, address].where((s) => s.isNotEmpty).join(' · '),
+        orgSlug: org['slug']?.toString(),
+        outletSlug: o['slug']?.toString(),
+      ));
+    }
+    for (final raw in _memberships) {
+      if (items.length >= 8) break;
+      final r = Map<String, dynamic>.from(raw as Map);
+      final org = r['organization'] is Map
+          ? Map<String, dynamic>.from(r['organization'] as Map)
+          : <String, dynamic>{};
+      final orgId = org['id']?.toString() ?? '';
+      if (orgId.isNotEmpty && seenOrgs.contains(orgId)) continue;
+      final name = org['name']?.toString() ?? '';
+      if (_guestFuzzyScore(q, name) <= 0) continue;
+      if (orgId.isNotEmpty) seenOrgs.add(orgId);
+      items.add(_SearchSuggestion(
+        name: name.isEmpty ? 'Restaurant' : name,
+        area: 'Your rewards',
+      ));
+    }
+    return items;
+  }
+
+  void _openSuggestion(_SearchSuggestion item) {
+    final orgSlug = item.orgSlug;
+    final outletSlug = item.outletSlug;
+    if (orgSlug != null &&
+        orgSlug.isNotEmpty &&
+        outletSlug != null &&
+        outletSlug.isNotEmpty) {
+      context.push('/o/$orgSlug/$outletSlug');
+      return;
+    }
+    context.push('/wallets');
   }
 
   // ─── Category squares ──────────────────────────────────────────────────────
@@ -1440,18 +1551,38 @@ class _FilterSheetState extends State<_FilterSheet> {
     _radiusKm = widget.radiusKm;
   }
 
+  void _apply() {
+    widget.onApply(_FilterResult(
+      dineIn: _dineIn,
+      takeaway: _takeaway,
+      delivery: _delivery,
+      offersOnly: _offersOnly,
+      veg: _veg,
+      radiusKm: _radiusKm,
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
             Center(
               child: Container(
                 width: 36,
@@ -1571,18 +1702,16 @@ class _FilterSheetState extends State<_FilterSheet> {
                 );
               }).toList(),
             ),
-            const SizedBox(height: 24),
-            SizedBox(
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(20, 8, 20, 16 + safeBottom),
+            child: SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: () => widget.onApply(_FilterResult(
-                  dineIn: _dineIn,
-                  takeaway: _takeaway,
-                  delivery: _delivery,
-                  offersOnly: _offersOnly,
-                  veg: _veg,
-                  radiusKm: _radiusKm,
-                )),
+                onPressed: _apply,
                 style: FilledButton.styleFrom(
                   backgroundColor: GuestColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1597,7 +1726,8 @@ class _FilterSheetState extends State<_FilterSheet> {
                 ),
               ),
             ),
-          ],
+          ),
+        ],
         ),
       ),
     );
@@ -1678,4 +1808,64 @@ class _RoundIconButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SearchSuggestion {
+  const _SearchSuggestion({
+    required this.name,
+    required this.area,
+    this.orgSlug,
+    this.outletSlug,
+  });
+
+  final String name;
+  final String area;
+  final String? orgSlug;
+  final String? outletSlug;
+}
+
+int _guestFuzzyScore(String query, String text) {
+  final q = query.trim().toLowerCase();
+  final value = text.trim().toLowerCase();
+  if (q.length < 2 || value.isEmpty) return 0;
+  if (value.contains(q)) return value.startsWith(q) ? 100 : 80;
+  final limit = q.length <= 4 ? 1 : 2;
+  var best = 0;
+  for (final word in value.split(RegExp(r'[^a-z0-9]+'))) {
+    if (word.length < 2) continue;
+    if (word.startsWith(q)) {
+      best = best < 70 ? 70 : best;
+      continue;
+    }
+    if ((word.length - q.length).abs() <= limit) {
+      final dist = _levenshtein(q, word);
+      if (dist > 0 && dist <= limit) {
+        final score = 50 - dist;
+        if (score > best) best = score;
+      }
+    }
+  }
+  return best;
+}
+
+int _levenshtein(String a, String b) {
+  if (a == b) return 0;
+  final prev = List<int>.generate(b.length + 1, (j) => j);
+  final curr = List<int>.filled(b.length + 1, 0);
+  for (var i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (var j = 1; j <= b.length; j++) {
+      final cost = a[i - 1] == b[j - 1] ? 0 : 1;
+      final insert = curr[j - 1] + 1;
+      final delete = prev[j] + 1;
+      final replace = prev[j - 1] + cost;
+      curr[j] = insert < delete
+          ? (insert < replace ? insert : replace)
+          : (delete < replace ? delete : replace);
+    }
+    for (var j = 0; j <= b.length; j++) {
+      prev[j] = curr[j];
+    }
+  }
+  return prev[b.length];
 }

@@ -9,6 +9,7 @@ import { toPaise } from "../../common/money.util";
 import { normalizePublicAssetUrl } from "../../common/public-asset-url.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
+import { fuzzyMatchScore } from "./marketplace-search.util";
 
 function haversineKm(
   lat1: number,
@@ -104,20 +105,6 @@ export class MarketplaceService {
         ...(query.city
           ? { city: { equals: query.city, mode: "insensitive" } }
           : {}),
-        ...(query.q
-          ? {
-              OR: [
-                { name: { contains: query.q, mode: "insensitive" } },
-                { address: { contains: query.q, mode: "insensitive" } },
-                { city: { contains: query.q, mode: "insensitive" } },
-                {
-                  organization: {
-                    name: { contains: query.q, mode: "insensitive" },
-                  },
-                },
-              ],
-            }
-          : {}),
         ...(query.cuisine
           ? { cuisineTags: { has: query.cuisine.toLowerCase() } }
           : {}),
@@ -175,6 +162,9 @@ export class MarketplaceService {
       offerOrgIds = new Set(coupons.map((c) => c.organizationId));
     }
 
+    const searchQuery = query.q?.trim() ?? "";
+    const hasQuery = searchQuery.length >= 2;
+
     const mapped = outlets
       .map((o) => {
         const lat = o.latitude != null ? Number(o.latitude) : null;
@@ -198,6 +188,8 @@ export class MarketplaceService {
             enabledOrderTypes.includes("takeaway") ||
             enabledOrderTypes.includes("online"),
           delivery: enabledOrderTypes.includes("delivery"),
+          enablePayAtCounter: orgSettings.enablePayAtCounter === true,
+          enablePayToWaiter: orgSettings.enablePayToWaiter === true,
         };
         const ratings = o.guestReviews.map((r) => r.rating);
         const averageRating =
@@ -249,31 +241,50 @@ export class MarketplaceService {
           orderModes,
         };
       })
-      .filter((o) => {
+      .map((o) => ({
+        outlet: o,
+        matchScore: hasQuery
+          ? fuzzyMatchScore(searchQuery, [
+              o.name,
+              o.organization.name,
+              o.city,
+              o.address,
+              ...(o.cuisineTags ?? []),
+            ])
+          : 0,
+      }))
+      .filter(({ outlet: o, matchScore }) => {
         if (query.dineIn && !o.orderModes.dineIn) return false;
         if (query.takeaway && !o.orderModes.takeaway) return false;
         if (query.delivery && !o.orderModes.delivery) return false;
         if (offerOrgIds && !offerOrgIds.has(o.organization.id)) return false;
         if (query.openNow === true && o.openNow !== true) return false;
+        if (hasQuery) return matchScore > 0;
         if (!hasGeo) return true;
         if (o.distanceKm == null) return true;
         return o.distanceKm <= radiusKm;
       })
       .sort((a, b) => {
-        if (a.marketplaceFeatured !== b.marketplaceFeatured) {
-          return a.marketplaceFeatured ? -1 : 1;
+        if (hasQuery && a.matchScore !== b.matchScore) {
+          return b.matchScore - a.matchScore;
         }
-        if (a.marketplaceFeatured && b.marketplaceFeatured) {
-          const ar = a.marketplaceFeaturedRank ?? Number.MAX_SAFE_INTEGER;
-          const br = b.marketplaceFeaturedRank ?? Number.MAX_SAFE_INTEGER;
+        const left = a.outlet;
+        const right = b.outlet;
+        if (left.marketplaceFeatured !== right.marketplaceFeatured) {
+          return left.marketplaceFeatured ? -1 : 1;
+        }
+        if (left.marketplaceFeatured && right.marketplaceFeatured) {
+          const ar = left.marketplaceFeaturedRank ?? Number.MAX_SAFE_INTEGER;
+          const br = right.marketplaceFeaturedRank ?? Number.MAX_SAFE_INTEGER;
           if (ar !== br) return ar - br;
         }
-        if (a.distanceKm == null && b.distanceKm == null) return 0;
-        if (a.distanceKm == null) return 1;
-        if (b.distanceKm == null) return -1;
-        return a.distanceKm - b.distanceKm;
+        if (left.distanceKm == null && right.distanceKm == null) return 0;
+        if (left.distanceKm == null) return 1;
+        if (right.distanceKm == null) return -1;
+        return left.distanceKm - right.distanceKm;
       })
-      .slice(0, limit);
+      .slice(0, limit)
+      .map(({ outlet }) => outlet);
 
     return { outlets: mapped, count: mapped.length };
   }
@@ -455,6 +466,8 @@ export class MarketplaceService {
           enabledOrderTypes.includes("takeaway") ||
           enabledOrderTypes.includes("online"),
         delivery: enabledOrderTypes.includes("delivery"),
+        enablePayAtCounter: orgSettings.enablePayAtCounter === true,
+        enablePayToWaiter: orgSettings.enablePayToWaiter === true,
       },
       offers: coupons.map((c) => ({
         id: c.id,

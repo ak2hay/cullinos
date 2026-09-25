@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cullinos_guest/core/friendly_api_error.dart';
@@ -217,9 +218,22 @@ class _OffersPageState extends ConsumerState<OffersPage> {
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 10),
                               child: GuestSoftCard(
-                                onTap: orgSlug != null && outletSlug != null
-                                    ? () => context.push('/o/$orgSlug/$outletSlug')
-                                    : null,
+                                onTap: () async {
+                                  if (code != null && code.isNotEmpty) {
+                                    await Clipboard.setData(
+                                        ClipboardData(text: code));
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Copied $code'),
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }
+                                  if (orgSlug != null && outletSlug != null) {
+                                    context.push('/o/$orgSlug/$outletSlug');
+                                  }
+                                },
                                 child: Row(
                                   children: [
                                     Container(

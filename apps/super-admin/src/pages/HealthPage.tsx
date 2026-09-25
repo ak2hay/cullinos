@@ -118,12 +118,20 @@ export function HealthPage() {
           </div>
           <span
             className={`rounded-full px-2 py-0.5 text-xs ${
-              sms?.configured
+              sms?.flowConfigured
                 ? 'bg-status-success/15 text-status-success'
-                : 'bg-status-warning/15 text-status-warning'
+                : sms?.widgetConfigured
+                  ? 'bg-status-warning/15 text-status-warning'
+                  : 'bg-status-warning/15 text-status-warning'
             }`}
           >
-            {smsQuery.isLoading ? '…' : sms?.configured ? 'Configured' : 'Not configured'}
+            {smsQuery.isLoading
+              ? '…'
+              : sms?.flowConfigured
+                ? 'Flow ready (Waiter)'
+                : sms?.widgetConfigured
+                  ? 'Widget only (Guest)'
+                  : 'Not configured'}
           </span>
         </div>
         {smsQuery.error ? (
@@ -134,6 +142,18 @@ export function HealthPage() {
           </p>
         ) : (
           <dl className="mt-4 grid gap-3 sm:grid-cols-3 text-sm">
+            <div>
+              <dt className="text-text-muted">Flow (Waiter SMS)</dt>
+              <dd className="mt-0.5 font-mono">
+                {sms?.flowConfigured ? 'configured' : 'missing template/key'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-text-muted">Widget (Guest)</dt>
+              <dd className="mt-0.5 font-mono">
+                {sms?.widgetConfigured ? 'configured' : 'not set'}
+              </dd>
+            </div>
             <div>
               <dt className="text-text-muted">Sender ID</dt>
               <dd className="mt-0.5 font-mono">{sms?.senderId ?? '—'}</dd>

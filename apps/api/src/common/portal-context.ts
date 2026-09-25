@@ -3,8 +3,16 @@ import type { NestMiddleware } from "@nestjs/common";
 import { Injectable, SetMetadata } from "@nestjs/common";
 import type { NextFunction, Request, Response } from "express";
 
-/** Client portals that super admin can switch off platform-wide. */
-export const SWITCHABLE_PORTALS = ["management", "waiter"] as const;
+/** Client portals that super admin can switch off or put in maintenance platform-wide. */
+export const SWITCHABLE_PORTALS = [
+  "management",
+  "admin",
+  "pos",
+  "kds",
+  "app_ops",
+  "waiter",
+  "waiter_landing",
+] as const;
 export type SwitchablePortal = (typeof SWITCHABLE_PORTALS)[number];
 
 export const PORTAL_HEADER = "x-cullinos-portal";

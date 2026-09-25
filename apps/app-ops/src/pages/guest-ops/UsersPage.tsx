@@ -37,12 +37,45 @@ export function GuestOpsUsersPage() {
     enabled: !!selectedId,
   });
 
+  const { data: activity, isLoading: activityLoading } = useQuery({
+    queryKey: ['guest-ops', 'users', selectedId, 'activity'],
+    queryFn: () => guestOpsApi.getUserActivity(selectedId!),
+    enabled: !!selectedId,
+  });
+
   const eraseMutation = useMutation({
     mutationFn: (id: string) => guestOpsApi.eraseUser(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['guest-ops', 'users'] });
       setSelectedId(null);
       setMessage('Guest user erased (anonymized).');
+      setError(null);
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+      setMessage(null);
+    },
+  });
+
+  const suspendMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      guestOpsApi.suspendUser(id, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guest-ops', 'users'] });
+      setMessage('Guest user suspended.');
+      setError(null);
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+      setMessage(null);
+    },
+  });
+
+  const unsuspendMutation = useMutation({
+    mutationFn: (id: string) => guestOpsApi.unsuspendUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guest-ops', 'users'] });
+      setMessage('Guest user unsuspended.');
       setError(null);
     },
     onError: (err: Error) => {
@@ -162,6 +195,7 @@ export function GuestOpsUsersPage() {
                     <p className="text-xs text-text-muted">
                       {u.counts.memberships} memberships · {u.counts.devices} devices ·{' '}
                       {u.counts.reviews} reviews
+                      {u.suspendedAt ? ' · Suspended' : ''}
                     </p>
                   </button>
                 </li>
@@ -184,6 +218,14 @@ export function GuestOpsUsersPage() {
                   {String(detail.phone ?? '—')} · {String(detail.email ?? '—')}
                 </p>
                 <p className="text-xs text-text-muted">ID: {selectedId}</p>
+                {detail.suspendedAt ? (
+                  <p className="mt-2 text-sm text-status-warning">
+                    Suspended
+                    {detail.suspendReason
+                      ? `: ${String(detail.suspendReason)}`
+                      : ''}
+                  </p>
+                ) : null}
               </div>
 
               <div>
@@ -234,10 +276,84 @@ export function GuestOpsUsersPage() {
                 )}
               </div>
 
+              <div>
+                <p className="font-medium">Activity</p>
+                {activityLoading ? (
+                  <p className="text-text-muted">Loading activity…</p>
+                ) : activity ? (
+                  <ul className="mt-1 space-y-1 text-text-secondary">
+                    <li>
+                      Orders:{' '}
+                      {Array.isArray(activity.orders) ? activity.orders.length : 0} recent
+                    </li>
+                    <li>
+                      Reviews:{' '}
+                      {Array.isArray(activity.reviews) ? activity.reviews.length : 0}
+                    </li>
+                    <li>
+                      Coin events:{' '}
+                      {Array.isArray(activity.coinLedger) ? activity.coinLedger.length : 0}
+                    </li>
+                    <li>
+                      Devices:{' '}
+                      {Array.isArray(activity.devices) ? activity.devices.length : 0}
+                    </li>
+                  </ul>
+                ) : (
+                  <p className="text-text-muted">No activity loaded</p>
+                )}
+              </div>
+
               <div className="flex flex-wrap gap-2 pt-2">
                 <Button type="button" variant="ghost" onClick={() => handleExport(selectedId)}>
                   Export JSON
                 </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={!activity}
+                  onClick={() => {
+                    if (!activity) return;
+                    const blob = new Blob([JSON.stringify(activity, null, 2)], {
+                      type: 'application/json',
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `guest-activity-${selectedId}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    setMessage('Activity export downloaded.');
+                  }}
+                >
+                  Export activity
+                </Button>
+                {detail.suspendedAt ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={unsuspendMutation.isPending}
+                    onClick={() => unsuspendMutation.mutate(selectedId)}
+                  >
+                    Unsuspend
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={suspendMutation.isPending}
+                    onClick={() => {
+                      const reason = window.prompt('Optional suspend reason (shown in audit):');
+                      if (reason === null) return;
+                      suspendMutation.mutate({
+                        id: selectedId,
+                        reason: reason.trim() || undefined,
+                      });
+                    }}
+                  >
+                    Suspend
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="ghost"

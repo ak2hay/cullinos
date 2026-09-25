@@ -338,7 +338,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           const SizedBox(height: 4),
           Text(
             _challengeToken != null
-                ? 'Enter the code we sent you'
+                ? (_phoneOtpMode
+                    ? 'Enter the SMS code we sent to your phone'
+                    : 'Enter the code we emailed you')
                 : 'Sign in to continue',
             style: const TextStyle(fontSize: 14, color: WaiterColors.muted),
           ),
@@ -368,6 +370,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           enabled: !_loading,
           onComposedChanged: (v) => setState(() => _composedPhone = v),
           onSubmitted: (_) => _requestPhoneOtp(),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'We will send a one-time code by SMS to this number.',
+          style: TextStyle(fontSize: 12, color: WaiterColors.muted),
         ),
         ..._captcha(),
         const SizedBox(height: 6),
@@ -408,6 +415,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
             ),
           ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'After password, we email a one-time code to this address (not SMS).',
+          style: TextStyle(fontSize: 12, color: WaiterColors.muted),
         ),
         ..._captcha(),
         const SizedBox(height: 6),

@@ -98,6 +98,8 @@ export function SettingsPage() {
     qr: false,
   });
   const [preOrdersEnabled, setPreOrdersEnabled] = useState(true);
+  const [enablePayAtCounter, setEnablePayAtCounter] = useState(false);
+  const [enablePayToWaiter, setEnablePayToWaiter] = useState(false);
 
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
   const orgQuery = useQuery({ queryKey: ['organizations', 'current'], queryFn: organizationsApi.current });
@@ -193,6 +195,12 @@ export function SettingsPage() {
     if (typeof settings.preOrdersEnabled === 'boolean') {
       setPreOrdersEnabled(settings.preOrdersEnabled);
     }
+    if (typeof settings.enablePayAtCounter === 'boolean') {
+      setEnablePayAtCounter(settings.enablePayAtCounter);
+    }
+    if (typeof settings.enablePayToWaiter === 'boolean') {
+      setEnablePayToWaiter(settings.enablePayToWaiter);
+    }
   }, [settingsQuery.data]);
 
   const saveMutation = useMutation({
@@ -206,7 +214,12 @@ export function SettingsPage() {
         gstin: form.gstin || null,
       });
       const enabledOrderTypes = ORDER_OPTIONS.filter((option) => orderTypes[option.id]).map((option) => option.id);
-      await settingsApi.update({ enabledOrderTypes, preOrdersEnabled });
+      await settingsApi.update({
+        enabledOrderTypes,
+        preOrdersEnabled,
+        enablePayAtCounter,
+        enablePayToWaiter,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
@@ -351,6 +364,43 @@ export function SettingsPage() {
               </span>
             </label>
           ))}
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-xl border border-white/5 bg-bg-card p-5">
+        <div>
+          <h2 className="font-semibold">{t('settings.guestPaymentOptions')}</h2>
+          <p className="mt-1 text-sm text-text-secondary">{t('settings.guestPaymentOptionsHint')}</p>
+        </div>
+        <div className="space-y-2">
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/5 bg-bg-elevated px-3 py-3">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 accent-brand-primary"
+              checked={enablePayAtCounter}
+              onChange={(e) => setEnablePayAtCounter(e.target.checked)}
+            />
+            <span>
+              <span className="block text-sm font-medium">{t('settings.enablePayAtCounter')}</span>
+              <span className="block text-xs text-text-muted">
+                {t('settings.enablePayAtCounterHint')}
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/5 bg-bg-elevated px-3 py-3">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 accent-brand-primary"
+              checked={enablePayToWaiter}
+              onChange={(e) => setEnablePayToWaiter(e.target.checked)}
+            />
+            <span>
+              <span className="block text-sm font-medium">{t('settings.enablePayToWaiter')}</span>
+              <span className="block text-xs text-text-muted">
+                {t('settings.enablePayToWaiterHint')}
+              </span>
+            </span>
+          </label>
         </div>
       </div>
 

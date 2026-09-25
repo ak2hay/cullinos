@@ -37,9 +37,9 @@ describe("sandbox-access.util", () => {
   });
 
   it("honors sandbox flags when environment is sandbox", () => {
-    const devEnv = { NODE_ENV: "development" } as NodeJS.ProcessEnv;
-    expect(sandboxAllowsEmailOtpSkip(sandbox, devEnv)).toBe(true);
-    expect(sandboxAllowsSmsOtpSkip(sandbox, devEnv)).toBe(true);
+    const prodEnv = { NODE_ENV: "production" } as NodeJS.ProcessEnv;
+    expect(sandboxAllowsEmailOtpSkip(sandbox, prodEnv)).toBe(true);
+    expect(sandboxAllowsSmsOtpSkip(sandbox, prodEnv)).toBe(true);
     expect(sandboxAllowsRelaxedPassword(sandbox)).toBe(true);
     expect(
       sandboxAllowsEmailOtpSkip(
@@ -47,7 +47,7 @@ describe("sandbox-access.util", () => {
           ...sandbox,
           sandboxSkipEmailOtp: false,
         },
-        devEnv,
+        prodEnv,
       ),
     ).toBe(false);
   });

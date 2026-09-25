@@ -67,6 +67,10 @@ export async function apiRequest<T>(
       usePortalStore.getState().setDisabled(err.message);
       useAuthStore.getState().logout();
     }
+    if (err.status === 503 && err.code === 'PORTAL_MAINTENANCE') {
+      usePortalStore.getState().setMaintenance(err.message);
+      useAuthStore.getState().logout();
+    }
     throw err;
   }
 
@@ -85,8 +89,13 @@ export interface LoginPayload {
 
 export interface AuthResponse extends StaffAuthResponse {}
 
+export interface PortalEntryStatus {
+  enabled: boolean;
+  maintenanceMessage: string | null;
+}
+
 export interface PortalStatusResponse {
-  portals: Record<'management' | 'waiter', { enabled: boolean }>;
+  portals: Record<string, PortalEntryStatus>;
   message: string;
 }
 

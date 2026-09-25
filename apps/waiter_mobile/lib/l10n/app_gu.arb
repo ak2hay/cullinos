@@ -99,5 +99,8 @@
   "allFloors": "All floors",
   "portalDisabledTitle": "વેઇટર ઍપ બંધ છે",
   "portalDisabledBody": "Cullinos એ વેઇટર ઍપ હંગામી ધોરણે બંધ કરી છે. કૃપા કરીને તમારા મેનેજરનો સંપર્ક કરો અથવા એડમિન પોર્ટલનો ઉપયોગ કરો.",
+  "portalMaintenanceLabel": "MAINTENANCE",
+  "portalMaintenanceTitle": "Waiter app is under maintenance",
+  "portalMaintenanceBody": "Cullinos is performing maintenance on the waiter app. Please try again shortly.",
   "checkAgain": "ફરી તપાસો"
 }

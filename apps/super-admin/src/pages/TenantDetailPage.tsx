@@ -83,9 +83,10 @@ export function TenantDetailPage() {
   });
 
   const deactivateUserMutation = useMutation({
-    mutationFn: (userId: string) => superAdminApi.deactivateOrganizationUser(id, userId),
+    mutationFn: ({ userId, reason }: { userId: string; reason?: string }) =>
+      superAdminApi.deactivateOrganizationUser(id, userId, reason),
     onSuccess: () => {
-      setMessage('User deactivated.');
+      setMessage('User suspended.');
       usersQuery.refetch();
     },
     onError: (err: Error) => setMessage(err.message),
@@ -169,6 +170,11 @@ export function TenantDetailPage() {
             >
               {org.environmentClass === 0 ? 'Sandbox' : 'Live'}
             </span>
+            {org.environmentClass !== 0 ? (
+              <span className="text-xs text-text-muted">
+                Live tenants always require OTP (Sandbox Labs toggles do not apply).
+              </span>
+            ) : null}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -493,7 +499,7 @@ export function TenantDetailPage() {
                           disabled={activateUserMutation.isPending}
                           className="text-xs text-brand-primary hover:underline disabled:opacity-60"
                         >
-                          Activate
+                          Unsuspend
                         </button>
                       ) : (
                         <button
@@ -501,15 +507,20 @@ export function TenantDetailPage() {
                           onClick={() => {
                             const isOwner = user.roles.some((r) => r.slug === 'owner');
                             const label = isOwner
-                              ? `Deactivate owner "${user.name}"? They will not be able to sign in. (Blocked if this is the last active owner.)`
-                              : `Deactivate "${user.name}"? They will not be able to sign in.`;
+                              ? `Suspend owner "${user.name}"? They will not be able to sign in. (Blocked if this is the last active owner.)`
+                              : `Suspend "${user.name}"? They will not be able to sign in.`;
                             if (!window.confirm(label)) return;
-                            deactivateUserMutation.mutate(user.id);
+                            const reason = window.prompt('Optional suspend reason (shown in audit):');
+                            if (reason === null) return;
+                            deactivateUserMutation.mutate({
+                              userId: user.id,
+                              reason: reason.trim() || undefined,
+                            });
                           }}
                           disabled={deactivateUserMutation.isPending}
                           className="text-xs text-status-error hover:underline disabled:opacity-60"
                         >
-                          Deactivate
+                          Suspend
                         </button>
                       )}
                     </div>

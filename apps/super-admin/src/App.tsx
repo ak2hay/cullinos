@@ -13,6 +13,8 @@ import { SubscriptionsPage } from '@/pages/SubscriptionsPage';
 import { TenantDetailPage } from '@/pages/TenantDetailPage';
 import { TenantsPage } from '@/pages/TenantsPage';
 import { LabsPage } from '@/pages/LabsPage';
+import { AuditActivityPage } from '@/pages/AuditActivityPage';
+import { UsersReportPage } from '@/pages/UsersReportPage';
 import { BlogEditorPage } from '@/pages/marketing/BlogEditorPage';
 import { DesignLabPage } from '@/pages/marketing/DesignLabPage';
 import { HeroEditorPage } from '@/pages/marketing/HeroEditorPage';
@@ -78,6 +80,8 @@ export default function App() {
         <Route path="labs" element={<LabsPage />} />
         <Route path="plans" element={<PlansPage />} />
         <Route path="subscriptions" element={<SubscriptionsPage />} />
+        <Route path="audit" element={<AuditActivityPage />} />
+        <Route path="users-report" element={<UsersReportPage />} />
         <Route path="promo-email" element={<PromoEmailPage />} />
         <Route path="guest-ops" element={<ExternalRedirect to={APP_OPS_URL} />} />
         <Route path="guest-ops/*" element={<ExternalRedirect to={APP_OPS_URL} />} />

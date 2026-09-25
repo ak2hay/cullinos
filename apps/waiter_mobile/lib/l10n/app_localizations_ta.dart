@@ -308,5 +308,15 @@ class AppLocalizationsTa extends AppLocalizations {
       'Cullinos வெயிட்டர் ஆப்பை தற்காலிகமாக முடக்கியுள்ளது. உங்கள் மேலாளரைத் தொடர்பு கொள்ளவும் அல்லது அட்மின் போர்ட்டலைப் பயன்படுத்தவும்.';
 
   @override
+  String get portalMaintenanceLabel => 'MAINTENANCE';
+
+  @override
+  String get portalMaintenanceTitle => 'Waiter app is under maintenance';
+
+  @override
+  String get portalMaintenanceBody =>
+      'Cullinos is performing maintenance on the waiter app. Please try again shortly.';
+
+  @override
   String get checkAgain => 'மீண்டும் சரிபார்க்கவும்';
 }

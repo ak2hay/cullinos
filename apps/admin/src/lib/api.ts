@@ -7,6 +7,9 @@ import {
 } from '@cullinos/shared';
 import type { ApiError, OrderStatus, PaginatedResponse } from '@cullinos/shared';
 import { useAuthStore } from '../stores/auth';
+import { usePortalStore } from '../stores/portal';
+
+export const PORTAL_ID = 'admin';
 
 const API_BASE = resolveViteApiBase({
   viteApiUrl: import.meta.env.VITE_API_URL,
@@ -44,6 +47,7 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
+  headers.set('X-Cullinos-Portal', PORTAL_ID);
 
   if (authenticated) {
     const token = useAuthStore.getState().accessToken;
@@ -59,7 +63,16 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
-    throw await parseError(response);
+    const err = await parseError(response);
+    if (err.status === 503 && err.code === 'PORTAL_DISABLED') {
+      usePortalStore.getState().setDisabled(err.message);
+      useAuthStore.getState().logout();
+    }
+    if (err.status === 503 && err.code === 'PORTAL_MAINTENANCE') {
+      usePortalStore.getState().setMaintenance(err.message);
+      useAuthStore.getState().logout();
+    }
+    throw err;
   }
 
   // Nest void handlers often return 200 with an empty body (not only 204).
@@ -91,6 +104,21 @@ export interface RegisterPayload {
 }
 
 export interface AuthResponse extends StaffAuthResponse {}
+
+export interface PortalEntryStatus {
+  enabled: boolean;
+  maintenanceMessage: string | null;
+}
+
+export interface PortalStatusResponse {
+  portals: Record<string, PortalEntryStatus>;
+  message: string;
+}
+
+export const portalApi = {
+  status: () => apiRequest<PortalStatusResponse>('/public/portal-status', {}, false),
+};
+
 export interface Outlet {
   id: string;
   name: string;

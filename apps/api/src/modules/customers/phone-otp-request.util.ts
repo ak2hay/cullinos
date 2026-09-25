@@ -6,5 +6,21 @@ export function shouldFailPhoneOtpWhenUnsent(
   return !sent && nodeEnv === "production";
 }
 
-export const PHONE_OTP_SMS_UNAVAILABLE_MESSAGE =
-  "SMS could not be sent. Phone OTP is not configured on the server yet — add MSG91 in Platform settings, then try again.";
+export const PHONE_OTP_SMS_NOT_CONFIGURED_MESSAGE =
+  "SMS could not be sent. MSG91 Flow is not configured — add Auth key and Flow template ID in Platform settings (Waiter/staff phone OTP needs Flow, not Widget alone), then try again.";
+
+export const PHONE_OTP_SMS_PROVIDER_FAILED_MESSAGE =
+  "SMS could not be sent. MSG91 Flow is configured but the provider rejected the send — check template, sender ID, DLT, and wallet, then try again.";
+
+/** @deprecated Prefer PHONE_OTP_SMS_NOT_CONFIGURED_MESSAGE / PHONE_OTP_SMS_PROVIDER_FAILED_MESSAGE */
+export const PHONE_OTP_SMS_UNAVAILABLE_MESSAGE = PHONE_OTP_SMS_NOT_CONFIGURED_MESSAGE;
+
+export type PhoneOtpSendFailureKind = "not_configured" | "provider_failed";
+
+export function phoneOtpSmsFailureMessage(
+  kind: PhoneOtpSendFailureKind | undefined,
+): string {
+  return kind === "provider_failed"
+    ? PHONE_OTP_SMS_PROVIDER_FAILED_MESSAGE
+    : PHONE_OTP_SMS_NOT_CONFIGURED_MESSAGE;
+}

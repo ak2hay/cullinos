@@ -945,6 +945,8 @@ export class GuestOpsService {
         phone: true,
         email: true,
         createdAt: true,
+        suspendedAt: true,
+        suspendReason: true,
         _count: {
           select: { memberships: true, devices: true, reviews: true },
         },
@@ -959,6 +961,8 @@ export class GuestOpsService {
       phone: maskPhone(u.phone),
       email: maskEmail(u.email),
       createdAt: u.createdAt,
+      suspendedAt: u.suspendedAt,
+      suspendReason: u.suspendReason,
       counts: u._count,
     }));
   }
@@ -996,6 +1000,124 @@ export class GuestOpsService {
     });
     if (!user) throw new NotFoundException("Guest user not found");
     return user;
+  }
+
+  async getGuestUserActivity(id: string) {
+    const user = await this.prisma.guestUser.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        suspendedAt: true,
+        anonymizedAt: true,
+        createdAt: true,
+        cullinosCoins: true,
+      },
+    });
+    if (!user) throw new NotFoundException("Guest user not found");
+
+    const [devices, reviews, coinLedger, memberships, notifications] = await Promise.all([
+      this.prisma.guestDevice.findMany({
+        where: { guestUserId: id },
+        orderBy: { lastSeenAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          platform: true,
+          lastSeenAt: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.guestOutletReview.findMany({
+        where: { guestUserId: id },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          rating: true,
+          status: true,
+          createdAt: true,
+          outlet: { select: { id: true, name: true, city: true } },
+        },
+      }),
+      this.prisma.guestCoinLedger.findMany({
+        where: { guestUserId: id },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      this.prisma.guestOrgMembership.findMany({
+        where: { guestUserId: id },
+        include: {
+          organization: { select: { id: true, name: true, slug: true } },
+          customer: {
+            select: {
+              id: true,
+              loyaltyPoints: true,
+              orders: {
+                orderBy: { createdAt: "desc" },
+                take: 20,
+                select: {
+                  id: true,
+                  orderNumber: true,
+                  status: true,
+                  total: true,
+                  createdAt: true,
+                  outlet: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.guestNotification.findMany({
+        where: { guestUserId: id },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+        select: {
+          id: true,
+          title: true,
+          body: true,
+          createdAt: true,
+          readAt: true,
+        },
+      }),
+    ]);
+
+    const orders = memberships.flatMap((m) =>
+      (m.customer?.orders ?? []).map((o) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        status: o.status,
+        total: o.total,
+        createdAt: o.createdAt,
+        outlet: o.outlet,
+        organizationId: m.organizationId,
+        organizationName: m.organization.name,
+      })),
+    );
+
+    return {
+      user: {
+        ...user,
+        phone: maskPhone(user.phone),
+        email: maskEmail(user.email),
+      },
+      devices,
+      reviews,
+      coinLedger,
+      notifications,
+      orders: orders
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, 50),
+      memberships: memberships.map((m) => ({
+        organizationId: m.organizationId,
+        organizationName: m.organization.name,
+        customerId: m.customerId,
+        loyaltyPoints: m.customer?.loyaltyPoints ?? 0,
+      })),
+    };
   }
 
   async analyticsSummary() {

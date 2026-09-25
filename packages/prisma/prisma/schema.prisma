@@ -1683,6 +1683,8 @@ model GuestUser {
   marketingEmailOptIn Boolean   @default(false) @map("marketing_email_opt_in")
   marketingSmsOptIn   Boolean   @default(false) @map("marketing_sms_opt_in")
   anonymizedAt        DateTime? @map("anonymized_at")
+  suspendedAt         DateTime? @map("suspended_at")
+  suspendReason       String?   @map("suspend_reason")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 

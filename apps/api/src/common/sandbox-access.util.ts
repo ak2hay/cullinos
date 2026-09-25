@@ -16,36 +16,27 @@ export function isSandboxTenant(
 }
 
 /**
- * OTP skip is fail-closed in production: a sandbox tenant on a production API only skips
- * OTP when the operator explicitly sets ALLOW_SANDBOX_OTP_SKIP=true on that deployment.
+ * @deprecated OTP skip is controlled by sandbox org flags only.
+ * Kept for callers/tests that still pass an env argument; always returns true.
  */
 export function sandboxOtpSkipPermittedByRuntime(
-  env: NodeJS.ProcessEnv = process.env,
+  _env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  if (env.NODE_ENV !== "production") return true;
-  return (env.ALLOW_SANDBOX_OTP_SKIP ?? "").trim().toLowerCase() === "true";
+  return true;
 }
 
 export function sandboxAllowsEmailOtpSkip(
   org: SandboxOrgFlags | null | undefined,
-  env: NodeJS.ProcessEnv = process.env,
+  _env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  return (
-    isSandboxTenant(org) &&
-    org!.sandboxSkipEmailOtp === true &&
-    sandboxOtpSkipPermittedByRuntime(env)
-  );
+  return isSandboxTenant(org) && org!.sandboxSkipEmailOtp === true;
 }
 
 export function sandboxAllowsSmsOtpSkip(
   org: SandboxOrgFlags | null | undefined,
-  env: NodeJS.ProcessEnv = process.env,
+  _env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  return (
-    isSandboxTenant(org) &&
-    org!.sandboxSkipSmsOtp === true &&
-    sandboxOtpSkipPermittedByRuntime(env)
-  );
+  return isSandboxTenant(org) && org!.sandboxSkipSmsOtp === true;
 }
 
 export function sandboxAllowsRelaxedPassword(

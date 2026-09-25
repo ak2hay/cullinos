@@ -309,5 +309,15 @@ class AppLocalizationsBn extends AppLocalizations {
       'Cullinos ওয়েটার অ্যাপটি সাময়িকভাবে বন্ধ করেছে। অনুগ্রহ করে আপনার ম্যানেজারের সাথে যোগাযোগ করুন বা অ্যাডমিন পোর্টাল ব্যবহার করুন।';
 
   @override
+  String get portalMaintenanceLabel => 'MAINTENANCE';
+
+  @override
+  String get portalMaintenanceTitle => 'Waiter app is under maintenance';
+
+  @override
+  String get portalMaintenanceBody =>
+      'Cullinos is performing maintenance on the waiter app. Please try again shortly.';
+
+  @override
   String get checkAgain => 'আবার দেখুন';
 }

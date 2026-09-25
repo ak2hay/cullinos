@@ -90,8 +90,17 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 
   Future<void> _openNotification(Map<String, dynamic> n) async {
-    await ref.read(guestApiProvider).markNotificationRead(n['id'].toString());
+    final id = n['id'].toString();
+    try {
+      await ref.read(guestApiProvider).markNotificationRead(id);
+      await ref.read(guestApiProvider).deleteNotification(id);
+    } catch (_) {}
     if (!mounted) return;
+    setState(() {
+      _rows = _rows
+          .where((r) => Map<String, dynamic>.from(r as Map)['id']?.toString() != id)
+          .toList();
+    });
     final data = n['data'] is Map
         ? Map<String, dynamic>.from(n['data'] as Map)
         : <String, dynamic>{};
@@ -103,10 +112,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     }
     if (deepLink != null && deepLink.isNotEmpty) {
       GuestPushService.openDeepLink(deepLink);
-      await _load();
-      return;
     }
-    await _load();
   }
 
   @override

@@ -1,28 +1,51 @@
 import 'package:dio/dio.dart';
 
+String? _serverMessage(dynamic data) {
+  if (data is Map) {
+    final err = data['error'];
+    if (err is Map) {
+      final m = err['message']?.toString();
+      if (m != null && m.isNotEmpty) return m;
+    } else if (err is String && err.trim().isNotEmpty) {
+      return err.trim();
+    }
+    final msg = data['message'];
+    if (msg is List && msg.isNotEmpty) {
+      return msg.map((m) => m.toString()).join(', ');
+    }
+    if (msg is String && msg.trim().isNotEmpty) return msg.trim();
+  } else if (data is String && data.trim().isNotEmpty) {
+    return data.trim();
+  }
+  return null;
+}
+
 /// User-facing message for API / Dio failures (never raw stack traces).
-String friendlyApiError(Object e, {String fallback = 'Something went wrong. Please try again.'}) {
+String friendlyApiError(
+  Object e, {
+  String fallback = 'Something went wrong. Please try again.',
+}) {
   if (e is DioException) {
     final status = e.response?.statusCode;
-    final data = e.response?.data;
-    String? serverMsg;
-    if (data is Map) {
-      serverMsg = data['message']?.toString() ??
-          data['error']?.toString() ??
-          (data['errors'] is List && (data['errors'] as List).isNotEmpty
-              ? (data['errors'] as List).first.toString()
-              : null);
-    } else if (data is String && data.trim().isNotEmpty) {
-      serverMsg = data.trim();
+    var serverMsg = _serverMessage(e.response?.data);
+    if (serverMsg != null &&
+        (serverMsg.startsWith('{') ||
+            serverMsg.toLowerCase().contains('instance of') ||
+            serverMsg.toLowerCase().contains('dioexception'))) {
+      serverMsg = null;
     }
 
     if (status == 401) {
       return 'Please sign in to continue.';
     }
     if (status == 403) {
-      return 'You do not have access to this.';
+      return serverMsg ?? 'You do not have access to this.';
     }
     if (status == 404) {
+      final lower = (serverMsg ?? '').toLowerCase();
+      if (lower.contains('coupon')) {
+        return 'Coupon not valid for this restaurant.';
+      }
       return serverMsg ?? 'Not found.';
     }
     if (status == 429) {
@@ -40,9 +63,7 @@ String friendlyApiError(Object e, {String fallback = 'Something went wrong. Plea
     if (e.type == DioExceptionType.connectionError) {
       return 'Cannot reach Cullinos servers. Check your internet.';
     }
-    if (serverMsg != null &&
-        serverMsg.isNotEmpty &&
-        !serverMsg.toLowerCase().contains('dioexception')) {
+    if (serverMsg != null && serverMsg.isNotEmpty) {
       return serverMsg;
     }
     return fallback;
