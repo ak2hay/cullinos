@@ -35,8 +35,12 @@ spec:
               name: http
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -50,6 +54,9 @@ spec:
               port: http
             initialDelaySeconds: 3
             periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -98,8 +105,12 @@ spec:
               name: http
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -113,6 +124,9 @@ spec:
               port: http
             initialDelaySeconds: 3
             periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -161,8 +175,12 @@ spec:
               name: http
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -176,6 +194,9 @@ spec:
               port: http
             initialDelaySeconds: 3
             periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -224,8 +245,12 @@ spec:
               name: http
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -239,6 +264,9 @@ spec:
               port: http
             initialDelaySeconds: 3
             periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -287,8 +315,12 @@ spec:
               name: http
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -302,6 +334,9 @@ spec:
               port: http
             initialDelaySeconds: 3
             periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -350,8 +385,12 @@ spec:
               name: http
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -365,6 +404,9 @@ spec:
               port: http
             initialDelaySeconds: 3
             periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -413,8 +455,12 @@ spec:
               name: http
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -428,6 +474,9 @@ spec:
               port: http
             initialDelaySeconds: 3
             periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -476,8 +525,12 @@ spec:
               name: http
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -491,6 +544,9 @@ spec:
               port: http
             initialDelaySeconds: 3
             periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -539,8 +595,12 @@ spec:
               name: http
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -554,6 +614,9 @@ spec:
               port: http
             initialDelaySeconds: 3
             periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

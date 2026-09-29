@@ -76,6 +76,8 @@ LABEL org.opencontainers.image.title="cullinos-spa-${APP_NAME}"
 COPY docker/spa-nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /out /usr/share/nginx/html
 
+USER 101
+
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
