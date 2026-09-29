@@ -21,6 +21,7 @@
     "@cullinos/shared": "*",
     "@prisma/client": "^6.9.0",
     "bcryptjs": "^3.0.3",
+    "deepmerge-ts": "^8.0.2",
     "prisma": "^6.19.3"
   },
   "devDependencies": {
