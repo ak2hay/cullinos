@@ -61,7 +61,7 @@ RUN if [ "$APP_NAME" = "guest-landing" ] || [ "$APP_NAME" = "waiter-landing" ]; 
         && npm ci --include=dev \
         && npm run build -w @cullinos/shared -w @cullinos/ui \
         && npm run build -w "@cullinos/${APP_NAME}" \
-        && if ! grep -R --include='*.js' --include='*.mjs' --include='*.html' -F "$VITE_API_URL" "apps/${APP_NAME}/dist" >/dev/null 2>&1; then \
+        && if ! grep -rqF "$VITE_API_URL" "apps/${APP_NAME}/dist"; then \
              echo "ERROR: apps/${APP_NAME}/dist does not contain VITE_API_URL=$VITE_API_URL" >&2; \
              exit 1; \
            fi \
