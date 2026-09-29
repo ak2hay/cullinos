@@ -65,6 +65,33 @@ export async function POST(request: Request) {
       message,
     ].join('\n');
 
+    const apiBase = (
+      process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1'
+    ).replace(/\/$/, '');
+    try {
+      await fetch(`${apiBase}/public/marketing/inquiries`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(process.env.INTERNAL_API_KEY
+            ? { 'x-internal-key': process.env.INTERNAL_API_KEY }
+            : {}),
+        },
+        body: JSON.stringify({
+          name,
+          business,
+          email,
+          phone: body.phone,
+          city: body.city,
+          outlets: body.outlets,
+          plan: body.plan,
+          message,
+        }),
+      });
+    } catch (err) {
+      console.error('[contact] Failed to persist inquiry:', err);
+    }
+
     if (!apiKey) {
       console.log('[contact] RESEND_API_KEY not set. Submission logged:\n', text);
       return NextResponse.json({ ok: true, mode: 'logged' });

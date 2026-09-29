@@ -14,4 +14,14 @@ describe('sanitizeThemeCssValue', () => {
   it('rejects semicolon injection', () => {
     expect(sanitizeThemeCssValue('red; background:url(x)')).toBeNull();
   });
+
+  it('allows numeric color functions only', () => {
+    expect(sanitizeThemeCssValue('rgba(10, 20, 30, 0.5)')).toBe('rgba(10, 20, 30, 0.5)');
+    expect(sanitizeThemeCssValue('hsl(40 90% 50% / 0.8)')).toBe('hsl(40 90% 50% / 0.8)');
+    expect(sanitizeThemeCssValue('rgb(</style><img src=x onerror=alert`1`>)')).toBeNull();
+  });
+
+  it('rejects style-tag breakout', () => {
+    expect(sanitizeThemeCssValue('</style><script>alert(1)</script>')).toBeNull();
+  });
 });

@@ -8,7 +8,6 @@ import { GuestOpsAnalyticsPage } from '@/pages/guest-ops/AnalyticsPage';
 import { GuestOpsBannersPage } from '@/pages/guest-ops/BannersPage';
 import { GuestOpsDiscoverPage } from '@/pages/guest-ops/DiscoverPage';
 import { GuestOpsMarketplacePage } from '@/pages/guest-ops/MarketplacePage';
-import { GuestOpsOffersPage } from '@/pages/guest-ops/OffersPage';
 import { GuestOpsOverviewPage } from '@/pages/guest-ops/OverviewPage';
 import { NotificationsPage } from '@/pages/NotificationsPage';
 import { GuestOpsReviewsPage } from '@/pages/guest-ops/ReviewsPage';
@@ -57,7 +56,7 @@ export default function App() {
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="push" element={<Navigate to="/notifications" replace />} />
         <Route path="banners" element={<GuestOpsBannersPage />} />
-        <Route path="offers" element={<GuestOpsOffersPage />} />
+        <Route path="offers" element={<Navigate to="/" replace />} />
         <Route path="marketplace" element={<GuestOpsMarketplacePage />} />
         <Route path="discover" element={<GuestOpsDiscoverPage />} />
         <Route path="reviews" element={<GuestOpsReviewsPage />} />

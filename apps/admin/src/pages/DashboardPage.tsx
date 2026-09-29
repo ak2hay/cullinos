@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useId, useState } from 'react';
 import { Card, PageShell } from '@cullinos/ui';
-import { analyticsApi, inventoryApi, outletsApi, reportsApi, reservationsApi } from '@/lib/api';
+import { analyticsApi, inventoryApi, outletsApi, reportsApi } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
 
@@ -54,20 +53,24 @@ function TrendChart({
   loading: boolean;
 }) {
   const [mode, setMode] = useState<'revenue' | 'orders'>('revenue');
+  const gradientId = `trend-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
   const values = days.map((d) => (mode === 'revenue' ? d.revenue : d.orders));
   const max = Math.max(...values, 1);
+  // x is centred in each day's column so points line up with the labels below.
+  const points = values.map((v, i) => ({
+    x: ((i + 0.5) / Math.max(days.length, 1)) * 100,
+    y: 95 - (v / max) * 85,
+  }));
+  const linePoints = points.map((p) => `${p.x},${p.y}`).join(' ');
+  const areaPoints = points.length
+    ? `${points[0].x},100 ${linePoints} ${points[points.length - 1].x},100`
+    : '';
 
   if (loading) {
     return (
-      <div className="mt-4 flex h-24 items-end gap-1">
-        {Array.from({ length: 7 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex-1 animate-pulse rounded-sm bg-bg-elevated"
-            style={{ height: `${40 + Math.random() * 40}%` }}
-          />
-        ))}
+      <div className="mt-4 flex h-24 items-center">
+        <div className="h-0.5 w-full animate-pulse rounded bg-bg-elevated" />
       </div>
     );
   }
@@ -95,26 +98,63 @@ function TrendChart({
           ))}
         </div>
       </div>
-      <div className="mt-3 flex h-24 items-end gap-1" aria-label="trend chart">
-        {days.map((d, i) => {
-          const pct = Math.max(8, (values[i] / max) * 100);
-          return (
-            <div key={d.date} className="group relative flex flex-1 flex-col items-center">
-              <div
-                className="w-full rounded-t-sm bg-brand-primary/60 transition-all hover:bg-brand-primary/80"
-                style={{ height: `${pct}%` }}
-              />
-              {/* tooltip on hover */}
-              <div className="absolute bottom-full mb-1 hidden rounded bg-bg-elevated px-2 py-1 text-xs text-text-primary shadow group-hover:block whitespace-nowrap z-10">
-                {fmtDate(d.date)}:{' '}
-                {mode === 'revenue'
-                  ? `₹${(d.revenue / 100).toFixed(0)}`
-                  : `${d.orders} orders`}
+      <div className="mt-3" aria-label="trend chart">
+        <div className="relative h-24 text-brand-primary">
+          <svg
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            className="absolute inset-0 h-full w-full overflow-visible"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="currentColor" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {points.length > 1 ? (
+              <polygon points={areaPoints} fill={`url(#${gradientId})`} />
+            ) : null}
+            <polyline
+              points={linePoints}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+          <div className="absolute inset-0 flex">
+            {days.map((d, i) => (
+              <div key={d.date} className="group relative h-full flex-1">
+                <span
+                  className="absolute left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-primary transition-transform group-hover:scale-[2]"
+                  style={{ top: `${points[i].y}%` }}
+                />
+                <div
+                  className="absolute left-1/2 z-10 mb-2 hidden -translate-x-1/2 -translate-y-full whitespace-nowrap rounded bg-bg-elevated px-2 py-1 text-xs text-text-primary shadow group-hover:block"
+                  style={{ top: `${points[i].y}%` }}
+                >
+                  {fmtDate(d.date)}:{' '}
+                  {mode === 'revenue'
+                    ? `₹${(d.revenue / 100).toFixed(0)}`
+                    : `${d.orders} orders`}
+                </div>
               </div>
-              <span className="mt-1 text-[9px] text-text-muted">{fmtDate(d.date).split(' ')[0]}</span>
-            </div>
-          );
-        })}
+            ))}
+          </div>
+        </div>
+        <div className="mt-1 flex gap-1">
+          {days.map((d) => (
+            <span
+              key={`${d.date}-label`}
+              className="flex-1 text-center text-[9px] text-text-muted"
+            >
+              {fmtDate(d.date).split(' ')[0]}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -158,22 +198,7 @@ export function DashboardPage() {
     queryFn: inventoryApi.listLowStock,
   });
 
-  const { data: reservationsToday = [], isLoading: reservationsLoading } = useQuery({
-    queryKey: ['reservations', 'dashboard', date, outletId],
-    queryFn: () =>
-      reservationsApi.list({
-        from: date,
-        to: date,
-        outletId: outletId ?? undefined,
-      }),
-  });
-
   const summary = dailyData?.summary;
-  const reservationPending = reservationsToday.filter((r) => r.status === 'pending').length;
-  const reservationConfirmed = reservationsToday.filter((r) => r.status === 'confirmed').length;
-  const upcomingReservations = reservationsToday
-    .filter((r) => !['cancelled', 'no_show'].includes(r.status))
-    .slice(0, 5);
 
   const kpis = [
     {
@@ -326,51 +351,6 @@ export function DashboardPage() {
           </div>
         ) : null}
       </div>
-
-      {/* ── Reservations ── */}
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="font-display text-lg font-semibold tracking-tight">Reservations</h2>
-            <p className="mt-1 text-sm text-text-secondary">
-              {reservationsLoading
-                ? 'Loading…'
-                : `${reservationsToday.length} total · ${reservationPending} pending · ${reservationConfirmed} confirmed`}
-            </p>
-          </div>
-          <Link
-            to="/reservations"
-            className="text-sm font-medium text-brand-primary hover:underline"
-          >
-            Open reservations
-          </Link>
-        </div>
-        {upcomingReservations.length === 0 && !reservationsLoading ? (
-          <p className="mt-4 text-sm text-text-muted">No reservations for this date.</p>
-        ) : (
-          <ul className="mt-4 divide-y divide-white/5">
-            {upcomingReservations.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
-                <div>
-                  <p className="font-medium">
-                    {r.customerName} · {r.partySize} guests
-                  </p>
-                  <p className="text-text-secondary">
-                    {new Date(r.reservedAt).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                    {r.outlet?.name ? ` · ${r.outlet.name}` : ''}
-                  </p>
-                </div>
-                <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs uppercase">
-                  {r.status}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
 
       {/* ── Payment breakdown ── */}
       {dailyData?.paymentBreakdown && dailyData.paymentBreakdown.length > 0 ? (

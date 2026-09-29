@@ -32,25 +32,33 @@ flowchart LR
 
 ## GitHub secrets & environments
 
-Create environments **staging** and **production** (optional reviewers on production).
+Create environments **staging** and **production**. Add **required reviewers** on production:
+the deploy job waits for approval before touching the cluster.
 
-| Secret | Purpose |
-|--------|---------|
-| `KUBE_CONFIG` | Base64 of k3s kubeconfig (`server: https://95.135.254.46:6443`) |
-| `STAGING_APP_SECRETS_ENV` | Multiline `KEY=value` for staging `cullinos-secrets` (see `infrastructure/k8s/secrets.example.env`) |
-| `PRODUCTION_APP_SECRETS_ENV` | Same for production |
-| `GHCR_PULL_TOKEN` | PAT with `read:packages` if default `GITHUB_TOKEN` cannot pull |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN` | Baked into web/SPA builds |
-| `SENTRY_DSN` | Optional; also include in `*_APP_SECRETS_ENV` |
+`KUBE_CONFIG` must be an **environment** secret (not a repository secret), holding a kubeconfig
+for a ServiceAccount bound to that environment's namespace only, so a staging run cannot
+touch production.
+
+| Secret | Scope | Purpose |
+|--------|-------|---------|
+| `KUBE_CONFIG` | environment | Base64 kubeconfig, namespace-scoped ServiceAccount |
+| `STAGING_APP_SECRETS_ENV` | staging | Multiline `KEY=value` for `cullinos-secrets` (see `infrastructure/k8s/secrets.example.env`; must include `REDIS_PASSWORD`, and `TURNSTILE_SECRET_KEY` in production) |
+| `PRODUCTION_APP_SECRETS_ENV` | production | Same for production |
+| `GHCR_PULL_TOKEN` | repo | PAT with `read:packages` if default `GITHUB_TOKEN` cannot pull |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN` | repo | Baked into the web build |
+| `VITE_TURNSTILE_SITE_KEY` | repo | Baked into SPA builds (forgot-password / login captcha) |
+| `ANDROID_ASSETLINKS_SHA256` | repo | Comma-separated SHA-256 cert fingerprints (Play app signing + upload key) for `guest-landing/.well-known/assetlinks.json`; the landing build fails without it |
+| `SENTRY_DSN` | env | Optional; also include in `*_APP_SECRETS_ENV` |
 
 Workflows:
 
 | Workflow | Trigger | Action |
 |----------|---------|--------|
-| `CI` / `Security` | PR + push | Gates |
-| `Build Images` | push `develop`/`main` | Push to `ghcr.io/ak2hay/cullinos-*` |
-| `Deploy Staging` | after build on `develop` | Apply staging overlay |
-| `Deploy Production` | after build on `main` | Apply production + Prisma push |
+| `CI` | PR + push | `migrate deploy` + drift check, seed, lint, typecheck, build, tests, `flutter analyze`/`test`; on push to `develop`/`main` it then calls `Build Images` |
+| `Security` | PR + push to `develop`/`main` + weekly | npm audit, CodeQL, gitleaks, Trivy |
+| `Build Images` | called by `CI` after every job passes | Push `ghcr.io/ak2hay/cullinos-*:<short-sha>` (+ `staging`/`latest`) |
+| `Deploy Staging` | `CI` success on push to `develop` | `scripts/k8s-deploy.sh`: infra, migration Job, roll out `<short-sha>`, smoke `/health/db`, auto-rollback |
+| `Deploy Production` | `CI` success on push to `main` (production approval) | Same, for production |
 | `Uptime Check` | every 15m | Curl health URLs |
 | `E2E Production` | nightly | Playwright against prod |
 
@@ -68,12 +76,37 @@ DNS: point all prod and staging hostnames A → `95.135.254.46`. TLS via Traefik
 
 ## Manual kubectl deploy
 
+Use the same script as CI so migrations run before the rollout and images are pinned to a SHA:
+
 ```bash
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-kubectl apply -k infrastructure/k8s/overlays/staging
-kubectl apply -k infrastructure/k8s/overlays/production
-kubectl -n production rollout status deployment/api
+bash scripts/k8s-deploy.sh staging infrastructure/k8s/overlays/staging <short-sha>
+bash scripts/k8s-deploy.sh production infrastructure/k8s/overlays/production <short-sha>
 ```
+
+Avoid bare `kubectl apply -k`: the overlays reference `:latest`/`:staging` and would skip migrations.
+
+## Cluster hardening
+
+- NetworkPolicy (`infrastructure/k8s/base/network-policy.yaml`) denies ingress by default; only
+  Traefik (kube-system) reaches app pods, `monitoring` scrapes the API, and only the API,
+  migration and backup pods reach Postgres/Redis. k3s enforces NetworkPolicy out of the box.
+- Redis requires `REDIS_PASSWORD`; the API builds `REDIS_URL` from it.
+- API runs 2 replicas with a PodDisruptionBudget; SPAs run `nginx-unprivileged` on :8080.
+- TLS: use Cloudflare **Full (strict)** with a Cloudflare origin certificate (or cert-manager)
+  in Traefik; plain "Full" accepts any certificate at the origin.
+
+## Backups
+
+`infrastructure/k8s/overlays/production/backup-cronjob.yaml` runs nightly at 02:00 IST:
+`pg_dump -Fc` → AES-256 (`openssl`, PBKDF2) → R2 under `production/YYYY/MM/DD/`. Create the
+`cullinos-backup` secret first (keys listed in `infrastructure/k8s/secrets.example.env`) and set
+an R2 lifecycle rule for retention. Keep `BACKUP_ENCRYPTION_KEY` in the password manager as
+well: without it the backups cannot be restored.
+
+Run a restore drill at least quarterly into a scratch database (command in the CronJob header)
+and record the result in [BACKUP_ROLLBACK.md](BACKUP_ROLLBACK.md). Trigger an ad-hoc backup with
+`kubectl -n production create job --from=cronjob/db-backup db-backup-manual-$(date +%s)`.
 
 ## Build commit in `/health`
 
@@ -88,9 +121,36 @@ kubectl -n production rollout status deployment/api
 
 After a deploy, check `curl -s https://api.cullinos.com/api/v1/health` returns the SHA you shipped.
 
+## Database migrations
+
+Schema changes ship as Prisma migrations in `packages/prisma/prisma/migrations` and are applied
+with `prisma migrate deploy` by the `db-migrate` Kubernetes Job before each rollout. `db push`
+is for local development only; `--accept-data-loss` / `--force-reset` are not used anywhere.
+
+New change: edit `schema.prisma`, then `npm run db:migrate -- --name <change>` locally and commit
+the generated folder.
+
+**Baselining an existing database (one time, human-run).** `0_init` is the full schema. Databases
+that were created with `db push` must be caught up and marked as baselined instead of running it:
+
+For a Compose VM, `DEPLOY_HOST=<ip> python scripts/vm-db-sync-schema.py` automates steps 2–6
+with confirmations. On k3s run them from a shell in an API pod.
+
+1. Back up (`infrastructure/k8s/scripts/backup-pg-k8s.sh`).
+2. Run `packages/prisma/prisma/baseline/precheck.sql`; every query must return no rows.
+3. Generate and review the catch-up SQL:
+   `npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel packages/prisma/prisma/schema.prisma --script > catchup.sql`
+4. Apply it: `npx prisma db execute --url "$DATABASE_URL" --file catchup.sql`, then run the backfills
+   at the bottom of `precheck.sql`.
+5. `npx prisma migrate resolve --applied 0_init --schema packages/prisma/prisma/schema.prisma`
+6. `npx prisma migrate status` must report the database is up to date.
+
+The migration Job refuses to run on a database that has tables but no `0_init` record.
+
 ## Rollback
 
 - **App:** Actions → Deploy Production → `workflow_dispatch` with prior image SHA tag.
+  A failed smoke check rolls the deployments back automatically.
 - **DB:** R2 restore — [BACKUP_ROLLBACK.md](BACKUP_ROLLBACK.md).
 - **Cluster unavailable:** emergency Compose path via legacy `scripts/remote-deploy.py` (only if Compose stack still present).
 
@@ -106,7 +166,7 @@ After a deploy, check `curl -s https://api.cullinos.com/api/v1/health` returns t
 cp .env.example .env
 npm run docker:up
 npm install
-npm run db:generate && npm run db:push && npm run db:seed
+npm run db:generate && npm run db:migrate:deploy && npm run db:seed
 npm run dev
 ```
 

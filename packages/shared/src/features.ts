@@ -94,7 +94,9 @@ export const PLAN_MODULES = [
 
 export type PlanModule = (typeof PLAN_MODULES)[number];
 
-export const PLAN_FEATURES: Record<string, FeatureKey[]> = {
+export type PlanFeatureKey = 'STARTER' | 'QSR' | 'PROFESSIONAL' | 'ENTERPRISE' | 'HOSPITALITY';
+
+export const PLAN_FEATURES: Record<PlanFeatureKey, FeatureKey[]> = {
   STARTER: [
     FEATURES.POS,
     FEATURES.BILLING,
@@ -191,3 +193,97 @@ export const PLAN_FEATURES: Record<string, FeatureKey[]> = {
     FEATURES.HOSPITALITY_INTEGRATIONS,
   ],
 };
+
+/** Always-on modules so Admin / tax / settings work even when not in PLAN_FEATURES. */
+export const PLAN_BASELINE_MODULES: readonly PlanModule[] = [
+  'admin',
+  'menu',
+  'tax',
+  'settings',
+] as const;
+
+const PLANS_WITH_WAITER: ReadonlySet<PlanFeatureKey> = new Set([
+  'PROFESSIONAL',
+  'ENTERPRISE',
+  'HOSPITALITY',
+]);
+
+/** Public catalog metadata aligned with PRODUCT.md / MARKETING_PLANS (INR). */
+export const PUBLIC_PLAN_CATALOG = {
+  starter: {
+    featureKey: 'STARTER' as const,
+    name: 'Starter',
+    description: 'Single outlet launch — POS, KDS, tables, QR + online ordering, reports',
+    priceMonthly: 2999,
+    priceYearly: 29999,
+    maxOutlets: 1,
+    maxTerminals: 2,
+    maxUsers: 5,
+    sortOrder: 10,
+  },
+  qsr: {
+    featureKey: 'QSR' as const,
+    name: 'QSR / Food SMB',
+    description: 'Cafes, food trucks, counter-service — POS, QR, pickup queue, loyalty',
+    priceMonthly: 4999,
+    priceYearly: 49999,
+    maxOutlets: 1,
+    maxTerminals: 3,
+    maxUsers: 8,
+    sortOrder: 20,
+  },
+  professional: {
+    featureKey: 'PROFESSIONAL' as const,
+    name: 'Professional',
+    description: 'Growing restaurants — inventory, CRM, delivery, up to 3 outlets',
+    priceMonthly: 7999,
+    priceYearly: 79999,
+    maxOutlets: 3,
+    maxTerminals: 10,
+    maxUsers: 20,
+    sortOrder: 30,
+  },
+  enterprise: {
+    featureKey: 'ENTERPRISE' as const,
+    name: 'Enterprise',
+    description: 'Chains & franchise — multi-outlet, multi-brand, franchise, analytics, API',
+    priceMonthly: 19999,
+    priceYearly: 199990,
+    maxOutlets: 50,
+    maxTerminals: 100,
+    maxUsers: 200,
+    sortOrder: 40,
+  },
+  hospitality: {
+    featureKey: 'HOSPITALITY' as const,
+    name: 'Hospitality',
+    description: 'Hotels & resorts — room service, room posting, banquet, PMS-ready',
+    priceMonthly: 29999,
+    priceYearly: 299990,
+    maxOutlets: 100,
+    maxTerminals: 200,
+    maxUsers: 500,
+    sortOrder: 50,
+  },
+} as const;
+
+export type PublicPlanSlug = keyof typeof PUBLIC_PLAN_CATALOG;
+
+/**
+ * Derive DB entitlement modules from PLAN_FEATURES + baseline (and waiter for Pro+).
+ */
+export function modulesFromPlanFeatures(key: PlanFeatureKey): PlanModule[] {
+  const modules = new Set<string>(PLAN_BASELINE_MODULES);
+  for (const feature of PLAN_FEATURES[key]) {
+    const mod = FEATURE_TO_MODULE[feature];
+    if (mod) modules.add(mod);
+  }
+  if (PLANS_WITH_WAITER.has(key)) {
+    modules.add('waiter');
+  }
+  return PLAN_MODULES.filter((m) => modules.has(m));
+}
+
+export function modulesForPublicPlanSlug(slug: PublicPlanSlug): PlanModule[] {
+  return modulesFromPlanFeatures(PUBLIC_PLAN_CATALOG[slug].featureKey);
+}

@@ -1,10 +1,39 @@
-import { resolveViteApiBase } from '@cullinos/shared';
+import { createSessionRefresher, resolveViteApiBase, revokeSessionCookie } from '@cullinos/shared';
 import type { ApiError } from '@cullinos/shared';
-import { useAuthStore } from '../stores/auth';
+import { useAuthStore, type SuperAdminUser } from '../stores/auth';
+import type { PlatformPermission, PlatformRole } from './permissions';
 
 const API_BASE = resolveViteApiBase({
   viteApiUrl: import.meta.env.VITE_API_URL,
   isProd: import.meta.env.PROD,
+});
+
+/** Scopes the refresh cookie to this SPA. */
+const PORTAL_ID = 'super-admin';
+
+export const refreshSession = createSessionRefresher({
+  apiBase: API_BASE,
+  portalId: PORTAL_ID,
+  onRefreshed: (res) => {
+    if (!res.user.isSuperAdmin) throw new Error('Not a platform session');
+    useAuthStore.getState().setAuth({
+      accessToken: res.accessToken ?? res.token,
+      admin: {
+        id: res.user.id,
+        email: res.user.email,
+        name: res.user.name,
+        platformRole: res.user.platformRole as PlatformRole | undefined,
+        platformPermissions: res.user.platformPermissions ?? [],
+        mustChangePassword: res.user.mustChangePassword === true,
+      },
+    });
+  },
+});
+
+useAuthStore.subscribe((state, prev) => {
+  if (prev.accessToken && !state.accessToken) {
+    revokeSessionCookie({ apiBase: API_BASE, portalId: PORTAL_ID });
+  }
 });
 
 export class ApiRequestError extends Error {
@@ -46,9 +75,11 @@ export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
   authenticated = true,
+  retried = false,
 ): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
+  headers.set('X-Cullinos-Portal', PORTAL_ID);
 
   if (authenticated) {
     const token = useAuthStore.getState().accessToken;
@@ -60,10 +91,18 @@ export async function apiRequest<T>(
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
+    credentials: 'include',
   });
 
   if (!response.ok) {
-    throw await parseError(response);
+    const err = await parseError(response);
+    if (err.status === 401 && authenticated && useAuthStore.getState().accessToken) {
+      if (!retried && (await refreshSession())) {
+        return apiRequest<T>(path, options, authenticated, true);
+      }
+      useAuthStore.getState().logout();
+    }
+    throw err;
   }
 
   if (response.status === 204) {
@@ -86,8 +125,32 @@ export type LoginChallengeResponse = {
 
 export type LoginSuccessResponse = {
   accessToken: string;
-  admin: { id: string; email: string; name: string };
+  admin: SuperAdminUser;
 };
+
+export interface PlatformTeamMember {
+  id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  status: string;
+  platformRole: PlatformRole;
+  mustChangePassword: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+
+export interface PlatformRoleInfo {
+  role: PlatformRole;
+  label: string;
+  permissions: PlatformPermission[];
+}
+
+export interface TemporaryCredentials {
+  temporaryPassword: string;
+  emailSent: boolean;
+  loginUrl: string;
+}
 
 export type LoginResponse = LoginChallengeResponse | LoginSuccessResponse;
 
@@ -247,6 +310,8 @@ export interface PlanSummary {
   priceYearly?: number;
   maxOutlets?: number;
   maxTerminals?: number;
+  maxUsers?: number;
+  visibility?: 'public' | 'private';
   isActive?: boolean;
   sortOrder?: number;
   subscriptionCount?: number;
@@ -345,7 +410,7 @@ export const superAdminApi = {
       false,
     ),
 
-  forgotPassword: (payload: { email: string }) =>
+  forgotPassword: (payload: { email: string; captchaToken?: string }) =>
     apiRequest<{ ok: boolean }>(
       '/auth/forgot-password',
       { method: 'POST', body: JSON.stringify(payload) },
@@ -357,6 +422,44 @@ export const superAdminApi = {
       '/auth/reset-password',
       { method: 'POST', body: JSON.stringify(payload) },
       false,
+    ),
+
+  changePassword: (payload: { currentPassword: string; newPassword: string }) =>
+    apiRequest<{
+      accessToken?: string;
+      token: string;
+      user: { id: string; email: string; name: string; platformRole?: PlatformRole; platformPermissions?: string[] };
+    }>('/auth/change-password', { method: 'POST', body: JSON.stringify(payload) }),
+
+  listTeam: () => apiRequest<PlatformTeamMember[]>('/super-admin/team'),
+
+  listTeamRoles: () => apiRequest<PlatformRoleInfo[]>('/super-admin/team/roles'),
+
+  inviteTeamMember: (payload: { email: string; name: string; platformRole: PlatformRole }) =>
+    apiRequest<TemporaryCredentials & { member: PlatformTeamMember }>('/super-admin/team', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  changeTeamMemberRole: (id: string, platformRole: PlatformRole) =>
+    apiRequest<PlatformTeamMember>(`/super-admin/team/${id}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ platformRole }),
+    }),
+
+  deactivateTeamMember: (id: string, reason?: string) =>
+    apiRequest<PlatformTeamMember>(`/super-admin/team/${id}/deactivate`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reason }),
+    }),
+
+  activateTeamMember: (id: string) =>
+    apiRequest<PlatformTeamMember>(`/super-admin/team/${id}/activate`, { method: 'PATCH' }),
+
+  resetTeamMemberPassword: (id: string) =>
+    apiRequest<TemporaryCredentials & { userId: string; email: string }>(
+      `/super-admin/team/${id}/reset-password`,
+      { method: 'POST', body: JSON.stringify({}) },
     ),
 
   analyticsOverview: (range: AnalyticsRange = '30d') =>
@@ -565,9 +668,17 @@ export const superAdminApi = {
       razorpaySubId: string | null;
       shortUrl: string | null;
       status: string;
+      keyId: string | null;
+      prefill?: { name?: string | null; email?: string | null; contact?: string | null };
     }>(`/super-admin/organizations/${id}/subscription/collect`, { method: 'POST' }),
 
-  listPlans: () => apiRequest<PlanSummary[]>('/super-admin/plans'),
+  listPlans: (visibility?: 'public' | 'private') => {
+    const q = visibility ? `?visibility=${visibility}` : '';
+    return apiRequest<PlanSummary[]>(`/super-admin/plans${q}`);
+  },
+
+  syncPlansToRazorpay: () =>
+    apiRequest<string[]>('/super-admin/plans/sync-razorpay', { method: 'POST' }),
 
   createPlan: (payload: {
     name: string;
@@ -577,6 +688,8 @@ export const superAdminApi = {
     priceYearly?: number;
     maxOutlets?: number;
     maxTerminals?: number;
+    maxUsers?: number;
+    visibility?: 'public' | 'private';
     modules?: string[];
   }) =>
     apiRequest<PlanSummary>('/super-admin/plans', {
@@ -593,6 +706,8 @@ export const superAdminApi = {
       priceYearly?: number;
       maxOutlets?: number;
       maxTerminals?: number;
+      maxUsers?: number;
+      visibility?: 'public' | 'private';
       isActive?: boolean;
       sortOrder?: number;
     },
@@ -801,7 +916,7 @@ export interface GuestCouponOversightRow {
   organization?: { id: string; name: string; slug: string } | null;
 }
 
-// —— Guest Ops (/super-admin/guest-ops/*) ——
+// â€”â€” Guest Ops (/super-admin/guest-ops/*) â€”â€”
 
 export interface GuestOpsOverview {
   listedOutlets: number;

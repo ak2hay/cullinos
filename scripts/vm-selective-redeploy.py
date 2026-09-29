@@ -12,7 +12,7 @@
 
 Env:
   DEPLOY_PASSWORD           root password (required)
-  DEPLOY_HOST               default 95.135.254.46
+  DEPLOY_HOST               (required)
   DEPLOY_PREFLIGHT_ONLY=1   run step 1 only
   DEPLOY_WEB=0              skip marketing web rebuild
   DEPLOY_NGINX=0            skip nginx config install
@@ -30,7 +30,7 @@ from pathlib import Path
 import paramiko
 
 ROOT = Path(__file__).resolve().parents[1]
-HOST = os.environ.get("DEPLOY_HOST", "95.135.254.46")
+HOST = os.environ.get("DEPLOY_HOST") or sys.exit("Set DEPLOY_HOST explicitly (no default target).")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from deploy_git import local_git_commit  # noqa: E402
@@ -294,7 +294,7 @@ def main() -> int:
         code, _, _ = run(
             ssh,
             f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml run --rm -T --no-deps api "
-            "npx prisma db push --schema=packages/prisma/prisma/schema.prisma --skip-generate",
+            "node packages/prisma/scripts/migrate-deploy.mjs",
             timeout=900,
         )
         if code != 0:

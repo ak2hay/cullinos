@@ -207,12 +207,14 @@ function SidebarNav({
       .map((section) => ({
         ...section,
         items: section.items
-          .filter((item) => isAdminNavPathVisible(businessType, item.to, restaurantSize))
+          .filter((item) =>
+            isAdminNavPathVisible(businessType, item.to, restaurantSize, org?.enabledModules),
+          )
           .filter((item) => isErpNavPathAllowed(permissions, item.to))
           .filter((item) => item.to !== '/onboarding' || org?.setupCompleted !== true),
       }))
       .filter((section) => section.items.length > 0);
-  }, [t, businessType, restaurantSize, org?.setupCompleted, permissions]);
+  }, [t, businessType, restaurantSize, org?.enabledModules, org?.setupCompleted, permissions]);
 
   function handleLogout() {
     logout();
@@ -370,12 +372,14 @@ export function AppShell({ compact, children }: AppShellProps) {
   const visibleNavItems = useMemo(() => {
     return translateSections(t, navSections).flatMap((section) =>
       section.items
-        .filter((item) => isAdminNavPathVisible(businessType, item.to, restaurantSize))
+        .filter((item) =>
+          isAdminNavPathVisible(businessType, item.to, restaurantSize, org?.enabledModules),
+        )
         .filter((item) => isErpNavPathAllowed(permissions, item.to))
         .filter((item) => item.to !== '/onboarding' || org?.setupCompleted !== true)
         .map((item) => ({ ...item, group: section.label })),
     );
-  }, [t, businessType, restaurantSize, org?.setupCompleted, permissions]);
+  }, [t, businessType, restaurantSize, org?.enabledModules, org?.setupCompleted, permissions]);
 
   const commandItems: CommandPaletteItem[] = useMemo(
     () =>

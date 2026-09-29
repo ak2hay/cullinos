@@ -102,5 +102,45 @@
   "portalMaintenanceLabel": "MAINTENANCE",
   "portalMaintenanceTitle": "Waiter app is under maintenance",
   "portalMaintenanceBody": "Cullinos is performing maintenance on the waiter app. Please try again shortly.",
-  "checkAgain": "Check again"
+  "checkAgain": "Check again",
+  "mergeStepPrimary": "Step 1 of 2: Tap the main table",
+  "mergeStepSecondary": "Step 2 of 2: Tap the table to merge into {table}",
+  "@mergeStepSecondary": {
+    "placeholders": { "table": { "type": "String" } }
+  },
+  "transferStepSource": "Step 1 of 2: Tap the table to move",
+  "transferStepTarget": "Step 2 of 2: Tap a free table to move {table} to",
+  "@transferStepTarget": {
+    "placeholders": { "table": { "type": "String" } }
+  },
+  "mergedWith": "Merged with {table}",
+  "@mergedWith": {
+    "placeholders": { "table": { "type": "String" } }
+  },
+  "primaryTag": "Main",
+  "fromTag": "From",
+  "confirmMerge": "Merge {secondary} into {primary}?",
+  "@confirmMerge": {
+    "placeholders": {
+      "secondary": { "type": "String" },
+      "primary": { "type": "String" }
+    }
+  },
+  "confirmTransfer": "Move {from} to {to}?",
+  "@confirmTransfer": {
+    "placeholders": {
+      "from": { "type": "String" },
+      "to": { "type": "String" }
+    }
+  },
+  "confirm": "Confirm",
+  "unmerge": "Unmerge",
+  "openTable": "Open {table}",
+  "@openTable": {
+    "placeholders": { "table": { "type": "String" } }
+  },
+  "mergedTableHint": "Orders and bill for this table are on {table}.",
+  "@mergedTableHint": {
+    "placeholders": { "table": { "type": "String" } }
+  }
 }

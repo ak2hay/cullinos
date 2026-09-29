@@ -8,7 +8,6 @@ const navItems: Array<{ to: string; label: string; end?: boolean }> = [
   { to: '/users', label: 'Users' },
   { to: '/notifications', label: 'Notifications' },
   { to: '/banners', label: 'Banners' },
-  { to: '/offers', label: 'Offers' },
   { to: '/marketplace', label: 'Marketplace' },
   { to: '/discover', label: 'Discover' },
   { to: '/reviews', label: 'Reviews' },

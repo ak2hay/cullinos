@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:cullinos_waiter/core/api_client.dart';
 import 'package:cullinos_waiter/core/config.dart';
 import 'package:cullinos_waiter/core/waiter_colors.dart';
 import 'package:cullinos_waiter/core/waiter_spacing.dart';
@@ -256,7 +257,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           const SizedBox(height: 16),
           FilledButton(
             onPressed: () async {
-              await ref.read(authControllerProvider).logout();
+              final auth = ref.read(authControllerProvider);
+              final refreshToken = auth.refreshToken;
+              if (refreshToken != null && refreshToken.isNotEmpty) {
+                try {
+                  await ref.read(dioProvider).post<dynamic>(
+                    '/auth/logout',
+                    data: {'refreshToken': refreshToken},
+                  );
+                } catch (_) {}
+              }
+              await auth.logout();
               if (context.mounted) context.go('/login');
             },
             child: Text(l10n.logout),

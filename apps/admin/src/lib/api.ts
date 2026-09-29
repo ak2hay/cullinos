@@ -1,7 +1,9 @@
 import {
   CULLINOS_BRAND,
+  createSessionRefresher,
   mapStaffLoginResponse,
   resolveViteApiBase,
+  revokeSessionCookie,
   type ApiStaffLoginResponse,
   type StaffAuthResponse,
 } from '@cullinos/shared';
@@ -16,6 +18,55 @@ const API_BASE = resolveViteApiBase({
   isProd: import.meta.env.PROD,
 });
 export { API_BASE };
+
+const refreshSession = createSessionRefresher({
+  apiBase: API_BASE,
+  portalId: PORTAL_ID,
+  onRefreshed: (raw) => {
+    const mapped = mapStaffLoginResponse(raw);
+    const current = useAuthStore.getState();
+    useAuthStore.getState().setAuth({
+      accessToken: mapped.accessToken,
+      refreshToken: '',
+      user: { ...mapped.user, isSuperAdmin: raw.user.isSuperAdmin },
+      permissions: mapped.permissions,
+    });
+    if (current.selectedOutletId) useAuthStore.getState().setSelectedOutlet(current.selectedOutletId);
+    useAuthStore.getState().setPortalMode(current.portalMode);
+  },
+});
+
+useAuthStore.subscribe((state, prev) => {
+  if (prev.accessToken && !state.accessToken && !prev.impersonation) {
+    revokeSessionCookie({ apiBase: API_BASE, portalId: PORTAL_ID });
+  }
+});
+
+/** Impersonation sessions are one-shot handoffs and never refresh into the cookie's user. */
+async function tryRefreshSession(): Promise<boolean> {
+  if (useAuthStore.getState().impersonation) return false;
+  return refreshSession();
+}
+
+/**
+ * fetch with the current access token; on 401 refreshes the session once and retries.
+ * For multipart uploads that cannot go through `apiRequest`.
+ */
+async function authorizedFetch(url: string, init: RequestInit): Promise<Response> {
+  const send = () => {
+    const headers = new Headers(init.headers);
+    headers.set('X-Cullinos-Portal', PORTAL_ID);
+    const token = useAuthStore.getState().accessToken;
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    return fetch(url, { ...init, headers, credentials: 'include' });
+  };
+  const response = await send();
+  if (response.status === 401 && useAuthStore.getState().accessToken && (await tryRefreshSession())) {
+    return send();
+  }
+  return response;
+}
+
 export class ApiRequestError extends Error {
   constructor(
     message: string,
@@ -25,6 +76,11 @@ export class ApiRequestError extends Error {
     super(message);
     this.name = 'ApiRequestError';
   }
+}
+
+/** True when the endpoint itself is missing (older API), not when the request was rejected. */
+export function isRouteMissing(err: unknown): boolean {
+  return err instanceof ApiRequestError && (err.status === 404 || err.status === 405);
 }
 
 async function parseError(response: Response): Promise<ApiRequestError> {
@@ -44,6 +100,7 @@ export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
   authenticated = true,
+  retried = false,
 ): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
@@ -59,11 +116,18 @@ export async function apiRequest<T>(
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
+    credentials: 'include',
     signal: options.signal ?? AbortSignal.timeout(20_000),
   });
 
   if (!response.ok) {
     const err = await parseError(response);
+    if (err.status === 401 && authenticated && useAuthStore.getState().accessToken) {
+      if (!retried && (await tryRefreshSession())) {
+        return apiRequest<T>(path, options, authenticated, true);
+      }
+      useAuthStore.getState().logout();
+    }
     if (err.status === 503 && err.code === 'PORTAL_DISABLED') {
       usePortalStore.getState().setDisabled(err.message);
       useAuthStore.getState().logout();
@@ -164,6 +228,71 @@ export interface MenuCategory {
   sortOrder: number;
   isActive: boolean;
   parentId: string | null;
+  kitchenStationCode?: string | null;
+}
+
+export interface KitchenStationOption {
+  code: string;
+  name: string;
+}
+
+export interface CatalogStockComponent {
+  key: string;
+  name: string;
+  unit: string;
+  perServe: number;
+  packLabel: string | null;
+  packSize: number | null;
+}
+
+/** Prices are paise. */
+export interface CatalogItemView {
+  id: string;
+  name: string;
+  description: string | null;
+  isVeg: boolean;
+  productType: string;
+  servingUnit: string;
+  serviceTags: string[];
+  defaultPrice: number;
+  priceRange: { min: number; max: number };
+  variants: Array<{ name: string; price: number; stockMultiplier: number; priceFactor: number }>;
+  stock: CatalogStockComponent[];
+  imageUrl: string | null;
+  imported: boolean;
+}
+
+export interface CatalogSectionView {
+  id: string;
+  label: string;
+  group: 'food' | 'beverage' | 'alcohol';
+  visibility: 'core' | 'optional';
+  itemCount: number;
+  subCategories: Array<{ id: string; label: string; items: CatalogItemView[] }>;
+}
+
+export interface MenuCatalogResponse {
+  businessType: string;
+  servesAlcohol: boolean;
+  importedItemIds: string[];
+  sections: CatalogSectionView[];
+}
+
+export interface CatalogImportItem {
+  catalogItemId: string;
+  name?: string;
+  price?: number;
+  isVeg?: boolean;
+  variants?: Array<{ name: string; price: number; stockMultiplier?: number }>;
+  trackStock?: boolean;
+}
+
+export interface CatalogImportResult {
+  created: Array<{ catalogItemId: string; menuItemId: string; name: string }>;
+  skipped: Array<{ catalogItemId: string; reason: string }>;
+  inventoryCreated: number;
+  recipesCreated: number;
+  warnings: string[];
 }
 
 export interface MenuItemVariant {
@@ -173,6 +302,8 @@ export interface MenuItemVariant {
   sku?: string | null;
   isDefault?: boolean;
   sortOrder?: number;
+  /** Recipe stock multiplier (Half = 0.5, 60 mL on a 30 mL recipe = 2). */
+  stockMultiplier?: number;
 }
 
 export interface MenuModifier {
@@ -206,6 +337,7 @@ export interface MenuItem {
   stockBasedAvailability?: boolean;
   isVeg?: boolean;
   isSpecial?: boolean;
+  productType?: string | null;
   taxGroupId?: string | null;
   hsnCode?: string | null;
   sortOrder: number;
@@ -222,6 +354,39 @@ export interface MenuSchedule {
   categoryIds: string[];
   isActive: boolean;
 }
+
+export interface HappyHourRule {
+  id: string;
+  name: string;
+  outletId: string | null;
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
+  discountType: 'percent' | 'amount';
+  /** Percent (0â€“100) or rupees off per unit */
+  discountValue: number;
+  categoryIds: string[];
+  menuItemIds: string[];
+  isActive: boolean;
+}
+
+export type HappyHourPayload = Omit<HappyHourRule, 'id'>;
+
+export const happyHoursApi = {
+  list: () => apiRequest<HappyHourRule[]>('/happy-hours'),
+  create: (payload: HappyHourPayload) =>
+    apiRequest<HappyHourRule>('/happy-hours', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  update: (id: string, payload: Partial<HappyHourPayload>) =>
+    apiRequest<HappyHourRule>(`/happy-hours/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  remove: (id: string) =>
+    apiRequest<{ id: string; deleted: boolean }>(`/happy-hours/${id}`, { method: 'DELETE' }),
+};
 
 export interface MenuCombo {
   id: string;
@@ -390,7 +555,7 @@ export const authApi = {
     companyName: string;
     ownerName: string;
     ownerEmail: string;
-    ownerPhone?: string;
+    ownerPhone: string;
     captchaToken?: string;
   }) =>
     apiRequest<{
@@ -432,7 +597,7 @@ export const authApi = {
       false,
     ),
 
-  forgotPassword: (payload: { email: string }) =>
+  forgotPassword: (payload: { email: string; captchaToken?: string }) =>
     apiRequest<{ ok: boolean }>(
       '/auth/forgot-password',
       { method: 'POST', body: JSON.stringify(payload) },
@@ -446,17 +611,23 @@ export const authApi = {
       false,
     ),
 
-  changePassword: (payload: { currentPassword: string; newPassword: string }) =>
-    apiRequest<{ success: boolean; mustChangePassword: boolean }>('/auth/change-password', {
+  /** Changing the password signs out every device; the response carries this device's new token. */
+  changePassword: async (payload: { currentPassword: string; newPassword: string }) => {
+    const res = await apiRequest<{
+      success: boolean;
+      mustChangePassword: boolean;
+      accessToken?: string;
+    }>('/auth/change-password', {
       method: 'POST',
       body: JSON.stringify(payload),
-    }),
+    });
+    if (res.accessToken) useAuthStore.setState({ accessToken: res.accessToken });
+    return res;
+  },
 
-  logout: (refreshToken: string) =>
-    apiRequest<{ success: boolean }>('/auth/logout', {
-      method: 'POST',
-      body: JSON.stringify({ refreshToken }),
-    }),
+  /** Revokes this browser's refresh cookie; the caller clears local auth state. */
+  logout: () =>
+    apiRequest<{ ok: boolean }>('/auth/logout', { method: 'POST', body: '{}' }, false),
 };
 
 export const outletsApi = {
@@ -494,10 +665,8 @@ export const outletsApi = {
   uploadCoverImage: async (id: string, file: File): Promise<{ coverImageUrl: string }> => {
     const formData = new FormData();
     formData.append('file', file);
-    const token = useAuthStore.getState().accessToken;
     const headers = new Headers();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
-    const response = await fetch(`${API_BASE}/outlets/${id}/cover-upload`, {
+    const response = await authorizedFetch(`${API_BASE}/outlets/${id}/cover-upload`, {
       method: 'POST',
       headers,
       body: formData,
@@ -517,10 +686,8 @@ export const outletsApi = {
     formData.append('file', file);
     if (opts?.caption) formData.append('caption', opts.caption);
     if (opts?.setAsCover) formData.append('setAsCover', 'true');
-    const token = useAuthStore.getState().accessToken;
     const headers = new Headers();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
-    const response = await fetch(`${API_BASE}/outlets/${id}/photos/upload`, {
+    const response = await authorizedFetch(`${API_BASE}/outlets/${id}/photos/upload`, {
       method: 'POST',
       headers,
       body: formData,
@@ -560,6 +727,7 @@ export interface OrganizationCurrent {
   city: string | null;
   timezone?: string;
   currency?: string;
+  logoUrl?: string | null;
   setupCompleted: boolean;
   loyaltySettings?: Record<string, unknown> | null;
   language?: string | null;
@@ -569,6 +737,7 @@ export interface OrganizationCurrent {
   subscriptionActive?: boolean;
   planSlug?: string | null;
   planName?: string | null;
+  enabledModules?: string[] | null;
 }
 
 export const organizationsApi = {
@@ -581,11 +750,25 @@ export const organizationsApi = {
     address?: string | null;
     city?: string | null;
     businessType?: string;
+    logoUrl?: string | null;
   }) =>
     apiRequest<OrganizationCurrent>('/organizations/current', {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+  uploadLogo: async (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    const headers = new Headers();
+    const res = await authorizedFetch(`${API_BASE}/organizations/logo-upload`, {
+      method: 'POST',
+      headers,
+      body: form,
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json() as Promise<{ logoUrl: string; url: string }>;
+  },
 };
 
 export const analyticsApi = {
@@ -625,12 +808,26 @@ export const analyticsApi = {
 
 export const menuApi = {
   listCategories: () => apiRequest<MenuCategory[]>('/menu/categories'),
-  createCategory: (payload: { name: string; description?: string; sortOrder?: number }) =>
+  listKitchenStations: () => apiRequest<KitchenStationOption[]>('/menu/kitchen-stations'),
+  createCategory: (payload: {
+    name: string;
+    description?: string;
+    sortOrder?: number;
+    kitchenStationCode?: string | null;
+  }) =>
     apiRequest<MenuCategory>('/menu/categories', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  updateCategory: (id: string, payload: Partial<{ name: string; description: string; isActive: boolean }>) =>
+  updateCategory: (
+    id: string,
+    payload: Partial<{
+      name: string;
+      description: string;
+      isActive: boolean;
+      kitchenStationCode: string | null;
+    }>,
+  ) =>
     apiRequest<MenuCategory>(`/menu/categories/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
@@ -651,6 +848,7 @@ export const menuApi = {
     stockBasedAvailability?: boolean;
     isVeg?: boolean;
     isSpecial?: boolean;
+    productType?: string | null;
     taxGroupId?: string | null;
     hsnCode?: string | null;
     variants?: MenuItemVariant[];
@@ -672,6 +870,7 @@ export const menuApi = {
       stockBasedAvailability: boolean;
       isVeg: boolean;
       isSpecial: boolean;
+      productType: string | null;
       taxGroupId: string | null;
       hsnCode: string | null;
       variants: MenuItemVariant[];
@@ -685,10 +884,8 @@ export const menuApi = {
   uploadItemImage: async (id: string, file: File): Promise<{ imageUrl: string }> => {
     const formData = new FormData();
     formData.append('file', file);
-    const token = useAuthStore.getState().accessToken;
     const headers = new Headers();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
-    const response = await fetch(`${API_BASE}/menu/items/${id}/image-upload`, {
+    const response = await authorizedFetch(`${API_BASE}/menu/items/${id}/image-upload`, {
       method: 'POST',
       headers,
       body: formData,
@@ -698,6 +895,14 @@ export const menuApi = {
     return response.json() as Promise<{ imageUrl: string }>;
   },
   deleteItem: (id: string) => apiRequest<void>(`/menu/items/${id}`, { method: 'DELETE' }),
+
+  catalog: () => apiRequest<MenuCatalogResponse>('/menu/catalog', { signal: AbortSignal.timeout(30_000) }),
+  importCatalog: (items: CatalogImportItem[]) =>
+    apiRequest<CatalogImportResult>('/menu/catalog/import', {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+      signal: AbortSignal.timeout(90_000),
+    }),
 
   listSchedules: () => apiRequest<MenuSchedule[]>('/menu/schedules'),
   createSchedule: (payload: {
@@ -771,7 +976,16 @@ export const menuApi = {
     apiRequest<{
       outletId: string;
       categories: MenuCategory[];
-      items: Array<MenuItem & { price: number; packagingCharge?: number; isAvailable: boolean }>;
+      items: Array<
+        MenuItem & {
+          price: number;
+          /** Present when happy hour discounts `price` */
+          regularPrice?: number;
+          happyHour?: { name: string; endTime: string } | null;
+          packagingCharge?: number;
+          isAvailable: boolean;
+        }
+      >;
     }>(`/menu/outlets/${outletId}`),
 };
 
@@ -828,7 +1042,7 @@ export const ordersApi = {
       method: 'POST',
       body: JSON.stringify({ itemIds }),
     }),
-  sendEbill: (orderId: string, channel: 'email' | 'sms') =>
+  sendEbill: (orderId: string, channel: 'email' | 'sms' | 'whatsapp') =>
     apiRequest<{ success: boolean; channel: string }>(`/orders/${orderId}/ebill`, {
       method: 'POST',
       body: JSON.stringify({ channel }),
@@ -1075,6 +1289,10 @@ export interface DiningTable {
   status: string;
   qrCode: string | null;
   qrUrl?: string | null;
+  mergedIntoTableId?: string | null;
+  mergedIntoTableName?: string | null;
+  mergedTableIds?: string[];
+  mergedTableNames?: string[];
   section: {
     id: string;
     name: string;
@@ -1179,6 +1397,11 @@ export const tablesApi = {
       method: 'POST',
       body: JSON.stringify({ fromTableId, toTableId }),
     }),
+  unmerge: (outletId: string, tableId: string) =>
+    apiRequest<{ success: boolean; tableId: string }>(
+      `/tables/outlets/${outletId}/${tableId}/unmerge`,
+      { method: 'POST' },
+    ),
 };
 
 export interface InventoryItemRow {
@@ -1190,6 +1413,9 @@ export interface InventoryItemRow {
   reorderLevel?: number;
   costPerUnit?: number;
   outletId?: string | null;
+  packLabel?: string | null;
+  packSize?: number | null;
+  catalogKey?: string | null;
 }
 
 export interface InventoryLotRow {
@@ -1201,7 +1427,30 @@ export interface InventoryLotRow {
   grnItemId: string | null;
 }
 
+export interface StockRegisterRow {
+  inventoryItemId: string;
+  name: string;
+  sku: string | null;
+  unit: string;
+  opening: number;
+  received: number;
+  sold: number;
+  wasted: number;
+  transferredOut: number;
+  closing: number;
+  costPerUnit: number;
+  closingValue: number;
+}
+
 export const inventoryApi = {
+  stockRegister: (params: { from: string; to: string; outletId?: string; liquidOnly?: boolean }) => {
+    const search = new URLSearchParams({ from: params.from, to: params.to });
+    if (params.outletId) search.set('outletId', params.outletId);
+    if (params.liquidOnly) search.set('liquidOnly', 'true');
+    return apiRequest<{ from: string; to: string; rows: StockRegisterRow[] }>(
+      `/inventory/stock-register?${search.toString()}`,
+    );
+  },
   listItems: () => apiRequest<InventoryItemRow[]>('/inventory/items'),
   listLowStock: () => apiRequest<InventoryItemRow[]>('/inventory/low-stock'),
   listLots: (itemId: string) =>
@@ -1213,6 +1462,8 @@ export const inventoryApi = {
     unit?: string;
     currentStock?: number;
     reorderLevel?: number;
+    packLabel?: string | null;
+    packSize?: number | null;
   }) =>
     apiRequest<InventoryItemRow>('/inventory/items', {
       method: 'POST',
@@ -1220,7 +1471,15 @@ export const inventoryApi = {
     }),
   updateItem: (
     id: string,
-    payload: { name?: string; sku?: string; unit?: string; currentStock?: number; reorderLevel?: number },
+    payload: {
+      name?: string;
+      sku?: string;
+      unit?: string;
+      currentStock?: number;
+      reorderLevel?: number;
+      packLabel?: string | null;
+      packSize?: number | null;
+    },
   ) =>
     apiRequest<InventoryItemRow>(`/inventory/items/${id}`, {
       method: 'PATCH',
@@ -1230,7 +1489,7 @@ export const inventoryApi = {
     apiRequest<{ id: string; deleted: boolean }>(`/inventory/items/${id}`, { method: 'DELETE' }),
   adjust: (
     id: string,
-    payload: { quantity: number; type: 'in' | 'out' | 'waste'; notes?: string },
+    payload: { quantity: number; type: 'in' | 'out' | 'waste'; notes?: string; inPacks?: boolean },
   ) =>
     apiRequest<InventoryItemRow>(`/inventory/items/${id}/adjust`, {
       method: 'POST',
@@ -1553,10 +1812,8 @@ export const couponsApi = {
   uploadImage: async (file: File): Promise<{ imageUrl: string }> => {
     const formData = new FormData();
     formData.append('file', file);
-    const token = useAuthStore.getState().accessToken;
     const headers = new Headers();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
-    const response = await fetch(`${API_BASE}/coupons/upload-image`, {
+    const response = await authorizedFetch(`${API_BASE}/coupons/upload-image`, {
       method: 'POST',
       headers,
       body: formData,
@@ -1617,10 +1874,8 @@ export const guestMarketingApi = {
   uploadBannerImage: async (file: File): Promise<{ imageUrl: string }> => {
     const formData = new FormData();
     formData.append('file', file);
-    const token = useAuthStore.getState().accessToken;
     const headers = new Headers();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
-    const response = await fetch(`${API_BASE}/guest-marketing/banners/upload-image`, {
+    const response = await authorizedFetch(`${API_BASE}/guest-marketing/banners/upload-image`, {
       method: 'POST',
       headers,
       body: formData,
@@ -1973,9 +2228,11 @@ export type PrintProfileRow = {
   headerText?: string;
   footerText?: string;
   showLogo: boolean;
+  logoUrl?: string | null;
   showTaxBreakdown: boolean;
   copies: number;
   cutPaper: boolean;
+  enabled?: boolean;
   deviceId?: string | null;
 };
 
@@ -2155,23 +2412,28 @@ export interface TenantSubscription {
     slug: string;
     name: string;
     priceMonthly: number | string;
+    maxOutlets?: number;
+    maxTerminals?: number;
+    maxUsers?: number;
+    visibility?: 'public' | 'private';
   };
 }
 
+export type PublicPlanOption = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  priceMonthly: number;
+  priceYearly: number;
+  maxOutlets: number;
+  maxTerminals?: number;
+  maxUsers?: number;
+};
+
 export const subscriptionsApi = {
   list: () => apiRequest<TenantSubscription[]>('/subscriptions'),
-  plans: () =>
-    apiRequest<
-      Array<{
-        id: string;
-        slug: string;
-        name: string;
-        description: string | null;
-        priceMonthly: number;
-        priceYearly: number;
-        maxOutlets: number;
-      }>
-    >('/subscriptions/plans', {}, false),
+  plans: () => apiRequest<PublicPlanOption[]>('/subscriptions/plans', {}, false),
   checkout: () =>
     apiRequest<{
       organizationId: string;
@@ -2179,6 +2441,8 @@ export const subscriptionsApi = {
       razorpaySubId: string | null;
       shortUrl: string | null;
       status: string;
+      keyId: string | null;
+      prefill?: { name?: string | null; email?: string | null; contact?: string | null };
     }>('/subscriptions/checkout', { method: 'POST', body: JSON.stringify({}) }),
   activatePlan: (planSlug: string) =>
     apiRequest<{
@@ -2187,6 +2451,8 @@ export const subscriptionsApi = {
       razorpaySubId: string | null;
       shortUrl: string | null;
       status: string;
+      keyId: string | null;
+      prefill?: { name?: string | null; email?: string | null; contact?: string | null };
     }>('/subscriptions/activate-plan', {
       method: 'POST',
       body: JSON.stringify({ planSlug }),
@@ -2250,6 +2516,8 @@ export const walletApi = {
       balanceRupees: number;
       pricePer100Paise: number;
       pricePer100Rupees: number;
+      whatsappPricePer100Paise: number;
+      whatsappPricePer100Rupees: number;
       updatedAt: string;
     }>('/wallet'),
   ledger: (take = 50) =>
@@ -2462,10 +2730,8 @@ export const promoDisplayApi = {
   uploadImage: async (file: File): Promise<{ imageUrl: string }> => {
     const formData = new FormData();
     formData.append('file', file);
-    const token = useAuthStore.getState().accessToken;
     const headers = new Headers();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
-    const response = await fetch(`${API_BASE}/promo-display/slides/upload-image`, {
+    const response = await authorizedFetch(`${API_BASE}/promo-display/slides/upload-image`, {
       method: 'POST',
       headers,
       body: formData,
@@ -2509,6 +2775,10 @@ export interface PosOrderResult {
 export interface QuickOrderItem {
   menuItemId: string;
   quantity: number;
+  notes?: string;
+  variantId?: string;
+  /** Catalogue modifiers; the server prices them from the menu. */
+  modifiers?: Array<{ modifierId: string; name: string; price: number }>;
 }
 
 export const posApi = {
@@ -2522,6 +2792,8 @@ export const posApi = {
       customerName?: string;
       tipAmount?: number;
       notes?: string;
+      deliveryAddress?: string;
+      deliveryPincode?: string;
     },
     idempotencyKey?: string,
   ) =>

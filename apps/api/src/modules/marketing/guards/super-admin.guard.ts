@@ -1,14 +1,14 @@
 import {
   CanActivate,
   ExecutionContext,
-  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { Reflector } from "@nestjs/core";
 import { IS_PUBLIC_KEY } from "../../../common/decorators";
-import { getJwtSecret } from "../../../common/jwt-secret.util";
+import { verifyStaffAccessToken } from "../../../common/access-token.util";
+import { assertPlatformAccess } from "../../../common/platform-access.util";
 
 @Injectable()
 export class SuperAdminGuard implements CanActivate {
@@ -27,19 +27,10 @@ export class SuperAdminGuard implements CanActivate {
       throw new UnauthorizedException("Missing token");
     }
 
-    try {
-      const token = authHeader.slice(7);
-      const payload = this.jwt.verify(token, {
-        secret: getJwtSecret(),
-      }) as { isSuperAdmin?: boolean };
-      request.user = payload;
-      if (!payload.isSuperAdmin) {
-        throw new ForbiddenException("Super admin access required");
-      }
-      return true;
-    } catch (err) {
-      if (err instanceof ForbiddenException) throw err;
-      throw new UnauthorizedException("Invalid token");
-    }
+    const payload = verifyStaffAccessToken(this.jwt, authHeader.slice(7));
+    if (!payload) throw new UnauthorizedException("Invalid token");
+    request.user = payload;
+    assertPlatformAccess(this.reflector, context, payload);
+    return true;
   }
 }

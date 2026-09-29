@@ -9,12 +9,14 @@ import {
   Post,
 } from "@nestjs/common";
 import { OrgId, Public, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { DeliveryService } from "./delivery.service";
 import { GuestPushService } from "../guest/guest-push.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { DeliveryStatus } from "@prisma/client";
 
 @Controller("delivery")
+@RequirePermissions("order:read")
 export class DeliveryController {
   constructor(
     private service: DeliveryService,
@@ -33,6 +35,7 @@ export class DeliveryController {
   }
 
   @Post("zones")
+  @RequirePermissions("settings:update")
   createZone(
     @OrgId() orgId: string,
     @Body()
@@ -55,6 +58,7 @@ export class DeliveryController {
 
   @Patch("orders/:orderId")
   @RequireModule("delivery")
+  @RequirePermissions("order:update")
   async updateDeliveryStatus(
     @OrgId() orgId: string,
     @Param("orderId") orderId: string,

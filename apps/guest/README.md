@@ -43,7 +43,7 @@ flutter build appbundle --flavor prod -t lib/main_prod.dart
 ## Firebase / Razorpay
 
 1. Add `android/app/google-services.json`
-2. Set `FCM_SERVER_KEY` in API platform settings / env
+2. Set Firebase Admin on the API (`FIREBASE_SERVICE_ACCOUNT_*` — used for auth + FCM HTTP v1)
 3. Configure Razorpay keys on the API (existing platform config)
 
 See [docs/guest-app/PLAY_STORE_CHECKLIST.md](../../docs/guest-app/PLAY_STORE_CHECKLIST.md).

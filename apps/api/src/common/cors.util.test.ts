@@ -9,8 +9,10 @@ const validProd = {
   CORS_ORIGINS: "https://admin.example.com",
   AUTH_SKIP_EMAIL_OTP: "false",
   JWT_SECRET: "a-sufficiently-long-production-jwt-secret-key",
+  SUPER_ADMIN_JWT_SECRET: "a-separate-strong-super-admin-signing-secret",
   INTERNAL_API_KEY: "prod-internal-api-key-value-xyz",
   ENCRYPTION_KEY: "a-sufficiently-long-production-encryption-key",
+  TURNSTILE_SECRET_KEY: "0x4AAAAAAAprod-turnstile-secret",
 } as NodeJS.ProcessEnv;
 
 describe("cors.util", () => {
@@ -63,6 +65,18 @@ describe("cors.util", () => {
     ).toThrow(/JWT_SECRET/);
   });
 
+  it("fails production when SUPER_ADMIN_JWT_SECRET is missing or reuses JWT_SECRET", () => {
+    expect(() =>
+      assertProductionSecurityConfig({ ...validProd, SUPER_ADMIN_JWT_SECRET: "" }),
+    ).toThrow(/SUPER_ADMIN_JWT_SECRET/);
+    expect(() =>
+      assertProductionSecurityConfig({
+        ...validProd,
+        SUPER_ADMIN_JWT_SECRET: validProd.JWT_SECRET,
+      }),
+    ).toThrow(/SUPER_ADMIN_JWT_SECRET/);
+  });
+
   it("fails production when INTERNAL_API_KEY is a placeholder", () => {
     expect(() =>
       assertProductionSecurityConfig({
@@ -79,6 +93,15 @@ describe("cors.util", () => {
         ENCRYPTION_KEY: "",
       }),
     ).toThrow(/ENCRYPTION_KEY/);
+  });
+
+  it("fails production when TURNSTILE_SECRET_KEY is missing", () => {
+    expect(() =>
+      assertProductionSecurityConfig({
+        ...validProd,
+        TURNSTILE_SECRET_KEY: "",
+      }),
+    ).toThrow(/TURNSTILE_SECRET_KEY/);
   });
 
   it("allows valid production config", () => {

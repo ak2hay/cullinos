@@ -8,6 +8,8 @@
     "generate": "prisma generate",
     "push": "prisma db push",
     "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:reset": "prisma migrate reset --skip-seed",
     "seed": "tsx prisma/seed.ts",
     "seed:demo": "SEED_DEMO=true tsx prisma/seed.ts",
     "seed:org-menu": "tsx prisma/seed-org-menu.ts",
@@ -16,13 +18,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@cullinos/shared": "*",
     "@prisma/client": "^6.9.0",
-    "bcryptjs": "^3.0.3"
+    "bcryptjs": "^3.0.3",
+    "prisma": "^6.19.3"
   },
   "devDependencies": {
-    "prisma": "^6.9.0",
+    "@types/bcryptjs": "^2.4.6",
     "tsx": "^4.23.0",
-    "typescript": "^5.8.3",
-    "@types/bcryptjs": "^2.4.6"
+    "typescript": "^5.8.3"
   }
 }

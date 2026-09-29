@@ -11,7 +11,9 @@ import {
   hasConfiguredOpeningHours,
   normalizeOpeningHours,
 } from "../../common/opening-hours.util";
+import { ensureBarStationsIfServingAlcohol } from "../../common/kitchen-stations.util";
 import { PrismaService } from "../../prisma/prisma.service";
+import { assertPlanCapacity } from "../../common/plan-limits.util";
 import { MarketingUploadService } from "../marketing/marketing-upload.service";
 
 function slugify(text: string): string {
@@ -107,6 +109,7 @@ export class OutletsService {
       operatingMode?: string;
     },
   ) {
+    await assertPlanCapacity(this.prisma, orgId, "outlets");
     // Find the default brand for this org
     const brand = await this.prisma.brand.findFirst({
       where: { organizationId: orgId, isDefault: true },
@@ -142,6 +145,8 @@ export class OutletsService {
         settings: { create: { settings: {} } },
       },
     });
+
+    await ensureBarStationsIfServingAlcohol(this.prisma, orgId);
 
     return {
       id: outlet.id,
@@ -194,7 +199,7 @@ export class OutletsService {
           ? null
           : String(data.coverImageUrl);
       if (next !== outlet.coverImageUrl) {
-        await this.upload.deleteManagedUrl(outlet.coverImageUrl);
+        await this.upload.deleteManagedUrl(outlet.coverImageUrl, { orgId });
       }
       allowed.coverImageUrl = next;
     }
@@ -424,7 +429,7 @@ export class OutletsService {
       where: { id: photoId, outletId },
     });
     if (!photo) throw new NotFoundException("Photo not found");
-    await this.upload.deleteManagedUrl(photo.url);
+    await this.upload.deleteManagedUrl(photo.url, { orgId });
     await this.prisma.outletPhoto.delete({ where: { id: photoId } });
 
     const outlet = await this.prisma.outlet.findUnique({ where: { id: outletId } });

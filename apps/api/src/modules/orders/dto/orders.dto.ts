@@ -7,6 +7,7 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -46,6 +47,7 @@ export class CreateOrderItemDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   notes?: string;
 }
 

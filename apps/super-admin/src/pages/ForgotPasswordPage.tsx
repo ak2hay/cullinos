@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { PasswordInput } from '@cullinos/ui';
+import { PasswordInput, Turnstile, isTurnstileEnabled } from '@cullinos/ui';
 import { RKYVES_BRAND, superAdminApi } from '@/lib/api';
+import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
 
 type Step = 'email' | 'reset';
 
@@ -15,18 +16,29 @@ export function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaKey, setCaptchaKey] = useState(0);
+  const turnstileOn = isTurnstileEnabled(TURNSTILE_SITE_KEY);
+  const onCaptchaToken = useCallback((token: string) => setCaptchaToken(token), []);
+  const onCaptchaExpire = useCallback(() => setCaptchaToken(''), []);
 
   async function handleRequestCode(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setMessage(null);
+    if (turnstileOn && !captchaToken) {
+      setError('Complete the security check');
+      return;
+    }
     setLoading(true);
     try {
-      await superAdminApi.forgotPassword({ email });
+      await superAdminApi.forgotPassword({ email, captchaToken: captchaToken || undefined });
       setMessage('If an account exists for that email, a reset code has been sent.');
       setStep('reset');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Request failed');
+      setCaptchaToken('');
+      setCaptchaKey((k) => k + 1);
     } finally {
       setLoading(false);
     }
@@ -79,6 +91,14 @@ export function ForgotPasswordPage() {
                 className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
               />
             </label>
+            {turnstileOn ? (
+              <Turnstile
+                key={captchaKey}
+                siteKey={TURNSTILE_SITE_KEY}
+                onToken={onCaptchaToken}
+                onExpire={onCaptchaExpire}
+              />
+            ) : null}
             {error ? (
               <p className="rounded-lg border border-status-error/30 bg-status-error/10 px-3 py-2 text-sm text-status-error">
                 {error}

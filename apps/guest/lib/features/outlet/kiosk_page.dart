@@ -84,6 +84,8 @@ class _KioskPageState extends ConsumerState<KioskPage> {
     return items.where((raw) {
       final m = Map<String, dynamic>.from(raw as Map);
       if (m['isAvailable'] == false) return false;
+      // Self-service kiosk has no age check or table service for drinks.
+      if (m['isAlcohol'] == true) return false;
       if (_categoryId == null) return true;
       return m['categoryId']?.toString() == _categoryId;
     }).toList();

@@ -18,6 +18,7 @@ import type { JwtPayload } from "@cullinos/auth";
 import {
   MARKETING_UPLOAD_MAX_BYTES,
   MarketingUploadService,
+  marketingImageFileFilter,
   uploadMaxBytesFor,
 } from "../marketing/marketing-upload.service";
 import {
@@ -67,6 +68,7 @@ export class GuestMarketingAdminController {
     FileInterceptor("file", {
       storage: memoryStorage(),
       limits: { fileSize: MARKETING_UPLOAD_MAX_BYTES },
+      fileFilter: marketingImageFileFilter,
     }),
   )
   async uploadBannerImage(
@@ -77,8 +79,11 @@ export class GuestMarketingAdminController {
     if (!file?.buffer) throw new BadRequestException("No file uploaded.");
     const result = await this.uploadService.saveUploadedFile(
       file,
-      `banner-${orgId}-${Date.now()}`,
-      "banner",
+      {
+        scope: "org",
+        orgId,
+        imageSlot: "banner",
+      },
       uploadMaxBytesFor(user),
     );
     return { imageUrl: result.url };

@@ -24,21 +24,26 @@ chmod +x \
 
 DAILY_LINE="0 2 * * * /bin/bash $SCRIPT_DIR/backup.sh >> /var/log/cullinos-backup.log 2>&1"
 HOURLY_LINE="5 * * * * /bin/bash $SCRIPT_DIR/backup-db-hourly.sh >> /var/log/cullinos-backup-hourly.log 2>&1"
+# Images are built on the VM; without this the BuildKit cache grows ~2-3 GB per deploy.
+PRUNE_LINE="0 4 * * 0 /usr/bin/docker builder prune -f --keep-storage 10GB >> /var/log/docker-prune.log 2>&1"
 
 existing="$(crontab -l 2>/dev/null || true)"
 filtered="$(printf '%s\n' "$existing" \
   | grep -v 'scripts/prod/backup.sh' \
   | grep -v 'scripts/prod/backup-db-hourly.sh' \
+  | grep -v 'docker builder prune' \
   || true)"
 {
   printf '%s\n' "$filtered"
   echo "$DAILY_LINE"
   echo "$HOURLY_LINE"
+  echo "$PRUNE_LINE"
 } | grep -v '^$' | crontab -
 
 echo "==> Installed cron:"
 echo "    $DAILY_LINE"
 echo "    $HOURLY_LINE"
+echo "    $PRUNE_LINE"
 echo "==> Backup dir: $BACKUP_LOCAL_DIR"
 echo "==> Status: $LAST_BACKUP_JSON / $LAST_HOURLY_JSON"
 echo "==> Logs: /var/log/cullinos-backup.log , /var/log/cullinos-backup-hourly.log"

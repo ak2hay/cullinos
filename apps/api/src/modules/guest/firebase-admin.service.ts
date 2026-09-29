@@ -8,6 +8,7 @@ import {
 import { readFileSync } from "fs";
 import { App, cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { getMessaging } from "firebase-admin/messaging";
 
 export type VerifiedFirebaseUser = {
   uid: string;
@@ -16,6 +17,25 @@ export type VerifiedFirebaseUser = {
   name?: string;
   emailVerified: boolean;
 };
+
+export type FcmSendPayload = {
+  token: string;
+  title: string;
+  body: string;
+  imageUrl?: string;
+  data?: Record<string, string>;
+  /** Android notification channel id (guest app: orders | marketing). */
+  androidChannelId?: string;
+};
+
+export type FcmSendResult =
+  | { ok: true; messageId: string }
+  | { ok: false; code?: string; message: string; invalidToken?: boolean };
+
+const INVALID_TOKEN_CODES = new Set([
+  "messaging/registration-token-not-registered",
+  "messaging/invalid-registration-token",
+]);
 
 @Injectable()
 export class FirebaseAdminService implements OnModuleInit {
@@ -31,8 +51,20 @@ export class FirebaseAdminService implements OnModuleInit {
       this.logger.warn(
         `Firebase Admin not configured: ${
           err instanceof Error ? err.message : String(err)
-        }. Guest Firebase exchange will be unavailable until credentials are set.`,
+        }. Guest Firebase exchange and FCM push will be unavailable until credentials are set.`,
       );
+    }
+  }
+
+  /** True when a service-account credential is loaded (auth + FCM HTTP v1). */
+  isConfigured(): boolean {
+    if (this.ready) return true;
+    try {
+      this.ensureApp();
+      this.ready = true;
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -84,10 +116,7 @@ export class FirebaseAdminService implements OnModuleInit {
     );
   }
 
-  async verifyIdToken(idToken?: string): Promise<VerifiedFirebaseUser> {
-    if (!idToken?.trim()) {
-      throw new UnauthorizedException("Firebase idToken is required");
-    }
+  private requireApp(): App {
     if (!this.ready) {
       try {
         this.ensureApp();
@@ -98,6 +127,60 @@ export class FirebaseAdminService implements OnModuleInit {
         );
       }
     }
+    return getApps()[0]!;
+  }
+
+  /**
+   * FCM HTTP v1 send via Admin SDK (service account).
+   * Replaces the deprecated legacy server-key endpoint.
+   */
+  async sendFcm(payload: FcmSendPayload): Promise<FcmSendResult> {
+    if (!this.isConfigured()) {
+      return {
+        ok: false,
+        message: "Firebase Admin is not configured on the API",
+      };
+    }
+
+    const imageUrl = payload.imageUrl?.trim() || undefined;
+    const data = payload.data ?? {};
+
+    try {
+      const messageId = await getMessaging(this.requireApp()).send({
+        token: payload.token,
+        notification: {
+          title: payload.title,
+          body: payload.body,
+          ...(imageUrl ? { imageUrl } : {}),
+        },
+        data,
+        android: {
+          priority: "high",
+          notification: {
+            ...(imageUrl ? { imageUrl } : {}),
+            ...(payload.androidChannelId
+              ? { channelId: payload.androidChannelId }
+              : {}),
+          },
+        },
+      });
+      return { ok: true, messageId };
+    } catch (err) {
+      const code =
+        err && typeof err === "object" && "code" in err
+          ? String((err as { code: unknown }).code)
+          : undefined;
+      const message = err instanceof Error ? err.message : String(err);
+      const invalidToken = Boolean(code && INVALID_TOKEN_CODES.has(code));
+      return { ok: false, code, message, invalidToken };
+    }
+  }
+
+  async verifyIdToken(idToken?: string): Promise<VerifiedFirebaseUser> {
+    if (!idToken?.trim()) {
+      throw new UnauthorizedException("Firebase idToken is required");
+    }
+    this.requireApp();
 
     try {
       const decoded = await getAuth().verifyIdToken(idToken.trim());

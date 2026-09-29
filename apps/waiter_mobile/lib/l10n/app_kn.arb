@@ -102,5 +102,18 @@
   "portalMaintenanceLabel": "MAINTENANCE",
   "portalMaintenanceTitle": "Waiter app is under maintenance",
   "portalMaintenanceBody": "Cullinos is performing maintenance on the waiter app. Please try again shortly.",
-  "checkAgain": "ಮತ್ತೆ ಪರಿಶೀಲಿಸಿ"
+  "checkAgain": "ಮತ್ತೆ ಪರಿಶೀಲಿಸಿ",
+  "mergeStepPrimary": "Step 1 of 2: Tap the main table",
+  "mergeStepSecondary": "Step 2 of 2: Tap the table to merge into {table}",
+  "transferStepSource": "Step 1 of 2: Tap the table to move",
+  "transferStepTarget": "Step 2 of 2: Tap a free table to move {table} to",
+  "mergedWith": "Merged with {table}",
+  "primaryTag": "Main",
+  "fromTag": "From",
+  "confirmMerge": "Merge {secondary} into {primary}?",
+  "confirmTransfer": "Move {from} to {to}?",
+  "confirm": "Confirm",
+  "unmerge": "Unmerge",
+  "openTable": "Open {table}",
+  "mergedTableHint": "Orders and bill for this table are on {table}."
 }

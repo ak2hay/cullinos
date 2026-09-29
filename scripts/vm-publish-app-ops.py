@@ -6,7 +6,7 @@ installs updated cullinos-frontends.conf, expands Let's Encrypt cert, reloads ng
 
 Env:
   DEPLOY_PASSWORD  root password (required; also read from .env)
-  DEPLOY_HOST      default 95.135.254.46
+  DEPLOY_HOST      (required)
   SKIP_BUILD=1     skip local vite build (use existing dist)
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ from pathlib import Path
 import paramiko
 
 ROOT = Path(__file__).resolve().parents[1]
-HOST = os.environ.get("DEPLOY_HOST", "95.135.254.46")
+HOST = os.environ.get("DEPLOY_HOST") or sys.exit("Set DEPLOY_HOST explicitly (no default target).")
 WWW = "/var/www/cullinos"
 NGINX_FRONTENDS = "/etc/nginx/sites-available/cullinos-frontends.conf"
 DIST = ROOT / "apps" / "app-ops" / "dist"

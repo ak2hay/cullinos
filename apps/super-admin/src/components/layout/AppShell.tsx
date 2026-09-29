@@ -1,22 +1,27 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { RKYVES_BRAND } from '@/lib/api';
+import { PLATFORM_ROLE_LABELS, useCan, type PlatformPermission } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/auth';
 
-const navItems: Array<{
+type NavChild = { to: string; label: string; permission: PlatformPermission };
+type NavItem = {
   to: string;
   label: string;
   end?: boolean;
   external?: boolean;
-  children?: Array<{ to: string; label: string }>;
-}> = [
-  { to: '/', label: 'Dashboard', end: true },
-  { to: '/tenants', label: 'Tenants' },
-  { to: '/labs', label: 'Tenant labs' },
-  { to: '/plans', label: 'Plans' },
-  { to: '/subscriptions', label: 'Subscriptions' },
-  { to: '/audit', label: 'Audit & activity' },
-  { to: '/users-report', label: 'Users report' },
+  permission?: PlatformPermission;
+  children?: NavChild[];
+};
+
+const navItems: NavItem[] = [
+  { to: '/', label: 'Dashboard', end: true, permission: 'dashboard.read' },
+  { to: '/tenants', label: 'Tenants', permission: 'tenants.read' },
+  { to: '/labs', label: 'Tenant labs', permission: 'labs.sql' },
+  { to: '/plans', label: 'Plans', permission: 'plans.read' },
+  { to: '/subscriptions', label: 'Subscriptions', permission: 'subscriptions.manage' },
+  { to: '/audit', label: 'Audit & activity', permission: 'audit.read' },
+  { to: '/users-report', label: 'Users report', permission: 'tenants.read' },
   {
     to:
       (import.meta.env.VITE_APP_OPS_URL?.trim() ||
@@ -26,27 +31,40 @@ const navItems: Array<{
       ),
     label: 'Cullinos App Ops',
     external: true,
+    permission: 'guest_ops.manage',
   },
-  { to: '/promo-email', label: 'Promo email' },
-  { to: '/settings', label: 'Settings' },
-  { to: '/health', label: 'System health' },
+  { to: '/promo-email', label: 'Promo email', permission: 'promo.send' },
+  { to: '/team', label: 'Platform team', permission: 'team.manage' },
+  { to: '/settings', label: 'Settings', permission: 'settings.manage' },
+  { to: '/health', label: 'System health', permission: 'health.read' },
   {
     to: '/marketing',
     label: 'Marketing CMS',
     children: [
-      { to: '/marketing', label: 'Overview' },
-      { to: '/marketing/media', label: 'Media' },
-      { to: '/marketing/hero', label: 'Hero' },
-      { to: '/marketing/pages', label: 'Pages' },
-      { to: '/marketing/theme', label: 'Theme' },
-      { to: '/marketing/pricing', label: 'Pricing' },
-      { to: '/marketing/testimonials', label: 'Testimonials' },
-      { to: '/marketing/navigation', label: 'Navigation' },
-      { to: '/marketing/blog', label: 'Blog' },
-      { to: '/marketing/design-lab', label: 'Design lab' },
+      { to: '/marketing', label: 'Overview', permission: 'marketing.manage' },
+      { to: '/marketing/inquiries', label: 'Inquiries', permission: 'marketing.inquiries' },
+      { to: '/marketing/media', label: 'Media', permission: 'marketing.manage' },
+      { to: '/marketing/hero', label: 'Hero', permission: 'marketing.manage' },
+      { to: '/marketing/pages', label: 'Pages', permission: 'marketing.manage' },
+      { to: '/marketing/theme', label: 'Theme', permission: 'marketing.manage' },
+      { to: '/marketing/pricing', label: 'Pricing', permission: 'marketing.manage' },
+      { to: '/marketing/testimonials', label: 'Testimonials', permission: 'marketing.manage' },
+      { to: '/marketing/navigation', label: 'Navigation', permission: 'marketing.manage' },
+      { to: '/marketing/blog', label: 'Blog', permission: 'marketing.manage' },
+      { to: '/marketing/design-lab', label: 'Design lab', permission: 'marketing.manage' },
     ],
   },
 ];
+
+function visibleNav(can: ReturnType<typeof useCan>): NavItem[] {
+  return navItems.flatMap((item) => {
+    if (item.children) {
+      const children = item.children.filter((c) => can(c.permission));
+      return children.length ? [{ ...item, children }] : [];
+    }
+    return !item.permission || can(item.permission) ? [item] : [];
+  });
+}
 
 function pathMatchesChild(pathname: string, hash: string, childTo: string) {
   const [childPath, childHash] = childTo.split('#');
@@ -63,6 +81,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const admin = useAuthStore((s) => s.admin);
   const logout = useAuthStore((s) => s.logout);
+  const can = useCan();
   const marketingOpen = location.pathname.startsWith('/marketing');
 
   function handleLogout() {
@@ -87,7 +106,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-        {navItems.map((item) => {
+        {visibleNav(can).map((item) => {
           const isMarketing = item.label === 'Marketing CMS';
           const sectionOpen = isMarketing ? marketingOpen : false;
 
@@ -159,13 +178,27 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
       <div className="border-t border-white/5 p-4">
         <p className="truncate text-sm font-medium">{admin?.name ?? admin?.email}</p>
         <p className="truncate text-xs text-text-muted">{admin?.email}</p>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="mt-3 text-sm text-text-secondary hover:text-text-primary"
-        >
-          Sign out
-        </button>
+        {admin?.platformRole ? (
+          <p className="mt-1 text-xs text-brand-primary">
+            {PLATFORM_ROLE_LABELS[admin.platformRole]}
+          </p>
+        ) : null}
+        <div className="mt-3 flex gap-4">
+          <NavLink
+            to="/change-password"
+            onClick={onNavigate}
+            className="text-sm text-text-secondary hover:text-text-primary"
+          >
+            Change password
+          </NavLink>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="text-sm text-text-secondary hover:text-text-primary"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     </>
   );

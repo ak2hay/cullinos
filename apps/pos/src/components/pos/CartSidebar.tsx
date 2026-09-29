@@ -2,11 +2,20 @@ import { useState } from 'react';
 import { PhoneField } from '@cullinos/ui';
 import { formatMoney } from '@/lib/format';
 import { useCartStore } from '@/stores/cart';
+import { CartLineNote } from './CartLineNote';
 
 interface UnpaidTicket {
   id: string;
   orderNumber: string;
 }
+
+export type PosOrderType = 'takeaway' | 'dine_in' | 'delivery';
+
+const ORDER_TYPE_LABELS: Record<PosOrderType, string> = {
+  takeaway: 'Pickup',
+  dine_in: 'Eat in',
+  delivery: 'Delivery',
+};
 
 export interface PosCustomer {
   id: string;
@@ -43,8 +52,13 @@ interface CartSidebarProps {
   customerLookupLoading?: boolean;
   linkedCustomer?: PosCustomer | null;
   onClearCustomer?: () => void;
-  orderType?: 'takeaway' | 'dine_in';
-  onOrderTypeChange?: (type: 'takeaway' | 'dine_in') => void;
+  orderType?: PosOrderType;
+  onOrderTypeChange?: (type: PosOrderType) => void;
+  orderTypeOptions?: PosOrderType[];
+  deliveryAddress?: string;
+  onDeliveryAddressChange?: (value: string) => void;
+  deliveryPincode?: string;
+  onDeliveryPincodeChange?: (value: string) => void;
   tipAmount?: number;
   onTipChange?: (tip: number) => void;
   rewards?: Array<{ id: string; name: string; pointsCost: number; affordable: boolean }>;
@@ -91,6 +105,11 @@ export function CartSidebar({
   onClearCustomer,
   orderType = 'takeaway',
   onOrderTypeChange,
+  orderTypeOptions = ['takeaway', 'dine_in'],
+  deliveryAddress = '',
+  onDeliveryAddressChange,
+  deliveryPincode = '',
+  onDeliveryPincodeChange,
   tipAmount = 0,
   onTipChange,
   rewards = [],
@@ -110,6 +129,7 @@ export function CartSidebar({
   const lines = useCartStore((s) => s.lines);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
+  const setLineNote = useCartStore((s) => s.setLineNote);
   const subtotal = useCartStore((s) => s.subtotal());
   const itemCount = useCartStore((s) => s.itemCount());
   const [tenderOpen, setTenderOpen] = useState(false);
@@ -157,14 +177,20 @@ export function CartSidebar({
           <ul className="space-y-2">
             {lines.map((line) => (
               <li
-                key={line.menuItemId}
+                key={line.lineId}
                 className="rounded-xl border border-white/5 bg-bg-card/90 p-3 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-medium leading-tight">{line.name}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium leading-tight">{line.name}</p>
+                    <CartLineNote
+                      notes={line.notes}
+                      onSave={(notes) => setLineNote(line.lineId, notes)}
+                    />
+                  </div>
                   <button
                     type="button"
-                    onClick={() => removeItem(line.menuItemId)}
+                    onClick={() => removeItem(line.lineId)}
                     className="text-sm text-text-muted hover:text-status-error"
                     aria-label="Remove item"
                   >
@@ -175,7 +201,7 @@ export function CartSidebar({
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => updateQuantity(line.menuItemId, line.quantity - 1)}
+                      onClick={() => updateQuantity(line.lineId, line.quantity - 1)}
                       className="flex h-10 w-10 items-center justify-center rounded-lg bg-bg-elevated text-lg font-bold active:scale-95"
                     >
                       −
@@ -185,7 +211,7 @@ export function CartSidebar({
                     </span>
                     <button
                       type="button"
-                      onClick={() => updateQuantity(line.menuItemId, line.quantity + 1)}
+                      onClick={() => updateQuantity(line.lineId, line.quantity + 1)}
                       className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-primary/20 text-lg font-bold text-brand-primary active:scale-95"
                     >
                       +
@@ -299,22 +325,46 @@ export function CartSidebar({
               onChange={(e) => onCustomerNameChange?.(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
             />
-            <div className="grid grid-cols-2 gap-2">
-              {(['takeaway', 'dine_in'] as const).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => onOrderTypeChange?.(type)}
-                  className={`rounded-xl border px-2 py-3 text-sm font-semibold transition active:scale-[0.98] ${
-                    orderType === type
-                      ? 'border-brand-primary bg-brand-primary text-bg-primary shadow-md shadow-brand-primary/20'
-                      : 'border-white/10 bg-bg-elevated text-text-secondary'
-                  }`}
-                >
-                  {type === 'takeaway' ? 'Pickup' : 'Eat in'}
-                </button>
-              ))}
-            </div>
+            {orderTypeOptions.length > 1 ? (
+              <div
+                className="grid gap-2"
+                style={{ gridTemplateColumns: `repeat(${orderTypeOptions.length}, minmax(0, 1fr))` }}
+              >
+                {orderTypeOptions.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => onOrderTypeChange?.(type)}
+                    className={`rounded-xl border px-2 py-3 text-sm font-semibold transition active:scale-[0.98] ${
+                      orderType === type
+                        ? 'border-brand-primary bg-brand-primary text-bg-primary shadow-md shadow-brand-primary/20'
+                        : 'border-white/10 bg-bg-elevated text-text-secondary'
+                    }`}
+                  >
+                    {ORDER_TYPE_LABELS[type]}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {orderType === 'delivery' ? (
+              <div className="space-y-2">
+                <textarea
+                  rows={2}
+                  placeholder="Delivery address"
+                  value={deliveryAddress}
+                  onChange={(e) => onDeliveryAddressChange?.(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                />
+                <input
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="Pincode"
+                  value={deliveryPincode}
+                  onChange={(e) => onDeliveryPincodeChange?.(e.target.value.replace(/\D/g, ''))}
+                  className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                />
+              </div>
+            ) : null}
             <div className="flex items-center gap-2">
               <label className="shrink-0 text-xs text-text-muted">Tip (₹)</label>
               <input

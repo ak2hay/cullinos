@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button, Input } from '@cullinos/ui';
 import { guestOpsApi, type GuestOpsBannerRow } from '@/lib/api';
+import { ImageCropModal } from '@/components/ImageCropModal';
+import {
+  ALLOWED_IMAGE_ACCEPT,
+  IMAGE_SLOT_HINTS,
+  validateClientImageFile,
+} from '@/lib/imageUpload';
 
 type FormState = {
   title: string;
@@ -57,11 +63,14 @@ function payloadFromForm(form: FormState) {
 
 export function GuestOpsBannersPage() {
   const queryClient = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [scope, setScope] = useState<'all' | 'platform' | 'organization'>('all');
   const [form, setForm] = useState<FormState>(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   const { data: banners = [], isLoading } = useQuery({
     queryKey: ['guest-ops', 'banners', scope],
@@ -135,6 +144,34 @@ export function GuestOpsBannersPage() {
     });
   }
 
+  async function uploadBannerFile(file: File) {
+    setUploading(true);
+    setError(null);
+    try {
+      await validateClientImageFile(file, IMAGE_SLOT_HINTS.banner);
+      const url = await guestOpsApi.uploadBannerImage(file);
+      setForm((f) => ({ ...f, imageUrl: url }));
+      setMessage('Image uploaded.');
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
+
+  async function onPickImage(file: File | null) {
+    if (!file) return;
+    setError(null);
+    try {
+      await validateClientImageFile(file, IMAGE_SLOT_HINTS.banner);
+      setCropFile(file);
+    } catch (err) {
+      setError((err as Error).message);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -175,9 +212,49 @@ export function GuestOpsBannersPage() {
             value={form.subtitle}
             onChange={(e) => setForm((f) => ({ ...f, subtitle: e.target.value }))}
           />
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-2 space-y-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept={ALLOWED_IMAGE_ACCEPT}
+              className="hidden"
+              onChange={(e) => {
+                void onPickImage(e.target.files?.[0] ?? null);
+                e.target.value = '';
+              }}
+            />
+            <p className="text-xs text-text-muted">
+              Crop to {IMAGE_SLOT_HINTS.banner.targetWidth}×{IMAGE_SLOT_HINTS.banner.targetHeight}px
+              ({IMAGE_SLOT_HINTS.banner.ratioLabel}). PNG/JPG/WebP only.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                loading={uploading}
+                onClick={() => fileRef.current?.click()}
+              >
+                Upload image
+              </Button>
+              {form.imageUrl ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setForm((f) => ({ ...f, imageUrl: '' }))}
+                >
+                  Remove
+                </Button>
+              ) : null}
+            </div>
+            {form.imageUrl ? (
+              <img
+                src={form.imageUrl}
+                alt=""
+                className="h-28 w-full max-w-md rounded-lg object-cover"
+              />
+            ) : null}
             <Input
-              label="Image URL"
+              label="Or paste image URL"
               value={form.imageUrl}
               onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))}
             />
@@ -318,6 +395,21 @@ export function GuestOpsBannersPage() {
           </ul>
         )}
       </section>
+      {cropFile ? (
+        <ImageCropModal
+          file={cropFile}
+          targetWidth={IMAGE_SLOT_HINTS.banner.targetWidth}
+          targetHeight={IMAGE_SLOT_HINTS.banner.targetHeight}
+          onCancel={() => {
+            setCropFile(null);
+            if (fileRef.current) fileRef.current.value = '';
+          }}
+          onCropped={(cropped) => {
+            setCropFile(null);
+            void uploadBannerFile(cropped);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -189,7 +189,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       final api = ref.read(guestApiProvider);
       Map<String, dynamic> res;
       if (resend && _msg91ReqId != null && _msg91ReqId!.isNotEmpty) {
-        res = await api.widgetRetryOtp(_msg91ReqId!);
+        res = await api.widgetRetryOtp(
+          _msg91ReqId!,
+          captchaToken: _captchaToken.isEmpty ? null : _captchaToken,
+        );
       } else {
         res = await api.widgetSendOtp(
           _digits,

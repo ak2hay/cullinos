@@ -2,10 +2,17 @@ import {
   BadRequestException,
   Injectable,
   Logger,
+  OnModuleDestroy,
   OnModuleInit,
+  Optional,
   ServiceUnavailableException,
 } from "@nestjs/common";
+import { randomUUID } from "crypto";
+import type Redis from "ioredis";
 import { PrismaService } from "../../prisma/prisma.service";
+import { RedisService, createRedisClient } from "../../common/redis/redis.service";
+
+const CONFIG_CHANNEL = "platform-config:changed";
 import {
   decryptSecret,
   encryptSecret,
@@ -44,12 +51,18 @@ export type GroupStatus = {
 type CacheEntry = { value: string | undefined; loaded: boolean };
 
 @Injectable()
-export class PlatformConfigService implements OnModuleInit {
+export class PlatformConfigService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlatformConfigService.name);
   private readonly cache = new Map<string, CacheEntry>();
   private readonly listeners = new Set<(keys: string[]) => void>();
 
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly instanceId = randomUUID();
+  private subscriber: Redis | null = null;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly redis?: RedisService,
+  ) {}
 
   async onModuleInit() {
     try {
@@ -61,6 +74,33 @@ export class PlatformConfigService implements OnModuleInit {
         }`,
       );
     }
+    this.subscribeToPeerChanges();
+  }
+
+  async onModuleDestroy() {
+    await this.subscriber?.quit().catch(() => undefined);
+  }
+
+  /** Other API replicas publish changed keys; reload so every pod serves the same config. */
+  private subscribeToPeerChanges() {
+    if (!this.redis?.client) return;
+    this.subscriber = createRedisClient("cullinos-config-sub", this.logger);
+    if (!this.subscriber) return;
+    void this.subscriber.subscribe(CONFIG_CHANNEL).catch(() => undefined);
+    this.subscriber.on("message", (_channel, message) => {
+      let payload: { origin?: string; keys?: string[] };
+      try {
+        payload = JSON.parse(message) as typeof payload;
+      } catch {
+        return;
+      }
+      if (payload.origin === this.instanceId) return;
+      const keys = Array.isArray(payload.keys) ? payload.keys : [];
+      this.cache.clear();
+      void this.warmCache()
+        .then(() => this.notify(keys))
+        .catch(() => undefined);
+    });
   }
 
   /** Subscribe to config changes (e.g. rebuild SMTP/R2 clients). */
@@ -320,6 +360,9 @@ export class PlatformConfigService implements OnModuleInit {
 
     if (changedKeys.length) {
       this.notify(changedKeys);
+      await this.redis?.client
+        ?.publish(CONFIG_CHANNEL, JSON.stringify({ origin: this.instanceId, keys: changedKeys }))
+        .catch(() => undefined);
     }
 
     const status = await this.getStatus();

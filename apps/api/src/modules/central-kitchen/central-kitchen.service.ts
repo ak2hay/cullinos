@@ -222,6 +222,13 @@ export class CentralKitchenService {
         throw new BadRequestException("Item quantity must be positive");
       }
     }
+    const itemIds = [...new Set(data.items.map((i) => i.inventoryItemId))];
+    const ownedCount = await this.prisma.inventoryItem.count({
+      where: { id: { in: itemIds }, organizationId: orgId },
+    });
+    if (ownedCount !== itemIds.length) {
+      throw new BadRequestException("Invalid inventoryItemId");
+    }
 
     return this.prisma.centralKitchenIndent.create({
       data: {
@@ -263,19 +270,34 @@ export class CentralKitchenService {
       throw new BadRequestException("Cannot fulfill a cancelled indent");
     }
 
-    for (const line of indent.items) {
-      await this.inventory.transfer(orgId, {
-        fromOutletId: indent.centralKitchen.outletId,
-        toOutletId: indent.requestingOutletId,
-        inventoryItemId: line.inventoryItemId,
-        quantity: Number(line.quantity),
-        notes: `Central kitchen indent ${indent.id}`,
-      });
+    const claimed = await this.prisma.centralKitchenIndent.updateMany({
+      where: { id: indentId, organizationId: orgId, status: indent.status },
+      data: { status: "fulfilled", fulfilledAt: new Date() },
+    });
+    if (claimed.count !== 1) {
+      throw new BadRequestException("Indent already fulfilled");
     }
 
-    return this.prisma.centralKitchenIndent.update({
+    try {
+      for (const line of indent.items) {
+        await this.inventory.transfer(orgId, {
+          fromOutletId: indent.centralKitchen.outletId,
+          toOutletId: indent.requestingOutletId,
+          inventoryItemId: line.inventoryItemId,
+          quantity: Number(line.quantity),
+          notes: `Central kitchen indent ${indent.id}`,
+        });
+      }
+    } catch (err) {
+      await this.prisma.centralKitchenIndent.update({
+        where: { id: indentId },
+        data: { status: indent.status, fulfilledAt: null },
+      });
+      throw err;
+    }
+
+    return this.prisma.centralKitchenIndent.findUniqueOrThrow({
       where: { id: indentId },
-      data: { status: "fulfilled", fulfilledAt: new Date() },
       include: {
         requestingOutlet: { select: { id: true, name: true } },
         items: {

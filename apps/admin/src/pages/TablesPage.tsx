@@ -9,6 +9,8 @@ import {
   type DiningTable,
   type FloorPlanFloor,
 } from '@/lib/api';
+import { downloadQr, printHtml, qrDataUrl, useQrDataUrl } from '@/lib/qr';
+import { escapeHtml } from '@/features/pos/printHelper';
 import { useAuthStore } from '@/stores/auth';
 
 const GUEST_APP_BASE =
@@ -29,8 +31,16 @@ const STATUS_STYLE: Record<string, { tile: string; badge: 'success' | 'error' | 
   BILLING: { tile: 'border-table-billing/40 bg-table-billing/10 hover:bg-table-billing/20', badge: 'info' },
 };
 
-function qrImageUrl(data: string, size: number) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
+function QrImage({
+  data,
+  size,
+  ...rest
+}: { data: string; size: number } & Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'>) {
+  const src = useQrDataUrl(data, size);
+  if (!src) {
+    return <div style={{ width: rest.width, height: rest.height }} className={rest.className} />;
+  }
+  return <img src={src} {...rest} />;
 }
 
 function tableQrPayload(table: DiningTable) {
@@ -65,9 +75,10 @@ export function TablesPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [primaryId, setPrimaryId] = useState('');
-  const [transferToId, setTransferToId] = useState('');
+  const [actionMode, setActionMode] = useState<{
+    mode: 'merge' | 'transfer';
+    first: DiningTable | null;
+  } | null>(null);
   const [detailTable, setDetailTable] = useState<DiningTable | null>(null);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -190,12 +201,37 @@ export function TablesPage() {
     }
   }
 
-  const mergeMutation = useMutation({
-    mutationFn: () => tablesApi.merge(outletId!, primaryId, selectedIds),
-    onSuccess: () => {
-      setMessage('Tables merged onto primary.');
+  const tableActionMutation = useMutation({
+    mutationFn: async (vars: { mode: 'merge' | 'transfer'; first: DiningTable; second: DiningTable }) => {
+      if (vars.mode === 'merge') {
+        await tablesApi.merge(outletId!, vars.first.id, [vars.second.id]);
+      } else {
+        await tablesApi.transfer(outletId!, vars.first.id, vars.second.id);
+      }
+    },
+    onSuccess: (_data, vars) => {
+      setMessage(
+        vars.mode === 'merge'
+          ? `${vars.second.name} merged with ${vars.first.name}.`
+          : `Moved ${vars.first.name} to ${vars.second.name}.`,
+      );
       setError(null);
-      setSelectedIds([]);
+      setActionMode(null);
+      queryClient.invalidateQueries({ queryKey: ['tables', outletId] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+      setMessage(null);
+    },
+  });
+
+  const unmergeMutation = useMutation({
+    mutationFn: (table: DiningTable) => tablesApi.unmerge(outletId!, table.id),
+    onSuccess: (_data, table) => {
+      setMessage(`${table.name} unmerged and set to available.`);
+      setError(null);
+      setDetailTable(null);
       queryClient.invalidateQueries({ queryKey: ['tables', outletId] });
     },
     onError: (err: Error) => {
@@ -204,20 +240,56 @@ export function TablesPage() {
     },
   });
 
-  const transferMutation = useMutation({
-    mutationFn: () => tablesApi.transfer(outletId!, primaryId, transferToId),
-    onSuccess: () => {
-      setMessage('Session transferred.');
-      setError(null);
-      setSelectedIds([]);
-      setTransferToId('');
-      queryClient.invalidateQueries({ queryKey: ['tables', outletId] });
-    },
-    onError: (err: Error) => {
-      setError(err.message);
-      setMessage(null);
-    },
-  });
+  function isTableEligible(table: DiningTable): boolean {
+    if (!actionMode) return true;
+    const merged = !!table.mergedIntoTableId;
+    const status = table.status.toUpperCase();
+    const { mode, first } = actionMode;
+    if (!first) {
+      if (mode === 'merge') return !merged;
+      return !merged && (status === 'OCCUPIED' || status === 'BILLING');
+    }
+    if (table.id === first.id || merged) return false;
+    if (mode === 'merge') return status === 'AVAILABLE' || status === 'OCCUPIED';
+    return status === 'AVAILABLE';
+  }
+
+  function handleTileClick(table: DiningTable) {
+    if (!actionMode) {
+      const primary = table.mergedIntoTableId
+        ? tables.find((t) => t.id === table.mergedIntoTableId)
+        : null;
+      openDetail(primary ?? table);
+      return;
+    }
+    const { mode, first } = actionMode;
+    if (first?.id === table.id) {
+      setActionMode({ mode, first: null });
+      return;
+    }
+    if (!isTableEligible(table) || tableActionMutation.isPending) return;
+    if (!first) {
+      setActionMode({ mode, first: table });
+      return;
+    }
+    const question =
+      mode === 'merge'
+        ? `Merge ${table.name} into ${first.name}? ${table.name} will show as merged with ${first.name} until ${first.name} is freed.`
+        : `Move ${first.name} to ${table.name}?`;
+    if (window.confirm(question)) {
+      tableActionMutation.mutate({ mode, first, second: table });
+    }
+  }
+
+  const actionStep = actionMode
+    ? actionMode.mode === 'merge'
+      ? actionMode.first
+        ? `Step 2 of 2: Click the table to merge into ${actionMode.first.name}`
+        : 'Step 1 of 2: Click the main table'
+      : actionMode.first
+        ? `Step 2 of 2: Click a free table to move ${actionMode.first.name} to`
+        : 'Step 1 of 2: Click the table to move'
+    : null;
 
   const statusMutation = useMutation({
     mutationFn: ({ tableId, status }: { tableId: string; status: string }) =>
@@ -298,23 +370,18 @@ export function TablesPage() {
     },
   });
 
-  function toggleSelect(tableId: string) {
-    setSelectedIds((prev) =>
-      prev.includes(tableId) ? prev.filter((id) => id !== tableId) : [...prev, tableId],
-    );
-  }
-
-  function printTableQrSheet() {
+  async function printTableQrSheet() {
     const withQr = tables.filter((t) => tableQrPayload(t));
     if (withQr.length === 0) {
       setError('No tables have QR codes yet.');
       return;
     }
-    const outletLabel = outlet?.name ?? 'Outlet';
+    const outletLabel = escapeHtml(outlet?.name ?? 'Outlet');
+    const images = await Promise.all(withQr.map((t) => qrDataUrl(tableQrPayload(t), 280)));
     const cells = withQr
-      .map((t) => {
-        const url = tableQrPayload(t);
-        return `<div class="cell"><img src="${qrImageUrl(url, 280)}" alt="${t.name}" /><div class="name">${t.name}</div><div class="cap">${t.capacity} seats</div></div>`;
+      .map((t, i) => {
+        const name = escapeHtml(t.name);
+        return `<div class="cell"><img src="${images[i]}" alt="${name}" /><div class="name">${name}</div><div class="cap">${escapeHtml(t.capacity)} seats</div></div>`;
       })
       .join('');
     const html = `<!doctype html><html><head><title>Table QR — ${outletLabel}</title>
@@ -330,15 +397,12 @@ export function TablesPage() {
 </style></head><body>
 <h1>${outletLabel} — dedicated table QR stickers</h1>
 <div class="grid">${cells}</div>
-<script>window.onload=()=>window.print()</script>
 </body></html>`;
-    const w = window.open('', '_blank', 'noopener,noreferrer');
-    if (!w) {
-      setError('Pop-up blocked — allow pop-ups to print the QR sheet.');
-      return;
+    try {
+      printHtml(html);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not print the QR sheet.');
     }
-    w.document.write(html);
-    w.document.close();
   }
 
   if (!outletId) {
@@ -353,7 +417,7 @@ export function TablesPage() {
       description="Floor map for dining status. Waiter and QR ordering use these tables."
       actions={
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" onClick={printTableQrSheet} disabled={tables.length === 0}>
+          <Button type="button" variant="secondary" onClick={() => void printTableQrSheet()} disabled={tables.length === 0}>
             Print QR sheet
           </Button>
           <Button
@@ -529,7 +593,41 @@ export function TablesPage() {
               ? 'Loading tables…'
               : `${filteredTables.length} of ${tables.length} table${tables.length === 1 ? '' : 's'} · click to manage`
           }
+          actions={
+            <>
+              <Button
+                type="button"
+                variant={actionMode?.mode === 'merge' ? 'primary' : 'secondary'}
+                disabled={tables.length < 2}
+                onClick={() => setActionMode({ mode: 'merge', first: null })}
+              >
+                Merge table
+              </Button>
+              <Button
+                type="button"
+                variant={actionMode?.mode === 'transfer' ? 'primary' : 'secondary'}
+                disabled={tables.length < 2}
+                onClick={() => setActionMode({ mode: 'transfer', first: null })}
+              >
+                Transfer table
+              </Button>
+            </>
+          }
         />
+        {actionStep ? (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-brand-primary/50 bg-brand-primary/10 px-4 py-2.5">
+            <p className="text-sm font-semibold text-text-primary">{actionStep}</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              loading={tableActionMutation.isPending}
+              onClick={() => setActionMode(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : null}
         <div className="mb-4 flex flex-wrap gap-2">
           <button
             type="button"
@@ -586,23 +684,31 @@ export function TablesPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {filteredTables.map((table) => {
               const style = STATUS_STYLE[table.status] ?? STATUS_STYLE.AVAILABLE;
-              const selected = selectedIds.includes(table.id);
               const floorName = table.section?.floor?.name;
+              const isMerged = !!table.mergedIntoTableId;
+              const mergedNames = table.mergedTableNames ?? [];
+              const isPicked = actionMode?.first?.id === table.id;
+              const eligible = isTableEligible(table);
+              const dimmed = !!actionMode && !isPicked && !eligible;
+              const invite = !!actionMode?.first && eligible;
               return (
                 <button
                   key={table.id}
                   type="button"
-                  onClick={() => openDetail(table)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    toggleSelect(table.id);
-                  }}
-                  className={`relative flex min-h-28 flex-col items-center justify-center rounded-2xl border p-3 text-center transition active:scale-[0.98] ${style.tile} ${
-                    selected ? 'ring-2 ring-brand-primary' : ''
-                  }`}
+                  onClick={() => handleTileClick(table)}
+                  aria-disabled={dimmed}
+                  className={`relative flex min-h-28 flex-col items-center justify-center rounded-2xl border p-3 text-center transition active:scale-[0.98] ${
+                    isMerged
+                      ? 'border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20'
+                      : style.tile
+                  } ${isPicked ? 'opacity-40 ring-2 ring-brand-primary' : ''} ${
+                    dimmed ? 'cursor-not-allowed opacity-30' : ''
+                  } ${invite ? 'ring-2 ring-brand-primary/70' : ''}`}
                 >
-                  {selected ? (
-                    <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand-primary" />
+                  {isPicked ? (
+                    <span className="absolute left-2 top-2 rounded-full bg-brand-primary px-2 py-0.5 text-[10px] font-semibold uppercase text-white">
+                      {actionMode?.mode === 'merge' ? 'Primary' : 'From'}
+                    </span>
                   ) : null}
                   <span className="font-display text-lg font-semibold tracking-tight">{table.name}</span>
                   <span className="mt-1 text-xs text-text-secondary">
@@ -610,17 +716,24 @@ export function TablesPage() {
                     {floorName ? ` · ${floorName}` : ''}
                     {table.section?.name ? ` · ${table.section.name}` : ''}
                   </span>
-                  <Badge variant={style.badge} className="mt-2 capitalize">
-                    {table.status.toLowerCase()}
-                  </Badge>
+                  {isMerged ? (
+                    <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-cyan-500/20 px-2.5 py-0.5 text-xs font-semibold text-cyan-300">
+                      <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3">
+                        <path d="M8.5 11.5a3 3 0 0 0 4.24 0l2.5-2.5a3 3 0 1 0-4.24-4.24l-.9.9 1.06 1.06.9-.9a1.5 1.5 0 1 1 2.12 2.12l-2.5 2.5a1.5 1.5 0 0 1-2.12 0l-1.06 1.06Zm3-3a3 3 0 0 0-4.24 0l-2.5 2.5a3 3 0 1 0 4.24 4.24l.9-.9-1.06-1.06-.9.9a1.5 1.5 0 1 1-2.12-2.12l2.5-2.5a1.5 1.5 0 0 1 2.12 0l1.06-1.06Z" />
+                      </svg>
+                      Merged with {table.mergedIntoTableName ?? 'another table'}
+                    </span>
+                  ) : (
+                    <Badge variant={style.badge} className="mt-2 capitalize">
+                      {table.status.toLowerCase()}
+                      {mergedNames.length > 0 ? ` · +${mergedNames.join(', ')}` : ''}
+                    </Badge>
+                  )}
                 </button>
               );
             })}
           </div>
         )}
-        <p className="mt-4 text-xs text-text-muted">
-          Tip: right-click a table to multi-select for merge.
-        </p>
       </Card>
 
       {phoneMenuQrEnabled ? (
@@ -632,8 +745,9 @@ export function TablesPage() {
           {takeawayUrl ? (
             <div className="flex flex-wrap items-start gap-5">
               <div className="shrink-0">
-                <img
-                  src={qrImageUrl(takeawayUrl, 200)}
+                <QrImage
+                  data={takeawayUrl}
+                  size={200}
                   alt="Takeaway QR"
                   width={120}
                   height={120}
@@ -652,7 +766,7 @@ export function TablesPage() {
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => window.open(qrImageUrl(takeawayUrl, 800), '_blank', 'noopener,noreferrer')}
+                    onClick={() => void downloadQr(takeawayUrl, 800, 'takeaway-qr')}
                   >
                     Download QR (800 px)
                   </Button>
@@ -675,64 +789,6 @@ export function TablesPage() {
           )}
         </Card>
       ) : null}
-
-      <Card>
-        <CardHeader
-          title="Merge / transfer"
-          description="Select tables (right-click), pick a primary, then merge sessions or transfer one session to a free table."
-        />
-        <div className="flex flex-wrap gap-3">
-          <label className="text-sm">
-            <span className="mb-1 block text-text-muted">Primary</span>
-            <select
-              className="rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
-              value={primaryId}
-              onChange={(e) => setPrimaryId(e.target.value)}
-            >
-              <option value="">Select…</option>
-              {tables.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block text-text-muted">Transfer to</span>
-            <select
-              className="rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
-              value={transferToId}
-              onChange={(e) => setTransferToId(e.target.value)}
-            >
-              <option value="">Select…</option>
-              {tables
-                .filter((t) => t.id !== primaryId)
-                .map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <div className="flex items-end gap-2">
-            <Button
-              type="button"
-              disabled={!primaryId || selectedIds.length === 0 || mergeMutation.isPending}
-              onClick={() => mergeMutation.mutate()}
-            >
-              Merge selected ({selectedIds.length})
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={!primaryId || !transferToId || transferMutation.isPending}
-              onClick={() => transferMutation.mutate()}
-            >
-              Transfer
-            </Button>
-          </div>
-        </div>
-      </Card>
 
       <Drawer
         open={showForm}
@@ -955,8 +1011,9 @@ export function TablesPage() {
             {tableQrPayload(detailTable) ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-4">
-                  <img
-                    src={qrImageUrl(tableQrPayload(detailTable), 150)}
+                  <QrImage
+                    data={tableQrPayload(detailTable)}
+                    size={150}
                     alt={`QR for ${detailTable.name}`}
                     width={96}
                     height={96}
@@ -979,10 +1036,10 @@ export function TablesPage() {
                     type="button"
                     variant="secondary"
                     onClick={() =>
-                      window.open(
-                        qrImageUrl(tableQrPayload(detailTable), 800),
-                        '_blank',
-                        'noopener,noreferrer',
+                      void downloadQr(
+                        tableQrPayload(detailTable),
+                        800,
+                        `table-${detailTable.name.replace(/[^\w-]+/g, '_')}-qr`,
                       )
                     }
                   >
@@ -1029,15 +1086,56 @@ export function TablesPage() {
                 </Button>
               </div>
             )}
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                toggleSelect(detailTable.id);
-              }}
-            >
-              {selectedIds.includes(detailTable.id) ? 'Deselect for merge' : 'Select for merge'}
-            </Button>
+            {detailTable.mergedIntoTableId ? (
+              <div className="space-y-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-3">
+                <p className="text-sm font-medium text-text-primary">
+                  Merged with {detailTable.mergedIntoTableName ?? 'another table'}
+                </p>
+                <p className="text-xs text-text-muted">
+                  Orders and the bill for this table are on {detailTable.mergedIntoTableName ?? 'the main table'}.
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  loading={unmergeMutation.isPending}
+                  onClick={() => unmergeMutation.mutate(detailTable)}
+                >
+                  Unmerge
+                </Button>
+              </div>
+            ) : null}
+            {(detailTable.mergedTableIds ?? []).length > 0 ? (
+              <div className="space-y-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-3">
+                <p className="text-sm font-medium text-text-primary">Merged tables</p>
+                <p className="text-xs text-text-muted">
+                  These tables are released automatically when {detailTable.name} is freed.
+                </p>
+                <ul className="space-y-1">
+                  {(detailTable.mergedTableIds ?? []).map((id, idx) => {
+                    const merged = tables.find((t) => t.id === id);
+                    const label = detailTable.mergedTableNames?.[idx] ?? merged?.name ?? id;
+                    return (
+                      <li key={id} className="flex items-center justify-between gap-2 text-sm">
+                        <span>{label}</span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          loading={unmergeMutation.isPending && unmergeMutation.variables?.id === id}
+                          onClick={() =>
+                            unmergeMutation.mutate(
+                              merged ?? ({ ...detailTable, id, name: label } as DiningTable),
+                            )
+                          }
+                        >
+                          Unmerge
+                        </Button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </Drawer>

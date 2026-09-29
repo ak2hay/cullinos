@@ -154,6 +154,71 @@ export function buildOwnerCredentialsEmail(input: {
   };
 }
 
+export function buildPlatformStaffInviteEmail(input: {
+  name: string;
+  email: string;
+  roleLabel: string;
+  temporaryPassword: string;
+  loginUrl: string;
+  invitedBy?: string;
+  /** Password reset for an existing member rather than a new invite. */
+  reset?: boolean;
+}): RenderedEmail {
+  const subject = input.reset
+    ? "Your Cullinos platform admin password was reset"
+    : "Your Cullinos platform admin access";
+  let invitedLine: string;
+  if (input.reset) {
+    invitedLine = input.invitedBy
+      ? `${input.invitedBy} reset your Rkyves platform admin password.`
+      : "Your Rkyves platform admin password was reset.";
+  } else {
+    invitedLine = input.invitedBy
+      ? `${input.invitedBy} added you to the Rkyves platform team as ${input.roleLabel}.`
+      : `You have been added to the Rkyves platform team as ${input.roleLabel}.`;
+  }
+  const text = [
+    `Hi ${input.name},`,
+    "",
+    invitedLine,
+    "",
+    `Login: ${input.loginUrl}`,
+    `Email: ${input.email}`,
+    `Temporary password: ${input.temporaryPassword}`,
+    "",
+    "You must change this password on first login. A verification code is emailed at every sign-in.",
+    "",
+    "— Cullinos / Rkyves",
+  ].join("\n");
+
+  const bodyHtml = [
+    bodyParagraph(`Hi ${input.name},`),
+    bodyParagraph(invitedLine),
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;background:${EMAIL_BRAND.primarySoft};border-radius:12px;border:1px solid ${EMAIL_BRAND.border}">
+      <tr><td style="padding:16px 18px">
+        <p style="margin:0 0 8px;font-size:13px;color:${EMAIL_BRAND.muted}">Email</p>
+        <p style="margin:0 0 14px;font-size:15px;font-weight:600;color:${EMAIL_BRAND.ink}">${escapeHtml(input.email)}</p>
+        <p style="margin:0 0 8px;font-size:13px;color:${EMAIL_BRAND.muted}">Temporary password</p>
+        <p style="margin:0;font-size:15px;font-weight:700;letter-spacing:0.04em;color:${EMAIL_BRAND.primaryDeep};font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">${escapeHtml(input.temporaryPassword)}</p>
+      </td></tr>
+    </table>`,
+    ctaButton(input.loginUrl, "Open platform admin"),
+    mutedParagraph(
+      "You must change this password on first login. A verification code is emailed at every sign-in.",
+    ),
+  ].join("\n");
+
+  return {
+    subject,
+    text,
+    html: wrapEmail({
+      title: "Welcome to the platform team",
+      preheader: `You were added as ${input.roleLabel}`,
+      bodyHtml,
+    }),
+  };
+}
+
 export function buildReservationInviteEmail(input: {
   customerName: string;
   outletName: string;

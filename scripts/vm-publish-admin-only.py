@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Publish only the admin SPA dist to the VM."""
 from __future__ import annotations
+import sys
 
 import io
 import os
@@ -10,7 +11,7 @@ from pathlib import Path
 import paramiko
 
 ROOT = Path(__file__).resolve().parents[1]
-HOST = os.environ.get("DEPLOY_HOST", "95.135.254.46")
+HOST = os.environ.get("DEPLOY_HOST") or sys.exit("Set DEPLOY_HOST explicitly (no default target).")
 WWW = "/var/www/cullinos"
 
 

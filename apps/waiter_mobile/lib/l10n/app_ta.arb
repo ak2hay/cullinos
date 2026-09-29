@@ -102,5 +102,18 @@
   "portalMaintenanceLabel": "MAINTENANCE",
   "portalMaintenanceTitle": "Waiter app is under maintenance",
   "portalMaintenanceBody": "Cullinos is performing maintenance on the waiter app. Please try again shortly.",
-  "checkAgain": "மீண்டும் சரிபார்க்கவும்"
+  "checkAgain": "மீண்டும் சரிபார்க்கவும்",
+  "mergeStepPrimary": "படி 1/2: முதன்மை மேசையைத் தட்டவும்",
+  "mergeStepSecondary": "படி 2/2: {table} உடன் இணைக்க வேண்டிய மேசையைத் தட்டவும்",
+  "transferStepSource": "படி 1/2: மாற்ற வேண்டிய மேசையைத் தட்டவும்",
+  "transferStepTarget": "படி 2/2: {table} ஐ மாற்ற காலியான மேசையைத் தட்டவும்",
+  "mergedWith": "{table} உடன் இணைக்கப்பட்டது",
+  "primaryTag": "முதன்மை",
+  "fromTag": "இருந்து",
+  "confirmMerge": "{secondary} ஐ {primary} உடன் இணைக்கவா?",
+  "confirmTransfer": "{from} ஐ {to} க்கு மாற்றவா?",
+  "confirm": "உறுதிசெய்",
+  "unmerge": "பிரி",
+  "openTable": "{table} திற",
+  "mergedTableHint": "இந்த மேசையின் ஆர்டர் மற்றும் பில் {table} இல் உள்ளது."
 }

@@ -102,5 +102,18 @@
   "portalMaintenanceLabel": "MAINTENANCE",
   "portalMaintenanceTitle": "Waiter app is under maintenance",
   "portalMaintenanceBody": "Cullinos is performing maintenance on the waiter app. Please try again shortly.",
-  "checkAgain": "फिर से जाँचें"
+  "checkAgain": "फिर से जाँचें",
+  "mergeStepPrimary": "स्टेप 1/2: मुख्य टेबल चुनें",
+  "mergeStepSecondary": "स्टेप 2/2: वह टेबल चुनें जिसे {table} में मर्ज करना है",
+  "transferStepSource": "स्टेप 1/2: जिस टेबल को शिफ्ट करना है उसे चुनें",
+  "transferStepTarget": "स्टेप 2/2: {table} के लिए खाली टेबल चुनें",
+  "mergedWith": "{table} के साथ मर्ज",
+  "primaryTag": "मुख्य",
+  "fromTag": "से",
+  "confirmMerge": "{secondary} को {primary} में मर्ज करें?",
+  "confirmTransfer": "{from} को {to} पर शिफ्ट करें?",
+  "confirm": "कन्फर्म",
+  "unmerge": "अनमर्ज",
+  "openTable": "{table} खोलें",
+  "mergedTableHint": "इस टेबल का ऑर्डर और बिल {table} पर है।"
 }

@@ -9,6 +9,7 @@ import {
   FEATURES,
   RESTAURANT_SIZES,
   getBusinessTypeParent,
+  getBusinessTypeRules,
   isNavFeatureVisible,
   type BusinessType,
   type RestaurantSize,
@@ -28,7 +29,7 @@ import {
   type LanguageCode,
 } from '@/i18n';
 import { PaymentsSettingsPanel } from './settings/PaymentsSettingsPanel';
-import { DevicesSettingsPanel, TaxGroupsSettingsPanel } from './settings/TaxAndDevicesPanels';
+import { DevicesSettingsPanel, PrintProfilesSettingsPanel, TaxGroupsSettingsPanel } from './settings/TaxAndDevicesPanels';
 
 const SETTINGS_TAB_IDS = ['general', 'tax', 'devices', 'payments'] as const;
 
@@ -100,6 +101,8 @@ export function SettingsPage() {
   const [preOrdersEnabled, setPreOrdersEnabled] = useState(true);
   const [enablePayAtCounter, setEnablePayAtCounter] = useState(false);
   const [enablePayToWaiter, setEnablePayToWaiter] = useState(false);
+  const [whatsappReceiptsEnabled, setWhatsappReceiptsEnabled] = useState(false);
+  const [servesAlcoholEnabled, setServesAlcoholEnabled] = useState(false);
 
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
   const orgQuery = useQuery({ queryKey: ['organizations', 'current'], queryFn: organizationsApi.current });
@@ -201,6 +204,10 @@ export function SettingsPage() {
     if (typeof settings.enablePayToWaiter === 'boolean') {
       setEnablePayToWaiter(settings.enablePayToWaiter);
     }
+    if (typeof settings.whatsappReceiptsEnabled === 'boolean') {
+      setWhatsappReceiptsEnabled(settings.whatsappReceiptsEnabled);
+    }
+    setServesAlcoholEnabled(settings.servesAlcohol === true);
   }, [settingsQuery.data]);
 
   const saveMutation = useMutation({
@@ -213,12 +220,28 @@ export function SettingsPage() {
         city: form.city || null,
         gstin: form.gstin || null,
       });
-      const enabledOrderTypes = ORDER_OPTIONS.filter((option) => orderTypes[option.id]).map((option) => option.id);
+      const allowed = businessRules.allowedOrderTypes as readonly string[];
+      const saved = settingsQuery.data?.settings?.enabledOrderTypes;
+      // Keep channels this form does not show (online, banquet, room service).
+      const hiddenSaved = Array.isArray(saved)
+        ? saved.filter(
+            (v): v is string =>
+              typeof v === 'string' &&
+              allowed.includes(v) &&
+              !ORDER_OPTIONS.some((option) => option.id === v),
+          )
+        : [];
+      const enabledOrderTypes = [
+        ...visibleOrderOptions.filter((option) => orderTypes[option.id]).map((option) => option.id),
+        ...hiddenSaved,
+      ];
       await settingsApi.update({
         enabledOrderTypes,
         preOrdersEnabled,
         enablePayAtCounter,
         enablePayToWaiter,
+        whatsappReceiptsEnabled,
+        ...(businessRules.alcoholToggle ? { servesAlcohol: servesAlcoholEnabled } : {}),
       });
     },
     onSuccess: () => {
@@ -235,6 +258,16 @@ export function SettingsPage() {
   const restaurantSize = parseRestaurantSize(orgQuery.data?.restaurantSize);
   const parent = businessType ? getBusinessTypeParent(businessType) : null;
   const showPreOrders = isNavFeatureVisible(businessType, FEATURES.PRE_ORDERS, restaurantSize);
+  const businessRules = getBusinessTypeRules(businessType);
+  const visibleOrderOptions = ORDER_OPTIONS.filter((option) =>
+    (businessRules.allowedOrderTypes as readonly string[]).includes(option.id),
+  ).map((option) =>
+    option.id === 'qr' && !businessRules.tables
+      ? { ...option, hint: 'Customers scan your outlet code to order' }
+      : option.id === 'dine_in' && !businessRules.tables
+        ? { ...option, label: 'Eat in', hint: 'Customers eat at your counter or seating area' }
+        : option,
+  );
 
   return (
     <PageShell
@@ -345,7 +378,7 @@ export function SettingsPage() {
           <p className="mt-1 text-sm text-text-secondary">{t('settings.howCustomersOrderHint')}</p>
         </div>
         <div className="space-y-2">
-          {ORDER_OPTIONS.map((option) => (
+          {visibleOrderOptions.map((option) => (
             <label
               key={option.id}
               className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/5 bg-bg-elevated px-3 py-3"
@@ -366,6 +399,54 @@ export function SettingsPage() {
           ))}
         </div>
       </div>
+
+      {businessRules.alcoholToggle || businessRules.alcoholAlwaysOn ? (
+        <div className="space-y-3 rounded-xl border border-white/5 bg-bg-card p-5">
+          <div>
+            <h2 className="font-semibold">Alcohol & bar menu</h2>
+            <p className="mt-1 text-sm text-text-secondary">
+              Shows the bar catalog (beer, spirits, wine, cocktails) when you add menu items. Requires a
+              valid liquor licence for your outlet.
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-text-muted">
+              <li>
+                Adds a <span className="font-medium text-text-secondary">Bar</span> station at every
+                outlet. Drink orders print as a separate bar ticket (KOT).
+              </li>
+              <li>
+                Customers can order drinks from the app or table QR for dine-in only, after confirming
+                they are of legal drinking age. Delivery and takeaway orders cannot include drinks.
+              </li>
+              <li>
+                Alcohol is not covered by GST. Create a{' '}
+                <span className="font-medium text-text-secondary">State Excise (alcohol)</span> tax group
+                under Tax settings and assign it to your drinks.
+              </li>
+            </ul>
+          </div>
+          {businessRules.alcoholAlwaysOn ? (
+            <p className="rounded-lg border border-white/5 bg-bg-elevated px-3 py-3 text-sm text-text-secondary">
+              Always on for bars and pubs.
+            </p>
+          ) : (
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/5 bg-bg-elevated px-3 py-3">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 accent-brand-primary"
+                checked={servesAlcoholEnabled}
+                onChange={(e) => setServesAlcoholEnabled(e.target.checked)}
+              />
+              <span>
+                <span className="block text-sm font-medium">Serves alcohol</span>
+                <span className="block text-xs text-text-muted">
+                  Turn on if this business has a bar section. You can turn it off later; existing
+                  drinks are hidden from customers and cannot be ordered.
+                </span>
+              </span>
+            </label>
+          )}
+        </div>
+      ) : null}
 
       <div className="space-y-3 rounded-xl border border-white/5 bg-bg-card p-5">
         <div>
@@ -402,6 +483,27 @@ export function SettingsPage() {
             </span>
           </label>
         </div>
+      </div>
+
+      <div className="space-y-3 rounded-xl border border-white/5 bg-bg-card p-5">
+        <div>
+          <h2 className="font-semibold">{t('settings.whatsappReceipts')}</h2>
+          <p className="mt-1 text-sm text-text-secondary">{t('settings.whatsappReceiptsHint')}</p>
+        </div>
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/5 bg-bg-elevated px-3 py-3">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4 accent-brand-primary"
+            checked={whatsappReceiptsEnabled}
+            onChange={(e) => setWhatsappReceiptsEnabled(e.target.checked)}
+          />
+          <span>
+            <span className="block text-sm font-medium">{t('settings.enableWhatsappReceipts')}</span>
+            <span className="block text-xs text-text-muted">
+              {t('settings.enableWhatsappReceiptsHint')}
+            </span>
+          </span>
+        </label>
       </div>
 
       {showPreOrders ? (
@@ -608,7 +710,10 @@ export function SettingsPage() {
         <TaxGroupsSettingsPanel />
       </TabPanel>
       <TabPanel active={activeTab === 'devices'}>
-        <DevicesSettingsPanel />
+        <div className="space-y-10">
+          <PrintProfilesSettingsPanel />
+          <DevicesSettingsPanel />
+        </div>
       </TabPanel>
       <TabPanel active={activeTab === 'payments'}>
         <PaymentsSettingsPanel />

@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import {
   DEFAULT_GUEST_THEME_KEY,
+  getBusinessTypeRules,
+  getEffectiveOrderTypes,
+  isBusinessType,
   isGuestThemePresetKey,
   resolveGuestThemePreset,
 } from "@cullinos/shared";
@@ -25,6 +28,28 @@ function haversineKm(
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Guest-facing order modes: saved Settings capped by the business-type rules. */
+export function guestOrderModes(
+  businessType: string | null | undefined,
+  orgSettings: Record<string, unknown>,
+) {
+  const type = isBusinessType(businessType) ? businessType : null;
+  const saved = Array.isArray(orgSettings.enabledOrderTypes)
+    ? (orgSettings.enabledOrderTypes as string[])
+    : ["dine_in", "takeaway", "delivery"];
+  const types: string[] = getEffectiveOrderTypes(type, { enabledOrderTypes: saved });
+  const { tables } = getBusinessTypeRules(type);
+  const qr = types.includes("qr");
+  return {
+    dineIn: types.includes("dine_in") || (qr && tables),
+    // Without tables, scanning the outlet QR is a counter/pickup order.
+    takeaway: types.includes("takeaway") || types.includes("online") || (qr && !tables),
+    delivery: types.includes("delivery"),
+    enablePayAtCounter: orgSettings.enablePayAtCounter === true,
+    enablePayToWaiter: orgSettings.enablePayToWaiter === true,
+  };
 }
 
 @Injectable()
@@ -177,20 +202,7 @@ export class MarketplaceService {
           string,
           unknown
         >;
-        const enabledOrderTypes = Array.isArray(orgSettings.enabledOrderTypes)
-          ? (orgSettings.enabledOrderTypes as string[])
-          : ["dine_in", "takeaway", "delivery"];
-        const orderModes = {
-          dineIn:
-            enabledOrderTypes.includes("dine_in") ||
-            enabledOrderTypes.includes("qr"),
-          takeaway:
-            enabledOrderTypes.includes("takeaway") ||
-            enabledOrderTypes.includes("online"),
-          delivery: enabledOrderTypes.includes("delivery"),
-          enablePayAtCounter: orgSettings.enablePayAtCounter === true,
-          enablePayToWaiter: orgSettings.enablePayToWaiter === true,
-        };
+        const orderModes = guestOrderModes(o.organization.businessType, orgSettings);
         const ratings = o.guestReviews.map((r) => r.rating);
         const averageRating =
           ratings.length === 0
@@ -317,9 +329,6 @@ export class MarketplaceService {
     if (!outlet) throw new NotFoundException("Outlet not found");
 
     const orgSettings = (org.settings?.settings ?? {}) as Record<string, unknown>;
-    const enabledOrderTypes = Array.isArray(orgSettings.enabledOrderTypes)
-      ? (orgSettings.enabledOrderTypes as string[])
-      : ["dine_in", "takeaway", "delivery"];
     const outletSettings = (outlet.settings?.settings ?? {}) as Record<
       string,
       unknown
@@ -458,17 +467,7 @@ export class MarketplaceService {
         accentColor,
         platformDefaultGuestThemeKey,
       },
-      orderModes: {
-        dineIn:
-          enabledOrderTypes.includes("dine_in") ||
-          enabledOrderTypes.includes("qr"),
-        takeaway:
-          enabledOrderTypes.includes("takeaway") ||
-          enabledOrderTypes.includes("online"),
-        delivery: enabledOrderTypes.includes("delivery"),
-        enablePayAtCounter: orgSettings.enablePayAtCounter === true,
-        enablePayToWaiter: orgSettings.enablePayToWaiter === true,
-      },
+      orderModes: guestOrderModes(org.businessType, orgSettings),
       offers: coupons.map((c) => ({
         id: c.id,
         code: c.code,

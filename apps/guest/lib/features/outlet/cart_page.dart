@@ -48,6 +48,42 @@ class _CartPageState extends ConsumerState<CartPage> {
     super.dispose();
   }
 
+  Future<void> _editLineNote(
+    BuildContext context,
+    CartState cart,
+    CartLine line,
+  ) async {
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final c = TextEditingController(text: line.notes ?? '');
+        return AlertDialog(
+          title: Text('Note for ${line.name}'),
+          content: TextField(
+            controller: c,
+            autofocus: true,
+            maxLines: 3,
+            maxLength: cartNoteMaxLength,
+            decoration: const InputDecoration(
+              hintText: 'E.g. no onion, extra cheese…',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, c.text),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    if (value != null) cart.setLineNotes(line.key, value);
+  }
+
   Future<void> _loadUpsell() async {
     try {
       final data = await ref
@@ -254,6 +290,44 @@ class _CartPageState extends ConsumerState<CartPage> {
                                       formatInr(line.unitPrice),
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    InkWell(
+                                      onTap: () =>
+                                          _editLineNote(context, cart, line),
+                                      child: Padding(
+                                        padding:
+                                            const EdgeInsets.only(top: 4),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.edit_note_rounded,
+                                              size: 16,
+                                              color: GuestColors.primaryOf(
+                                                  context),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                line.notes ?? 'Add note',
+                                                maxLines: 2,
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontStyle: line.notes ==
+                                                          null
+                                                      ? FontStyle.normal
+                                                      : FontStyle.italic,
+                                                  color: line.notes == null
+                                                      ? GuestColors
+                                                          .primaryOf(context)
+                                                      : GuestColors.ink,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ],

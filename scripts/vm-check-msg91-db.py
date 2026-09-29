@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import sys
 import os
 import paramiko
 from pathlib import Path
@@ -10,7 +11,7 @@ if not pw:
 
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-ssh.connect("95.135.254.46", username="root", password=pw, timeout=30)
+ssh.connect(os.environ.get("DEPLOY_HOST") or sys.exit("Set DEPLOY_HOST explicitly (no default target)."), username="root", password=pw, timeout=30)
 cmd = (
     "docker exec cullinos-postgres psql -U cullinos -d cullinos -c "
     "\"SELECT key, CASE WHEN coalesce(length(value),0)>0 THEN 'set' ELSE 'empty' END "

@@ -2,28 +2,34 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
-} from "@nestjs/common";
+} from '@nestjs/common';
 import {
   type AggregatorIntegrationConfig,
   type AggregatorOutletConfig,
   type AggregatorProvider,
   defaultAggregatorRegistry,
-} from "@cullinos/integrations";
-import { Prisma } from "@prisma/client";
-import { createHash, randomBytes } from "crypto";
-import { PrismaService } from "../../prisma/prisma.service";
-import { OrdersService } from "../orders/orders.service";
+} from '@cullinos/integrations';
+import { Prisma } from '@prisma/client';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
+import { PrismaService } from '../../prisma/prisma.service';
+import { OrdersService } from '../orders/orders.service';
+import {
+  decryptSecret,
+  encryptSecret,
+  encryptionKeyConfigured,
+} from '../platform-config/crypto.util';
 
-const AGGREGATOR_PROVIDERS: AggregatorProvider[] = ["swiggy", "zomato"];
+const AGGREGATOR_PROVIDERS: AggregatorProvider[] = ['swiggy', 'zomato'];
 
 function emptyConfig(): AggregatorIntegrationConfig {
-  return { webhookSecret: randomBytes(24).toString("hex"), outlets: {} };
+  return { webhookSecret: randomBytes(24).toString('hex'), outlets: {} };
 }
 
 function fingerprintSecret(secret: string | null | undefined): string | null {
   if (!secret) return null;
-  const hash = createHash("sha256").update(secret).digest("hex").slice(0, 8);
+  const hash = createHash('sha256').update(secret).digest('hex').slice(0, 8);
   return `••••${hash}`;
 }
 
@@ -31,28 +37,62 @@ function parseConfig(raw: unknown): AggregatorIntegrationConfig {
   const cfg = (raw ?? {}) as Record<string, unknown>;
   const outlets: Record<string, AggregatorOutletConfig> = {};
   const rawOutlets = cfg.outlets;
-  if (rawOutlets && typeof rawOutlets === "object") {
+  if (rawOutlets && typeof rawOutlets === 'object') {
     for (const [outletId, value] of Object.entries(rawOutlets as Record<string, unknown>)) {
       const row = (value ?? {}) as Record<string, unknown>;
       outlets[outletId] = {
         connected: Boolean(row.connected),
         menuSyncEnabled: Boolean(row.menuSyncEnabled),
-        externalStoreId:
-          typeof row.externalStoreId === "string" ? row.externalStoreId : undefined,
+        externalStoreId: typeof row.externalStoreId === 'string' ? row.externalStoreId : undefined,
         itemSkuMap:
-          row.itemSkuMap && typeof row.itemSkuMap === "object"
+          row.itemSkuMap && typeof row.itemSkuMap === 'object'
             ? (row.itemSkuMap as Record<string, string>)
             : undefined,
       };
     }
   }
+  let webhookSecret: string | null = null;
+  if (typeof cfg.webhookSecretEnc === 'string' && cfg.webhookSecretEnc) {
+    try {
+      webhookSecret = decryptSecret(cfg.webhookSecretEnc);
+    } catch {
+      webhookSecret = null;
+    }
+  }
+  if (!webhookSecret && typeof cfg.webhookSecret === 'string' && cfg.webhookSecret) {
+    webhookSecret = cfg.webhookSecret;
+  }
   return {
-    webhookSecret:
-      typeof cfg.webhookSecret === "string" && cfg.webhookSecret
-        ? cfg.webhookSecret
-        : randomBytes(24).toString("hex"),
+    webhookSecret: webhookSecret ?? randomBytes(24).toString('hex'),
     outlets,
   };
+}
+
+/** Persisted shape: secret encrypted at rest whenever ENCRYPTION_KEY is configured. */
+export function serializeAggregatorConfig(
+  config: AggregatorIntegrationConfig,
+): Prisma.InputJsonValue {
+  const { webhookSecret, ...rest } = config;
+  if (encryptionKeyConfigured()) {
+    return {
+      ...rest,
+      webhookSecretEnc: encryptSecret(webhookSecret),
+    } as unknown as Prisma.InputJsonValue;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new ServiceUnavailableException('ENCRYPTION_KEY is required to store aggregator secrets');
+  }
+  return config as unknown as Prisma.InputJsonValue;
+}
+
+export function secretsMatch(
+  provided: string | undefined,
+  expected: string | null | undefined,
+): boolean {
+  if (!provided || !expected) return false;
+  const a = createHash('sha256').update(provided).digest();
+  const b = createHash('sha256').update(expected).digest();
+  return timingSafeEqual(a, b);
 }
 
 export type SettlementImportRow = {
@@ -115,7 +155,7 @@ export class AggregatorsService {
 
   async getProvider(orgId: string, provider: AggregatorProvider) {
     if (!AGGREGATOR_PROVIDERS.includes(provider)) {
-      throw new BadRequestException("Unknown aggregator provider");
+      throw new BadRequestException('Unknown aggregator provider');
     }
     return this.describeProvider(orgId, provider);
   }
@@ -130,29 +170,33 @@ export class AggregatorsService {
     },
   ) {
     if (!AGGREGATOR_PROVIDERS.includes(provider)) {
-      throw new BadRequestException("Unknown aggregator provider");
+      throw new BadRequestException('Unknown aggregator provider');
     }
 
     const existing = await this.getIntegration(orgId, provider);
     const config = parseConfig(existing?.config);
     if (input.webhookSecret?.trim()) config.webhookSecret = input.webhookSecret.trim();
     if (input.outlets) {
+      const outletIds = Object.keys(input.outlets);
+      if (outletIds.length) {
+        const owned = await this.prisma.outlet.count({
+          where: { id: { in: outletIds }, organizationId: orgId },
+        });
+        if (owned !== outletIds.length) throw new BadRequestException('Invalid outletId');
+      }
       for (const [outletId, outletCfg] of Object.entries(input.outlets)) {
         config.outlets[outletId] = {
           connected: outletCfg.connected ?? config.outlets[outletId]?.connected ?? false,
           menuSyncEnabled:
-            outletCfg.menuSyncEnabled ??
-            config.outlets[outletId]?.menuSyncEnabled ??
-            false,
-          externalStoreId:
-            outletCfg.externalStoreId ?? config.outlets[outletId]?.externalStoreId,
+            outletCfg.menuSyncEnabled ?? config.outlets[outletId]?.menuSyncEnabled ?? false,
+          externalStoreId: outletCfg.externalStoreId ?? config.outlets[outletId]?.externalStoreId,
           itemSkuMap: outletCfg.itemSkuMap ?? config.outlets[outletId]?.itemSkuMap,
         };
       }
     }
 
     const data = {
-      config: config as unknown as Prisma.InputJsonValue,
+      config: serializeAggregatorConfig(config),
       isActive: input.isActive ?? existing?.isActive ?? false,
     };
 
@@ -183,13 +227,13 @@ export class AggregatorsService {
 
   async regenerateWebhookSecret(orgId: string, provider: AggregatorProvider) {
     if (!AGGREGATOR_PROVIDERS.includes(provider)) {
-      throw new BadRequestException("Unknown aggregator provider");
+      throw new BadRequestException('Unknown aggregator provider');
     }
     const existing = await this.getIntegration(orgId, provider);
     const config = parseConfig(existing?.config);
-    config.webhookSecret = randomBytes(24).toString("hex");
+    config.webhookSecret = randomBytes(24).toString('hex');
     const data = {
-      config: config as unknown as Prisma.InputJsonValue,
+      config: serializeAggregatorConfig(config),
       isActive: existing?.isActive ?? false,
     };
     const row = existing
@@ -212,12 +256,12 @@ export class AggregatorsService {
     orgId: string,
     provider: AggregatorProvider,
     outletId: string,
-    flags: Partial<Pick<AggregatorOutletConfig, "connected" | "menuSyncEnabled">>,
+    flags: Partial<Pick<AggregatorOutletConfig, 'connected' | 'menuSyncEnabled'>>,
   ) {
     const outlet = await this.prisma.outlet.findFirst({
       where: { id: outletId, organizationId: orgId },
     });
-    if (!outlet) throw new NotFoundException("Outlet not found");
+    if (!outlet) throw new NotFoundException('Outlet not found');
 
     const existing = await this.getIntegration(orgId, provider);
     const config = parseConfig(existing?.config);
@@ -240,12 +284,12 @@ export class AggregatorsService {
   async syncMenu(orgId: string, provider: AggregatorProvider, outletId: string) {
     const integration = await this.getIntegration(orgId, provider);
     if (!integration?.isActive) {
-      throw new BadRequestException("Aggregator integration is not active");
+      throw new BadRequestException('Aggregator integration is not active');
     }
     const config = parseConfig(integration.config);
     const outletCfg = config.outlets[outletId];
     if (!outletCfg?.connected || !outletCfg.menuSyncEnabled) {
-      throw new BadRequestException("Menu sync is disabled for this outlet");
+      throw new BadRequestException('Menu sync is disabled for this outlet');
     }
 
     const items = await this.prisma.menuItem.findMany({
@@ -256,7 +300,7 @@ export class AggregatorsService {
 
     const adapter = defaultAggregatorRegistry.get(provider);
     if (!adapter?.syncMenu) {
-      return { synced: 0, skipped: items.length, message: "Sync stub — no external API" };
+      return { synced: 0, skipped: items.length, message: 'Sync stub — no external API' };
     }
     const result = await adapter.syncMenu(
       outletId,
@@ -267,7 +311,7 @@ export class AggregatorsService {
         description: i.description,
       })),
     );
-    return { ...result, message: "Menu sync queued (stub)" };
+    return { ...result, message: 'Menu sync queued (stub)' };
   }
 
   private resolveOutletId(
@@ -296,30 +340,30 @@ export class AggregatorsService {
   ) {
     const integration = await this.getIntegration(orgId, provider);
     if (!integration?.isActive) {
-      throw new UnauthorizedException("Aggregator not connected");
+      throw new UnauthorizedException('Aggregator not connected');
     }
 
     const config = parseConfig(integration.config);
-    if (!secret || secret !== config.webhookSecret) {
-      throw new UnauthorizedException("Invalid aggregator secret");
+    if (!secretsMatch(secret, config.webhookSecret)) {
+      throw new UnauthorizedException('Invalid aggregator secret');
     }
 
     const body = (payload ?? {}) as Record<string, unknown>;
     const externalStoreId =
-      typeof body.outlet_external_id === "string"
+      typeof body.outlet_external_id === 'string'
         ? body.outlet_external_id
-        : typeof body.restaurant_id === "string"
+        : typeof body.restaurant_id === 'string'
           ? body.restaurant_id
           : undefined;
 
     const outletId = this.resolveOutletId(config, queryOutletId, externalStoreId);
     if (!outletId) {
-      throw new BadRequestException("No connected outlet matched for webhook");
+      throw new BadRequestException('No connected outlet matched for webhook');
     }
 
     const outletCfg = config.outlets[outletId];
     const adapter = defaultAggregatorRegistry.get(provider);
-    if (!adapter) throw new BadRequestException("Adapter not found");
+    if (!adapter) throw new BadRequestException('Adapter not found');
 
     const normalized = adapter.normalizeWebhookPayload(payload, {
       outletId,
@@ -327,56 +371,76 @@ export class AggregatorsService {
     });
 
     if (!normalized.items.length) {
-      throw new BadRequestException("Webhook payload has no order items");
+      throw new BadRequestException('Webhook payload has no order items');
     }
 
-    const order = await this.orders.create(orgId, null, {
-      outletId,
-      source: provider.toUpperCase(),
-      type: normalized.orderType,
-      customerName: normalized.customerName,
-      notes: normalized.notes,
-      items: normalized.items.map((item) =>
-        item.menuItemId
-          ? {
-              menuItemId: item.menuItemId,
-              quantity: item.quantity,
-              notes: item.notes,
-            }
-          : {
-              name: item.name,
-              unitPrice: item.unitPrice,
-              quantity: item.quantity,
-              notes: item.notes,
-            },
-      ),
-      idempotencyKey: normalized.idempotencyKey,
-      autoConfirm: true,
-      metadata: {
-        aggregator: {
-          provider,
-          externalOrderId: normalized.externalOrderId,
-          customerPhone: normalized.customerPhone,
-          commission: normalized.commission,
-          payout: normalized.payout,
-          placedAt: normalized.placedAt,
+    const order = await this.orders.create(
+      orgId,
+      null,
+      {
+        outletId,
+        source: provider.toUpperCase(),
+        type: normalized.orderType,
+        customerName: normalized.customerName,
+        notes: normalized.notes,
+        items: normalized.items.map((item) =>
+          item.menuItemId
+            ? {
+                menuItemId: item.menuItemId,
+                quantity: item.quantity,
+                notes: item.notes,
+              }
+            : {
+                name: item.name,
+                unitPrice: item.unitPrice,
+                quantity: item.quantity,
+                notes: item.notes,
+              },
+        ),
+        idempotencyKey: normalized.idempotencyKey,
+        autoConfirm: true,
+        metadata: {
+          aggregator: {
+            provider,
+            externalOrderId: normalized.externalOrderId,
+            customerPhone: normalized.customerPhone,
+            commission: normalized.commission,
+            payout: normalized.payout,
+            placedAt: normalized.placedAt,
+          },
         },
       },
-    });
+      {
+        // Bill at the price the aggregator charged, and treat the order as already paid to them.
+        priceOverrides: normalized.items.map((item) =>
+          item.menuItemId && item.unitPrice > 0 ? item.unitPrice : undefined,
+        ),
+        prepaid: {
+          methodCode: `aggregator_${provider}`,
+          methodName: provider === 'swiggy' ? 'Swiggy' : 'Zomato',
+          reference: `${provider}:${normalized.externalOrderId}`,
+          tender: provider,
+        },
+      },
+    );
 
     return { ok: true, orderId: order.id, externalOrderId: normalized.externalOrderId };
   }
 
-  async importSettlements(
-    orgId: string,
-    rows: SettlementImportRow[],
-    format: "csv" | "json",
-  ) {
-    if (!rows.length) throw new BadRequestException("No settlement rows to import");
+  async importSettlements(orgId: string, rows: SettlementImportRow[], format: 'csv' | 'json') {
+    if (!rows.length) throw new BadRequestException('No settlement rows to import');
 
     const batchId = `batch_${Date.now()}`;
     let imported = 0;
     let skipped = 0;
+    const orgOutletIds = new Set(
+      (
+        await this.prisma.outlet.findMany({
+          where: { organizationId: orgId },
+          select: { id: true },
+        })
+      ).map((o) => o.id),
+    );
 
     for (const row of rows) {
       const provider = row.provider.toLowerCase();
@@ -390,13 +454,17 @@ export class AggregatorsService {
         skipped++;
         continue;
       }
+      if (row.outletId && !orgOutletIds.has(row.outletId)) {
+        skipped++;
+        continue;
+      }
 
       let orderId: string | null = null;
       const matchedOrder = await this.prisma.order.findFirst({
         where: {
           organizationId: orgId,
           metadata: {
-            path: ["aggregator", "externalOrderId"],
+            path: ['aggregator', 'externalOrderId'],
             equals: row.externalOrderId,
           },
         },
@@ -455,22 +523,22 @@ export class AggregatorsService {
       .filter(Boolean);
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+    const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
     const idx = (name: string) => headers.indexOf(name);
 
     return lines.slice(1).map((line) => {
-      const cols = line.split(",").map((c) => c.trim());
+      const cols = line.split(',').map((c) => c.trim());
       return {
-        provider: cols[idx("provider")] ?? "",
-        externalOrderId: cols[idx("external_order_id")] ?? cols[idx("externalorderid")] ?? "",
-        orderDate: cols[idx("order_date")] ?? cols[idx("orderdate")] ?? "",
-        grossAmount: Number(cols[idx("gross_amount")] ?? cols[idx("grossamount")] ?? 0),
-        commission: Number(cols[idx("commission")] ?? 0),
+        provider: cols[idx('provider')] ?? '',
+        externalOrderId: cols[idx('external_order_id')] ?? cols[idx('externalorderid')] ?? '',
+        orderDate: cols[idx('order_date')] ?? cols[idx('orderdate')] ?? '',
+        grossAmount: Number(cols[idx('gross_amount')] ?? cols[idx('grossamount')] ?? 0),
+        commission: Number(cols[idx('commission')] ?? 0),
         taxOnCommission: Number(
-          cols[idx("tax_on_commission")] ?? cols[idx("taxoncommission")] ?? 0,
+          cols[idx('tax_on_commission')] ?? cols[idx('taxoncommission')] ?? 0,
         ),
-        payout: Number(cols[idx("payout")] ?? 0),
-        outletId: cols[idx("outlet_id")] || cols[idx("outletid")] || undefined,
+        payout: Number(cols[idx('payout')] ?? 0),
+        outletId: cols[idx('outlet_id')] || cols[idx('outletid')] || undefined,
       };
     });
   }
@@ -495,7 +563,7 @@ export class AggregatorsService {
         order: { select: { id: true, orderNumber: true, total: true, metadata: true } },
         outlet: { select: { id: true, name: true } },
       },
-      orderBy: { orderDate: "desc" },
+      orderBy: { orderDate: 'desc' },
       take: 500,
     });
 
@@ -533,6 +601,11 @@ export class AggregatorsService {
       totalVariance: rows.reduce((s, r) => s + (r.variance ?? 0), 0),
     };
 
-    return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10), summary, rows };
+    return {
+      from: from.toISOString().slice(0, 10),
+      to: to.toISOString().slice(0, 10),
+      summary,
+      rows,
+    };
   }
 }

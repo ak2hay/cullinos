@@ -7,6 +7,7 @@ import { redactEmail, redactRecipientList } from "../../common/pii-redact.util";
 import {
   buildOtpEmail,
   buildOwnerCredentialsEmail,
+  buildPlatformStaffInviteEmail,
   buildPromoEmail,
   buildReservationConfirmationEmail,
   buildReservationInviteEmail,
@@ -200,22 +201,28 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     to: string,
     subject: string,
     body: string,
-    opts?: { unsubscribeUrl?: string },
+    /**
+     * `unsubscribeUrl` is the human page linked in the footer; `oneClickUrl` must accept
+     * a POST (RFC 8058) and is what mail clients call from their "Unsubscribe" button.
+     */
+    opts?: { unsubscribeUrl?: string; oneClickUrl?: string },
   ): Promise<boolean> {
     const tpl = buildPromoEmail(subject, body, opts);
-    const unsub = opts?.unsubscribeUrl;
+    const oneClick = opts?.oneClickUrl;
     return this.sendMail({
       to,
       subject: tpl.subject,
       text: tpl.text,
       html: tpl.html,
       marketing: true,
-      headers: unsub
+      headers: oneClick
         ? {
-            "List-Unsubscribe": `<${unsub}>`,
+            "List-Unsubscribe": `<${oneClick}>`,
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
           }
-        : undefined,
+        : opts?.unsubscribeUrl
+          ? { "List-Unsubscribe": `<${opts.unsubscribeUrl}>` }
+          : undefined,
     });
   }
 
@@ -261,6 +268,27 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
       );
       return false;
     }
+  }
+
+  async sendPlatformStaffInvite(input: {
+    to: string;
+    name: string;
+    roleLabel: string;
+    temporaryPassword: string;
+    loginUrl: string;
+    invitedBy?: string;
+    reset?: boolean;
+  }): Promise<boolean> {
+    const tpl = buildPlatformStaffInviteEmail({
+      name: input.name,
+      email: input.to,
+      roleLabel: input.roleLabel,
+      temporaryPassword: input.temporaryPassword,
+      loginUrl: input.loginUrl,
+      invitedBy: input.invitedBy,
+      reset: input.reset,
+    });
+    return this.sendMail({ to: input.to, subject: tpl.subject, text: tpl.text, html: tpl.html });
   }
 
   async sendReservationInvite(input: {

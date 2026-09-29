@@ -7,6 +7,7 @@ import {
   IsString,
 } from "class-validator";
 import { OrgId, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { FranchiseService } from "./franchise.service";
 
 class CreateFranchiseAgreementDto {
@@ -32,6 +33,7 @@ class CreateFranchiseAgreementDto {
 
 @Controller("franchise")
 @RequireModule("franchise")
+@RequirePermissions("org:read")
 export class FranchiseController {
   constructor(private service: FranchiseService) {}
 
@@ -41,6 +43,7 @@ export class FranchiseController {
   }
 
   @Post()
+  @RequirePermissions("org:update")
   create(@OrgId() orgId: string, @Body() dto: CreateFranchiseAgreementDto) {
     return this.service.createAgreement(orgId, dto);
   }

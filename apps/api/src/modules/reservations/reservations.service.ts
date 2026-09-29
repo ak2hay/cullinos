@@ -17,6 +17,7 @@ import {
   smsReservationInvite,
 } from "../sms/sms-templates";
 import { StorefrontService } from "../storefront/storefront.service";
+import { WalletService, smsSegments } from "../wallet/wallet.service";
 
 function bookingToken(): string {
   return randomBytes(16).toString("hex");
@@ -42,6 +43,7 @@ export class ReservationsService {
     private storefront: StorefrontService,
     private mail: MailService,
     private sms: Msg91Service,
+    private wallet: WalletService,
   ) {}
 
   list(orgId: string, params: { outletId?: string; from?: string; to?: string }) {
@@ -72,6 +74,15 @@ export class ReservationsService {
         table: { select: { id: true, name: true } },
       },
     });
+  }
+
+  private async assertTableInOutlet(outletId: string, tableId: string | null | undefined) {
+    if (!tableId) return;
+    const table = await this.prisma.table.findFirst({
+      where: { id: tableId, section: { floor: { outletId } } },
+      select: { id: true },
+    });
+    if (!table) throw new BadRequestException("Invalid tableId");
   }
 
   private async loadOutletWithSettings(orgId: string, outletId: string) {
@@ -243,6 +254,8 @@ export class ReservationsService {
     outletName: string;
     reservedAt: Date;
     partySize: number;
+    /** The confirmation SMS is billed to the tenant wallet (skipped when unaffordable). */
+    walletCharge: { organizationId: string; reservationId: string };
   }): Promise<{ emailSent: boolean; smsSent: boolean }> {
     let emailSent = false;
     let smsSent = false;
@@ -262,28 +275,63 @@ export class ReservationsService {
       }
     }
     if (input.customerPhone) {
-      try {
-        const when = input.reservedAt.toLocaleString("en-IN", {
-          timeZone: "Asia/Kolkata",
-          dateStyle: "medium",
-          timeStyle: "short",
-        });
-        const result = await this.sms.sendTransactionalSms(
-          input.customerPhone,
-          smsReservationConfirmed({
-            outletName: input.outletName,
-            when,
-            partySize: input.partySize,
-          }),
-        );
-        smsSent = result.sent;
-      } catch (err) {
-        this.logger.warn(
-          `Reservation confirmation SMS failed: ${err instanceof Error ? err.message : err}`,
-        );
-      }
+      const when = input.reservedAt.toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+      smsSent = await this.sendBilledSms(
+        input.walletCharge.organizationId,
+        input.customerPhone,
+        smsReservationConfirmed({
+          outletName: input.outletName,
+          when,
+          partySize: input.partySize,
+        }),
+        {
+          referenceType: "reservation",
+          referenceId: input.walletCharge.reservationId,
+          note: "Reservation confirmation SMS",
+        },
+      );
     }
     return { emailSent, smsSent };
+  }
+
+  /** Reserves wallet credits, sends, and refunds if the SMS did not go out. */
+  private async sendBilledSms(
+    orgId: string,
+    phone: string,
+    message: string,
+    ref: { referenceType: string; referenceId: string; note: string },
+  ): Promise<boolean> {
+    const units = smsSegments(message);
+    let reservation;
+    try {
+      reservation = await this.wallet.reserveCharge(orgId, "sms", units, ref);
+    } catch (err) {
+      this.logger.warn(
+        `SMS skipped for ${ref.referenceType} ${ref.referenceId}: ${err instanceof Error ? err.message : err}`,
+      );
+      return false;
+    }
+    let sent = false;
+    try {
+      sent = (await this.sms.sendTransactionalSms(phone, message)).sent;
+    } catch (err) {
+      this.logger.warn(
+        `SMS failed for ${ref.referenceType} ${ref.referenceId}: ${err instanceof Error ? err.message : err}`,
+      );
+    } finally {
+      await this.wallet
+        .settleReservation(orgId, reservation, units, sent ? units : 0)
+        .catch((err) =>
+          this.logger.error(
+            `Wallet refund failed for ${ref.referenceType} ${ref.referenceId}: ${err instanceof Error ? err.message : err}`,
+          ),
+        );
+    }
+    return sent;
   }
 
   async create(
@@ -323,6 +371,7 @@ export class ReservationsService {
       );
     }
 
+    await this.assertTableInOutlet(outlet.id, body.tableId);
     const status = (body.status as "pending" | "confirmed") || "confirmed";
     const reservation = await this.prisma.reservation.create({
       data: {
@@ -347,6 +396,7 @@ export class ReservationsService {
       outletName: outlet.name,
       reservedAt: reservation.reservedAt,
       partySize: reservation.partySize,
+      walletCharge: { organizationId: orgId, reservationId: reservation.id },
     });
 
     return { ...reservation, ...notify };
@@ -367,6 +417,9 @@ export class ReservationsService {
     },
   ) {
     const existing = await this.get(orgId, id);
+    if (body.tableId !== undefined) {
+      await this.assertTableInOutlet(existing.outletId, body.tableId);
+    }
     const updated = await this.prisma.reservation.update({
       where: { id },
       data: {
@@ -402,6 +455,7 @@ export class ReservationsService {
         outletName: updated.outlet.name,
         reservedAt: updated.reservedAt,
         partySize: updated.partySize,
+        walletCharge: { organizationId: orgId, reservationId: updated.id },
       });
     }
 
@@ -489,20 +543,12 @@ export class ReservationsService {
       }
     }
     if (invite.customerPhone) {
-      try {
-        const result = await this.sms.sendTransactionalSms(
-          invite.customerPhone,
-          smsReservationInvite({
-            outletName: outlet.name,
-            bookUrl,
-          }),
-        );
-        smsSent = result.sent;
-      } catch (err) {
-        this.logger.warn(
-          `Invite SMS failed: ${err instanceof Error ? err.message : err}`,
-        );
-      }
+      smsSent = await this.sendBilledSms(
+        orgId,
+        invite.customerPhone,
+        smsReservationInvite({ outletName: outlet.name, bookUrl }),
+        { referenceType: "reservation_invite", referenceId: invite.id, note: "Reservation invite SMS" },
+      );
     }
 
     return {
@@ -622,24 +668,35 @@ export class ReservationsService {
         slotSettings,
       );
 
-      const reservation = await this.prisma.reservation.create({
-        data: {
-          organizationId,
-          outletId,
-          customerName,
-          customerPhone,
-          customerEmail,
-          partySize: body.partySize,
-          reservedAt,
-          notes: body.notes?.trim() || null,
-          bookingToken: bookingToken(),
-          status: "confirmed",
-        },
-      });
-
-      await this.prisma.reservationInvite.update({
-        where: { id: inviteId },
-        data: { status: "booked", reservationId: reservation.id },
+      const claimedInviteId = inviteId;
+      const reservation = await this.prisma.$transaction(async (tx) => {
+        // Claim the invite first so two concurrent submissions can't both book it.
+        const claimed = await tx.reservationInvite.updateMany({
+          where: { id: claimedInviteId, status: "sent", expiresAt: { gt: new Date() } },
+          data: { status: "booked" },
+        });
+        if (claimed.count !== 1) {
+          throw new BadRequestException("Invite is not valid");
+        }
+        const created = await tx.reservation.create({
+          data: {
+            organizationId,
+            outletId,
+            customerName,
+            customerPhone,
+            customerEmail,
+            partySize: body.partySize,
+            reservedAt,
+            notes: body.notes?.trim() || null,
+            bookingToken: bookingToken(),
+            status: "confirmed",
+          },
+        });
+        await tx.reservationInvite.update({
+          where: { id: claimedInviteId },
+          data: { reservationId: created.id },
+        });
+        return created;
       });
 
       const notify = await this.notifyConfirmation({
@@ -649,6 +706,7 @@ export class ReservationsService {
         outletName,
         reservedAt: reservation.reservedAt,
         partySize: reservation.partySize,
+        walletCharge: { organizationId, reservationId: reservation.id },
       });
 
       return {
@@ -716,6 +774,7 @@ export class ReservationsService {
       outletName,
       reservedAt: reservation.reservedAt,
       partySize: reservation.partySize,
+      walletCharge: { organizationId, reservationId: reservation.id },
     });
 
     return {

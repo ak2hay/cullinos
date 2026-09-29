@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Fix Postgres credential mismatch on VM after redeploy."""
+"""DESTRUCTIVE: recreate the Postgres volume on a Compose VM (credential mismatch recovery).
+
+Deletes ALL data on the target host. Requires DEPLOY_HOST and a typed confirmation.
+"""
 import os
 import sys
 import time
 import paramiko
 
-HOST = os.environ.get("DEPLOY_HOST", "95.135.254.46")
+HOST = os.environ.get("DEPLOY_HOST", "")
 USER = os.environ.get("DEPLOY_USER", "root")
 PASSWORD = os.environ.get("DEPLOY_PASSWORD", "")
 APP_DIR = "/opt/cullinos"
@@ -28,6 +31,13 @@ def run(ssh, cmd, timeout=600):
 
 
 def main():
+    if not HOST:
+        raise SystemExit("Set DEPLOY_HOST explicitly (no default target).")
+    answer = input(
+        f"This DELETES the Postgres volume and all data on {HOST}. Type 'wipe {HOST}' to continue: "
+    ).strip()
+    if answer != f"wipe {HOST}":
+        raise SystemExit("Aborted.")
     password = PASSWORD or (sys.argv[1] if len(sys.argv) > 1 else "")
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -51,7 +61,7 @@ def main():
     else:
         run(ssh, f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml logs --tail=30 api")
 
-    run(ssh, f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml exec -T api npm run db:push")
+    run(ssh, f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml exec -T api node packages/prisma/scripts/migrate-deploy.mjs")
     run(
         ssh,
         f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml exec -T "

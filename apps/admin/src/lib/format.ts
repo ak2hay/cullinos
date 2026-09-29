@@ -1,3 +1,5 @@
+import { parsePhoneValue } from '@cullinos/ui';
+
 const inrFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
   currency: 'INR',
@@ -26,6 +28,12 @@ export function formatDate(iso: string): string {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
+}
+
+/** Validates a `PhoneField` value: 10 digits for India (+91), at least 7 elsewhere. */
+export function isValidMobile(value: string): boolean {
+  const { dial, national } = parsePhoneValue(value);
+  return dial === '91' ? national.length === 10 : national.length >= 7;
 }
 
 export function generateIdempotencyKey(): string {

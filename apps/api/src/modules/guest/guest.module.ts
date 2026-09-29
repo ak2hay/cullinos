@@ -7,6 +7,7 @@ import { SmsModule } from "../sms/sms.module";
 import { PlatformConfigModule } from "../platform-config/platform-config.module";
 import { AuditModule } from "../audit/audit.module";
 import { MarketingModule } from "../marketing/marketing.module";
+import { PrivacyModule } from "../privacy/privacy.module";
 import { GuestService } from "./guest.service";
 import { GuestController } from "./guest.controller";
 import { GuestOrdersController } from "./guest-orders.controller";
@@ -33,6 +34,7 @@ import { GuestOpsController } from "./guest-ops.controller";
     PlatformConfigModule,
     AuditModule,
     MarketingModule,
+    PrivacyModule,
   ],
   controllers: [
     GuestController,

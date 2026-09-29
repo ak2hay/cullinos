@@ -10,7 +10,7 @@ const API_BASE = resolveViteApiBase({
 
 /**
  * Consumes ?impersonationCode= (opaque handoff) — JWT is never placed in the URL.
- * Legacy ?impersonationToken= is still accepted once, then cleared.
+ * Legacy ?impersonationToken= is stripped and rejected.
  */
 export function ImpersonationHandoff() {
   const [params, setParams] = useSearchParams();
@@ -54,7 +54,7 @@ export function ImpersonationHandoff() {
     }
 
     if (legacyToken) {
-      applyToken(legacyToken);
+      setError('This support link format is no longer supported. Start a new support session.');
       const next = new URLSearchParams(params);
       next.delete('impersonationToken');
       setParams(next, { replace: true });

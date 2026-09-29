@@ -7,6 +7,7 @@ import 'package:cullinos_guest/data/guest_api.dart';
 import 'package:cullinos_guest/widgets/guest_pill_button.dart';
 import 'package:cullinos_guest/widgets/guest_section_header.dart';
 import 'package:cullinos_guest/widgets/guest_soft_card.dart';
+import 'package:cullinos_guest/widgets/turnstile_field.dart';
 
 class BookPage extends ConsumerStatefulWidget {
   const BookPage({
@@ -40,6 +41,8 @@ class _BookPageState extends ConsumerState<BookPage> {
   bool _slotsLoading = false;
   String? _error;
   Map<String, dynamic>? _done;
+  String _captchaToken = '';
+  int _captchaKey = 0;
 
   @override
   void initState() {
@@ -127,6 +130,10 @@ class _BookPageState extends ConsumerState<BookPage> {
       setState(() => _error = 'Select a slot');
       return;
     }
+    if (TurnstileField.isEnabled && _captchaToken.isEmpty) {
+      setState(() => _error = 'Complete the security check');
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
@@ -141,6 +148,7 @@ class _BookPageState extends ConsumerState<BookPage> {
             customerEmail: _emailCtrl.text.trim(),
             partySize: _partySize,
             reservedAt: slot,
+            captchaToken: _captchaToken.isEmpty ? null : _captchaToken,
           );
       if (!mounted) return;
       setState(() {
@@ -152,6 +160,9 @@ class _BookPageState extends ConsumerState<BookPage> {
       setState(() {
         _loading = false;
         _error = friendlyApiError(e);
+        // Turnstile tokens are single-use; remount the widget for a fresh challenge.
+        _captchaToken = '';
+        _captchaKey += 1;
       });
     }
   }
@@ -439,6 +450,14 @@ class _BookPageState extends ConsumerState<BookPage> {
               ],
             ),
           ),
+          if (TurnstileField.isEnabled) ...[
+            const SizedBox(height: 12),
+            TurnstileField(
+              key: ValueKey(_captchaKey),
+              onToken: (t) => setState(() => _captchaToken = t),
+              onExpire: () => setState(() => _captchaToken = ''),
+            ),
+          ],
           const SizedBox(height: 24),
           GuestPillButton(
             label: _loading ? 'Booking…' : 'Confirm reservation',

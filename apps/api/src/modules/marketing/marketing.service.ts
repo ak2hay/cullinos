@@ -1,5 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
+import { invalidThemeTokens } from "@cullinos/shared";
 import { getJwtSecret } from "../../common/jwt-secret.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
@@ -61,7 +62,11 @@ export class MarketingService {
   }
 
   async uploadAsset(file: Express.Multer.File, slotKey?: string, alt?: string, userId?: string) {
-    const saved = await this.upload.saveUploadedFile(file, slotKey);
+    const saved = await this.upload.saveUploadedFile(file, {
+      scope: "platform",
+      platformArea: "cms",
+      leafName: slotKey || undefined,
+    });
     return this.prisma.marketingAsset.create({
       data: {
         filename: saved.filename,
@@ -210,6 +215,66 @@ export class MarketingService {
     return this.prisma.marketingBlogPost.delete({ where: { id } });
   }
 
+  async publishBlogPost(id: string) {
+    return this.prisma.marketingBlogPost.update({
+      where: { id },
+      data: { status: "published", publishedAt: new Date() },
+      include: { coverAsset: true },
+    });
+  }
+
+  async unpublishBlogPost(id: string) {
+    return this.prisma.marketingBlogPost.update({
+      where: { id },
+      data: { status: "draft", publishedAt: null },
+      include: { coverAsset: true },
+    });
+  }
+
+  createInquiry(data: {
+    name: string;
+    business: string;
+    email: string;
+    phone?: string;
+    city?: string;
+    outlets?: string;
+    planInterest?: string;
+    message: string;
+  }) {
+    return this.prisma.marketingInquiry.create({
+      data: {
+        name: data.name.trim(),
+        business: data.business.trim(),
+        email: data.email.trim().toLowerCase(),
+        phone: data.phone?.trim() || null,
+        city: data.city?.trim() || null,
+        outlets: data.outlets?.trim() || null,
+        planInterest: data.planInterest?.trim() || null,
+        message: data.message.trim(),
+        status: "new",
+      },
+    });
+  }
+
+  listInquiries(status?: string) {
+    return this.prisma.marketingInquiry.findMany({
+      where: status ? { status } : undefined,
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+  }
+
+  countNewInquiries() {
+    return this.prisma.marketingInquiry.count({ where: { status: "new" } });
+  }
+
+  updateInquiryStatus(id: string, status: string) {
+    return this.prisma.marketingInquiry.update({
+      where: { id },
+      data: { status },
+    });
+  }
+
   listPages(status?: Status) {
     return this.prisma.marketingPage.findMany({
       where: status ? { status } : undefined,
@@ -255,6 +320,13 @@ export class MarketingService {
   }
 
   async upsertThemeDraft(tokens: Record<string, string>, name = "Default") {
+    if (!tokens || typeof tokens !== "object" || Array.isArray(tokens)) {
+      throw new BadRequestException("tokens must be an object");
+    }
+    const invalid = invalidThemeTokens(tokens);
+    if (invalid.length > 0) {
+      throw new BadRequestException(`Invalid theme tokens: ${invalid.slice(0, 10).join(", ")}`);
+    }
     const existing = await this.getTheme("draft");
     if (existing) {
       return this.prisma.marketingTheme.update({
@@ -565,8 +637,8 @@ export class MarketingService {
         planKey: "STARTER",
         name: "Starter",
         description: "POS, Billing, KOT, Basic reports",
-        priceMonthly: 99900,
-        priceYearly: 999900,
+        priceMonthly: 299900,
+        priceYearly: 2999900,
         maxOutlets: 1,
         maxUsers: 5,
         maxTerminals: 2,
@@ -575,31 +647,57 @@ export class MarketingService {
         sortOrder: 0,
       },
       {
+        planKey: "QSR",
+        name: "QSR / Food SMB",
+        description: "Cafes, food trucks, counter-service",
+        priceMonthly: 499900,
+        priceYearly: 4999900,
+        maxOutlets: 1,
+        maxUsers: 8,
+        maxTerminals: 3,
+        features: ["Counter mode", "Pickup queue", "Loyalty", "Production"],
+        cta: "register",
+        sortOrder: 1,
+      },
+      {
         planKey: "PROFESSIONAL",
         name: "Professional",
         description: "Full restaurant operations",
-        priceMonthly: 299900,
-        priceYearly: 2999900,
+        priceMonthly: 799900,
+        priceYearly: 7999900,
         maxOutlets: 3,
         maxUsers: 20,
         maxTerminals: 10,
         features: ["Waiter app", "QR ordering", "Inventory", "CRM"],
         cta: "register",
         highlighted: true,
-        sortOrder: 1,
+        sortOrder: 2,
       },
       {
         planKey: "ENTERPRISE",
         name: "Enterprise",
         description: "Multi-outlet and franchise",
-        priceMonthly: 999900,
-        priceYearly: 9999900,
+        priceMonthly: 1999900,
+        priceYearly: 19999000,
         maxOutlets: 50,
         maxUsers: 200,
         maxTerminals: 100,
         features: ["Multi-outlet", "Franchise", "Advanced analytics"],
         cta: "contact",
-        sortOrder: 2,
+        sortOrder: 3,
+      },
+      {
+        planKey: "HOSPITALITY",
+        name: "Hospitality",
+        description: "Hotels and resort restaurants",
+        priceMonthly: 2999900,
+        priceYearly: 29999000,
+        maxOutlets: 100,
+        maxUsers: 500,
+        maxTerminals: 200,
+        features: ["Room service", "Banquet", "PMS-ready"],
+        cta: "contact",
+        sortOrder: 4,
       },
     ];
     for (const plan of plans) {

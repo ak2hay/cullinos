@@ -7,6 +7,8 @@ import {
 import { PrismaService } from "../../prisma/prisma.service";
 import { WebsocketGateway } from "../../websocket/websocket.gateway";
 import { fromApiTableStatus, toApiTableStatus } from "../../common/status.util";
+import { releaseMergedTables } from "./table-merge.util";
+import { businessTypeUsesTables } from "./business-type-tables.util";
 
 const GUEST_APP_BASE =
   process.env.GUEST_APP_URL ?? "https://guest.cullinos.com";
@@ -42,6 +44,9 @@ export class TablesService {
       include: { organization: true },
     });
     if (!outlet) throw new NotFoundException("Outlet not found");
+    if (!businessTypeUsesTables(outlet.organization?.businessType)) {
+      throw new BadRequestException("This business type does not use tables");
+    }
     if (!data.name?.trim()) throw new BadRequestException("Table name is required");
 
     let section =
@@ -124,6 +129,9 @@ export class TablesService {
         name: string;
         floor?: { id: string; name: string; sortOrder: number } | null;
       } | null;
+      mergedIntoTableId?: string | null;
+      mergedInto?: { id: string; name: string } | null;
+      mergedTables?: Array<{ id: string; name: string }>;
     },
     outletId: string,
     orgSlug: string,
@@ -136,6 +144,10 @@ export class TablesService {
       name: table.name,
       capacity: table.capacity,
       status: toApiTableStatus(table.status),
+      mergedIntoTableId: table.mergedIntoTableId ?? null,
+      mergedIntoTableName: table.mergedInto?.name ?? null,
+      mergedTableIds: (table.mergedTables ?? []).map((t) => t.id),
+      mergedTableNames: (table.mergedTables ?? []).map((t) => t.name),
       qrCode: table.qrCode,
       qrUrl: table.qrCode
         ? this.buildQrUrl(orgSlug, outletSlug, table.qrCode)
@@ -165,7 +177,11 @@ export class TablesService {
 
     const tables = await this.prisma.table.findMany({
       where: { section: { floor: { outletId } } },
-      include: { section: { include: { floor: true } } },
+      include: {
+        section: { include: { floor: true } },
+        mergedInto: { select: { id: true, name: true } },
+        mergedTables: { select: { id: true, name: true }, orderBy: { sortOrder: "asc" } },
+      },
       orderBy: [
         { section: { floor: { sortOrder: "asc" } } },
         { section: { sortOrder: "asc" } },
@@ -344,14 +360,6 @@ export class TablesService {
   }
 
   /** Public list for QR ordering — no auth. */
-  async listByOutletPublic(outletId: string) {
-    const tables = await this.prisma.table.findMany({
-      where: { section: { floor: { outletId } } },
-      select: { id: true, name: true, qrCode: true },
-    });
-    return tables;
-  }
-
   /** Resolve permanent table sticker without starting a session. */
   async resolveByQrCode(qrCode: string) {
     const code = qrCode?.trim();
@@ -414,7 +422,13 @@ export class TablesService {
 
     const updated = await this.prisma.table.update({
       where: { id: tableId },
-      data: { status: normalized as never },
+      data: {
+        status: normalized as never,
+        // A merged table that is manually set to anything but occupied leaves the group.
+        ...(table.mergedIntoTableId && normalized !== "occupied"
+          ? { mergedIntoTableId: null }
+          : {}),
+      },
       include: { section: true },
     });
 
@@ -423,6 +437,21 @@ export class TablesService {
         where: { tableId, status: "active" },
         data: { status: "closed", endedAt: new Date() },
       });
+    }
+
+    if (normalized === "available" || normalized === "cleaning") {
+      const released = await this.prisma.$transaction((tx) =>
+        releaseMergedTables(tx, tableId, normalized),
+      );
+      for (const id of released) {
+        this.ws.emitToOutlet(outletId, "table.updated", {
+          id,
+          outletId,
+          status: toApiTableStatus(normalized),
+          mergedIntoTableId: null,
+          mergedIntoTableName: null,
+        });
+      }
     }
 
     const org = table.section.floor.outlet.organization;
@@ -435,6 +464,7 @@ export class TablesService {
       name: updated.name,
       capacity: updated.capacity,
       status: toApiTableStatus(updated.status),
+      mergedIntoTableId: updated.mergedIntoTableId,
       qrCode: updated.qrCode,
       qrUrl: updated.qrCode
         ? this.buildQrUrl(org.slug, outlet.slug, updated.qrCode)
@@ -623,7 +653,14 @@ export class TablesService {
       );
     }
 
-    await this.prisma.table.delete({ where: { id: tableId } });
+    const released = await this.prisma.$transaction(async (tx) => {
+      const ids = await releaseMergedTables(tx, tableId, "available");
+      await tx.table.delete({ where: { id: tableId } });
+      return ids;
+    });
+    for (const id of released) {
+      this.ws.emitToOutlet(outletId, "table.updated", { id, outletId, status: "AVAILABLE" });
+    }
     this.ws.emitToOutlet(outletId, "table.deleted", { id: tableId, outletId });
     return { success: true, id: tableId };
   }

@@ -109,7 +109,19 @@ export function MarketingFooter() {
               referrerPolicy="no-referrer-when-downgrade"
             />
             <p className="border-t border-border-light px-4 py-3 text-xs text-text-muted">
-              {BUSINESS_NAP.legalName} · {BUSINESS_ADDRESS_LINE} ·{' '}
+              {BUSINESS_NAP.legalName} · {BUSINESS_ADDRESS_LINE}
+              {BUSINESS_NAP.telephone ? (
+                <>
+                  {' · '}
+                  <a
+                    href={`tel:${BUSINESS_NAP.telephone.replace(/\s/g, '')}`}
+                    className="text-brand-gold hover:underline"
+                  >
+                    {BUSINESS_NAP.telephone}
+                  </a>
+                </>
+              ) : null}
+              {' · '}
               <a href={`mailto:${contactEmail}`} className="text-brand-gold hover:underline">
                 {contactEmail}
               </a>

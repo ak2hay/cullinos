@@ -13,7 +13,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { MarketingUploadService, uploadMaxBytesFor } from "../marketing/marketing-upload.service";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
 import { GuestPushService } from "./guest-push.service";
-import type { BannerInput } from "./guest-marketing.service";
+import { uploadScopeOf, type BannerInput } from "./guest-marketing.service";
 
 const PUSH_AUDIENCES = [
   "all",
@@ -315,7 +315,7 @@ export class GuestOpsService {
       body.imageUrl !== undefined &&
       (body.imageUrl?.trim() || null) !== row.imageUrl
     ) {
-      await this.upload.deleteManagedUrl(row.imageUrl);
+      await this.upload.deleteManagedUrl(row.imageUrl, uploadScopeOf(row));
     }
     return this.prisma.guestBanner.update({
       where: { id },
@@ -346,7 +346,7 @@ export class GuestOpsService {
   async deleteBanner(id: string) {
     const row = await this.prisma.guestBanner.findUnique({ where: { id } });
     if (!row) throw new NotFoundException("Banner not found");
-    await this.upload.deleteManagedUrl(row.imageUrl);
+    await this.upload.deleteManagedUrl(row.imageUrl, uploadScopeOf(row));
     await this.prisma.guestBanner.delete({ where: { id } });
     return { success: true };
   }
@@ -463,7 +463,7 @@ export class GuestOpsService {
       body.imageUrl !== undefined &&
       (body.imageUrl?.trim() || null) !== row.imageUrl
     ) {
-      await this.upload.deleteManagedUrl(row.imageUrl);
+      await this.upload.deleteManagedUrl(row.imageUrl, uploadScopeOf(row));
     }
 
     return this.prisma.guestPushCampaign.update({
@@ -548,7 +548,7 @@ export class GuestOpsService {
     if (row.status === "sending") {
       throw new BadRequestException("Cannot delete a campaign while it is sending");
     }
-    await this.upload.deleteManagedUrl(row.imageUrl);
+    await this.upload.deleteManagedUrl(row.imageUrl, uploadScopeOf(row));
     await this.prisma.guestPushCampaign.delete({ where: { id } });
     return { success: true };
   }
@@ -559,8 +559,30 @@ export class GuestOpsService {
     }
     const result = await this.upload.saveUploadedFile(
       file,
-      `push-${Date.now()}`,
-      "notification",
+      {
+        scope: "platform",
+        platformArea: "guest-ops",
+        imageSlot: "notification",
+      },
+      uploadMaxBytesFor(actor),
+    );
+    return { imageUrl: result.url };
+  }
+
+  async uploadBannerImage(
+    file: Express.Multer.File,
+    actor?: { isSuperAdmin?: boolean },
+  ) {
+    if (!file?.buffer) {
+      throw new BadRequestException("No file uploaded.");
+    }
+    const result = await this.upload.saveUploadedFile(
+      file,
+      {
+        scope: "platform",
+        platformArea: "guest-ops",
+        imageSlot: "banner",
+      },
       uploadMaxBytesFor(actor),
     );
     return { imageUrl: result.url };
@@ -664,6 +686,54 @@ export class GuestOpsService {
           `Unsupported audience: ${campaign.audience}`,
         );
     }
+  }
+
+  async resendPushCampaign(id: string, createdByUserId?: string) {
+    const source = await this.prisma.guestPushCampaign.findUnique({
+      where: { id },
+    });
+    if (!source) throw new NotFoundException("Campaign not found");
+    if (source.status === "sending") {
+      throw new BadRequestException("Campaign is still sending");
+    }
+
+    const creative =
+      source.creative &&
+      typeof source.creative === "object" &&
+      !Array.isArray(source.creative)
+        ? (source.creative as Record<string, unknown>)
+        : {};
+    const data =
+      source.data &&
+      typeof source.data === "object" &&
+      !Array.isArray(source.data)
+        ? (source.data as Record<string, unknown>)
+        : {};
+    const audienceFilter =
+      source.audienceFilter &&
+      typeof source.audienceFilter === "object" &&
+      !Array.isArray(source.audienceFilter)
+        ? (source.audienceFilter as Record<string, unknown>)
+        : {};
+
+    const draft = await this.createPushDraft(
+      {
+        title: source.title,
+        body: source.body,
+        scope: source.scope,
+        organizationId: source.organizationId,
+        audience: source.audience,
+        audienceFilter,
+        deepLink: source.deepLink,
+        data,
+        imageUrl: source.imageUrl,
+        stylePreset: source.stylePreset,
+        creative,
+      },
+      createdByUserId,
+    );
+
+    return this.sendPushCampaign(draft.id);
   }
 
   async sendPushCampaign(id: string) {
@@ -1196,9 +1266,6 @@ export class GuestOpsService {
       }
     }
 
-    const fcmKey =
-      this.platformConfig.get("FCM_SERVER_KEY") || process.env.FCM_SERVER_KEY;
-
     return {
       minVersionCode: Number(
         this.platformConfig.get("GUEST_APP_MIN_VERSION") || "1",
@@ -1218,7 +1285,7 @@ export class GuestOpsService {
       phoneMenuQrEnabled:
         String(this.platformConfig.get("GUEST_APP_PHONE_MENU_QR_ENABLED") || "")
           .toLowerCase() === "true",
-      fcmConfigured: Boolean(fcmKey && fcmKey.trim()),
+      fcmConfigured: this.push.isConfigured(),
       platformDefaultGuestThemeKey: (() => {
         const raw =
           this.platformConfig.get("PLATFORM_DEFAULT_GUEST_THEME_KEY") ||

@@ -12,7 +12,7 @@ from pathlib import Path
 import paramiko
 
 ROOT = Path(__file__).resolve().parents[1]
-HOST = os.environ.get("DEPLOY_HOST", "95.135.254.46")
+HOST = os.environ.get("DEPLOY_HOST") or sys.exit("Set DEPLOY_HOST explicitly (no default target).")
 APP_DIR = "/opt/cullinos"
 
 SPA_PUBLISH = {
@@ -144,7 +144,7 @@ def main() -> int:
         code, _, _ = run(
             ssh,
             f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml run --rm -T api "
-            "npx prisma db push --schema=packages/prisma/prisma/schema.prisma",
+            "node packages/prisma/scripts/migrate-deploy.mjs",
             timeout=600,
         )
         if code != 0:

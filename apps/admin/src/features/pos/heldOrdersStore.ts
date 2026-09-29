@@ -14,6 +14,7 @@ interface HeldOrdersState {
   orders: HeldOrder[];
   addHeld: (order: HeldOrder) => void;
   removeHeld: (id: string) => void;
+  clearAll: () => void;
 }
 
 export const useHeldOrdersStore = create<HeldOrdersState>()(
@@ -28,6 +29,7 @@ export const useHeldOrdersStore = create<HeldOrdersState>()(
         set((state) => ({
           orders: state.orders.filter((o) => o.id !== id),
         })),
+      clearAll: () => set({ orders: [] }),
     }),
     { name: 'cullinos-portal-pos-held-orders' },
   ),

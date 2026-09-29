@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post, Query } from "@nestjs/common";
 import { IsIn, IsObject, IsOptional, IsString } from "class-validator";
 import { OrgId } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { NotificationsService } from "./notifications.service";
 
 class CreateNotificationDto {
@@ -29,11 +30,13 @@ export class NotificationsController {
   constructor(private service: NotificationsService) {}
 
   @Get()
+  @RequirePermissions("settings:read", "reports:read")
   list(@OrgId() orgId: string, @Query("channel") channel?: string) {
     return this.service.list(orgId, channel);
   }
 
   @Post()
+  @RequirePermissions("settings:update")
   create(@OrgId() orgId: string, @Body() dto: CreateNotificationDto) {
     return this.service.create(orgId, dto);
   }

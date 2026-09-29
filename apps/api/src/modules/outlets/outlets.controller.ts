@@ -23,6 +23,7 @@ import {
 import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import {
   MARKETING_UPLOAD_MAX_BYTES,
+  marketingImageFileFilter,
   MarketingUploadService,
   uploadMaxBytesFor,
 } from "../marketing/marketing-upload.service";
@@ -40,6 +41,7 @@ export class OutletsController {
   ) {}
 
   @Get()
+  @RequirePermissions("outlet:read", "order:read", "kitchen:read")
   async list(
     @OrgId() orgId: string,
     @CurrentUser() user: JwtPayload,
@@ -93,6 +95,7 @@ export class OutletsController {
     FileInterceptor("file", {
       storage: memoryStorage(),
       limits: { fileSize: MARKETING_UPLOAD_MAX_BYTES },
+      fileFilter: marketingImageFileFilter,
     }),
   )
   async uploadCover(
@@ -105,8 +108,13 @@ export class OutletsController {
     await this.outletAccess.assertCanAccessOutlet(user.sub, orgId, id);
     const result = await this.uploadService.saveUploadedFile(
       file,
-      `outlet-cover-${id}`,
-      "outletCover",
+      {
+        scope: "org",
+        orgId,
+        outletId: id,
+        leafName: "cover",
+        imageSlot: "outletCover",
+      },
       uploadMaxBytesFor(user),
     );
     const updated = await this.service.update(orgId, id, { coverImageUrl: result.url });
@@ -131,6 +139,7 @@ export class OutletsController {
     FileInterceptor("file", {
       storage: memoryStorage(),
       limits: { fileSize: MARKETING_UPLOAD_MAX_BYTES },
+      fileFilter: marketingImageFileFilter,
     }),
   )
   async uploadPhoto(
@@ -145,8 +154,13 @@ export class OutletsController {
     await this.outletAccess.assertCanAccessOutlet(user.sub, orgId, id);
     const result = await this.uploadService.saveUploadedFile(
       file,
-      `outlet-photo-${id}-${randomUUID()}`,
-      "outletGallery",
+      {
+        scope: "org",
+        orgId,
+        outletId: id,
+        leafName: randomUUID(),
+        imageSlot: "outletGallery",
+      },
       uploadMaxBytesFor(user),
     );
     const photo = await this.service.addPhoto(orgId, id, {

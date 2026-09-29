@@ -75,7 +75,7 @@ export class CouponsService {
       data.imageUrl !== undefined &&
       (data.imageUrl?.trim() || null) !== existing.imageUrl
     ) {
-      await this.upload.deleteManagedUrl(existing.imageUrl);
+      await this.upload.deleteManagedUrl(existing.imageUrl, { orgId });
     }
     return this.prisma.coupon.update({
       where: { id },
@@ -118,7 +118,7 @@ export class CouponsService {
         "Coupon has been used and cannot be deleted. Deactivate it instead.",
       );
     }
-    await this.upload.deleteManagedUrl(existing.imageUrl);
+    await this.upload.deleteManagedUrl(existing.imageUrl, { orgId });
     await this.prisma.coupon.delete({ where: { id } });
     return { success: true, id };
   }
@@ -128,7 +128,11 @@ export class CouponsService {
       where: { organizationId: orgId, code: code.toUpperCase(), isActive: true },
     });
     if (!coupon) throw new NotFoundException("Coupon not found");
-    if (coupon.expiresAt && coupon.expiresAt < new Date()) {
+    const now = new Date();
+    if (coupon.startsAt && coupon.startsAt > now) {
+      throw new BadRequestException("Coupon not active yet");
+    }
+    if (coupon.expiresAt && coupon.expiresAt < now) {
       throw new BadRequestException("Coupon expired");
     }
     if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {

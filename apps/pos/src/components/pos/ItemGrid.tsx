@@ -1,5 +1,12 @@
 interface ItemGridProps {
-  items: Array<{ id: string; name: string; price: number; isAvailable: boolean }>;
+  items: Array<{
+    id: string;
+    name: string;
+    price: number;
+    /** Set during happy hour when `price` is discounted */
+    regularPrice?: number;
+    isAvailable: boolean;
+  }>;
   quantities?: Record<string, number>;
   onAdd: (item: { id: string; name: string; price: number }) => void;
   emptyHint?: string;
@@ -39,8 +46,15 @@ export function ItemGrid({ items, quantities = {}, onAdd, emptyHint }: ItemGridP
             <span className="line-clamp-2 pr-8 text-sm font-semibold leading-tight text-text-primary sm:text-base">
               {item.name}
             </span>
-            <span className="mt-2 rounded-lg sm:mt-3 bg-brand-primary/15 px-2.5 py-1 font-mono text-sm font-semibold text-brand-primary">
-              ₹{(item.price / 100).toFixed(0)}
+            <span className="mt-2 flex items-center gap-2 sm:mt-3">
+              <span className="rounded-lg bg-brand-primary/15 px-2.5 py-1 font-mono text-sm font-semibold text-brand-primary">
+                ₹{(item.price / 100).toFixed(0)}
+              </span>
+              {item.regularPrice != null && item.regularPrice > item.price ? (
+                <span className="font-mono text-xs text-text-muted line-through">
+                  ₹{(item.regularPrice / 100).toFixed(0)}
+                </span>
+              ) : null}
             </span>
           </button>
         );

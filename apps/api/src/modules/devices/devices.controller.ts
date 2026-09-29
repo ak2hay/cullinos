@@ -11,14 +11,17 @@ import {
   Query,
 } from "@nestjs/common";
 import { OrgId } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { DevicesService } from "./devices.service";
 import type { PrintProfileKind } from "./print-profile.types";
 
 @Controller("devices")
+@RequirePermissions("settings:update")
 export class DevicesController {
   constructor(private service: DevicesService) {}
 
   @Get()
+  @RequirePermissions("settings:read", "pos:access")
   list(
     @OrgId() orgId: string,
     @Query("includeVirtual") includeVirtual?: string,
@@ -37,6 +40,7 @@ export class DevicesController {
   }
 
   @Post("pair")
+  @RequirePermissions("settings:update", "pos:access")
   claimPairing(
     @OrgId() orgId: string,
     @Body() body: { code: string; name?: string; platform?: string },
@@ -45,6 +49,7 @@ export class DevicesController {
   }
 
   @Get("print-jobs")
+  @RequirePermissions("settings:read", "pos:access", "kitchen:read")
   listPrintJobs(
     @OrgId() orgId: string,
     @Query("status") status?: string,
@@ -53,6 +58,7 @@ export class DevicesController {
   }
 
   @Post("print-jobs")
+  @RequirePermissions("pos:access", "order:update", "kitchen:update")
   createPrintJob(
     @OrgId() orgId: string,
     @Body()
@@ -70,6 +76,7 @@ export class DevicesController {
   }
 
   @Patch("print-jobs/:id")
+  @RequirePermissions("pos:access", "order:update", "kitchen:update")
   updatePrintJob(
     @OrgId() orgId: string,
     @Param("id") id: string,
@@ -83,6 +90,7 @@ export class DevicesController {
    * Stamped by authenticated display pages (e.g. KDS) to update Device.lastSeenAt.
    */
   @Post("display-heartbeat")
+  @RequirePermissions("pos:access", "kitchen:read", "order:read")
   displayHeartbeat(
     @OrgId() orgId: string,
     @Body() body: { outletId: string; mode: string },
@@ -93,12 +101,14 @@ export class DevicesController {
   }
 
   @Get("print-profiles")
+  @RequirePermissions("settings:read", "pos:access", "kitchen:read", "order:read")
   getPrintProfiles(@OrgId() orgId: string, @Query("outletId") outletId: string) {
     if (!outletId) throw new BadRequestException("outletId query is required");
     return this.service.getPrintProfiles(orgId, outletId);
   }
 
   @Get("print-profiles/:kind")
+  @RequirePermissions("settings:read", "pos:access", "kitchen:read", "order:read")
   getPrintProfile(
     @OrgId() orgId: string,
     @Param("kind") kind: PrintProfileKind,
@@ -123,9 +133,11 @@ export class DevicesController {
       headerText: string;
       footerText: string;
       showLogo: boolean;
+      logoUrl: string | null;
       showTaxBreakdown: boolean;
       copies: number;
       cutPaper: boolean;
+      enabled: boolean;
       deviceId: string | null;
     }>,
   ) {

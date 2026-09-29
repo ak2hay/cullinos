@@ -50,7 +50,7 @@ export const e2eEnv = {
   ownerEmail: runtime.ownerEmail ?? process.env.E2E_OWNER_EMAIL ?? 'e2e-owner@cullinos.com',
   ownerPassword: runtime.ownerPassword ?? process.env.E2E_OWNER_PASSWORD ?? 'E2eTestOwner123!',
   superAdminEmail: process.env.E2E_SUPER_ADMIN_EMAIL ?? 'akshrkd@gmail.com',
-  superAdminPassword: process.env.E2E_SUPER_ADMIN_PASSWORD ?? 'Missyou@1',
+  superAdminPassword: process.env.E2E_SUPER_ADMIN_PASSWORD ?? '',
 
   waiterEmail: optional(process.env.E2E_WAITER_EMAIL, runtime.ownerEmail ?? process.env.E2E_OWNER_EMAIL ?? 'e2e-owner@cullinos.com'),
   waiterPassword: optional(process.env.E2E_WAITER_PASSWORD, runtime.ownerPassword ?? process.env.E2E_OWNER_PASSWORD ?? 'E2eTestOwner123!'),

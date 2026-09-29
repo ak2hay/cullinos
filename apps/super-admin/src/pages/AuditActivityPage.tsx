@@ -1,16 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { csvRow } from '@cullinos/shared';
 import { Button, Input } from '@cullinos/ui';
 import { superAdminApi } from '@/lib/api';
 
 function toCsv(rows: Array<Record<string, string>>) {
   if (rows.length === 0) return '';
   const headers = Object.keys(rows[0]!);
-  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
-  return [
-    headers.join(','),
-    ...rows.map((r) => headers.map((h) => escape(r[h] ?? '')).join(',')),
-  ].join('\n');
+  return [csvRow(headers), ...rows.map((r) => csvRow(headers.map((h) => r[h] ?? '')))].join('\n');
 }
 
 function downloadCsv(filename: string, csv: string) {

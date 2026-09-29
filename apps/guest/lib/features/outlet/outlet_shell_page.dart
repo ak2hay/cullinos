@@ -12,6 +12,7 @@ import 'package:cullinos_guest/core/guest_spacing.dart';
 import 'package:cullinos_guest/data/guest_api.dart';
 import 'package:cullinos_guest/features/auth/auth_controller.dart';
 import 'package:cullinos_guest/features/outlet/active_outlet_controller.dart';
+import 'package:cullinos_guest/features/outlet/alcohol_gate.dart';
 import 'package:cullinos_guest/features/outlet/cart_controller.dart';
 import 'package:cullinos_guest/features/outlet/menu_utils.dart';
 import 'package:cullinos_guest/widgets/guest_badges.dart';
@@ -898,15 +899,22 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                 final item = popularItems[i];
                 final price =
                     (item['price'] as num?)?.toDouble() ?? 0.0;
+                final alcohol = isAlcoholItem(item);
                 return GuestDishCard(
                   name: item['name']?.toString() ?? '',
                   priceLabel: '₹${price.toStringAsFixed(0)}',
                   imageUrl: item['imageUrl']?.toString(),
                   description: item['description']?.toString(),
+                  badgeLabel: alcohol ? 'Dine-in only' : null,
                   onTap: () => context.push(
                     '/o/${widget.orgSlug}/${widget.outletSlug}/item/${item['id']}',
                   ),
-                  onAdd: () {
+                  onAdd: () async {
+                    if (alcohol &&
+                        !await ensureDrinkingAge(context, ref.read(cartProvider))) {
+                      return;
+                    }
+                    if (!mounted) return;
                     final variants = List<Map<String, dynamic>>.from(
                       (item['variants'] as List? ?? [])
                           .map((v) => Map<String, dynamic>.from(v as Map)),
@@ -923,6 +931,7 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                             unitPrice: price,
                             imageUrl: item['imageUrl']?.toString(),
                             isVeg: item['isVeg'] as bool?,
+                            isAlcohol: alcohol,
                           );
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(

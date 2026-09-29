@@ -1,7 +1,9 @@
 import {
   CULLINOS_BRAND,
+  createSessionRefresher,
   mapStaffLoginResponse,
   resolveViteApiBase,
+  revokeSessionCookie,
   type ApiStaffLoginResponse,
   type StaffAuthResponse,
 } from '@cullinos/shared';
@@ -16,6 +18,21 @@ const API_BASE = resolveViteApiBase({
   isProd: import.meta.env.PROD,
 });
 
+const refreshSession = createSessionRefresher({
+  apiBase: API_BASE,
+  portalId: PORTAL_ID,
+  onRefreshed: (raw) => {
+    const mapped = mapStaffLoginResponse(raw);
+    useAuthStore.getState().setAuth({ ...mapped, refreshToken: '' });
+  },
+});
+
+useAuthStore.subscribe((state, prev) => {
+  if (prev.accessToken && !state.accessToken) {
+    revokeSessionCookie({ apiBase: API_BASE, portalId: PORTAL_ID });
+  }
+});
+
 export class ApiRequestError extends Error {
   constructor(
     message: string,
@@ -25,6 +42,11 @@ export class ApiRequestError extends Error {
     super(message);
     this.name = 'ApiRequestError';
   }
+}
+
+/** True when the endpoint itself is missing (older API), not when the request was rejected. */
+export function isRouteMissing(err: unknown): boolean {
+  return err instanceof ApiRequestError && (err.status === 404 || err.status === 405);
 }
 
 async function parseError(response: Response): Promise<ApiRequestError> {
@@ -44,6 +66,7 @@ export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
   authenticated = true,
+  retried = false,
 ): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
@@ -59,10 +82,17 @@ export async function apiRequest<T>(
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
+    credentials: 'include',
   });
 
   if (!response.ok) {
     const err = await parseError(response);
+    if (err.status === 401 && authenticated && useAuthStore.getState().accessToken) {
+      if (!retried && (await refreshSession())) {
+        return apiRequest<T>(path, options, authenticated, true);
+      }
+      useAuthStore.getState().logout();
+    }
     if (err.status === 503 && err.code === 'PORTAL_DISABLED') {
       usePortalStore.getState().setDisabled(err.message);
       useAuthStore.getState().logout();
@@ -135,7 +165,17 @@ export interface OutletMenuItem {
   name: string;
   description: string | null;
   price: number;
+  /** Present when happy hour discounts `price` */
+  regularPrice?: number;
   isAvailable: boolean;
+  variants?: Array<{ id: string; name: string; price: number }>;
+  modifierGroups?: Array<{
+    id: string;
+    name: string;
+    minSelect?: number | null;
+    maxSelect?: number | null;
+    modifiers: Array<{ id: string; name: string; price: number }>;
+  }>;
 }
 
 export interface OrderItem {
@@ -153,6 +193,9 @@ export interface Order {
   status: OrderStatus;
   totalAmount: number;
   subtotal?: number;
+  taxTotal?: number;
+  discountTotal?: number;
+  tipAmount?: number;
   customerName?: string | null;
   notes?: string | null;
   items?: OrderItem[];
@@ -220,10 +263,22 @@ export const paymentsApi = {
 export interface QuickOrderItem {
   menuItemId: string;
   quantity: number;
+  notes?: string;
+  variantId?: string;
+  /** Catalogue modifiers; the server prices them from the menu. */
+  modifiers?: Array<{ modifierId: string; name: string; price: number }>;
 }
 
 export const outletsApi = {
   list: () => apiRequest<Outlet[]>('/outlets'),
+};
+
+export const orgProfileApi = {
+  current: () => apiRequest<{ id: string; businessType?: string | null }>('/organizations/current'),
+  settings: () =>
+    apiRequest<{ settings: Record<string, unknown> }>('/organizations/settings').catch(() => ({
+      settings: {} as Record<string, unknown>,
+    })),
 };
 
 export const menuApi = {
@@ -246,6 +301,8 @@ export const posApi = {
       customerName?: string;
       tipAmount?: number;
       notes?: string;
+      deliveryAddress?: string;
+      deliveryPincode?: string;
     },
     idempotencyKey?: string,
   ) =>
@@ -393,6 +450,15 @@ export const feedbackApi = {
       `/feedback/orders/${orderId}/survey-link`,
       { method: 'POST' },
     ),
+};
+
+export const devicesApi = {
+  printProfiles: (outletId: string) =>
+    apiRequest<{
+      outletId: string;
+      receipt: { enabled?: boolean; copies?: number };
+      kot: { enabled?: boolean; copies?: number };
+    }>(`/devices/print-profiles?outletId=${encodeURIComponent(outletId)}`),
 };
 
 export { CULLINOS_BRAND };

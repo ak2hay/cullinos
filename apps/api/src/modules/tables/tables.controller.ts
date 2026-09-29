@@ -1,11 +1,14 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import type { JwtPayload } from "@cullinos/auth";
 import { CurrentUser, OrgId, Public, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
+import { MergeTablesDto, TransferTableDto } from "./dto/tables.dto";
 import { ServiceRequestsService } from "./service-requests.service";
 import { TableSessionsService } from "./table-sessions.service";
 import { TablesService } from "./tables.service";
 
 @Controller("tables")
+@RequirePermissions("table:manage", "pos:access")
 export class TablesController {
   constructor(
     private service: TablesService,
@@ -15,6 +18,7 @@ export class TablesController {
 
   @Post()
   @RequireModule("tables")
+  @RequirePermissions("outlet:update", "settings:update")
   create(
     @OrgId() orgId: string,
     @Body()
@@ -33,12 +37,14 @@ export class TablesController {
 
   @Get("outlets/:outletId/floors")
   @RequireModule("tables")
+  @RequirePermissions("table:read")
   listFloors(@OrgId() orgId: string, @Param("outletId") outletId: string) {
     return this.service.listFloors(orgId, outletId);
   }
 
   @Post("outlets/:outletId/floors")
   @RequireModule("tables")
+  @RequirePermissions("outlet:update", "settings:update")
   createFloor(
     @OrgId() orgId: string,
     @Param("outletId") outletId: string,
@@ -52,6 +58,7 @@ export class TablesController {
 
   @Patch("outlets/:outletId/floors/:floorId")
   @RequireModule("tables")
+  @RequirePermissions("outlet:update", "settings:update")
   updateFloor(
     @OrgId() orgId: string,
     @Param("outletId") outletId: string,
@@ -66,6 +73,7 @@ export class TablesController {
 
   @Delete("outlets/:outletId/floors/:floorId")
   @RequireModule("tables")
+  @RequirePermissions("outlet:update", "settings:update")
   deleteFloor(
     @OrgId() orgId: string,
     @Param("outletId") outletId: string,
@@ -76,6 +84,7 @@ export class TablesController {
 
   @Post("outlets/:outletId/floors/:floorId/sections")
   @RequireModule("tables")
+  @RequirePermissions("outlet:update", "settings:update")
   createSection(
     @OrgId() orgId: string,
     @Param("outletId") outletId: string,
@@ -90,12 +99,14 @@ export class TablesController {
 
   @Get("outlets/:outletId")
   @RequireModule("tables")
+  @RequirePermissions("table:read")
   listByOutlet(@OrgId() orgId: string, @Param("outletId") outletId: string) {
     return this.service.listByOutlet(orgId, outletId);
   }
 
   @Get("outlets/:outletId/service-requests")
   @RequireModule("tables")
+  @RequirePermissions("table:read")
   listServiceRequests(
     @OrgId() orgId: string,
     @Param("outletId") outletId: string,
@@ -139,6 +150,7 @@ export class TablesController {
 
   @Patch("outlets/:outletId/:tableId")
   @RequireModule("tables")
+  @RequirePermissions("outlet:update", "settings:update")
   update(
     @OrgId() orgId: string,
     @Param("outletId") outletId: string,
@@ -158,6 +170,7 @@ export class TablesController {
 
   @Delete("outlets/:outletId/:tableId")
   @RequireModule("tables")
+  @RequirePermissions("outlet:update", "settings:update")
   remove(
     @OrgId() orgId: string,
     @Param("outletId") outletId: string,
@@ -168,6 +181,7 @@ export class TablesController {
 
   @Post("outlets/:outletId/:tableId/regenerate-qr")
   @RequireModule("tables")
+  @RequirePermissions("outlet:update", "settings:update")
   regenerateQr(
     @OrgId() orgId: string,
     @Param("outletId") outletId: string,
@@ -181,14 +195,9 @@ export class TablesController {
   mergeTables(
     @OrgId() orgId: string,
     @Param("outletId") outletId: string,
-    @Body() body: { primaryTableId?: string; tableIds?: string[] },
+    @Body() body: MergeTablesDto,
   ) {
-    return this.sessions.mergeTables(
-      orgId,
-      outletId,
-      body.primaryTableId ?? "",
-      body.tableIds ?? [],
-    );
+    return this.sessions.mergeTables(orgId, outletId, body.primaryTableId, body.tableIds);
   }
 
   @Post("outlets/:outletId/transfer")
@@ -196,14 +205,19 @@ export class TablesController {
   transferTable(
     @OrgId() orgId: string,
     @Param("outletId") outletId: string,
-    @Body() body: { fromTableId?: string; toTableId?: string },
+    @Body() body: TransferTableDto,
   ) {
-    return this.sessions.transferTable(
-      orgId,
-      outletId,
-      body.fromTableId ?? "",
-      body.toTableId ?? "",
-    );
+    return this.sessions.transferTable(orgId, outletId, body.fromTableId, body.toTableId);
+  }
+
+  @Post("outlets/:outletId/:tableId/unmerge")
+  @RequireModule("tables")
+  unmergeTable(
+    @OrgId() orgId: string,
+    @Param("outletId") outletId: string,
+    @Param("tableId") tableId: string,
+  ) {
+    return this.sessions.unmergeTable(orgId, outletId, tableId);
   }
 
   @Post("outlets/:outletId/:tableId/sessions")
@@ -219,6 +233,7 @@ export class TablesController {
 
   @Get("outlets/:outletId/:tableId/sessions/active")
   @RequireModule("tables")
+  @RequirePermissions("table:read")
   getActiveSession(
     @OrgId() orgId: string,
     @Param("outletId") outletId: string,
@@ -241,18 +256,12 @@ export class TablesController {
 
 @Controller("public/tables")
 export class PublicTablesController {
-  constructor(
-    private service: TablesService,
-    private sessions: TableSessionsService,
-  ) {}
+  constructor(private sessions: TableSessionsService) {}
 
-  @Public()
-  @Get("outlets/:outletId")
-  list(@Param("outletId") outletId: string) {
-    return this.service.listByOutletPublic(outletId);
-  }
-
-  /** Resolve permanent table QR and join/create a dining session. */
+  /**
+   * @deprecated Kept only for guest app builds that predate `POST by-qr/:qrCode/join`.
+   * The QR code is the secret — never expose table QR codes through a public listing.
+   */
   @Public()
   @Get("by-qr/:qrCode")
   resolveByQr(@Param("qrCode") qrCode: string) {
@@ -289,6 +298,7 @@ export class PublicSessionsController {
     return this.sessions.addItemsToSession(token, items, {
       customerName: body.customerName as string | undefined,
       notes: body.notes as string | undefined,
+      ageConfirmed: body.ageConfirmed === true,
     });
   }
 

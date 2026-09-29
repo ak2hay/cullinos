@@ -14,6 +14,7 @@ import {
   type RestaurantSize,
 } from '@cullinos/shared';
 import { superAdminApi } from '@/lib/api';
+import { useCan } from '@/lib/permissions';
 
 type CredentialsResult = {
   ownerEmail: string;
@@ -24,6 +25,8 @@ type CredentialsResult = {
 
 export function TenantsPage() {
   const queryClient = useQueryClient();
+  const can = useCan();
+  const canOnboard = can('tenants.write');
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [suspendId, setSuspendId] = useState<string | null>(null);
@@ -55,10 +58,10 @@ export function TenantsPage() {
 
   useEffect(() => {
     if (searchParams.get('onboard') === '1') {
-      setShowOnboard(true);
+      if (canOnboard) setShowOnboard(true);
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, canOnboard]);
 
   const { data: plans = [] } = useQuery({
     queryKey: ['super-admin', 'plans'],
@@ -171,13 +174,15 @@ export function TenantsPage() {
             the owner in Admin.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowOnboard(true)}
-          className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary hover:bg-brand-primary-dark"
-        >
-          Onboard restaurant
-        </button>
+        {canOnboard ? (
+          <button
+            type="button"
+            onClick={() => setShowOnboard(true)}
+            className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary hover:bg-brand-primary-dark"
+          >
+            Onboard restaurant
+          </button>
+        ) : null}
       </div>
 
       {credentials ? (
@@ -356,7 +361,7 @@ export function TenantsPage() {
                       >
                         Open
                       </Link>
-                      {tenant.isActive ? (
+                      {!can('tenants.suspend') ? null : tenant.isActive ? (
                         <button
                           type="button"
                           onClick={() => setSuspendId(tenant.id)}
@@ -374,13 +379,15 @@ export function TenantsPage() {
                           Activate
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTenant({ id: tenant.id, name: tenant.name })}
-                        className="text-xs text-status-error hover:underline"
-                      >
-                        Delete
-                      </button>
+                      {can('tenants.delete') ? (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTenant({ id: tenant.id, name: tenant.name })}
+                          className="text-xs text-status-error hover:underline"
+                        >
+                          Delete
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

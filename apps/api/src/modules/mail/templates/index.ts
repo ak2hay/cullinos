@@ -6,6 +6,7 @@ export {
   buildSmtpTestEmail,
   buildPromoEmail,
   buildOwnerCredentialsEmail,
+  buildPlatformStaffInviteEmail,
   buildReservationInviteEmail,
   buildReservationConfirmationEmail,
   buildReceiptEmail,

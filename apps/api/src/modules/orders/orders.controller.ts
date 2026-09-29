@@ -3,22 +3,56 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
   Query,
 } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
 import { CurrentUser, OrgId, Public, RequireModule } from "../../common/decorators";
+import { getJwtSecret } from "../../common/jwt-secret.util";
 import type { JwtPayload } from "@cullinos/auth";
+import { PrismaService } from "../../prisma/prisma.service";
 import { OrdersService } from "./orders.service";
+import { AuditService } from "../audit/audit.service";
 import { StorefrontService } from "../storefront/storefront.service";
+import {
+  assertCanSetOrderStatus,
+  pickPublicOrderFields,
+  sanitizeStaffOrderBody,
+} from "./order-input.util";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 
 @Controller("orders")
+@RequirePermissions("order:update")
 export class OrdersController {
-  constructor(private service: OrdersService) {}
+  constructor(
+    private service: OrdersService,
+    private audit: AuditService,
+  ) {}
+
+  /** Money-reducing actions (cancel, void, discount) keep a record of who did them. */
+  private auditOrder(
+    orgId: string,
+    user: JwtPayload,
+    action: string,
+    orderId: string,
+    metadata: Record<string, unknown> = {},
+  ) {
+    return this.audit.log({
+      organizationId: orgId,
+      userId: user.sub,
+      action,
+      entityType: "order",
+      entityId: orderId,
+      metadata: { ...metadata, ...(user.impersonatedBy ? { impersonatedBy: user.impersonatedBy } : {}) },
+    });
+  }
 
   @Get()
   @RequireModule("orders")
+  @RequirePermissions("order:read")
   list(
     @OrgId() orgId: string,
     @Query("outletId") outletId?: string,
@@ -47,24 +81,32 @@ export class OrdersController {
 
   @Get("pickup-queue")
   @RequireModule("orders")
+  @RequirePermissions("order:read")
   pickupQueue(@OrgId() orgId: string, @Query("outletId") outletId: string) {
     return this.service.getPickupQueue(orgId, outletId);
   }
 
   @Get(":id")
   @RequireModule("orders")
+  @RequirePermissions("order:read")
   get(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.get(orgId, id);
   }
 
   @Post()
   @RequireModule("orders")
+  @RequirePermissions("order:create")
   create(
     @OrgId() orgId: string,
     @CurrentUser() user: JwtPayload,
     @Body() body: Record<string, unknown>,
+    @Headers("idempotency-key") idempotencyHeader?: string,
   ) {
-    return this.service.create(orgId, user.sub, body as never);
+    const dto = sanitizeStaffOrderBody(body);
+    if (!dto.idempotencyKey && idempotencyHeader?.trim()) {
+      dto.idempotencyKey = idempotencyHeader.trim();
+    }
+    return this.service.create(orgId, user.sub, dto as never);
   }
 
   @Post(":id/items")
@@ -90,12 +132,15 @@ export class OrdersController {
 
   @Post(":id/items/:itemId/remove")
   @RequireModule("orders")
-  removeItem(
+  async removeItem(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @Param("id") id: string,
     @Param("itemId") itemId: string,
   ) {
-    return this.service.removeItem(orgId, id, itemId);
+    const result = await this.service.removeItem(orgId, id, itemId);
+    await this.auditOrder(orgId, user, "order.item_void", id, { itemId });
+    return result;
   }
 
   @Post(":id/confirm")
@@ -106,22 +151,41 @@ export class OrdersController {
 
   @Patch(":id/status")
   @RequireModule("orders")
-  updateStatus(
+  @RequirePermissions("order:update", "kitchen:update")
+  async updateStatus(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @Param("id") id: string,
     @Body("status") status: string,
   ) {
-    return this.service.updateStatus(orgId, id, status);
+    assertCanSetOrderStatus(user, status);
+    const result = await this.service.updateStatus(orgId, id, status, {
+      // Managers/owners may close a bill with a balance (credit / complimentary); cashiers may not.
+      allowUnpaidComplete: Boolean(user?.permissions?.includes("order:discount:approve")),
+    });
+    const normalized = String(status ?? "").toLowerCase();
+    if (normalized === "cancelled" || normalized === "voided") {
+      await this.auditOrder(orgId, user, `order.${normalized}`, id, { via: "status" });
+    }
+    return result;
   }
 
   @Post(":id/discount")
   @RequireModule("orders")
-  applyDiscount(
+  @RequirePermissions("order:discount")
+  async applyDiscount(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @Param("id") id: string,
     @Body() body: { discountAmount?: number; reason?: string; couponCode?: string },
   ) {
-    return this.service.applyDiscount(orgId, id, body);
+    const result = await this.service.applyDiscount(orgId, id, body);
+    await this.auditOrder(orgId, user, "order.discount", id, {
+      discountAmount: body.discountAmount ?? null,
+      couponCode: body.couponCode ?? null,
+      reason: body.reason?.slice(0, 200) ?? null,
+    });
+    return result;
   }
 
   @Post(":id/split")
@@ -137,23 +201,35 @@ export class OrdersController {
 
   @Post(":id/ebill")
   @RequireModule("pos")
+  @RequirePermissions("pos:access", "order:update")
   sendEbill(
     @OrgId() orgId: string,
     @Param("id") id: string,
-    @Body() body: { channel?: "email" | "sms" },
+    @Body() body: { channel?: "email" | "sms" | "whatsapp" },
   ) {
-    const channel = body.channel === "email" ? "email" : "sms";
+    const channel =
+      body.channel === "email"
+        ? "email"
+        : body.channel === "whatsapp"
+          ? "whatsapp"
+          : "sms";
     return this.service.sendEbill(orgId, id, channel);
   }
 
   @Post(":id/cancel")
   @RequireModule("orders")
-  cancel(
+  @RequirePermissions("order:cancel")
+  async cancel(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @Param("id") id: string,
     @Body() body?: { notes?: string },
   ) {
-    return this.service.cancel(orgId, id, body?.notes);
+    const result = await this.service.cancel(orgId, id, body?.notes);
+    await this.auditOrder(orgId, user, "order.cancelled", id, {
+      notes: body?.notes?.slice(0, 200) ?? null,
+    });
+    return result;
   }
 
   @Post(":id/hold")
@@ -175,11 +251,16 @@ export class PublicOrdersController {
   constructor(
     private service: OrdersService,
     private storefront: StorefrontService,
+    private prisma: PrismaService,
+    private jwt: JwtService,
   ) {}
 
   @Public()
   @Post()
-  async create(@Body() body: Record<string, unknown>) {
+  async create(
+    @Body() body: Record<string, unknown>,
+    @Headers("authorization") authorization?: string,
+  ) {
     const orgSlug = typeof body.orgSlug === "string" ? body.orgSlug.trim() : "";
     const outletSlug =
       typeof body.outletSlug === "string" ? body.outletSlug.trim() : "";
@@ -192,18 +273,49 @@ export class PublicOrdersController {
       outletSlug,
     );
 
-    const dto = { ...body };
-    delete dto.organizationId;
-    delete dto.orgSlug;
-    delete dto.outletSlug;
-    // Always use server-resolved outlet — never trust client outletId alone.
-    dto.outletId = outlet.id;
+    const customerId = await this.provenCustomerId(
+      organization.id,
+      typeof body.customerId === "string" ? body.customerId : undefined,
+      authorization,
+    );
 
     return this.service.create(organization.id, null, {
-      ...(dto as Record<string, unknown>),
+      ...pickPublicOrderFields(body),
+      // Always use server-resolved outlet — never trust client outletId alone.
+      outletId: outlet.id,
+      customerId,
       autoConfirm: true,
       publicOrder: true,
-    } as never);
+    });
+  }
+
+  /**
+   * A guest may only attach an order to a customer record they own: via their
+   * Cullinos App guest token (org membership) or a per-org customer token.
+   */
+  private async provenCustomerId(
+    orgId: string,
+    customerId: string | undefined,
+    authorization: string | undefined,
+  ): Promise<string | undefined> {
+    if (!customerId || !authorization?.startsWith("Bearer ")) return undefined;
+    let payload: { sub?: string; type?: string; orgId?: string };
+    try {
+      payload = this.jwt.verify(authorization.slice(7), { secret: getJwtSecret() });
+    } catch {
+      return undefined;
+    }
+    if (payload.type === "customer") {
+      return payload.sub === customerId && payload.orgId === orgId ? customerId : undefined;
+    }
+    if (payload.type === "guest" && payload.sub) {
+      const membership = await this.prisma.guestOrgMembership.findFirst({
+        where: { guestUserId: payload.sub, customerId, organizationId: orgId },
+        select: { customerId: true },
+      });
+      return membership?.customerId ?? undefined;
+    }
+    return undefined;
   }
 
   /**

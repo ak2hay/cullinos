@@ -35,6 +35,84 @@ export function allocateFifoLots(
   return allocations;
 }
 
+/**
+ * Recipe servings consumed by an order line. Variants scale the base recipe
+ * (Half plate = 0.5, 60 mL peg on a 30 mL recipe = 2); invalid multipliers fall back to 1.
+ */
+export function lineStockQuantity(
+  quantity: number,
+  variantMultiplier?: Prisma.Decimal | number | string | null,
+): number {
+  const qty = Number(quantity);
+  if (!Number.isFinite(qty) || qty <= 0) return 0;
+  const raw = variantMultiplier == null ? 1 : Number(variantMultiplier);
+  const multiplier = Number.isFinite(raw) && raw > 0 ? raw : 1;
+  return qty * multiplier;
+}
+
+/** Stock movement reference for sales deducted against an order; restocks append `:restock`. */
+export function orderStockReference(orderId: string): string {
+  return `order:${orderId}`;
+}
+
+/**
+ * Net quantity still deducted per inventory item + lot for an order (sales minus prior
+ * restocks). Re-deducting after a restore and restoring again stays balanced.
+ */
+export function netOrderStockToRestore(
+  movements: Array<{
+    inventoryItemId: string;
+    lotId: string | null;
+    quantity: number;
+    restock: boolean;
+  }>,
+): Array<{ inventoryItemId: string; lotId: string | null; quantity: number }> {
+  const net = new Map<string, { inventoryItemId: string; lotId: string | null; quantity: number }>();
+  for (const m of movements) {
+    const key = `${m.inventoryItemId}|${m.lotId ?? ""}`;
+    const row = net.get(key) ?? { inventoryItemId: m.inventoryItemId, lotId: m.lotId, quantity: 0 };
+    row.quantity += m.restock ? -Number(m.quantity) : Number(m.quantity);
+    net.set(key, row);
+  }
+  return [...net.values()]
+    .map((r) => ({ ...r, quantity: Math.round(r.quantity * 1000) / 1000 }))
+    .filter((r) => r.quantity > 0.0005);
+}
+
+/**
+ * Stock markers for a split-off order. Moved lines were already deducted under the parent,
+ * so the child must not deduct them again when it is served/completed.
+ */
+export function splitStockMetadata(
+  parentMetadata: unknown,
+  movedItemIds: string[],
+): { stockDeductedAt: string; stockDeductedItemIds: string[] } | null {
+  const meta =
+    parentMetadata && typeof parentMetadata === "object" && !Array.isArray(parentMetadata)
+      ? (parentMetadata as Record<string, unknown>)
+      : {};
+  if (typeof meta.stockDeductedAt !== "string") return null;
+  const deducted = Array.isArray(meta.stockDeductedItemIds)
+    ? new Set(meta.stockDeductedItemIds.map(String))
+    : null;
+  return {
+    stockDeductedAt: meta.stockDeductedAt,
+    stockDeductedItemIds: deducted ? movedItemIds.filter((id) => deducted.has(id)) : movedItemIds,
+  };
+}
+
+/** Convert a quantity entered in packs into base stock units (e.g. 2 packets × 50 pcs = 100). */
+export function packsToBaseUnits(
+  packs: number,
+  packSize?: Prisma.Decimal | number | string | null,
+): number {
+  const size = packSize == null ? NaN : Number(packSize);
+  if (!Number.isFinite(size) || size <= 0) {
+    throw new Error("Pack size is not configured for this item");
+  }
+  return Number(packs) * size;
+}
+
 /** Remaining-lot weighted average unit cost, or null if no positive qty. */
 export function weightedAverageCost(
   lots: Array<{ qtyRemaining: number; unitCost: number }>,

@@ -319,4 +319,57 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get checkAgain => 'மீண்டும் சரிபார்க்கவும்';
+
+  @override
+  String get mergeStepPrimary => 'படி 1/2: முதன்மை மேசையைத் தட்டவும்';
+
+  @override
+  String mergeStepSecondary(String table) {
+    return 'படி 2/2: $table உடன் இணைக்க வேண்டிய மேசையைத் தட்டவும்';
+  }
+
+  @override
+  String get transferStepSource => 'படி 1/2: மாற்ற வேண்டிய மேசையைத் தட்டவும்';
+
+  @override
+  String transferStepTarget(String table) {
+    return 'படி 2/2: $table ஐ மாற்ற காலியான மேசையைத் தட்டவும்';
+  }
+
+  @override
+  String mergedWith(String table) {
+    return '$table உடன் இணைக்கப்பட்டது';
+  }
+
+  @override
+  String get primaryTag => 'முதன்மை';
+
+  @override
+  String get fromTag => 'இருந்து';
+
+  @override
+  String confirmMerge(String secondary, String primary) {
+    return '$secondary ஐ $primary உடன் இணைக்கவா?';
+  }
+
+  @override
+  String confirmTransfer(String from, String to) {
+    return '$from ஐ $to க்கு மாற்றவா?';
+  }
+
+  @override
+  String get confirm => 'உறுதிசெய்';
+
+  @override
+  String get unmerge => 'பிரி';
+
+  @override
+  String openTable(String table) {
+    return '$table திற';
+  }
+
+  @override
+  String mergedTableHint(String table) {
+    return 'இந்த மேசையின் ஆர்டர் மற்றும் பில் $table இல் உள்ளது.';
+  }
 }

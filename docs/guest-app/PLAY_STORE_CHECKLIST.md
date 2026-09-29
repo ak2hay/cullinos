@@ -3,8 +3,8 @@
 ## Before closed testing
 
 - [ ] Run migration / schema push including `guest_firebase_uid` (`firebase_uid` on `guest_users`)
-- [ ] Set Firebase Admin on VM (see [FIREBASE_PROD.md](./FIREBASE_PROD.md)) — `FIREBASE_PROJECT_ID` + service account
-- [ ] Set `FCM_SERVER_KEY` (platform settings or env)
+- [ ] Set Firebase Admin on VM (see [FIREBASE_PROD.md](./FIREBASE_PROD.md)) — `FIREBASE_PROJECT_ID` + service account (also used for FCM HTTP v1 push)
+- [ ] Confirm App Ops Runtime shows FCM configured (legacy `FCM_SERVER_KEY` is unused)
 - [ ] Razorpay keys configured (`RAZORPAY_KEY_ID` / secret)
 - [ ] At least 2 outlets with `marketplaceListed=true`, lat/lng, cuisine tags
 - [ ] Delivery zones with pincode for those outlets

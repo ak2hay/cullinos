@@ -8,6 +8,7 @@ export type ConfigGroupId =
   | "webhooks"
   | "revalidate"
   | "msg91"
+  | "whatsapp"
   | "fcm"
   | "guest_app"
   | "billing";
@@ -226,13 +227,13 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
     id: "msg91",
     label: "Phone OTP (MSG91)",
     description:
-      "Guest app prefers Widget (ID + tokenAuth). Waiter/staff phone OTP requires Flow: Auth key + Flow template ID (+ sender). Widget alone is not enough for Waiter. OTP Flow expects OTP var; marketing Flow expects MESSAGE var.",
+      "Guest and Waiter phone OTP prefer Widget (ID + tokenAuth). Flow (Auth key + template ID + sender) is optional fallback for staff when DLT is available, and for marketing SMS (MESSAGE var). OTP Flow expects OTP var.",
     keys: [
       { key: "MSG91_AUTH_KEY", isSecret: true, label: "Auth key (server verify)" },
       {
         key: "MSG91_WIDGET_ID",
         isSecret: false,
-        label: "Widget ID (guest app)",
+        label: "Widget ID (guest + waiter app)",
       },
       {
         key: "MSG91_WIDGET_TOKEN",
@@ -242,7 +243,7 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
       {
         key: "MSG91_TEMPLATE_ID",
         isSecret: false,
-        label: "Flow template ID (required for Waiter/staff SMS OTP)",
+        label: "Flow template ID (optional; Flow SMS fallback)",
       },
       {
         key: "MSG91_MARKETING_TEMPLATE_ID",
@@ -258,15 +259,57 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
     ],
   },
   {
-    id: "billing",
-    label: "Portal wallet & SMS pricing",
+    id: "whatsapp",
+    label: "WhatsApp (Meta Cloud API)",
     description:
-      "Prepaid wallet pricing for Cullinos portal addons. SMS campaigns deduct pro-rata from SMS_PRICE_PER_100_PAISE (e.g. 10000 = ₹100 per 100 SMS).",
+      "Cullinos platform Meta Cloud API credentials. Powers Cullinos-level ops and tenant e-bill receipts when owners enable WhatsApp receipts (metered from portal wallet). Leave blank until keys are ready.",
+    keys: [
+      {
+        key: "WHATSAPP_ACCESS_TOKEN",
+        isSecret: true,
+        label: "Access token",
+      },
+      {
+        key: "WHATSAPP_PHONE_NUMBER_ID",
+        isSecret: false,
+        label: "Phone number ID",
+      },
+      {
+        key: "WHATSAPP_API_VERSION",
+        isSecret: false,
+        label: "Graph API version",
+        defaultValue: "v21.0",
+      },
+      {
+        key: "WHATSAPP_RECEIPT_TEMPLATE",
+        isSecret: false,
+        label:
+          "Approved e-bill template name (body params: {{1}} order no., {{2}} outlet, {{3}} total, {{4}} feedback link)",
+      },
+      {
+        key: "WHATSAPP_TEMPLATE_LANGUAGE",
+        isSecret: false,
+        label: "Template language code",
+        defaultValue: "en",
+      },
+    ],
+  },
+  {
+    id: "billing",
+    label: "Portal wallet & messaging pricing",
+    description:
+      "Prepaid wallet pricing for Cullinos portal addons. SMS campaigns and WhatsApp e-bills deduct pro-rata (e.g. 10000 = ₹100 per 100 messages).",
     keys: [
       {
         key: "SMS_PRICE_PER_100_PAISE",
         isSecret: false,
         label: "SMS price per 100 messages (paise)",
+      },
+      {
+        key: "WHATSAPP_PRICE_PER_100_PAISE",
+        isSecret: false,
+        label: "WhatsApp price per 100 messages (paise)",
+        defaultValue: "10000",
       },
     ],
   },
@@ -274,9 +317,13 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
     id: "fcm",
     label: "Firebase Cloud Messaging",
     description:
-      "Push for Cullinos Guest (order status + marketing). Legacy server key required for device delivery.",
+      "Guest push uses Firebase Admin (HTTP v1) via FIREBASE_SERVICE_ACCOUNT_* on the API. FCM_SERVER_KEY is deprecated and ignored.",
     keys: [
-      { key: "FCM_SERVER_KEY", isSecret: true, label: "Legacy server key" },
+      {
+        key: "FCM_SERVER_KEY",
+        isSecret: true,
+        label: "Legacy server key (deprecated — unused)",
+      },
     ],
   },
   {

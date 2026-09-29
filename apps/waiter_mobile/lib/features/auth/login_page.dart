@@ -35,6 +35,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   String? _error;
   String? _hint;
   String? _challengeToken;
+  String? _msg91ReqId;
   bool _phoneOtpMode = false;
   String _composedPhone = '';
   bool _showPassword = false;
@@ -115,7 +116,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     if (mounted) context.go('/');
   }
 
-  Future<void> _requestPhoneOtp() async {
+  Future<void> _requestPhoneOtp({bool resend = false}) async {
     if (_loading) return;
     final phone = _composedPhone.isNotEmpty ? _composedPhone : _phone.text;
     if (phone.replaceAll(RegExp(r'\D'), '').length < 10) {
@@ -135,22 +136,28 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       _hint = null;
     });
     try {
-      final res = await ref.read(waiterApiProvider).requestPhoneOtp(
-            phone,
-            captchaToken: _captchaToken.isEmpty ? null : _captchaToken,
-          );
+      final api = ref.read(waiterApiProvider);
+      final Map<String, dynamic> res;
+      if (resend && _msg91ReqId != null && _msg91ReqId!.isNotEmpty) {
+        res = await api.retryPhoneOtp(_msg91ReqId!);
+      } else {
+        res = await api.requestPhoneOtp(
+          phone,
+          captchaToken: _captchaToken.isEmpty ? null : _captchaToken,
+        );
+      }
       // Sandbox orgs skip SMS and sign in directly.
       if ((res['accessToken']?.toString() ?? '').isNotEmpty) {
         await _applyAuth(res);
         return;
       }
-      final token = res['challengeToken']?.toString();
-      if (token == null || token.isEmpty) {
+      final reqId = res['reqId']?.toString();
+      if (reqId == null || reqId.isEmpty) {
         setState(() => _error = 'Could not send OTP. Try again.');
         return;
       }
       setState(() {
-        _challengeToken = token;
+        _msg91ReqId = reqId;
         _phoneOtpMode = true;
         _otp.clear();
       });
@@ -163,11 +170,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _verifyPhoneOtp() async {
-    if (_challengeToken == null || _loading) return;
+    if (_msg91ReqId == null || _loading) return;
     if (_otp.text.trim().length != 6) {
       setState(() => _error = 'Enter the 6-digit OTP');
       return;
     }
+    final phone = _composedPhone.isNotEmpty ? _composedPhone : _phone.text;
     setState(() {
       _loading = true;
       _error = null;
@@ -175,8 +183,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     });
     try {
       final res = await ref.read(waiterApiProvider).verifyPhoneOtp(
-            challengeToken: _challengeToken!,
+            reqId: _msg91ReqId!,
             otp: _otp.text.trim(),
+            phone: phone,
           );
       await _applyAuth(res);
     } catch (e) {
@@ -242,7 +251,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Future<void> _resend() async {
     if (_loading || _resendIn > 0) return;
     if (_phoneOtpMode) {
-      await _requestPhoneOtp();
+      await _requestPhoneOtp(resend: true);
       return;
     }
     try {
@@ -257,6 +266,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     _resendTimer?.cancel();
     setState(() {
       _challengeToken = null;
+      _msg91ReqId = null;
       _phoneOtpMode = false;
       _resendIn = 0;
       _otp.clear();
@@ -337,7 +347,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            _challengeToken != null
+            (_msg91ReqId != null || _challengeToken != null)
                 ? (_phoneOtpMode
                     ? 'Enter the SMS code we sent to your phone'
                     : 'Enter the code we emailed you')
@@ -345,7 +355,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             style: const TextStyle(fontSize: 14, color: WaiterColors.muted),
           ),
           const SizedBox(height: 22),
-          if (_challengeToken != null)
+          if (_msg91ReqId != null || _challengeToken != null)
             ..._otpStep(l10n)
           else if (_useEmail)
             ..._emailStep(l10n)

@@ -32,10 +32,14 @@ function sourceBadge(source: PlatformSettingsField['source']) {
 function GroupForm({
   group,
   encryptionConfigured,
+  expanded,
+  onToggle,
   onSaved,
 }: {
   group: PlatformSettingsGroup;
   encryptionConfigured: boolean;
+  expanded: boolean;
+  onToggle: () => void;
   onSaved: (msg: string) => void;
 }) {
   // Anchor id used by Cullinos App → App settings (`/settings#guest_app`)
@@ -116,163 +120,193 @@ function GroupForm({
   }
 
   const needsEncryption = group.fields.some((f) => f.isSecret);
+  const configuredCount = group.fields.filter((f) => f.configured || f.source === 'database').length;
 
   return (
     <form
       id={group.id}
       onSubmit={handleSave}
-      className="space-y-4 rounded-xl border border-white/5 bg-bg-card p-6 scroll-mt-6"
+      className="rounded-xl border border-white/5 bg-bg-card scroll-mt-6"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className="flex w-full items-start justify-between gap-3 px-6 py-5 text-left hover:bg-white/[0.02]"
+      >
+        <div className="min-w-0">
           <h2 className="font-medium">{group.label}</h2>
           <p className="mt-1 text-sm text-text-muted">{group.description}</p>
+          {!expanded ? (
+            <p className="mt-2 text-xs text-text-muted">
+              {configuredCount}/{group.fields.length} fields configured — click to expand
+            </p>
+          ) : null}
         </div>
-        {needsEncryption && !encryptionConfigured ? (
-          <p className="text-xs text-status-warning">
-            Set ENCRYPTION_KEY on the API to save secrets.
-          </p>
-        ) : null}
-      </div>
-
-      {error ? (
-        <div className="rounded-lg border border-status-error/30 bg-status-error/10 px-3 py-2 text-sm text-status-error">
-          {error}
-        </div>
-      ) : null}
-      {testMsg ? (
-        <div className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm text-text-secondary">
-          {testMsg}
-        </div>
-      ) : null}
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {group.fields.map((field) =>
-          field.type === 'boolean' ? (
-          <div
-            key={field.key}
-            className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-bg-elevated px-3 py-3 sm:col-span-1"
+        <div className="flex shrink-0 items-center gap-3 pt-0.5">
+          {needsEncryption && !encryptionConfigured ? (
+            <p className="max-w-[10rem] text-right text-xs text-status-warning">
+              Set ENCRYPTION_KEY on the API to save secrets.
+            </p>
+          ) : null}
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`h-5 w-5 text-text-secondary transition-transform ${expanded ? 'rotate-180' : ''}`}
           >
-            <div className="min-w-0">
-              <p className="flex items-center gap-2 text-sm text-text-secondary">
-                {field.label}
-                {sourceBadge(field.source)}
-              </p>
-              <p className="font-mono text-[10px] text-text-muted">{field.key}</p>
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </div>
+      </button>
+
+      {expanded ? (
+        <div className="space-y-4 border-t border-white/5 px-6 pb-6 pt-4">
+          {error ? (
+            <div className="rounded-lg border border-status-error/30 bg-status-error/10 px-3 py-2 text-sm text-status-error">
+              {error}
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={field.value !== 'false'}
-              aria-label={field.label}
-              disabled={saveMutation.isPending}
-              onClick={() => toggleBoolean(field)}
-              className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-60 ${
-                field.value !== 'false' ? 'bg-status-success' : 'bg-white/15'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
-                  field.value !== 'false' ? 'left-[22px]' : 'left-0.5'
-                }`}
-              />
-            </button>
+          ) : null}
+          {testMsg ? (
+            <div className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm text-text-secondary">
+              {testMsg}
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {group.fields.map((field) =>
+              field.type === 'boolean' ? (
+                <div
+                  key={field.key}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-bg-elevated px-3 py-3 sm:col-span-1"
+                >
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-2 text-sm text-text-secondary">
+                      {field.label}
+                      {sourceBadge(field.source)}
+                    </p>
+                    <p className="font-mono text-[10px] text-text-muted">{field.key}</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={field.value !== 'false'}
+                    aria-label={field.label}
+                    disabled={saveMutation.isPending}
+                    onClick={() => toggleBoolean(field)}
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-60 ${
+                      field.value !== 'false' ? 'bg-status-success' : 'bg-white/15'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
+                        field.value !== 'false' ? 'left-[22px]' : 'left-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+              ) : (
+                <label key={field.key} className="block sm:col-span-1">
+                  <span className="mb-1.5 flex items-center gap-2 text-sm text-text-secondary">
+                    {field.label}
+                    {sourceBadge(field.source)}
+                  </span>
+                  <input
+                    type={field.isSecret ? 'password' : 'text'}
+                    autoComplete="off"
+                    placeholder={
+                      field.isSecret
+                        ? field.configured
+                          ? field.masked ?? '•••• configured — leave blank to keep'
+                          : 'Not set'
+                        : undefined
+                    }
+                    value={draft[field.key] ?? ''}
+                    onChange={(e) =>
+                      setDraft((prev) => ({ ...prev, [field.key]: e.target.value }))
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                  />
+                  <span className="mt-1 flex items-center justify-between gap-2">
+                    <span className="font-mono text-[10px] text-text-muted">{field.key}</span>
+                    {field.source === 'database' ? (
+                      <button
+                        type="button"
+                        onClick={() => clearOverride(field.key)}
+                        disabled={saveMutation.isPending}
+                        className="text-[11px] text-text-muted hover:text-status-warning"
+                      >
+                        Clear override
+                      </button>
+                    ) : null}
+                  </span>
+                </label>
+              ),
+            )}
           </div>
-          ) : (
-          <label key={field.key} className="block sm:col-span-1">
-            <span className="mb-1.5 flex items-center gap-2 text-sm text-text-secondary">
-              {field.label}
-              {sourceBadge(field.source)}
-            </span>
-            <input
-              type={field.isSecret ? 'password' : 'text'}
-              autoComplete="off"
-              placeholder={
-                field.isSecret
-                  ? field.configured
-                    ? field.masked ?? '•••• configured — leave blank to keep'
-                    : 'Not set'
-                  : undefined
-              }
-              value={draft[field.key] ?? ''}
-              onChange={(e) =>
-                setDraft((prev) => ({ ...prev, [field.key]: e.target.value }))
-              }
-              className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
-            />
-            <span className="mt-1 flex items-center justify-between gap-2">
-              <span className="font-mono text-[10px] text-text-muted">{field.key}</span>
-              {field.source === 'database' ? (
+
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={saveMutation.isPending}
+              className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-text-primary hover:opacity-90 disabled:opacity-60"
+            >
+              {saveMutation.isPending ? 'Saving…' : 'Save'}
+            </button>
+
+            {group.id === 'smtp' ? (
+              <>
+                <input
+                  type="email"
+                  placeholder="Test email (optional)"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                  className="w-56 rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
+                />
                 <button
                   type="button"
-                  onClick={() => clearOverride(field.key)}
-                  disabled={saveMutation.isPending}
-                  className="text-[11px] text-text-muted hover:text-status-warning"
+                  onClick={() => testSmtpMutation.mutate()}
+                  disabled={testSmtpMutation.isPending}
+                  className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
                 >
-                  Clear override
+                  {testSmtpMutation.isPending ? 'Sending…' : 'Test SMTP'}
                 </button>
-              ) : null}
-            </span>
-          </label>
-          ),
-        )}
-      </div>
+              </>
+            ) : null}
 
-      <div className="flex flex-wrap items-center gap-3 pt-2">
-        <button
-          type="submit"
-          disabled={saveMutation.isPending}
-          className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-text-primary hover:opacity-90 disabled:opacity-60"
-        >
-          {saveMutation.isPending ? 'Saving…' : 'Save'}
-        </button>
-
-        {group.id === 'smtp' ? (
-          <>
-            <input
-              type="email"
-              placeholder="Test email (optional)"
-              value={testEmail}
-              onChange={(e) => setTestEmail(e.target.value)}
-              className="w-56 rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
-            />
-            <button
-              type="button"
-              onClick={() => testSmtpMutation.mutate()}
-              disabled={testSmtpMutation.isPending}
-              className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
-            >
-              {testSmtpMutation.isPending ? 'Sending…' : 'Test SMTP'}
-            </button>
-          </>
-        ) : null}
-
-        {group.id === 'msg91' ? (
-          <>
-            <div className="min-w-[16rem]">
-              <PhoneField
-                label="Test phone"
-                value={testPhone}
-                onChange={setTestPhone}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => testMsg91Mutation.mutate()}
-              disabled={testMsg91Mutation.isPending}
-              className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
-            >
-              {testMsg91Mutation.isPending ? 'Sending…' : 'Test MSG91'}
-            </button>
-          </>
-        ) : null}
-      </div>
+            {group.id === 'msg91' ? (
+              <>
+                <div className="min-w-[16rem]">
+                  <PhoneField
+                    label="Test phone"
+                    value={testPhone}
+                    onChange={setTestPhone}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => testMsg91Mutation.mutate()}
+                  disabled={testMsg91Mutation.isPending}
+                  className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
+                >
+                  {testMsg91Mutation.isPending ? 'Sending…' : 'Test MSG91'}
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </form>
   );
 }
 
 export function SettingsPage() {
   const [banner, setBanner] = useState<string | null>(null);
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['super-admin', 'settings'],
     queryFn: superAdminApi.getSettings,
@@ -281,8 +315,12 @@ export function SettingsPage() {
   useEffect(() => {
     const hash = window.location.hash.replace(/^#/, '');
     if (!hash || isLoading || !data) return;
+    const exists = data.groups.some((g) => g.id === hash);
+    if (exists) setOpenGroupId(hash);
     const el = document.getElementById(hash);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (el) {
+      window.setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    }
   }, [isLoading, data]);
 
   return (
@@ -291,8 +329,9 @@ export function SettingsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Platform settings</h1>
           <p className="mt-1 max-w-2xl text-text-secondary">
-            Turn client portals on or off, and configure SMTP (staff OTP), MSG91 (phone OTP), FCM
-            (Cullinos App push), Razorpay, and Cullinos App release flags. Database values override
+            Turn client portals on or off, and configure SMTP (staff OTP), MSG91 (phone OTP),
+            Firebase Admin for Cullinos App auth/push (FCM HTTP v1), Razorpay, and Cullinos App
+            release flags. Click a section to edit credentials. Database values override
             environment variables.
           </p>
         </div>
@@ -328,12 +367,16 @@ export function SettingsPage() {
       {isLoading ? (
         <p className="text-text-muted">Loading settings…</p>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           {data?.groups.map((group) => (
             <GroupForm
               key={group.id}
               group={group}
               encryptionConfigured={data.encryptionConfigured}
+              expanded={openGroupId === group.id}
+              onToggle={() =>
+                setOpenGroupId((prev) => (prev === group.id ? null : group.id))
+              }
               onSaved={(msg) => {
                 setBanner(msg);
                 window.setTimeout(() => setBanner(null), 3000);
@@ -345,4 +388,3 @@ export function SettingsPage() {
     </div>
   );
 }
-

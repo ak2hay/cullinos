@@ -1,11 +1,22 @@
 import { timingSafeEqual } from "crypto";
-import { Body, Controller, Get, Headers, Param, Patch, Post, UnauthorizedException } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { Public } from "../../common/decorators";
 import { generateTemporaryPassword } from "../../common/generate-password";
 import { TenantProvisioningService } from "../organizations/tenant-provisioning.service";
 import { MailService } from "../mail/mail.service";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import { AuditService } from "../audit/audit.service";
 
 class ProvisionDto {
   rkyvesClientId!: string;
@@ -24,6 +35,7 @@ export class InternalController {
     private prisma: PrismaService,
     private mail: MailService,
     private config: PlatformConfigService,
+    private audit: AuditService,
   ) {}
 
   private verifyKey(key: string | undefined) {
@@ -131,13 +143,36 @@ export class InternalController {
     }
 
     if (body.planSlug) {
-      const plan = await this.prisma.plan.findUnique({ where: { slug: body.planSlug } });
-      if (plan) {
-        await this.prisma.subscription.updateMany({
-          where: { organizationId: orgId },
-          data: { planId: plan.id },
-        });
-      }
+      const plan = await this.prisma.plan.findUnique({
+        where: { slug: body.planSlug },
+        include: { features: true },
+      });
+      if (!plan) throw new NotFoundException("Plan not found");
+      const subscription = await this.prisma.subscription.findFirst({
+        where: { organizationId: orgId },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+      if (!subscription) throw new NotFoundException("No subscription");
+      // Module access follows the plan: rebuild entitlements with the plan switch.
+      await this.prisma.$transaction([
+        this.prisma.subscriptionEntitlement.deleteMany({
+          where: { subscriptionId: subscription.id },
+        }),
+        this.prisma.subscription.update({
+          where: { id: subscription.id },
+          data: {
+            planId: plan.id,
+            entitlements: {
+              create: plan.features.map((f) => ({
+                module: f.module,
+                enabled: f.enabled,
+                limits: f.limits ?? undefined,
+              })),
+            },
+          },
+        }),
+      ]);
     }
 
     if (body.graceUntil) {
@@ -146,6 +181,19 @@ export class InternalController {
         data: { graceUntil: new Date(body.graceUntil), status: "past_due" },
       });
     }
+
+    await this.audit.log({
+      organizationId: orgId,
+      action: "internal.subscription_update",
+      entityType: "organization",
+      entityId: orgId,
+      metadata: {
+        status: body.status ?? null,
+        planSlug: body.planSlug ?? null,
+        graceUntil: body.graceUntil ?? null,
+        source: "internal_api",
+      },
+    });
 
     return { ok: true };
   }

@@ -35,9 +35,14 @@ class GuestApi {
     return Map<String, dynamic>.from(res.data as Map);
   }
 
-  Future<Map<String, dynamic>> widgetRetryOtp(String reqId) async {
+  Future<Map<String, dynamic>> widgetRetryOtp(
+    String reqId, {
+    String? captchaToken,
+  }) async {
     final res = await _dio.post('/public/guest/auth/otp/widget-retry', data: {
       'reqId': reqId,
+      if (captchaToken != null && captchaToken.isNotEmpty)
+        'captchaToken': captchaToken,
     });
     return Map<String, dynamic>.from(res.data as Map);
   }
@@ -264,6 +269,7 @@ class GuestApi {
     required List<Map<String, dynamic>> items,
     String? customerName,
     String? notes,
+    bool? ageConfirmed,
   }) async {
     final res = await _dio.post(
       '/public/sessions/$sessionToken/items',
@@ -271,6 +277,7 @@ class GuestApi {
         'items': items,
         if (customerName != null) 'customerName': customerName,
         if (notes != null) 'notes': notes,
+        if (ageConfirmed != null) 'ageConfirmed': ageConfirmed,
       },
     );
     return Map<String, dynamic>.from(res.data as Map);
@@ -278,8 +285,8 @@ class GuestApi {
 
   /// Permanent table sticker → join or create dining session.
   Future<Map<String, dynamic>> joinTableByQr(String qrCode) async {
-    final res = await _dio.get(
-      '/public/tables/by-qr/${Uri.encodeComponent(qrCode)}',
+    final res = await _dio.post(
+      '/public/tables/by-qr/${Uri.encodeComponent(qrCode)}/join',
     );
     return Map<String, dynamic>.from(res.data as Map);
   }
@@ -537,8 +544,11 @@ class GuestApi {
     required int partySize,
     required String reservedAt,
     String? notes,
+    String? captchaToken,
   }) async {
     final res = await _dio.post('/public/reservations', data: {
+      if (captchaToken != null && captchaToken.isNotEmpty)
+        'captchaToken': captchaToken,
       if (inviteToken != null) 'inviteToken': inviteToken,
       if (orgSlug != null) 'orgSlug': orgSlug,
       if (outletSlug != null) 'outletSlug': outletSlug,

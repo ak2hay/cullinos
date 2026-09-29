@@ -38,7 +38,7 @@ export function BusinessTypeRoute({ children }: { children: React.ReactNode }) {
   const path = `/${location.pathname.split('/').filter(Boolean)[0] ?? ''}`;
   const normalized = path === '/' ? '/' : path;
 
-  if (!isAdminNavPathVisible(businessType, normalized, restaurantSize)) {
+  if (!isAdminNavPathVisible(businessType, normalized, restaurantSize, org?.enabledModules)) {
     return <Navigate to="/" replace />;
   }
 

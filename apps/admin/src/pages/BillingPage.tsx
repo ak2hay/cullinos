@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@cullinos/ui';
+import { openRazorpaySubscriptionCheckout } from '@/features/billing/razorpaySubscriptionCheckout';
 import { openRazorpayCheckout } from '@/features/pos/razorpayCheckout';
 import { subscriptionsApi, walletApi } from '@/lib/api';
 
@@ -10,11 +11,14 @@ function formatDate(value: string | null) {
 }
 
 const TOP_UP_PRESETS = [500, 1000, 2500, 5000];
+const TOP_UP_MIN = 100;
+const TOP_UP_MAX = 50_000;
 
 export function BillingPage() {
   const queryClient = useQueryClient();
   const [topUpError, setTopUpError] = useState<string | null>(null);
   const [topUpMessage, setTopUpMessage] = useState<string | null>(null);
+  const [customTopUp, setCustomTopUp] = useState('');
   const [selectedPlanSlug, setSelectedPlanSlug] = useState('');
 
   const { data = [], isLoading, error } = useQuery({
@@ -43,25 +47,43 @@ export function BillingPage() {
     current.trialEndsAt &&
     new Date(current.trialEndsAt).getTime() <= Date.now();
 
+  async function openSubscriptionCheckout(result: {
+    keyId: string | null;
+    razorpaySubId: string | null;
+    shortUrl: string | null;
+    prefill?: { name?: string | null; email?: string | null; contact?: string | null };
+  }) {
+    if (result.keyId && result.razorpaySubId) {
+      await openRazorpaySubscriptionCheckout({
+        keyId: result.keyId,
+        subscriptionId: result.razorpaySubId,
+        description: 'Cullinos subscription',
+        prefill: result.prefill,
+      });
+      return;
+    }
+    if (result.shortUrl) {
+      window.open(result.shortUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    throw new Error('Checkout started but no payment method was returned');
+  }
+
   const checkoutMutation = useMutation({
     mutationFn: subscriptionsApi.checkout,
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
       queryClient.invalidateQueries({ queryKey: ['organizations', 'current'] });
-      if (result.shortUrl) {
-        window.open(result.shortUrl, '_blank', 'noopener,noreferrer');
-      }
+      await openSubscriptionCheckout(result);
     },
   });
 
   const activateMutation = useMutation({
     mutationFn: (planSlug: string) => subscriptionsApi.activatePlan(planSlug),
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
       queryClient.invalidateQueries({ queryKey: ['organizations', 'current'] });
-      if (result.shortUrl) {
-        window.open(result.shortUrl, '_blank', 'noopener,noreferrer');
-      }
+      await openSubscriptionCheckout(result);
     },
   });
 
@@ -97,7 +119,7 @@ export function BillingPage() {
       <div>
         <h1 className="text-2xl font-semibold">Billing</h1>
         <p className="mt-1 text-sm text-text-secondary">
-          Your Cullinos plan and prepaid portal wallet for paid addons (SMS campaigns).
+          Your Cullinos plan and prepaid portal wallet for paid addons (SMS campaigns, WhatsApp receipts).
         </p>
       </div>
 
@@ -116,7 +138,12 @@ export function BillingPage() {
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <dt className="text-text-muted">Plan</dt>
-              <dd className="font-medium">{current.plan.name}</dd>
+              <dd className="font-medium">
+                {current.plan.name}
+                {current.plan.visibility === 'private' ? (
+                  <span className="ml-2 text-xs font-normal text-text-muted">(custom)</span>
+                ) : null}
+              </dd>
             </div>
             <div>
               <dt className="text-text-muted">Status</dt>
@@ -134,6 +161,17 @@ export function BillingPage() {
               <dt className="text-text-muted">Monthly</dt>
               <dd>₹{Number(current.plan.priceMonthly).toLocaleString('en-IN')}</dd>
             </div>
+            {current.plan.maxOutlets != null ? (
+              <div>
+                <dt className="text-text-muted">Limits</dt>
+                <dd>
+                  {current.plan.maxOutlets} outlets
+                  {current.plan.maxTerminals != null
+                    ? ` · ${current.plan.maxTerminals} terminals`
+                    : ''}
+                </dd>
+              </div>
+            ) : null}
           </dl>
 
           {checkoutMutation.isError ? (
@@ -150,10 +188,12 @@ export function BillingPage() {
             </div>
           ) : null}
 
-          {checkoutMutation.isSuccess && !checkoutMutation.data?.shortUrl ? (
+          {checkoutMutation.isSuccess &&
+          !checkoutMutation.data?.keyId &&
+          !checkoutMutation.data?.shortUrl ? (
             <p className="rounded-lg border border-status-warning/30 bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
-              Checkout started but no payment link was returned. Refresh and try Open payment
-              page, or contact support.
+              Checkout started but no payment method was returned. Refresh and try again, or
+              contact support.
             </p>
           ) : null}
 
@@ -164,29 +204,57 @@ export function BillingPage() {
                   ? 'Your free trial has ended. Choose a plan and complete payment to keep using Cullinos.'
                   : 'Activate a paid plan when you are ready (or after the trial ends).'}
               </p>
-              <label className="block text-sm">
-                <span className="mb-1.5 block text-text-secondary">Select plan</span>
-                <select
-                  value={selectedPlanSlug || current.plan.slug}
-                  onChange={(e) => setSelectedPlanSlug(e.target.value)}
-                  className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm"
+              {current.plan.visibility === 'private' ? (
+                <p className="text-sm text-text-secondary">
+                  You are on a custom plan. Use &quot;Pay / activate current plan&quot; below, or
+                  pick a public plan to switch.
+                </p>
+              ) : null}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(plansQuery.data ?? []).map((p) => {
+                  const selected = (selectedPlanSlug || plansQuery.data?.[0]?.slug) === p.slug;
+                  return (
+                    <button
+                      key={p.slug}
+                      type="button"
+                      onClick={() => setSelectedPlanSlug(p.slug)}
+                      className={`rounded-lg border p-3 text-left text-sm transition ${
+                        selected
+                          ? 'border-brand-primary bg-brand-primary/10'
+                          : 'border-white/10 bg-bg-elevated hover:border-white/20'
+                      }`}
+                    >
+                      <p className="font-medium">{p.name}</p>
+                      <p className="mt-0.5 text-text-secondary">
+                        ₹{Number(p.priceMonthly).toLocaleString('en-IN')}/mo
+                      </p>
+                      <p className="mt-1 text-xs text-text-muted">
+                        {p.maxOutlets} outlets
+                        {p.maxTerminals != null ? ` · ${p.maxTerminals} terminals` : ''}
+                      </p>
+                      {p.description ? (
+                        <p className="mt-1 line-clamp-2 text-xs text-text-muted">{p.description}</p>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+              {(plansQuery.data ?? []).length === 0 ? (
+                <p className="text-sm text-text-muted">No public plans available.</p>
+              ) : (
+                <Button
+                  type="button"
+                  loading={activateMutation.isPending}
+                  disabled={!(selectedPlanSlug || plansQuery.data?.[0]?.slug)}
+                  onClick={() =>
+                    activateMutation.mutate(
+                      selectedPlanSlug || plansQuery.data?.[0]?.slug || '',
+                    )
+                  }
                 >
-                  {(plansQuery.data ?? [current.plan]).map((p) => (
-                    <option key={p.slug} value={p.slug}>
-                      {p.name} — ₹{Number(p.priceMonthly).toLocaleString('en-IN')}/mo
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Button
-                type="button"
-                loading={activateMutation.isPending}
-                onClick={() =>
-                  activateMutation.mutate(selectedPlanSlug || current.plan.slug)
-                }
-              >
-                Pay &amp; activate selected plan
-              </Button>
+                  Pay &amp; activate selected plan
+                </Button>
+              )}
               {activateMutation.isError ? (
                 <p className="text-sm text-status-error">
                   {activateMutation.error instanceof Error
@@ -223,7 +291,7 @@ export function BillingPage() {
         <div>
           <h2 className="font-medium">Portal wallet</h2>
           <p className="text-sm text-text-muted">
-            Spend on Cullinos SMS campaigns (paid addon). Charged only for messages actually sent.
+            Spend on Cullinos SMS campaigns and WhatsApp e-bills. Charged only for messages actually sent.
           </p>
         </div>
         {walletQuery.isLoading ? (
@@ -236,7 +304,7 @@ export function BillingPage() {
           </p>
         ) : (
           <>
-            <dl className="grid grid-cols-2 gap-4 text-sm">
+            <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
               <div>
                 <dt className="text-text-muted">Balance</dt>
                 <dd className="text-xl font-semibold">
@@ -247,6 +315,12 @@ export function BillingPage() {
                 <dt className="text-text-muted">SMS rate</dt>
                 <dd>
                   ₹{(walletQuery.data?.pricePer100Rupees ?? 0).toFixed(2)} / 100 SMS
+                </dd>
+              </div>
+              <div>
+                <dt className="text-text-muted">WhatsApp rate</dt>
+                <dd>
+                  ₹{(walletQuery.data?.whatsappPricePer100Rupees ?? 0).toFixed(2)} / 100 msgs
                 </dd>
               </div>
             </dl>
@@ -267,6 +341,37 @@ export function BillingPage() {
                   Top up ₹{amount}
                 </Button>
               ))}
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="flex min-w-[10rem] flex-1 flex-col gap-1 text-sm">
+                <span className="text-text-muted">Custom amount (₹)</span>
+                <input
+                  type="number"
+                  min={TOP_UP_MIN}
+                  max={TOP_UP_MAX}
+                  step={1}
+                  inputMode="numeric"
+                  placeholder={`${TOP_UP_MIN}–${TOP_UP_MAX}`}
+                  value={customTopUp}
+                  onChange={(e) => setCustomTopUp(e.target.value)}
+                  className="h-10 rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+                />
+              </label>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  const amount = Math.floor(Number(customTopUp));
+                  if (!Number.isFinite(amount) || amount < TOP_UP_MIN || amount > TOP_UP_MAX) {
+                    setTopUpError(`Enter an amount between ₹${TOP_UP_MIN} and ₹${TOP_UP_MAX}`);
+                    setTopUpMessage(null);
+                    return;
+                  }
+                  void handleTopUp(amount);
+                }}
+              >
+                Top up
+              </Button>
             </div>
             <div>
               <h3 className="mb-2 text-sm font-medium text-text-secondary">Recent activity</h3>

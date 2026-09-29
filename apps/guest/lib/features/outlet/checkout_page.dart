@@ -21,6 +21,8 @@ import 'package:cullinos_guest/widgets/guest_sticky_bars.dart';
 // Online preference (gateway still chosen by server) + offline settle options.
 enum _PayMethod { upi, card, wallet, payAtCounter, payToWaiter }
 
+const _drinksHint = 'Drinks are served at the table';
+
 class CheckoutPage extends ConsumerStatefulWidget {
   const CheckoutPage({
     super.key,
@@ -301,6 +303,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               items: mappedItems,
               customerName: auth.name ?? auth.phone,
               notes: orderNotes,
+              ageConfirmed: cart.hasAlcohol ? cart.ageConfirmed : null,
             );
         order = await ref.read(guestApiProvider).sessionSubmit(sessionToken);
       } else {
@@ -309,7 +312,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           'outletSlug': widget.outletSlug,
           'outletId': cart.outletId,
           'source': 'ONLINE',
-          'type': cart.orderType,
+          'type': cart.hasAlcohol ? 'dine_in' : cart.orderType,
+          if (cart.hasAlcohol) 'ageConfirmed': cart.ageConfirmed,
           'customerId': customerId,
           'tipAmount': tip,
           'idempotencyKey':
@@ -519,11 +523,14 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     required String hint,
     required String current,
     required VoidCallback onTap,
+    bool enabled = true,
   }) {
     final selected = current == value;
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.45,
+        child: GestureDetector(
+        onTap: enabled ? onTap : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
@@ -564,6 +571,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -657,6 +665,11 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   @override
   Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
+    if (cart.hasAlcohol && cart.orderType != 'dine_in') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(cartProvider).setOrderType('dine_in');
+      });
+    }
     final deliveryFee = _quote?['inZone'] == true
         ? (_quote!['fee'] as num?)?.toDouble() ?? 0
         : 0.0;
@@ -711,8 +724,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 value: 'delivery',
                 icon: Icons.delivery_dining_rounded,
                 label: 'Delivery',
-                hint: 'To your door',
+                hint: cart.hasAlcohol ? _drinksHint : 'To your door',
                 current: cart.orderType,
+                enabled: !cart.hasAlcohol,
                 onTap: () {
                   ref.read(cartProvider).setOrderType('delivery');
                   _refreshQuote();
@@ -733,8 +747,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 value: 'takeaway',
                 icon: Icons.shopping_bag_rounded,
                 label: 'Takeaway',
-                hint: 'Pick up ready',
+                hint: cart.hasAlcohol ? _drinksHint : 'Pick up ready',
                 current: cart.orderType,
+                enabled: !cart.hasAlcohol,
                 onTap: () =>
                     ref.read(cartProvider).setOrderType('takeaway'),
               ),

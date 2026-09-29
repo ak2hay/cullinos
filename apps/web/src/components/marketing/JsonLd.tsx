@@ -9,6 +9,9 @@ export function OrganizationJsonLd() {
     name: BUSINESS_NAP.legalName,
     url: getSiteUrl(),
     email: BUSINESS_NAP.email,
+    ...(BUSINESS_NAP.telephone
+      ? { telephone: BUSINESS_NAP.telephone.replace(/\s/g, '') }
+      : {}),
     address: {
       '@type': 'PostalAddress',
       addressLocality: BUSINESS_NAP.addressLocality,

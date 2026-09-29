@@ -9,6 +9,12 @@ import {
   type PushCreative,
   type StylePreset,
 } from '@/lib/api';
+import { ImageCropModal } from '@/components/ImageCropModal';
+import {
+  ALLOWED_IMAGE_ACCEPT,
+  IMAGE_SLOT_HINTS,
+  validateClientImageFile,
+} from '@/lib/imageUpload';
 
 type FormState = {
   title: string;
@@ -198,6 +204,7 @@ export function NotificationsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   const { data: campaigns = [], isLoading } = useQuery({
     queryKey: ['guest-ops', 'push-campaigns', statusFilter],
@@ -248,6 +255,16 @@ export function NotificationsPage() {
     onError: (err: Error) => setError(err.message),
   });
 
+  const resendMutation = useMutation({
+    mutationFn: (id: string) => guestOpsApi.resendPushCampaign(id),
+    onSuccess: (row) => {
+      queryClient.invalidateQueries({ queryKey: ['guest-ops', 'push-campaigns'] });
+      setMessage(`Resent — ${row.sentCount} guest(s) reached.`);
+      setError(null);
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
   const cancelMutation = useMutation({
     mutationFn: (id: string) => guestOpsApi.cancelPush(id),
     onSuccess: () => {
@@ -283,11 +300,11 @@ export function NotificationsPage() {
     }));
   }
 
-  async function onPickImage(file: File | null) {
-    if (!file) return;
+  async function uploadPushFile(file: File) {
     setUploading(true);
     setError(null);
     try {
+      await validateClientImageFile(file, IMAGE_SLOT_HINTS.notification);
       const url = await guestOpsApi.uploadPushImage(file);
       setForm((f) => ({ ...f, imageUrl: url }));
       setMessage('Image uploaded.');
@@ -295,6 +312,18 @@ export function NotificationsPage() {
       setError((err as Error).message);
     } finally {
       setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
+
+  async function onPickImage(file: File | null) {
+    if (!file) return;
+    setError(null);
+    try {
+      await validateClientImageFile(file, IMAGE_SLOT_HINTS.notification);
+      setCropFile(file);
+    } catch (err) {
+      setError((err as Error).message);
       if (fileRef.current) fileRef.current.value = '';
     }
   }
@@ -377,13 +406,18 @@ export function NotificationsPage() {
 
           <div>
             <p className="text-sm text-text-secondary">Hero image</p>
+            <p className="mt-1 text-xs text-text-muted">
+              Crop to {IMAGE_SLOT_HINTS.notification.targetWidth}×
+              {IMAGE_SLOT_HINTS.notification.targetHeight}px (
+              {IMAGE_SLOT_HINTS.notification.ratioLabel}). PNG/JPG/WebP only.
+            </p>
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/png,image/jpeg,image/webp"
+                accept={ALLOWED_IMAGE_ACCEPT}
                 className="hidden"
-                onChange={(e) => onPickImage(e.target.files?.[0] ?? null)}
+                onChange={(e) => void onPickImage(e.target.files?.[0] ?? null)}
               />
               <Button
                 type="button"
@@ -626,6 +660,23 @@ export function NotificationsPage() {
                       </Button>
                     </>
                   ) : null}
+                  {c.status === 'sent' || c.status === 'cancelled' ? (
+                    <Button
+                      type="button"
+                      loading={resendMutation.isPending}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            'Resend this campaign? A new campaign will be created and sent to the same audience.',
+                          )
+                        ) {
+                          resendMutation.mutate(c.id);
+                        }
+                      }}
+                    >
+                      Resend
+                    </Button>
+                  ) : null}
                   {c.status !== 'sending' ? (
                     <Button
                       type="button"
@@ -645,6 +696,21 @@ export function NotificationsPage() {
           </ul>
         )}
       </section>
+      {cropFile ? (
+        <ImageCropModal
+          file={cropFile}
+          targetWidth={IMAGE_SLOT_HINTS.notification.targetWidth}
+          targetHeight={IMAGE_SLOT_HINTS.notification.targetHeight}
+          onCancel={() => {
+            setCropFile(null);
+            if (fileRef.current) fileRef.current.value = '';
+          }}
+          onCropped={(cropped) => {
+            setCropFile(null);
+            void uploadPushFile(cropped);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

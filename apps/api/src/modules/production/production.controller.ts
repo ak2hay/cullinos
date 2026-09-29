@@ -9,20 +9,24 @@ import {
   Query,
 } from "@nestjs/common";
 import { OrgId, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { ProductionService } from "./production.service";
 
 @Controller("production")
+@RequirePermissions("inventory:adjust")
 export class ProductionController {
   constructor(private service: ProductionService) {}
 
   @Get()
   @RequireModule("production")
+  @RequirePermissions("inventory:read", "kitchen:read")
   list(@OrgId() orgId: string, @Query("outletId") outletId?: string) {
     return this.service.list(orgId, outletId);
   }
 
   @Get("recipes/:recipeId/scale")
   @RequireModule("production")
+  @RequirePermissions("inventory:read", "kitchen:read")
   scaleRecipe(
     @OrgId() orgId: string,
     @Param("recipeId") recipeId: string,
@@ -33,6 +37,7 @@ export class ProductionController {
 
   @Get(":id")
   @RequireModule("production")
+  @RequirePermissions("inventory:read", "kitchen:read")
   get(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.get(orgId, id);
   }
@@ -55,6 +60,7 @@ export class ProductionController {
 
   @Post(":id/complete")
   @RequireModule("production")
+  @RequirePermissions("inventory:adjust", "kitchen:update")
   complete(
     @OrgId() orgId: string,
     @Param("id") id: string,

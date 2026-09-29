@@ -33,7 +33,7 @@ export class SyncService {
   }
 
   /** Process a single offline sync envelope into domain services. */
-  async processEvent(payload: SyncEventPayload): Promise<SyncResult> {
+  async processEvent(payload: SyncEventPayload, userId?: string): Promise<SyncResult> {
     const key = payload.idempotencyKey?.trim();
     if (!key) {
       return { idempotencyKey: "", status: "failed", error: "Missing idempotency key" };
@@ -47,6 +47,9 @@ export class SyncService {
     const existing = await this.prisma.syncEvent.findUnique({
       where: { idempotencyKey: key },
     });
+    if (existing && existing.organizationId !== orgId) {
+      return { idempotencyKey: key, status: "failed", error: "Idempotency key already used" };
+    }
     if (existing?.status === "synced") {
       return {
         idempotencyKey: key,
@@ -60,7 +63,7 @@ export class SyncService {
     let error: string | undefined;
 
     try {
-      serverId = await this.applyDomainEvent(orgId, eventType, payload);
+      serverId = await this.applyDomainEvent(orgId, eventType, payload, userId);
       await this.prisma.syncEvent.upsert({
         where: { idempotencyKey: key },
         create: {
@@ -98,10 +101,10 @@ export class SyncService {
     }
   }
 
-  async processBatch(events: SyncEventPayload[]): Promise<SyncResult[]> {
+  async processBatch(events: SyncEventPayload[], userId?: string): Promise<SyncResult[]> {
     const results: SyncResult[] = [];
     for (const event of events) {
-      results.push(await this.processEvent(event));
+      results.push(await this.processEvent(event, userId));
     }
     return results;
   }
@@ -110,12 +113,13 @@ export class SyncService {
     orgId: string,
     eventType: string,
     payload: SyncEventPayload,
+    userId?: string,
   ): Promise<string> {
     switch (eventType) {
       case SYNC_EVENT_TYPES.ORDER_CREATE:
-        return this.processOrderCreate(orgId, payload);
+        return this.processOrderCreate(orgId, payload, userId);
       case SYNC_EVENT_TYPES.PAYMENT_CASH:
-        return this.processPaymentCash(orgId, payload);
+        return this.processPaymentCash(orgId, payload, userId);
       default:
         throw new BadRequestException(`Unsupported sync event type: ${eventType}`);
     }
@@ -124,6 +128,7 @@ export class SyncService {
   private async processOrderCreate(
     orgId: string,
     payload: SyncEventPayload,
+    userId?: string,
   ): Promise<string> {
     const data = payload.data as SyncOrderCreateData;
     if (!data?.outletId) {
@@ -133,7 +138,7 @@ export class SyncService {
       throw new BadRequestException("order.create requires at least one item");
     }
 
-    const order = await this.orders.create(orgId, null, {
+    const order = await this.orders.create(orgId, userId ?? null, {
       outletId: data.outletId,
       type: data.type,
       source: data.source ?? "pos",
@@ -155,6 +160,7 @@ export class SyncService {
   private async processPaymentCash(
     orgId: string,
     payload: SyncEventPayload,
+    userId?: string,
   ): Promise<string> {
     const data = payload.data as SyncPaymentCashData;
     if (!data?.orderId) {
@@ -165,6 +171,7 @@ export class SyncService {
       orgId,
       data.orderId,
       data.amount,
+      userId,
     );
 
     return String(result.paymentId ?? result.orderId);

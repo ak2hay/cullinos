@@ -109,22 +109,36 @@ export function PhoneField({
   return (
     <Field label={label} htmlFor={inputId} error={error} className={className}>
       <div className="flex w-full min-w-0 items-stretch gap-2">
-        <select
-          aria-label={`${label} country code`}
-          className={cn(
-            'h-11 w-[6.75rem] max-w-[6.75rem] flex-none shrink-0 rounded-lg border border-white/10 bg-bg-card pl-2 pr-1 text-sm text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
-            error && 'border-status-error',
-          )}
-          value={dial}
-          disabled={disabled}
-          onChange={(e) => emit(e.target.value, national)}
-        >
-          {DIAL_CODES.map((opt) => (
-            <option key={opt.dial} value={opt.dial}>
-              {isoToFlag(opt.iso)} +{opt.dial}
-            </option>
-          ))}
-        </select>
+        <div className="relative w-[7.5rem] max-w-[7.5rem] flex-none shrink-0">
+          <select
+            aria-label={`${label} country code`}
+            className={cn(
+              'h-11 w-full appearance-none overflow-hidden rounded-lg border border-border bg-bg-card pl-2 pr-7 text-sm text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
+              error && 'border-status-error',
+            )}
+            value={dial}
+            disabled={disabled}
+            onChange={(e) => emit(e.target.value, national)}
+          >
+            {DIAL_CODES.map((opt) => (
+              <option key={opt.dial} value={opt.dial}>
+                {isoToFlag(opt.iso)} +{opt.dial}
+              </option>
+            ))}
+          </select>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </div>
         <div className="relative min-w-0 flex-1">
           <svg
             aria-hidden="true"
@@ -148,7 +162,7 @@ export function PhoneField({
             disabled={disabled}
             placeholder={placeholder}
             className={cn(
-              'h-11 w-full min-w-0 rounded-lg border border-white/10 bg-bg-card pl-9 pr-3 text-sm text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
+              'h-11 w-full min-w-0 rounded-lg border border-border bg-bg-card pl-10 pr-3 text-sm text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
               error && 'border-status-error',
             )}
             value={national}

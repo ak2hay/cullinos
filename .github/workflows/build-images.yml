@@ -1,10 +1,11 @@
 # Build and push all Cullinos images to GHCR.
 # Tags: short SHA always; also `staging` on develop, `latest` on main.
+# Called by ci.yml only after every CI job passes on a push to develop/main, so an
+# image tag always corresponds to a commit that passed CI. Deploys use the short SHA.
 name: Build Images
 
 on:
-  push:
-    branches: [develop, main]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -139,6 +140,8 @@ jobs:
             VITE_PLATFORM_URL=${{ steps.urls.outputs.platform_url }}
             VITE_APP_OPS_URL=${{ steps.urls.outputs.app_ops_url }}
             VITE_MARKETING_WEB_URL=${{ steps.urls.outputs.site_url }}
+            VITE_TURNSTILE_SITE_KEY=${{ secrets.VITE_TURNSTILE_SITE_KEY }}
+            ANDROID_ASSETLINKS_SHA256=${{ secrets.ANDROID_ASSETLINKS_SHA256 }}
             NEXT_PUBLIC_API_URL=${{ steps.urls.outputs.api_url }}
             NEXT_PUBLIC_SITE_URL=${{ steps.urls.outputs.site_url }}
             NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}

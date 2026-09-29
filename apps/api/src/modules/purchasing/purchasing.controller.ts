@@ -1,19 +1,23 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
 import { OrgId, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { PurchasingService } from "./purchasing.service";
 
 @Controller("purchasing")
+@RequirePermissions("purchase:create")
 export class PurchasingController {
   constructor(private service: PurchasingService) {}
 
   @Get()
   @RequireModule("inventory")
+  @RequirePermissions("purchase:read")
   list(@OrgId() orgId: string) {
     return this.service.list(orgId);
   }
 
   @Get("suppliers")
   @RequireModule("inventory")
+  @RequirePermissions("purchase:read")
   listSuppliers(@OrgId() orgId: string) {
     return this.service.listSuppliers(orgId);
   }
@@ -45,6 +49,7 @@ export class PurchasingController {
 
   @Get(":id")
   @RequireModule("inventory")
+  @RequirePermissions("purchase:read")
   get(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.get(orgId, id);
   }
@@ -92,6 +97,7 @@ export class PurchasingController {
 
   @Post("grn/:grnId/confirm")
   @RequireModule("inventory")
+  @RequirePermissions("inventory:adjust")
   confirmGrn(@OrgId() orgId: string, @Param("grnId") grnId: string) {
     return this.service.confirmGrn(orgId, grnId);
   }

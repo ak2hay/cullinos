@@ -5,10 +5,12 @@ import {
   Get,
   Headers,
   Post,
+  Req,
   ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
+import type { Request } from "express";
 import { createHash, randomBytes, randomInt } from "crypto";
 import { JwtService } from "@nestjs/jwt";
 import { Public } from "../../common/decorators";
@@ -23,9 +25,14 @@ import {
 } from "../privacy/privacy.constants";
 import { newUnsubscribeToken } from "../privacy/privacy.crypto";
 import {
+  assertPhoneOtpSendAllowed,
+  consumePhoneOtpChallenge,
+  isIndianMobile,
   phoneOtpSmsFailureMessage,
   shouldFailPhoneOtpWhenUnsent,
 } from "./phone-otp-request.util";
+import { assertTurnstile } from "../../common/turnstile.util";
+import { clientIp } from "../../common/client-ip.util";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
 import { sandboxAllowsSmsOtpSkip } from "../../common/sandbox-access.util";
 
@@ -56,13 +63,18 @@ export class CustomerAuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("otp/request")
-  async requestOtp(@Body() body: { phone?: string; orgId?: string; organizationId?: string }) {
+  async requestOtp(
+    @Body() body: { phone?: string; orgId?: string; organizationId?: string; captchaToken?: string },
+    @Req() req: Request,
+  ) {
     const orgId = body.orgId ?? body.organizationId;
     const rawPhone = body.phone?.trim();
     if (!orgId || !rawPhone) {
       throw new BadRequestException("phone and orgId are required");
     }
+    await assertTurnstile(body.captchaToken, clientIp(req));
 
     const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
     if (!org || org.status === "suspended" || org.status === "cancelled") {
@@ -70,9 +82,10 @@ export class CustomerAuthController {
     }
 
     const phone = this.msg91.normalizePhone(rawPhone);
-    if (phone.length < 10) {
-      throw new BadRequestException("Invalid phone number");
+    if (!isIndianMobile(phone)) {
+      throw new BadRequestException("Enter a valid Indian mobile number");
     }
+    await assertPhoneOtpSendAllowed(this.prisma, { phone, organizationId: orgId });
 
     const otp = sandboxAllowsSmsOtpSkip(org) ? "000000" : String(randomInt(100000, 999999));
     const challengeToken = randomBytes(24).toString("hex");
@@ -85,6 +98,7 @@ export class CustomerAuthController {
         organizationId: orgId,
         codeHash: hashCode(otp),
         challengeToken,
+        purpose: "customer_login",
         expiresAt,
       },
     });
@@ -139,30 +153,10 @@ export class CustomerAuthController {
       throw new BadRequestException("challengeToken and code are required");
     }
 
-    const challenge = await this.prisma.phoneOtp.findUnique({
-      where: { challengeToken: token },
-    });
-    if (!challenge || challenge.consumedAt) {
-      throw new UnauthorizedException("Invalid or expired OTP");
-    }
-    if (challenge.expiresAt.getTime() < Date.now()) {
-      throw new UnauthorizedException("OTP expired");
-    }
-    if (challenge.attempts >= 5) {
-      throw new UnauthorizedException("Too many attempts");
-    }
-
-    if (challenge.codeHash !== hashCode(code)) {
-      await this.prisma.phoneOtp.update({
-        where: { id: challenge.id },
-        data: { attempts: { increment: 1 } },
-      });
-      throw new UnauthorizedException("Invalid OTP");
-    }
-
-    await this.prisma.phoneOtp.update({
-      where: { id: challenge.id },
-      data: { consumedAt: new Date() },
+    const challenge = await consumePhoneOtpChallenge(this.prisma, {
+      challengeToken: token,
+      codeHash: hashCode(code),
+      purpose: "customer_login",
     });
 
     return this.issueCustomerSession({
@@ -209,17 +203,8 @@ export class CustomerAuthController {
     }
 
     const verified = await this.msg91.verifyWidgetAccessToken(accessToken);
-    const fallbackRaw = body.identifier ?? body.phone;
-    const fallbackPhone = fallbackRaw
-      ? this.msg91.normalizePhone(String(fallbackRaw))
-      : null;
-
-    let phone = verified.ok && verified.phone ? verified.phone : null;
-    // MSG91 sometimes returns HTTP 200 without embedding the phone; the widget
-    // success callback still includes the verified identifier for that token.
-    if (!phone && verified.ok && fallbackPhone && fallbackPhone.length >= 10) {
-      phone = fallbackPhone;
-    }
+    // Client-supplied identifiers are never trusted: the phone must come from MSG91.
+    const phone = verified.ok && verified.phone ? verified.phone : null;
 
     if (!phone) {
       throw new UnauthorizedException(

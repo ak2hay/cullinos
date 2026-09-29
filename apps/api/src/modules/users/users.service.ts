@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { hashPassword } from "@cullinos/auth";
 import { PrismaService } from "../../prisma/prisma.service";
+import { assertPlanCapacity } from "../../common/plan-limits.util";
 import {
   STAFF_CREATABLE_ROLES,
   type SystemRoleSlug,
@@ -92,6 +93,8 @@ export class UsersService {
     if (existing) {
       throw new ConflictException("A user with this email already exists");
     }
+
+    await assertPlanCapacity(this.prisma, orgId, "users");
 
     const phone = await this.resolveStaffPhone(input.phone);
 
@@ -288,6 +291,9 @@ export class UsersService {
     if (user.userRoles.some((ur) => ur.role.slug === "owner")) {
       throw new ForbiddenException("Cannot change status of the organization owner");
     }
+    if (user.status === "inactive") {
+      await assertPlanCapacity(this.prisma, orgId, "users");
+    }
 
     return this.prisma.user.update({
       where: { id: userId },
@@ -303,6 +309,24 @@ export class UsersService {
     if (!user) throw new NotFoundException("User not found");
     if (user.userRoles.some((ur) => ur.role.slug === "owner")) {
       throw new ForbiddenException("Cannot delete the organization owner");
+    }
+
+    // Cashier shifts are financial records and block a hard delete; deactivate instead.
+    const shiftCount = await this.prisma.cashierShift.count({ where: { userId } });
+    if (shiftCount > 0) {
+      await this.prisma.$transaction([
+        this.prisma.user.update({ where: { id: userId }, data: { status: "inactive" } }),
+        this.prisma.auditLog.create({
+          data: {
+            organizationId: orgId,
+            action: "staff.deactivated",
+            entityType: "user",
+            entityId: user.id,
+            metadata: { email: user.email, name: user.name, reason: "has_cashier_shifts" },
+          },
+        }),
+      ]);
+      return { success: true, id: userId, deactivated: true };
     }
 
     await this.prisma.auditLog.create({

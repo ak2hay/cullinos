@@ -2,6 +2,9 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Turnstile } from '@cullinos/ui';
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:3000/api/v1';
@@ -72,6 +75,10 @@ export default function BookClient() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ reservedAt: string; outletName: string } | null>(null);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaKey, setCaptchaKey] = useState(0);
+  const onCaptchaToken = useCallback((token: string) => setCaptchaToken(token), []);
+  const onCaptchaExpire = useCallback(() => setCaptchaToken(''), []);
 
   useEffect(() => {
     if (!inviteToken) return;
@@ -139,6 +146,10 @@ export default function BookClient() {
       setError('Select a slot');
       return;
     }
+    if (TURNSTILE_SITE_KEY && !captchaToken) {
+      setError('Complete the security check');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -153,11 +164,15 @@ export default function BookClient() {
           customerEmail: email || undefined,
           partySize: Number(partySize) || 1,
           reservedAt: slotStart,
+          captchaToken: captchaToken || undefined,
         },
       );
       setDone({ reservedAt: result.reservedAt, outletName: result.outletName });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Booking failed');
+      // Turnstile tokens are single-use; force a fresh challenge for the retry.
+      setCaptchaToken('');
+      setCaptchaKey((k) => k + 1);
     } finally {
       setLoading(false);
     }
@@ -274,6 +289,14 @@ export default function BookClient() {
             className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm"
           />
         </label>
+        {TURNSTILE_SITE_KEY ? (
+          <Turnstile
+            key={captchaKey}
+            siteKey={TURNSTILE_SITE_KEY}
+            onToken={onCaptchaToken}
+            onExpire={onCaptchaExpire}
+          />
+        ) : null}
         <button
           type="submit"
           disabled={loading}

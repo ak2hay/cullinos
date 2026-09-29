@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
+import { csvRow } from '@cullinos/shared';
 import { Button, Card, PageShell } from '@cullinos/ui';
 import { outletsApi, reportsApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
@@ -27,12 +28,7 @@ function downloadBlob(filename: string, content: string, mime: string) {
 function rowsToCsv(rows: Array<Record<string, unknown>>): string {
   if (rows.length === 0) return '';
   const keys = Object.keys(rows[0]);
-  const escape = (v: unknown) => {
-    if (v == null) return '';
-    const s = String(v);
-    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  return [keys.join(','), ...rows.map((r) => keys.map((k) => escape(r[k])).join(','))].join('\n');
+  return [csvRow(keys), ...rows.map((r) => csvRow(keys.map((k) => r[k])))].join('\n');
 }
 
 // ── Sortable table ─────────────────────────────────────────────────────────

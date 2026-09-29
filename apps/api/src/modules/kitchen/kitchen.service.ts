@@ -2,9 +2,11 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WebsocketGateway } from "../../websocket/websocket.gateway";
+import { RecipesService } from "../recipes/recipes.service";
 
 type UiStatus = "NEW" | "PREPARING" | "READY" | "SERVED" | "CANCELLED";
 
@@ -47,6 +49,8 @@ export class KitchenService {
   constructor(
     private prisma: PrismaService,
     private ws: WebsocketGateway,
+    @Optional()
+    private recipes?: RecipesService,
   ) {}
 
   list(orgId: string) {
@@ -292,8 +296,10 @@ export class KitchenService {
         .filter((s) => s !== "cancelled")
         .map((s) => ranks[s as keyof typeof ranks] ?? 0),
     );
-    let kotStatus: "pending" | "preparing" | "ready" | "served" = "pending";
-    if (active.every((s) => s === "served" || s === "cancelled")) {
+    let kotStatus: "pending" | "preparing" | "ready" | "served" | "cancelled" = "pending";
+    if (active.every((s) => s === "cancelled")) {
+      kotStatus = "cancelled";
+    } else if (active.every((s) => s === "served" || s === "cancelled")) {
       kotStatus = "served";
     } else if (active.every((s) => s === "ready" || s === "served" || s === "cancelled")) {
       kotStatus = "ready";
@@ -317,15 +323,13 @@ export class KitchenService {
       k.items.map((i) => (i.id === itemId ? dbStatus : i.status.toLowerCase())),
     );
     let orderStatus: string | null = null;
-    if (
-      allItemStatuses.length > 0 &&
-      allItemStatuses.every((s) => s === "served" || s === "cancelled")
-    ) {
+    // Cancelled lines don't count as fulfilment; an all-cancelled order needs a staff cancel/void.
+    const liveItemStatuses = allItemStatuses.filter((s) => s !== "cancelled");
+    if (liveItemStatuses.length === 0) {
+      orderStatus = null;
+    } else if (liveItemStatuses.every((s) => s === "served")) {
       orderStatus = "served";
-    } else if (
-      allItemStatuses.length > 0 &&
-      allItemStatuses.every((s) => s === "ready" || s === "served" || s === "cancelled")
-    ) {
+    } else if (liveItemStatuses.every((s) => s === "ready" || s === "served")) {
       orderStatus = "ready";
     } else if (allItemStatuses.some((s) => s === "preparing" || s === "ready" || s === "served")) {
       orderStatus = "preparing";
@@ -352,6 +356,9 @@ export class KitchenService {
         },
         include: { items: true, table: true },
       });
+      if (orderStatus === "served" && this.recipes) {
+        await this.recipes.deductForOrder(orgId, orderId);
+      }
       this.ws.emitToOutlet(outletId, "order.updated", {
         id: updatedOrder.id,
         orderNumber: updatedOrder.orderNumber,

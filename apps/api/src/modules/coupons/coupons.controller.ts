@@ -19,6 +19,7 @@ import { RequirePermissions } from "../../common/decorators/permissions.decorato
 import {
   MARKETING_UPLOAD_MAX_BYTES,
   MarketingUploadService,
+  marketingImageFileFilter,
   uploadMaxBytesFor,
 } from "../marketing/marketing-upload.service";
 import { CouponsService } from "./coupons.service";
@@ -43,6 +44,7 @@ export class CouponsController {
     FileInterceptor("file", {
       storage: memoryStorage(),
       limits: { fileSize: MARKETING_UPLOAD_MAX_BYTES },
+      fileFilter: marketingImageFileFilter,
     }),
   )
   async uploadImage(
@@ -53,8 +55,11 @@ export class CouponsController {
     if (!file?.buffer) throw new BadRequestException("No file uploaded.");
     const result = await this.uploadService.saveUploadedFile(
       file,
-      `coupon-${orgId}-${Date.now()}`,
-      "coupon",
+      {
+        scope: "org",
+        orgId,
+        imageSlot: "coupon",
+      },
       uploadMaxBytesFor(user),
     );
     return { imageUrl: result.url };

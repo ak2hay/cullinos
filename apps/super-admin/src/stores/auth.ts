@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
+import type { PlatformRole } from '@/lib/permissions';
 
 export const SUPER_ADMIN_REMEMBER_KEY = 'cullinos-super-admin-remember';
 
@@ -30,6 +31,9 @@ export interface SuperAdminUser {
   id: string;
   email: string;
   name: string;
+  platformRole?: PlatformRole;
+  platformPermissions?: string[];
+  mustChangePassword?: boolean;
 }
 
 interface AuthState {

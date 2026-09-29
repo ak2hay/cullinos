@@ -94,32 +94,44 @@ export class SuperAdminService implements OnModuleDestroy {
       return result;
     }
 
-    if (!(result.user as { isSuperAdmin?: boolean }).isSuperAdmin) {
-      throw new UnauthorizedException("Invalid credentials");
-    }
-    const name = [result.user.firstName, result.user.lastName].filter(Boolean).join(" ");
-    return {
-      accessToken: result.accessToken,
-      admin: {
-        id: result.user.id,
-        email: result.user.email,
-        name: name || result.user.email,
-      },
-    };
+    return this.toPlatformSession(result);
   }
 
   async verifyOtp(challengeToken: string, otp: string) {
     const result = await this.auth.verifyLoginOtp(challengeToken, otp);
-    if (!(result.user as { isSuperAdmin?: boolean }).isSuperAdmin) {
+    return this.toPlatformSession(result);
+  }
+
+  private toPlatformSession(result: {
+    accessToken: string;
+    refreshToken: string | null;
+    expiresIn: number;
+    user: {
+      id: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      isSuperAdmin?: boolean;
+      mustChangePassword?: boolean;
+      platformRole?: string;
+      platformPermissions?: string[];
+    };
+  }) {
+    if (!result.user.isSuperAdmin) {
       throw new UnauthorizedException("Invalid credentials");
     }
     const name = [result.user.firstName, result.user.lastName].filter(Boolean).join(" ");
     return {
       accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      expiresIn: result.expiresIn,
       admin: {
         id: result.user.id,
         email: result.user.email,
         name: name || result.user.email,
+        mustChangePassword: result.user.mustChangePassword ?? false,
+        platformRole: result.user.platformRole ?? "viewer",
+        platformPermissions: result.user.platformPermissions ?? [],
       },
     };
   }
@@ -129,7 +141,7 @@ export class SuperAdminService implements OnModuleDestroy {
   }
 
   private orgListWhere(filters?: OrgListFilters): Prisma.OrganizationWhereInput {
-    const where: Prisma.OrganizationWhereInput = {};
+    const where: Prisma.OrganizationWhereInput = { deletedAt: null };
     const q = filters?.q?.trim();
     if (q) {
       where.OR = [
@@ -737,11 +749,27 @@ export class SuperAdminService implements OnModuleDestroy {
     return org;
   }
 
-  async deleteOrganization(id: string) {
-    const org = await this.prisma.organization.findUnique({ where: { id } });
+  async deleteOrganization(id: string, actorUserId?: string) {
+    const org = await this.prisma.organization.findFirst({ where: { id, deletedAt: null } });
     if (!org) throw new NotFoundException("Organization not found");
 
-    await this.prisma.organization.delete({ where: { id } });
+    await this.prisma.$transaction([
+      this.prisma.organization.update({
+        where: { id },
+        data: { status: "cancelled", deletedAt: new Date() },
+      }),
+      this.prisma.user.updateMany({ where: { organizationId: id }, data: { status: "inactive" } }),
+      this.prisma.auditLog.create({
+        data: {
+          organizationId: id,
+          userId: actorUserId ?? null,
+          action: "delete",
+          entityType: "organization",
+          entityId: id,
+          metadata: { name: org.name, softDelete: true },
+        },
+      }),
+    ]);
     return { deleted: true, id, name: org.name };
   }
 
@@ -788,6 +816,7 @@ export class SuperAdminService implements OnModuleDestroy {
             create: planFeatures.map((f) => ({
               module: f.module,
               enabled: f.enabled,
+              limits: f.limits ?? undefined,
             })),
           },
         },
@@ -901,8 +930,13 @@ export class SuperAdminService implements OnModuleDestroy {
     return this.saas.collectPayment(orgId);
   }
 
-  async listPlans() {
+  syncPlansToRazorpay() {
+    return this.saas.syncPlansToRazorpay();
+  }
+
+  async listPlans(visibility?: "public" | "private") {
     const plans = await this.prisma.plan.findMany({
+      where: visibility ? { visibility } : undefined,
       orderBy: [{ sortOrder: "asc" }, { priceMonthly: "asc" }],
       select: {
         id: true,
@@ -913,6 +947,8 @@ export class SuperAdminService implements OnModuleDestroy {
         priceYearly: true,
         maxOutlets: true,
         maxTerminals: true,
+        maxUsers: true,
+        visibility: true,
         isActive: true,
         sortOrder: true,
         features: {
@@ -940,6 +976,8 @@ export class SuperAdminService implements OnModuleDestroy {
     priceYearly?: number;
     maxOutlets?: number;
     maxTerminals?: number;
+    maxUsers?: number;
+    visibility?: "public" | "private";
     modules?: string[];
   }) {
     const slug = input.slug.trim().toLowerCase().replace(/\s+/g, "-");
@@ -947,6 +985,7 @@ export class SuperAdminService implements OnModuleDestroy {
     if (existing) throw new BadRequestException(`Plan slug "${slug}" already exists`);
 
     const modules = [...new Set((input.modules ?? []).map((m) => m.trim()).filter(Boolean))];
+    const visibility = input.visibility === "private" ? "private" : "public";
     const plan = await this.prisma.plan.create({
       data: {
         name: input.name.trim(),
@@ -956,6 +995,8 @@ export class SuperAdminService implements OnModuleDestroy {
         priceYearly: input.priceYearly ?? 0,
         maxOutlets: input.maxOutlets ?? 1,
         maxTerminals: input.maxTerminals ?? 2,
+        maxUsers: input.maxUsers ?? 5,
+        visibility,
         isActive: true,
         features:
           modules.length > 0
@@ -977,12 +1018,18 @@ export class SuperAdminService implements OnModuleDestroy {
       priceYearly?: number;
       maxOutlets?: number;
       maxTerminals?: number;
+      maxUsers?: number;
+      visibility?: "public" | "private";
       isActive?: boolean;
       sortOrder?: number;
     },
   ) {
     const plan = await this.prisma.plan.findUnique({ where: { id: planId } });
     if (!plan) throw new NotFoundException("Plan not found");
+
+    const priceMonthlyChanged =
+      input.priceMonthly !== undefined &&
+      Number(input.priceMonthly) !== Number(plan.priceMonthly);
 
     await this.prisma.plan.update({
       where: { id: planId },
@@ -993,8 +1040,11 @@ export class SuperAdminService implements OnModuleDestroy {
         ...(input.priceYearly !== undefined ? { priceYearly: input.priceYearly } : {}),
         ...(input.maxOutlets !== undefined ? { maxOutlets: input.maxOutlets } : {}),
         ...(input.maxTerminals !== undefined ? { maxTerminals: input.maxTerminals } : {}),
+        ...(input.maxUsers !== undefined ? { maxUsers: input.maxUsers } : {}),
+        ...(input.visibility !== undefined ? { visibility: input.visibility } : {}),
         ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
         ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
+        ...(priceMonthlyChanged ? { razorpayPlanIdMonthly: null } : {}),
       },
     });
 
@@ -1214,9 +1264,11 @@ export class SuperAdminService implements OnModuleDestroy {
       failedSyncEvents,
       unreadNotifications,
     ] = await Promise.all([
-      this.prisma.organization.count(),
-      this.prisma.organization.count({ where: { status: { in: ["active", "trial"] } } }),
-      this.prisma.organization.count({ where: { status: "trial" } }),
+      this.prisma.organization.count({ where: { deletedAt: null } }),
+      this.prisma.organization.count({
+        where: { deletedAt: null, status: { in: ["active", "trial"] } },
+      }),
+      this.prisma.organization.count({ where: { deletedAt: null, status: "trial" } }),
       this.prisma.order.count({
         where: {
           createdAt: {

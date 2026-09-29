@@ -5,7 +5,16 @@ import { PrismaService } from "../../prisma/prisma.service";
 export class InsightsService {
   constructor(private prisma: PrismaService) {}
 
-  list(_orgId: string) {
-    return this.prisma.insightsSnapshot.findMany({ take: 200 });
+  async list(orgId: string) {
+    const outlets = await this.prisma.outlet.findMany({
+      where: { organizationId: orgId },
+      select: { id: true },
+    });
+    if (outlets.length === 0) return [];
+    return this.prisma.insightsSnapshot.findMany({
+      where: { outletId: { in: outlets.map((o) => o.id) } },
+      orderBy: { date: "desc" },
+      take: 200,
+    });
   }
 }

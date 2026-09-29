@@ -5,6 +5,10 @@ import { MARKETING_WEB_URL, marketingApi } from '@/lib/marketing-api';
 export function MarketingDashboardPage() {
   const queryClient = useQueryClient();
   const { data: site } = useQuery({ queryKey: ['marketing', 'site'], queryFn: marketingApi.getSite });
+  const { data: inquiryCount } = useQuery({
+    queryKey: ['marketing', 'inquiries-count'],
+    queryFn: marketingApi.countNewInquiries,
+  });
 
   const seedMutation = useMutation({
     mutationFn: marketingApi.seedFromCode,
@@ -26,12 +30,24 @@ export function MarketingDashboardPage() {
       <div>
         <h1 className="text-2xl font-semibold">Marketing CMS</h1>
         <p className="mt-1 text-text-secondary">
-          Manage the public marketing site at cullinos.com — content, images, theme, and blog.
+          Manage the public marketing site at cullinos.com — content, images, theme, blog, and
+          contact inquiries.
         </p>
       </div>
 
+      {(inquiryCount?.count ?? 0) > 0 ? (
+        <Link
+          to="/marketing/inquiries"
+          className="block rounded-xl border border-brand-primary/40 bg-brand-primary/10 px-5 py-4"
+        >
+          <p className="font-medium">{inquiryCount!.count} new website inquir{inquiryCount!.count === 1 ? 'y' : 'ies'}</p>
+          <p className="mt-1 text-sm text-text-secondary">Open the inquiries inbox</p>
+        </Link>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
+          { to: '/marketing/inquiries', label: 'Inquiries', desc: 'Leads from the contact form' },
           { to: '/marketing/media', label: 'Media library', desc: 'Upload and replace hero & mockup images' },
           { to: '/marketing/hero', label: 'Hero carousel', desc: 'Edit home page slide copy and images' },
           { to: '/marketing/pages', label: 'Pages & blocks', desc: 'Structured sections and copy blocks' },
@@ -39,7 +55,7 @@ export function MarketingDashboardPage() {
           { to: '/marketing/pricing', label: 'Pricing cards', desc: 'Marketing pricing display' },
           { to: '/marketing/testimonials', label: 'Testimonials', desc: 'Customer quotes and social proof' },
           { to: '/marketing/navigation', label: 'Navigation', desc: 'Header nav links' },
-          { to: '/marketing/blog', label: 'Blog', desc: 'Posts and cover images' },
+          { to: '/marketing/blog', label: 'Blog', desc: 'Create, edit, publish, delete posts' },
           { to: '/marketing/design-lab', label: 'Design lab', desc: 'Presets, prompts, and suggestions' },
         ].map((item) => (
           <Link

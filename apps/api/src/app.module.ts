@@ -1,6 +1,9 @@
 import { Module, NestModule, MiddlewareConsumer } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { ThrottlerStorageRedisService } from "@nest-lab/throttler-storage-redis";
+import { RedisModule } from "./common/redis/redis.module";
+import { RedisService } from "./common/redis/redis.service";
 import { SecurityHeadersMiddleware } from "./common/security-headers.middleware";
 import { PortalContextMiddleware } from "./common/portal-context";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -49,6 +52,7 @@ import { WebsocketModule } from "./websocket/websocket.module";
 import { InternalModule } from "./modules/internal/internal.module";
 import { MarketingModule } from "./modules/marketing/marketing.module";
 import { EventsModule } from "./modules/events/events.module";
+import { HappyHoursModule } from "./modules/happy-hours/happy-hours.module";
 import { ProductionModule } from "./modules/production/production.module";
 import { CentralKitchenModule } from "./modules/central-kitchen/central-kitchen.module";
 import { StorageModule } from "./modules/storage/storage.module";
@@ -66,12 +70,14 @@ import { GeoController } from "./modules/geo/geo.controller";
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60_000,
-        limit: 120,
-      },
-    ]),
+    RedisModule,
+    ThrottlerModule.forRootAsync({
+      inject: [RedisService],
+      useFactory: (redis: RedisService) => ({
+        throttlers: [{ ttl: 60_000, limit: 120 }],
+        storage: redis.client ? new ThrottlerStorageRedisService(redis.client) : undefined,
+      }),
+    }),
     PrismaModule,
     PlatformConfigModule,
     StorageModule,
@@ -119,6 +125,7 @@ import { GeoController } from "./modules/geo/geo.controller";
     InternalModule,
     MarketingModule,
     EventsModule,
+    HappyHoursModule,
     ProductionModule,
     CentralKitchenModule,
     PromoModule,

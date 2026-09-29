@@ -135,7 +135,7 @@ export function BanquetsPage() {
                   <tr key={p.id} className="border-b border-white/5 last:border-0">
                     <td className="px-4 py-3 font-medium">{p.name}</td>
                     <td className="px-4 py-3">{p.capacity}</td>
-                    <td className="px-4 py-3 font-mono">{formatMoney(Number(p.baseRate))}</td>
+                    <td className="px-4 py-3 font-mono">{formatMoney(Math.round(Number(p.baseRate) * 100))}</td>
                     <td className="px-4 py-3">{p._count?.bookings ?? 0}</td>
                   </tr>
                 ))
@@ -215,7 +215,7 @@ export function BanquetsPage() {
                     {formatDate(b.eventDate)} · {b.guestCount} guests · {b.status}
                   </p>
                 </div>
-                <span className="font-mono">{formatMoney(Number(b.total))}</span>
+                <span className="font-mono">{formatMoney(Math.round(Number(b.total) * 100))}</span>
               </div>
             ))
           )}

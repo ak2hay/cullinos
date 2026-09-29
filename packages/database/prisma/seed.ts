@@ -104,7 +104,10 @@ async function main() {
   }
 
   // Seed super admin
-  const superAdminPassword = await bcrypt.hash('Missyou@1', 12);
+  const superAdminPassword = await bcrypt.hash(
+    process.env.SEED_SUPER_ADMIN_PASSWORD || require('node:crypto').randomBytes(24).toString('base64url'),
+    12,
+  );
   await prisma.superAdmin.upsert({
     where: { email: 'akshrkd@gmail.com' },
     update: {},

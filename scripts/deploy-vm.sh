@@ -59,7 +59,8 @@ for i in $(seq 1 60); do
 done
 
 echo "==> Running database migrations..."
-docker compose -f docker-compose.prod.yml exec -T api sh -c "npm run db:push" || true
+# Fails (exit 3) on a legacy db-push database; baseline it first (docs/DEPLOYMENT.md).
+docker compose -f docker-compose.prod.yml exec -T api node packages/prisma/scripts/migrate-deploy.mjs
 
 echo "==> Installing nginx site config..."
 mkdir -p /var/www/certbot

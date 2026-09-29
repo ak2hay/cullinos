@@ -1,7 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CartSidebar, type PosCustomer } from '@/components/pos/CartSidebar';
+import { getPosOrderTypes, isBusinessType } from '@cullinos/shared';
+import {
+  ItemOptionsDialog,
+  itemNeedsOptions,
+  type ItemOptionsItem,
+  type ItemOptionsSelection,
+} from '@cullinos/ui';
+import { CartSidebar, type PosCustomer, type PosOrderType } from '@/components/pos/CartSidebar';
 import { CategoryTabs } from '@/components/pos/CategoryTabs';
 import { HeldOrdersPanel } from '@/components/pos/HeldOrdersPanel';
 import { ItemGrid } from '@/components/pos/ItemGrid';
@@ -11,9 +18,11 @@ import {
   CULLINOS_BRAND,
   customersApi,
   feedbackApi,
+  isRouteMissing,
   loyaltyApi,
   menuApi,
   ordersApi,
+  orgProfileApi,
   outletsApi,
   paymentsApi,
   posApi,
@@ -23,10 +32,16 @@ import { openRazorpayCheckout } from '@/lib/razorpay-checkout';
 import { openCashfreeCheckout } from '@/lib/cashfree-checkout';
 import { formatMoney, generateIdempotencyKey } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
-import { useCartStore } from '@/stores/cart';
+import { toOrderItems, useCartStore } from '@/stores/cart';
 import { useHeldOrdersStore, type HeldOrder } from '@/stores/heldOrders';
 
 const RECENT_KEY = 'cullinos.pos.recentItemIds';
+
+const COUNTER_ORDER_LABELS: Record<PosOrderType, string> = {
+  takeaway: 'Pickup',
+  dine_in: 'Eat in',
+  delivery: 'Delivery',
+};
 
 function loadRecentIds(): string[] {
   try {
@@ -71,7 +86,9 @@ export function PosPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [linkedCustomer, setLinkedCustomer] = useState<PosCustomer | null>(null);
-  const [orderType, setOrderType] = useState<'takeaway' | 'dine_in'>('takeaway');
+  const [orderType, setOrderType] = useState<PosOrderType>('takeaway');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryPincode, setDeliveryPincode] = useState('');
   const [tipAmount, setTipAmount] = useState(0);
   const [redeemPoints, setRedeemPoints] = useState(0);
   const [couponCode, setCouponCode] = useState('');
@@ -85,8 +102,14 @@ export function PosPage() {
   const [recentIds, setRecentIds] = useState<string[]>(() => loadRecentIds());
   const [mobileView, setMobileView] = useState<'menu' | 'cart'>('menu');
   const redeemAppliedOrderId = useRef<string | null>(null);
+  const idempotencyKeyRef = useRef<string | null>(null);
+  const [optionsItem, setOptionsItem] = useState<ItemOptionsItem | null>(null);
   const prevLineCount = useRef(lines.length);
   const cartItemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
+
+  useEffect(() => {
+    idempotencyKeyRef.current = null;
+  }, [lines]);
 
   useEffect(() => {
     if (prevLineCount.current > 0 && lines.length === 0 && !unpaidOrder) {
@@ -103,6 +126,29 @@ export function PosPage() {
   const selectedOutlet = outletsQuery.data?.find((o) => o.id === outletId);
   const counterMode =
     selectedOutlet?.operatingMode === 'counter' || selectedOutlet?.operatingMode === 'hybrid';
+
+  const orgQuery = useQuery({
+    queryKey: ['organizations', 'current'],
+    queryFn: orgProfileApi.current,
+    staleTime: 5 * 60_000,
+  });
+  const orgSettingsQuery = useQuery({
+    queryKey: ['organizations', 'settings'],
+    queryFn: orgProfileApi.settings,
+    staleTime: 5 * 60_000,
+  });
+  const orgBusinessType = isBusinessType(orgQuery.data?.businessType)
+    ? orgQuery.data.businessType
+    : null;
+  const orderTypeOptions = useMemo(
+    () => getPosOrderTypes(orgBusinessType, orgSettingsQuery.data?.settings),
+    [orgBusinessType, orgSettingsQuery.data?.settings],
+  );
+  useEffect(() => {
+    if (orderTypeOptions.length && !orderTypeOptions.includes(orderType)) {
+      setOrderType(orderTypeOptions[0]);
+    }
+  }, [orderTypeOptions, orderType]);
 
   const menuQuery = useQuery({
     queryKey: ['menu', outletId],
@@ -213,7 +259,7 @@ export function PosPage() {
 
   const quantities = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const line of lines) map[line.menuItemId] = line.quantity;
+    for (const line of lines) map[line.menuItemId] = (map[line.menuItemId] ?? 0) + line.quantity;
     return map;
   }, [lines]);
 
@@ -237,8 +283,10 @@ export function PosPage() {
 
   const createOrder = useCallback(async () => {
     if (!outletId || lines.length === 0) throw new Error('Cart is empty');
-    const items = lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity }));
-    const key = generateIdempotencyKey();
+    const items = toOrderItems(lines);
+    // One key per cart so a retried checkout returns the same order instead of a duplicate.
+    idempotencyKeyRef.current ??= generateIdempotencyKey();
+    const key = idempotencyKeyRef.current;
     const payload = {
       outletId,
       items,
@@ -247,19 +295,39 @@ export function PosPage() {
       customerId: linkedCustomer?.id,
       customerName: customerName || linkedCustomer?.name || undefined,
       tipAmount: tipAmount || undefined,
-      notes: counterMode
-        ? `Counter order · ${orderType === 'takeaway' ? 'Pickup' : 'Eat in'}`
-        : undefined,
+      notes: counterMode ? `Counter order · ${COUNTER_ORDER_LABELS[orderType]}` : undefined,
+      ...(counterMode && orderType === 'delivery'
+        ? {
+            deliveryAddress: deliveryAddress.trim() || undefined,
+            deliveryPincode: deliveryPincode.trim() || undefined,
+          }
+        : {}),
     };
+    if (counterMode && orderType === 'delivery' && !deliveryAddress.trim()) {
+      throw new Error('Enter a delivery address');
+    }
     try {
       return await posApi.quickOrder(payload, key);
-    } catch {
+    } catch (err) {
+      // A delivery order must not silently fall back to a plain takeaway ticket.
+      if (counterMode && orderType === 'delivery') throw err;
+      if (!isRouteMissing(err)) throw err;
       return ordersApi.create(
         { outletId, source: 'POS', items, customerId: linkedCustomer?.id },
         key,
       );
     }
-  }, [outletId, lines, counterMode, orderType, customerName, tipAmount, linkedCustomer]);
+  }, [
+    outletId,
+    lines,
+    counterMode,
+    orderType,
+    customerName,
+    tipAmount,
+    linkedCustomer,
+    deliveryAddress,
+    deliveryPincode,
+  ]);
 
   const resetCustomer = useCallback(() => {
     setCustomerName('');
@@ -267,6 +335,8 @@ export function PosPage() {
     setLinkedCustomer(null);
     setTipAmount(0);
     setRedeemPoints(0);
+    setDeliveryAddress('');
+    setDeliveryPincode('');
   }, []);
 
   const finishPaid = useCallback(
@@ -277,6 +347,7 @@ export function PosPage() {
         customerName?: string | null;
         notes?: string | null;
         subtotal?: number;
+        taxTotal?: number;
         totalAmount?: number;
         items?: Array<{
           name: string;
@@ -286,32 +357,46 @@ export function PosPage() {
         }>;
       },
       method: string,
+      opts: { fromCart: boolean },
     ) => {
-      clearCart();
-      resetCustomer();
+      if (opts.fromCart) {
+        clearCart();
+        resetCustomer();
+        idempotencyKeyRef.current = null;
+      }
       setUnpaidOrder(null);
       setSplitSelectIds([]);
       setPartialCashAmount(undefined);
+      setCouponCode('');
+      setManualDiscount(0);
       redeemAppliedOrderId.current = null;
       setStatusMessage(`Order #${order.orderNumber} paid · ${method}`);
       queryClient.invalidateQueries({ queryKey: ['menu'] });
       queryClient.invalidateQueries({ queryKey: ['pos', 'shift', outletId] });
       if (order.id) setEbillOrderId(order.id);
 
-      const printable: PrintableOrder = {
-        orderNumber: order.orderNumber,
-        customerName: order.customerName,
-        notes: order.notes,
-        subtotal: order.subtotal ?? 0,
-        total: order.totalAmount ?? 0,
-        items: (order.items ?? []).map((item) => ({
-          name: item.name,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          notes: item.notes,
-        })),
-      };
+      // API amounts are paise; the print template renders rupees.
+      const toRupees = (paise: number) => paise / 100;
       void (async () => {
+        // The create response predates discounts, redemptions and payments; print the settled bill.
+        const latest = order.id ? await ordersApi.get(order.id).catch(() => null) : null;
+        const bill = latest ?? order;
+        const printable: PrintableOrder = {
+          orderNumber: bill.orderNumber,
+          customerName: bill.customerName,
+          notes: bill.notes,
+          subtotal: toRupees(bill.subtotal ?? 0),
+          taxTotal: toRupees(latest?.taxTotal ?? order.taxTotal ?? 0),
+          discountTotal: toRupees(latest?.discountTotal ?? 0),
+          tipAmount: toRupees(latest?.tipAmount ?? 0),
+          total: toRupees(bill.totalAmount ?? 0),
+          items: (bill.items ?? []).map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            unitPrice: toRupees(item.unitPrice),
+            notes: item.notes,
+          })),
+        };
         if (order.id) {
           try {
             const survey = await feedbackApi.surveyLink(order.id);
@@ -320,8 +405,14 @@ export function PosPage() {
             /* optional */
           }
         }
-        await printReceipt('kot', printable).catch(() => undefined);
-        await printReceipt('receipt', printable).catch(() => undefined);
+        if (opts.fromCart) {
+          await printReceipt('kot', printable, { outletId: outletId ?? undefined }).catch(
+            () => undefined,
+          );
+        }
+        await printReceipt('receipt', printable, { outletId: outletId ?? undefined }).catch(
+          () => undefined,
+        );
       })();
     },
     [clearCart, outletId, queryClient, resetCustomer],
@@ -382,12 +473,17 @@ export function PosPage() {
         }
       }
 
+      const fromCart = !input.orderId;
+
       if (couponCode.trim() || manualDiscount > 0) {
         await ordersApi.applyDiscount(order.id, {
           couponCode: couponCode.trim() || undefined,
           discountAmount: manualDiscount > 0 ? manualDiscount : undefined,
           reason: manualDiscount > 0 ? 'POS manual discount' : undefined,
         });
+        // Applied server-side; a retry must not stack the same discount again.
+        setCouponCode('');
+        setManualDiscount(0);
       }
 
       if (input.tender === 'cash') {
@@ -399,12 +495,12 @@ export function PosPage() {
           setUnpaidOrder({ id: order.id, orderNumber: order.orderNumber });
           setPartialCashAmount(undefined);
           setStatusMessage(`Partial cash recorded. Remaining ₹${cashResult.remaining}`);
-          clearCart();
+          if (fromCart) clearCart();
           queryClient.invalidateQueries({ queryKey: ['pos', 'balance', order.id] });
           queryClient.invalidateQueries({ queryKey: ['pos', 'shift', outletId] });
-          return { order, method: 'Cash (partial)', partial: true as const };
+          return { order, method: 'Cash (partial)', partial: true as const, fromCart };
         }
-        return { order, method: 'Cash', partial: false as const };
+        return { order, method: 'Cash', partial: false as const, fromCart };
       }
 
       const bal = await paymentsApi.getBalance(order.id);
@@ -453,22 +549,22 @@ export function PosPage() {
           setUnpaidOrder({ id: order.id, orderNumber: order.orderNumber });
           setPartialCashAmount(undefined);
           setStatusMessage(`Partial UPI recorded. Remaining ₹${after.remaining}`);
-          clearCart();
-          return { order, method: 'UPI (partial)', partial: true as const };
+          if (fromCart) clearCart();
+          return { order, method: 'UPI (partial)', partial: true as const, fromCart };
         }
-        return { order, method: 'UPI / card', partial: false as const };
+        return { order, method: 'UPI / card', partial: false as const, fromCart };
       } catch (err) {
         setUnpaidOrder({ id: order.id, orderNumber: order.orderNumber });
-        if (!input.orderId) {
+        if (fromCart) {
           clearCart();
           resetCustomer();
         }
         throw err;
       }
     },
-    onSuccess: ({ order, method, partial }) => {
+    onSuccess: ({ order, method, partial, fromCart }) => {
       if (partial) return;
-      finishPaid(order, method);
+      finishPaid(order, method, { fromCart });
     },
     onError: (err) => {
       setStatusMessage(err instanceof Error ? err.message : 'Checkout failed');
@@ -478,13 +574,14 @@ export function PosPage() {
   const holdMutation = useMutation({
     mutationFn: async () => {
       if (!outletId || lines.length === 0) throw new Error('Cart is empty');
-      const items = lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity }));
+      const items = toOrderItems(lines);
       const key = generateIdempotencyKey();
       let order;
       try {
         order = await posApi.quickOrder({ outletId, items, autoConfirm: false }, key);
         order = await posApi.holdOrder(order.id);
-      } catch {
+      } catch (err) {
+        if (!isRouteMissing(err)) throw err;
         order = await ordersApi.create({ outletId, source: 'POS', items }, key);
         order = await ordersApi.hold(order.id);
       }
@@ -575,17 +672,25 @@ export function PosPage() {
 
   const resumeHeld = useCallback(
     async (held: HeldOrder) => {
+      // The held order already exists server-side; paying it must not create a second order.
+      if (lines.length > 0 || unpaidOrder) {
+        setStatusMessage('Finish or hold the current bill before resuming another');
+        return;
+      }
       try {
-        await posApi.resumeOrder(held.id).catch(() => ordersApi.resume(held.id));
-        useCartStore.setState({ lines: held.lines });
+        await posApi
+          .resumeOrder(held.id)
+          .catch((err) => (isRouteMissing(err) ? ordersApi.resume(held.id) : Promise.reject(err)));
         removeHeld(held.id);
+        setUnpaidOrder({ id: held.id, orderNumber: held.orderNumber });
         setHeldPanelOpen(false);
-        setStatusMessage(`Resumed ${held.orderNumber}`);
+        setMobileView('cart');
+        setStatusMessage(`Resumed ${held.orderNumber} — take payment`);
       } catch (err) {
         setStatusMessage(err instanceof Error ? err.message : 'Resume failed');
       }
     },
-    [removeHeld],
+    [lines.length, removeHeld, unpaidOrder],
   );
 
   const handleCash = useCallback(() => {
@@ -662,9 +767,27 @@ export function PosPage() {
   }
 
   function handleAddItem(item: { id: string; name: string; price: number }) {
+    const full = menuQuery.data?.items.find((i) => i.id === item.id);
+    if (full && itemNeedsOptions(full)) {
+      setOptionsItem(full);
+      return;
+    }
     addItem(item);
     setRecentIds(pushRecentId(item.id));
     setStatusMessage(`Added ${item.name}`);
+  }
+
+  function handleOptionsConfirm(selection: ItemOptionsSelection) {
+    addItem({
+      id: selection.menuItemId,
+      name: selection.name,
+      price: selection.unitPrice,
+      variantId: selection.variantId,
+      modifiers: selection.modifiers,
+    });
+    setOptionsItem(null);
+    setRecentIds(pushRecentId(selection.menuItemId));
+    setStatusMessage(`Added ${selection.name}`);
   }
 
   const emptyMenu = !menuQuery.isLoading && (menuQuery.data?.items?.length ?? 0) === 0;
@@ -938,6 +1061,11 @@ export function PosPage() {
             }}
             orderType={orderType}
             onOrderTypeChange={setOrderType}
+            orderTypeOptions={orderTypeOptions}
+            deliveryAddress={deliveryAddress}
+            onDeliveryAddressChange={setDeliveryAddress}
+            deliveryPincode={deliveryPincode}
+            onDeliveryPincodeChange={setDeliveryPincode}
             tipAmount={tipAmount}
             onTipChange={setTipAmount}
             couponCode={couponCode}
@@ -962,6 +1090,12 @@ export function PosPage() {
           />
         </div>
       </div>
+      <ItemOptionsDialog
+        item={optionsItem}
+        onClose={() => setOptionsItem(null)}
+        onConfirm={handleOptionsConfirm}
+        formatMoney={formatMoney}
+      />
     </div>
   );
 }

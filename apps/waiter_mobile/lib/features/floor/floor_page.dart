@@ -9,6 +9,7 @@ import 'package:cullinos_waiter/core/waiter_spacing.dart';
 import 'package:cullinos_waiter/data/waiter_api.dart';
 import 'package:cullinos_waiter/features/auth/auth_controller.dart';
 import 'package:cullinos_waiter/features/floor/selected_table.dart';
+import 'package:cullinos_waiter/features/floor/table_action_mode.dart';
 import 'package:cullinos_waiter/features/order/table_detail_page.dart';
 import 'package:cullinos_waiter/features/orders/orders_hub_page.dart';
 import 'package:cullinos_waiter/l10n/app_localizations.dart';
@@ -148,6 +149,144 @@ class _FloorPageState extends ConsumerState<FloorPage> {
     }
   }
 
+  Future<void> _onTileTap(Map<String, dynamic> t, {required bool wide}) async {
+    final action = ref.read(tableActionProvider);
+    final id = t['id']?.toString() ?? '';
+    final name = t['name']?.toString() ?? '';
+    if (!action.active) {
+      final primaryId = t['mergedIntoTableId']?.toString();
+      _openTable(isMergedTable(t) ? primaryId! : id, wide: wide);
+      return;
+    }
+    if (id == action.firstId) {
+      action.start(action.mode!);
+      return;
+    }
+    if (!action.isEligible(t)) return;
+    if (action.firstId == null) {
+      action.pickFirst(id, name);
+      return;
+    }
+    await _confirmAndRun(action, id, name, wide: wide);
+  }
+
+  Future<void> _confirmAndRun(
+    TableActionController action,
+    String secondId,
+    String secondName, {
+    required bool wide,
+  }) async {
+    final l10n = AppLocalizations.of(context);
+    final merge = action.mode == TableAction.merge;
+    final firstId = action.firstId!;
+    final firstName = action.firstName ?? '';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(merge ? l10n.mergeTables : l10n.transferTable),
+        content: Text(
+          merge
+              ? l10n.confirmMerge(secondName, firstName)
+              : l10n.confirmTransfer(firstName, secondName),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.confirm),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final outletId = ref.read(authControllerProvider).selectedOutletId;
+    if (outletId == null) return;
+    try {
+      final api = ref.read(waiterApiProvider);
+      if (merge) {
+        await api.mergeTables(
+          outletId,
+          primaryTableId: firstId,
+          otherTableIds: [secondId],
+        );
+      } else {
+        await api.transferTable(
+          outletId,
+          fromTableId: firstId,
+          toTableId: secondId,
+        );
+      }
+      action.completed();
+      ref.invalidate(tablesProvider);
+      if (wide) ref.read(selectedTableProvider).select(merge ? firstId : secondId);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyDioError(e))),
+      );
+    }
+  }
+
+  Widget _actionBar(AppLocalizations l10n, TableActionController action) {
+    if (!action.active) {
+      return Row(
+        children: [
+          Expanded(
+            child: FilledButton.tonalIcon(
+              onPressed: () => action.start(TableAction.merge),
+              icon: const Icon(Icons.call_merge_rounded),
+              label: Text(l10n.mergeTables),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: FilledButton.tonalIcon(
+              onPressed: () => action.start(TableAction.transfer),
+              icon: const Icon(Icons.swap_horiz_rounded),
+              label: Text(l10n.transferTable),
+            ),
+          ),
+        ],
+      );
+    }
+    final merge = action.mode == TableAction.merge;
+    final first = action.firstName ?? '';
+    final step = merge
+        ? (action.firstId == null
+            ? l10n.mergeStepPrimary
+            : l10n.mergeStepSecondary(first))
+        : (action.firstId == null
+            ? l10n.transferStepSource
+            : l10n.transferStepTarget(first));
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+      decoration: BoxDecoration(
+        color: WaiterColors.amber.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: WaiterColors.amber),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            merge ? Icons.call_merge_rounded : Icons.swap_horiz_rounded,
+            color: WaiterColors.ink,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              step,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          TextButton(onPressed: action.cancel, child: Text(l10n.cancel)),
+        ],
+      ),
+    );
+  }
+
   String? _floorIdOf(Map<String, dynamic> t) {
     final section = t['section'];
     if (section is! Map) return null;
@@ -187,6 +326,7 @@ class _FloorPageState extends ConsumerState<FloorPage> {
     final callsAsync = ref.watch(callsProvider);
     final outletsAsync = ref.watch(outletsProvider);
     final selectedId = ref.watch(selectedTableProvider).tableId;
+    final action = ref.watch(tableActionProvider);
     final wide = MediaQuery.sizeOf(context).width >= 900;
 
     final callMap = <String, Map<String, dynamic>>{};
@@ -268,9 +408,27 @@ class _FloorPageState extends ConsumerState<FloorPage> {
                             ? (t['section'] as Map)['name']?.toString()
                             : null;
                         final floorName = _floorNameOf(t);
-                        final selected = wide && selectedId == id;
-                        return WaiterSoftCard(
-                          onTap: () => _openTable(id, wide: wide),
+                        final isMerged = isMergedTable(t);
+                        final mergedNames = (t['mergedTableNames'] as List?)
+                                ?.map((e) => e.toString())
+                                .toList() ??
+                            const <String>[];
+                        final isPicked = action.active && action.firstId == id;
+                        final eligible = action.isEligible(t);
+                        final dimmed = action.active && !isPicked && !eligible;
+                        final invite =
+                            action.active && action.firstId != null && eligible;
+                        final selected =
+                            (wide && selectedId == id && !action.active) || invite;
+                        final badgeColor = isMerged ? WaiterColors.merged : color;
+                        final badgeText = isMerged
+                            ? l10n.mergedWith(
+                                t['mergedIntoTableName']?.toString() ?? '')
+                            : _statusLabel(l10n, status);
+                        return Opacity(
+                          opacity: isPicked ? 0.35 : (dimmed ? 0.4 : 1),
+                          child: WaiterSoftCard(
+                          onTap: () => _onTileTap(t, wide: wide),
                           child: DecoratedBox(
                             decoration: selected
                                 ? BoxDecoration(
@@ -297,25 +455,64 @@ class _FloorPageState extends ConsumerState<FloorPage> {
                                           ),
                                         ),
                                       ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: color.withValues(alpha: 0.12),
-                                          borderRadius:
-                                              BorderRadius.circular(999),
-                                        ),
-                                        child: Text(
-                                          _statusLabel(l10n, status),
-                                          style: TextStyle(
-                                            color: color,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
+                                      Flexible(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: badgeColor.withValues(
+                                                alpha: 0.12),
+                                            borderRadius:
+                                                BorderRadius.circular(999),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (isMerged) ...[
+                                                Icon(Icons.link_rounded,
+                                                    size: 12, color: badgeColor),
+                                                const SizedBox(width: 3),
+                                              ],
+                                              Flexible(
+                                                child: Text(
+                                                  badgeText,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    color: badgeColor,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ),
                                     ],
                                   ),
+                                  if (mergedNames.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.link_rounded,
+                                              size: 14,
+                                              color: WaiterColors.merged),
+                                          const SizedBox(width: 3),
+                                          Expanded(
+                                            child: Text(
+                                              '+ ${mergedNames.join(', ')}',
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: WaiterColors.merged,
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   if (floorName != null || section != null) ...[
                                     const SizedBox(height: 4),
                                     Text(
@@ -328,7 +525,26 @@ class _FloorPageState extends ConsumerState<FloorPage> {
                                     ),
                                   ],
                                   const Spacer(),
-                                  if (call != null)
+                                  if (isPicked)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: WaiterColors.primary,
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
+                                      child: Text(
+                                        action.mode == TableAction.merge
+                                            ? l10n.primaryTag
+                                            : l10n.fromTag,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    )
+                                  else if (call != null)
                                     Text(
                                       '${l10n.callingWaiter} · ${call['type'] ?? 'waiter'}',
                                       style: const TextStyle(
@@ -340,6 +556,7 @@ class _FloorPageState extends ConsumerState<FloorPage> {
                                 ],
                               ),
                             ),
+                          ),
                           ),
                         );
                       },
@@ -443,6 +660,10 @@ class _FloorPageState extends ConsumerState<FloorPage> {
             ],
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: _actionBar(l10n, action),
+        ),
         Expanded(child: grid),
       ],
     );
@@ -492,6 +713,7 @@ class _FloorPageState extends ConsumerState<FloorPage> {
                     onChanged: (id) async {
                       await ref.read(authControllerProvider).setOutlet(id);
                       ref.read(selectedTableProvider).clear();
+                      ref.read(tableActionProvider).cancel();
                       setState(() => _floorFilter = 'all');
                       ref.invalidate(tablesProvider);
                       ref.invalidate(callsProvider);
@@ -528,7 +750,7 @@ class _FloorPageState extends ConsumerState<FloorPage> {
                           ),
                         )
                       : TableDetailPage(
-                          key: ValueKey(selectedId),
+                          key: ValueKey('$selectedId-${action.revision}'),
                           tableId: selectedId,
                           embedded: true,
                         ),

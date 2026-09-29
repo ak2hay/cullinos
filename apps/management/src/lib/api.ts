@@ -1,7 +1,9 @@
 import {
   CULLINOS_BRAND,
+  createSessionRefresher,
   mapStaffLoginResponse,
   resolveViteApiBase,
+  revokeSessionCookie,
   type ApiStaffLoginResponse,
   type StaffAuthResponse,
 } from '@cullinos/shared';
@@ -14,6 +16,21 @@ export const PORTAL_ID = 'management';
 const API_BASE = resolveViteApiBase({
   viteApiUrl: import.meta.env.VITE_API_URL,
   isProd: import.meta.env.PROD,
+});
+
+const refreshSession = createSessionRefresher({
+  apiBase: API_BASE,
+  portalId: PORTAL_ID,
+  onRefreshed: (raw) => {
+    const mapped = mapStaffLoginResponse(raw);
+    useAuthStore.getState().setAuth({ ...mapped, refreshToken: '' });
+  },
+});
+
+useAuthStore.subscribe((state, prev) => {
+  if (prev.accessToken && !state.accessToken) {
+    revokeSessionCookie({ apiBase: API_BASE, portalId: PORTAL_ID });
+  }
 });
 
 export class ApiRequestError extends Error {
@@ -44,6 +61,7 @@ export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
   authenticated = true,
+  retried = false,
 ): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
@@ -59,10 +77,17 @@ export async function apiRequest<T>(
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
+    credentials: 'include',
   });
 
   if (!response.ok) {
     const err = await parseError(response);
+    if (err.status === 401 && authenticated && useAuthStore.getState().accessToken) {
+      if (!retried && (await refreshSession())) {
+        return apiRequest<T>(path, options, authenticated, true);
+      }
+      useAuthStore.getState().logout();
+    }
     if (err.status === 503 && err.code === 'PORTAL_DISABLED') {
       usePortalStore.getState().setDisabled(err.message);
       useAuthStore.getState().logout();

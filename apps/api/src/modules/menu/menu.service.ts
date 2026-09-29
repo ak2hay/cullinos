@@ -3,10 +3,18 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { isAlcoholProductType, orgServesAlcohol } from "@cullinos/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { toPaise, toRupees } from "../../common/money.util";
 import { normalizePublicAssetUrl } from "../../common/public-asset-url.util";
+import { normalizeStationCode } from "../../common/kitchen-stations.util";
+import { pickDefined } from "../../common/pick.util";
+import {
+  bestHappyHourPrice,
+  loadActiveHappyHourRules,
+} from "../../common/happy-hour.util";
 import { MarketingUploadService } from "../marketing/marketing-upload.service";
+import { normalizeProductType } from "./product-types";
 
 const MAX_SPECIALS_PER_ORG = 5;
 
@@ -16,6 +24,7 @@ type VariantInput = {
   sku?: string;
   isDefault?: boolean;
   sortOrder?: number;
+  stockMultiplier?: number;
 };
 
 type ModifierInput = {
@@ -81,6 +90,7 @@ function mapItemDetail(item: {
     variants: item.variants.map((v) => ({
       ...v,
       price: toPaise(Number(v.price)),
+      stockMultiplier: v.stockMultiplier == null ? 1 : Number(v.stockMultiplier),
     })),
     modifierGroups: item.modifierGroups.map((mg) => ({
       id: mg.modifierGroup.id,
@@ -121,8 +131,22 @@ export class MenuService {
 
   async createCategory(
     orgId: string,
-    data: { name: string; description?: string; sortOrder?: number },
+    data: {
+      name: string;
+      description?: string;
+      sortOrder?: number;
+      kitchenStationCode?: string | null;
+      parentId?: string | null;
+    },
   ) {
+    const parentId = typeof data.parentId === "string" && data.parentId ? data.parentId : null;
+    if (parentId) {
+      const parent = await this.prisma.menuCategory.findFirst({
+        where: { id: parentId, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!parent) throw new BadRequestException("Parent category not found");
+    }
     const slug = slugify(data.name);
     return this.prisma.menuCategory.create({
       data: {
@@ -131,6 +155,8 @@ export class MenuService {
         slug,
         description: data.description,
         sortOrder: data.sortOrder ?? 0,
+        kitchenStationCode: normalizeStationCode(data.kitchenStationCode),
+        parentId,
       },
     });
   }
@@ -138,7 +164,13 @@ export class MenuService {
   async updateCategory(
     orgId: string,
     id: string,
-    data: Partial<{ name: string; description: string; isActive: boolean; sortOrder: number }>,
+    data: Partial<{
+      name: string;
+      description: string;
+      isActive: boolean;
+      sortOrder: number;
+      kitchenStationCode: string | null;
+    }>,
   ) {
     const existing = await this.prisma.menuCategory.findFirst({
       where: { id, organizationId: orgId },
@@ -147,10 +179,32 @@ export class MenuService {
     return this.prisma.menuCategory.update({
       where: { id },
       data: {
-        ...data,
-        ...(data.name ? { slug: slugify(data.name) } : {}),
+        ...(typeof data.name === "string" && data.name
+          ? { name: data.name, slug: slugify(data.name) }
+          : {}),
+        ...(data.description !== undefined ? { description: data.description } : {}),
+        ...(typeof data.isActive === "boolean" ? { isActive: data.isActive } : {}),
+        ...(typeof data.sortOrder === "number" ? { sortOrder: data.sortOrder } : {}),
+        ...(data.kitchenStationCode !== undefined
+          ? { kitchenStationCode: normalizeStationCode(data.kitchenStationCode) }
+          : {}),
       },
     });
+  }
+
+  /** Distinct kitchen/bar stations across the org's outlets (categories route by code). */
+  async listKitchenStations(orgId: string) {
+    const stations = await this.prisma.kitchenStation.findMany({
+      where: { outlet: { organizationId: orgId } },
+      select: { code: true, name: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    });
+    const byCode = new Map<string, { code: string; name: string }>();
+    for (const s of stations) {
+      const code = s.code.trim().toUpperCase();
+      if (!byCode.has(code)) byCode.set(code, { code, name: s.name });
+    }
+    return [...byCode.values()];
   }
 
   async deleteCategory(orgId: string, id: string) {
@@ -201,6 +255,7 @@ export class MenuService {
         sku: v.sku,
         isDefault: v.isDefault ?? idx === 0,
         sortOrder: v.sortOrder ?? idx,
+        stockMultiplier: v.stockMultiplier && v.stockMultiplier > 0 ? v.stockMultiplier : 1,
       })),
     });
   }
@@ -262,6 +317,7 @@ export class MenuService {
       basePrice: number;
       isVeg?: boolean;
       isSpecial?: boolean;
+      productType?: string | null;
       allergens?: string[];
       packagingCharge?: number;
       onlineAvailable?: boolean;
@@ -272,6 +328,12 @@ export class MenuService {
       modifierGroups?: ModifierGroupInput[];
     },
   ) {
+    const productType = normalizeProductType(data.productType);
+    const category = await this.prisma.menuCategory.findFirst({
+      where: { id: data.categoryId, organizationId: orgId },
+      select: { id: true },
+    });
+    if (!category) throw new BadRequestException("Invalid categoryId");
     if (data.isSpecial) {
       await this.assertSpecialsLimit(orgId);
     }
@@ -293,6 +355,7 @@ export class MenuService {
         basePrice: toRupees(data.basePrice),
         isVeg: data.isVeg ?? false,
         isSpecial: data.isSpecial ?? false,
+        productType,
         allergens: data.allergens ?? [],
         packagingCharge: toRupees(data.packagingCharge ?? 0),
         onlineAvailable: data.onlineAvailable ?? true,
@@ -322,6 +385,7 @@ export class MenuService {
       packagingCharge: number;
       isVeg: boolean;
       isSpecial: boolean;
+      productType: string | null;
       allergens: string[];
       categoryId: string;
       taxGroupId: string | null;
@@ -346,8 +410,28 @@ export class MenuService {
       if (!group) throw new BadRequestException("Invalid taxGroupId");
     }
 
-    const { variants, modifierGroups, ...rest } = data;
-    const update: Record<string, unknown> = { ...rest };
+    if (data.categoryId !== undefined) {
+      const category = await this.prisma.menuCategory.findFirst({
+        where: { id: data.categoryId, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!category) throw new BadRequestException("Invalid categoryId");
+    }
+
+    const { variants, modifierGroups } = data;
+    const update: Record<string, unknown> = pickDefined(data as Record<string, unknown>, [
+      "name",
+      "description",
+      "basePrice",
+      "isActive",
+      "onlineAvailable",
+      "stockBasedAvailability",
+      "packagingCharge",
+      "isVeg",
+      "isSpecial",
+      "allergens",
+      "categoryId",
+    ]);
     if (data.name) update.slug = slugify(data.name);
     if (data.basePrice != null) update.basePrice = toRupees(data.basePrice);
     if (data.packagingCharge != null) {
@@ -359,10 +443,13 @@ export class MenuService {
     if (data.taxGroupId !== undefined) {
       update.taxGroupId = data.taxGroupId || null;
     }
+    if (data.productType !== undefined) {
+      update.productType = normalizeProductType(data.productType);
+    }
     if (data.imageUrl !== undefined) {
       const next = data.imageUrl?.trim() || null;
       if (next !== existing.imageUrl) {
-        await this.upload.deleteManagedUrl(existing.imageUrl);
+        await this.upload.deleteManagedUrl(existing.imageUrl, { orgId });
       }
       update.imageUrl = next;
     }
@@ -399,7 +486,7 @@ export class MenuService {
       where: { id, organizationId: orgId },
     });
     if (!existing) throw new NotFoundException("Menu item not found");
-    await this.upload.deleteManagedUrl(existing.imageUrl);
+    await this.upload.deleteManagedUrl(existing.imageUrl, { orgId });
     await this.prisma.menuItem.update({
       where: { id },
       data: { isActive: false, imageUrl: null },
@@ -413,7 +500,7 @@ export class MenuService {
     });
   }
 
-  createSchedule(
+  async createSchedule(
     orgId: string,
     data: {
       name: string;
@@ -423,9 +510,39 @@ export class MenuService {
       categoryIds: string[];
     },
   ) {
+    await this.assertOwnedCategories(orgId, data.categoryIds);
     return this.prisma.menuSchedule.create({
-      data: { organizationId: orgId, ...data },
+      data: {
+        name: data.name,
+        daysOfWeek: data.daysOfWeek,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        categoryIds: data.categoryIds ?? [],
+        organizationId: orgId,
+      },
     });
+  }
+
+  private async assertOwnedCategories(orgId: string, ids: unknown) {
+    if (ids === undefined) return;
+    if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string")) {
+      throw new BadRequestException("categoryIds must be an array of ids");
+    }
+    const unique = [...new Set(ids as string[])];
+    if (unique.length === 0) return;
+    const count = await this.prisma.menuCategory.count({
+      where: { id: { in: unique }, organizationId: orgId },
+    });
+    if (count !== unique.length) throw new BadRequestException("Invalid categoryIds");
+  }
+
+  private async assertOwnedMenuItems(orgId: string, ids: string[]) {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return;
+    const count = await this.prisma.menuItem.count({
+      where: { id: { in: unique }, organizationId: orgId },
+    });
+    if (count !== unique.length) throw new BadRequestException("Invalid menuItemId");
   }
 
   async updateSchedule(
@@ -444,7 +561,18 @@ export class MenuService {
       where: { id, organizationId: orgId },
     });
     if (!existing) throw new NotFoundException("Schedule not found");
-    return this.prisma.menuSchedule.update({ where: { id }, data });
+    await this.assertOwnedCategories(orgId, data.categoryIds);
+    return this.prisma.menuSchedule.update({
+      where: { id },
+      data: pickDefined(data as Record<string, unknown>, [
+        "name",
+        "daysOfWeek",
+        "startTime",
+        "endTime",
+        "categoryIds",
+        "isActive",
+      ]) as Record<string, never>,
+    });
   }
 
   async deleteSchedule(orgId: string, id: string) {
@@ -489,6 +617,7 @@ export class MenuService {
       items: Array<{ menuItemId: string; quantity?: number }>;
     },
   ) {
+    await this.assertOwnedMenuItems(orgId, (data.items ?? []).map((i) => i.menuItemId));
     const combo = await this.prisma.combo.create({
       data: {
         organizationId: orgId,
@@ -535,8 +664,12 @@ export class MenuService {
     });
     if (!existing) throw new NotFoundException("Combo not found");
 
-    const { items, ...rest } = data;
-    const update: Record<string, unknown> = { ...rest };
+    const { items } = data;
+    if (items != null) await this.assertOwnedMenuItems(orgId, items.map((i) => i.menuItemId));
+    const update: Record<string, unknown> = pickDefined(data as Record<string, unknown>, [
+      "name",
+      "isActive",
+    ]);
     if (data.price != null) update.price = toRupees(data.price);
 
     await this.prisma.$transaction(async (tx) => {
@@ -626,6 +759,11 @@ export class MenuService {
       where: { id: menuItemId, organizationId: orgId },
     });
     if (!item) throw new NotFoundException("Menu item not found");
+    const outlet = await this.prisma.outlet.findFirst({
+      where: { id: outletId, organizationId: orgId },
+      select: { id: true },
+    });
+    if (!outlet) throw new NotFoundException("Outlet not found");
 
     const priceRupees = toRupees(price);
     return this.prisma.outletMenuPrice.upsert({
@@ -668,6 +806,12 @@ export class MenuService {
       where: { id: outletId, organizationId: orgId },
     });
     if (!outlet) throw new NotFoundException("Outlet not found");
+
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { businessType: true, settings: { select: { settings: true } } },
+    });
+    const servesAlcohol = orgServesAlcohol(org?.businessType, org?.settings?.settings);
 
     const activeSchedules = await this.prisma.menuSchedule.findMany({
       where: { organizationId: orgId, isActive: true },
@@ -719,8 +863,13 @@ export class MenuService {
       orderBy: { sortOrder: "asc" },
     });
 
+    const happyHourRules = await loadActiveHappyHourRules(this.prisma, orgId, outletId);
+
     const mappedItems = [];
     for (const item of items) {
+      const isAlcohol = isAlcoholProductType(item.productType);
+      if (isAlcohol && !servesAlcohol) continue;
+
       const outletPrice = item.outletPrices[0];
       if (outletPrice && !outletPrice.isAvailable) continue;
 
@@ -732,23 +881,33 @@ export class MenuService {
       const priceRupees = outletPrice
         ? Number(outletPrice.price)
         : Number(item.basePrice);
+      const ruleTarget = { menuItemId: item.id, categoryId: item.categoryId };
+      const happy = bestHappyHourPrice(priceRupees, ruleTarget, happyHourRules);
       mappedItems.push({
         id: item.id,
         name: item.name,
         description: item.description,
-        price: toPaise(priceRupees),
+        price: toPaise(happy?.price ?? priceRupees),
+        regularPrice: toPaise(priceRupees),
+        happyHour: happy ? { name: happy.rule.name, endTime: happy.rule.endTime } : null,
         packagingCharge: toPaise(item.packagingCharge ?? 0),
         isAvailable: true,
         categoryId: item.categoryId,
         imageUrl: normalizePublicAssetUrl(item.imageUrl),
         isVeg: item.isVeg,
         isSpecial: item.isSpecial,
+        isAlcohol,
         allergens: item.allergens,
-        variants: item.variants.map((v) => ({
-          id: v.id,
-          name: v.name,
-          price: toPaise(v.price),
-        })),
+        variants: item.variants.map((v) => {
+          const variantPrice = Number(v.price);
+          const variantHappy = bestHappyHourPrice(variantPrice, ruleTarget, happyHourRules);
+          return {
+            id: v.id,
+            name: v.name,
+            price: toPaise(variantHappy?.price ?? variantPrice),
+            regularPrice: toPaise(variantPrice),
+          };
+        }),
         modifierGroups: item.modifierGroups.map((mg) => ({
           id: mg.modifierGroup.id,
           name: mg.modifierGroup.name,
@@ -767,6 +926,7 @@ export class MenuService {
       outletId,
       operatingMode: outlet.operatingMode,
       activeSchedule: activeSchedule?.name ?? null,
+      alcohol: { served: servesAlcohol, dineInOnly: true },
       categories: categories.map((c) => ({
         id: c.id,
         name: c.name,

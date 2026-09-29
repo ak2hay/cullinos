@@ -116,7 +116,10 @@ export function GuestOpsRuntimePage() {
               : 'border-status-warning/30 bg-status-warning/10 text-status-warning'
           }`}
         >
-          FCM push delivery: {runtime.fcmConfigured ? 'configured' : 'not configured'}
+          FCM push delivery:{" "}
+          {runtime.fcmConfigured
+            ? 'configured (Firebase Admin / HTTP v1)'
+            : 'not configured — set FIREBASE_SERVICE_ACCOUNT_* on the API'}
         </div>
       ) : null}
 

@@ -8,16 +8,24 @@ import {
   Post,
   Put,
   Query,
+  Req,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
+import type { Request } from "express";
+import { assertTurnstile } from "../../common/turnstile.util";
+import { clientIp } from "../../common/client-ip.util";
 import { OrgId, Public, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { ReservationsService } from "./reservations.service";
 
 @Controller("reservations")
+@RequirePermissions("table:manage")
 export class ReservationsController {
   constructor(private service: ReservationsService) {}
 
   @Get()
   @RequireModule("tables")
+  @RequirePermissions("table:read")
   list(
     @OrgId() orgId: string,
     @Query("outletId") outletId?: string,
@@ -29,6 +37,7 @@ export class ReservationsController {
 
   @Get("book-link")
   @RequireModule("tables")
+  @RequirePermissions("table:read")
   bookLink(
     @Query("orgSlug") orgSlug: string,
     @Query("outletSlug") outletSlug: string,
@@ -40,6 +49,7 @@ export class ReservationsController {
 
   @Get("slots")
   @RequireModule("tables")
+  @RequirePermissions("table:read")
   slots(
     @OrgId() orgId: string,
     @Query("outletId") outletId: string,
@@ -56,12 +66,14 @@ export class ReservationsController {
 
   @Get("settings")
   @RequireModule("tables")
+  @RequirePermissions("table:read")
   getSettings(@OrgId() orgId: string, @Query("outletId") outletId: string) {
     return this.service.getReservationSettings(orgId, outletId);
   }
 
   @Put("settings")
   @RequireModule("tables")
+  @RequirePermissions("settings:update")
   putSettings(
     @OrgId() orgId: string,
     @Body()
@@ -92,6 +104,7 @@ export class ReservationsController {
 
   @Get(":id")
   @RequireModule("tables")
+  @RequirePermissions("table:read")
   get(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.get(orgId, id);
   }
@@ -170,8 +183,9 @@ export class PublicReservationsController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post()
-  book(
+  async book(
     @Body()
     body: {
       orgSlug?: string;
@@ -183,8 +197,12 @@ export class PublicReservationsController {
       partySize: number;
       reservedAt: string;
       notes?: string;
+      captchaToken?: string;
     },
+    @Req() req: Request,
   ) {
-    return this.service.publicBook(body);
+    await assertTurnstile(body.captchaToken, clientIp(req));
+    const { captchaToken: _captcha, ...booking } = body;
+    return this.service.publicBook(booking);
   }
 }

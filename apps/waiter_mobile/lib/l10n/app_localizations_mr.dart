@@ -319,4 +319,57 @@ class AppLocalizationsMr extends AppLocalizations {
 
   @override
   String get checkAgain => 'पुन्हा तपासा';
+
+  @override
+  String get mergeStepPrimary => 'स्टेप 1/2: मुख्य टेबल निवडा';
+
+  @override
+  String mergeStepSecondary(String table) {
+    return 'स्टेप 2/2: $table मध्ये मर्ज करायचा टेबल निवडा';
+  }
+
+  @override
+  String get transferStepSource => 'स्टेप 1/2: हलवायचा टेबल निवडा';
+
+  @override
+  String transferStepTarget(String table) {
+    return 'स्टेप 2/2: $table साठी रिकामा टेबल निवडा';
+  }
+
+  @override
+  String mergedWith(String table) {
+    return '$table सोबत मर्ज';
+  }
+
+  @override
+  String get primaryTag => 'मुख्य';
+
+  @override
+  String get fromTag => 'पासून';
+
+  @override
+  String confirmMerge(String secondary, String primary) {
+    return '$secondary ला $primary मध्ये मर्ज करायचे?';
+  }
+
+  @override
+  String confirmTransfer(String from, String to) {
+    return '$from ला $to वर हलवायचे?';
+  }
+
+  @override
+  String get confirm => 'कन्फर्म';
+
+  @override
+  String get unmerge => 'अनमर्ज';
+
+  @override
+  String openTable(String table) {
+    return '$table उघडा';
+  }
+
+  @override
+  String mergedTableHint(String table) {
+    return 'या टेबलची ऑर्डर आणि बिल $table वर आहे.';
+  }
 }

@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PhoneField, Turnstile } from '@cullinos/ui';
 
-const planOptions = ['Starter', 'Professional', 'Enterprise', 'Hospitality', 'Not sure'];
+const planOptions = ['Starter', 'QSR', 'Professional', 'Enterprise', 'Hospitality', 'Not sure'];
 
 const inputClass =
   'w-full rounded-xl border border-border bg-bg-card px-4 py-2.5 text-sm outline-none transition focus:border-brand-gold focus:ring-1 focus:ring-brand-gold/30';

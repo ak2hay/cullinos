@@ -12,7 +12,7 @@ import { Logger } from "@nestjs/common";
 import { Server, Socket } from "socket.io";
 import { PrismaService } from "../prisma/prisma.service";
 import { parseCorsOrigins, socketIoCorsConfig } from "../common/cors.util";
-import { getJwtSecret } from "../common/jwt-secret.util";
+import { type StaffAccessPayload, verifyStaffAccessToken } from "../common/access-token.util";
 
 type SocketUser = {
   userId: string;
@@ -67,23 +67,14 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayInit {
         return;
       }
 
-      const payload = this.jwt.verify<{
-        sub: string;
-        organizationId?: string;
-        isSuperAdmin?: boolean;
-        type?: string;
-      }>(token, {
-        secret: getJwtSecret(),
-      });
-
-      if (payload.type === "refresh" || payload.type === "otp_challenge") {
-        client.emit("error", { message: "Invalid token type" });
+      const payload = verifyStaffAccessToken(this.jwt, token);
+      if (!payload) {
+        client.emit("error", { message: "Invalid token" });
         client.disconnect(true);
         return;
       }
-
-      if (!payload.sub || !payload.organizationId) {
-        client.emit("error", { message: "Invalid token claims" });
+      if (!(await this.sessionStillValid(payload))) {
+        client.emit("error", { message: "Session revoked" });
         client.disconnect(true);
         return;
       }
@@ -159,12 +150,29 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayInit {
       return header.slice(7).trim();
     }
 
-    const queryToken = client.handshake.query.token;
-    if (typeof queryToken === "string" && queryToken.trim()) {
-      return queryToken.trim();
-    }
-
     return null;
+  }
+
+  /** Same checks as AccountStatusGuard: active user, current token version, tenant not blocked. */
+  private async sessionStillValid(payload: StaffAccessPayload): Promise<boolean> {
+    const row = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: {
+        status: true,
+        tokenVersion: true,
+        organizationId: true,
+        isSuperAdmin: true,
+        organization: { select: { status: true } },
+      },
+    });
+    if (!row || row.status !== "active") return false;
+    if ((payload.tv ?? 0) !== row.tokenVersion) return false;
+    if (row.isSuperAdmin) return true;
+    return (
+      row.organizationId === payload.organizationId &&
+      row.organization.status !== "suspended" &&
+      row.organization.status !== "cancelled"
+    );
   }
 
   private requireUser(client: Socket): SocketUser | null {

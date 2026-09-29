@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
+import { matchDeliveryZone } from "./delivery-zone.util";
 
 @Injectable()
 export class DeliveryService {
@@ -90,56 +91,34 @@ export class DeliveryService {
       where: { outletId: outlet.id },
       take: 100,
     });
-    if (zones.length === 0) {
+    const match = matchDeliveryZone(zones, {
+      pincode: input.pincode,
+      lat: input.lat,
+      lng: input.lng,
+    });
+    if (!match.ok) {
       return {
         inZone: false,
         fee: 0,
         minOrder: 0,
         estimatedMinutes: null,
         zoneId: null,
-        reason: "No delivery zones configured",
+        reason:
+          match.reason === "no_zones"
+            ? "No delivery zones configured"
+            : match.reason === "location_required"
+              ? "Provide pincode to check delivery"
+              : "Address pincode is outside delivery zones",
       };
     }
-
-    const pincode = input.pincode?.trim();
-    let matched =
-      pincode != null
-        ? zones.find((z) => {
-            const poly = (z.polygon ?? {}) as Record<string, unknown>;
-            return String(poly.pincode ?? "") === pincode;
-          })
-        : undefined;
-
-    if (!matched && zones.length === 1 && !pincode) {
-      matched = zones[0];
-    }
-
-    if (!matched) {
-      return {
-        inZone: false,
-        fee: 0,
-        minOrder: 0,
-        estimatedMinutes: null,
-        zoneId: null,
-        reason: pincode
-          ? "Address pincode is outside delivery zones"
-          : "Provide pincode to check delivery",
-      };
-    }
-
-    const poly = (matched.polygon ?? {}) as Record<string, unknown>;
-    const estimatedMinutes =
-      typeof poly.estimatedMinutes === "number"
-        ? poly.estimatedMinutes
-        : Number(poly.estimatedMinutes) || null;
 
     return {
       inZone: true,
-      fee: Number(matched.deliveryFee),
-      minOrder: Number(matched.minOrder),
-      estimatedMinutes,
-      zoneId: matched.id,
-      zoneName: matched.name,
+      fee: match.fee,
+      minOrder: match.minOrder,
+      estimatedMinutes: match.estimatedMinutes,
+      zoneId: match.zone.id,
+      zoneName: match.zone.name,
       outletId: outlet.id,
       organizationId: outlet.organizationId,
     };

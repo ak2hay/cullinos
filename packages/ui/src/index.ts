@@ -63,6 +63,13 @@ export { Tabs, TabPanel, type TabsProps, type TabItem } from './components/Tabs'
 export { Dialog, type DialogProps } from './components/Dialog';
 export { Drawer, type DrawerProps } from './components/Drawer';
 export {
+  ItemOptionsDialog,
+  itemNeedsOptions,
+  type ItemOptionsDialogProps,
+  type ItemOptionsItem,
+  type ItemOptionsSelection,
+} from './components/ItemOptionsDialog';
+export {
   CommandPalette,
   type CommandPaletteProps,
   type CommandPaletteItem,

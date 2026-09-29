@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fuzzyMatchScore } from "./marketplace-search.util";
+import { matchDeliveryZone } from "../delivery/delivery-zone.util";
 
 function haversineKm(
   lat1: number,
@@ -20,16 +21,9 @@ function haversineKm(
 function matchZone(
   zones: Array<{ id: string; polygon: unknown; deliveryFee: number; minOrder: number }>,
   pincode?: string,
-  zoneId?: string,
 ) {
-  if (pincode) {
-    return zones.find((z) => {
-      const poly = (z.polygon ?? {}) as Record<string, unknown>;
-      return String(poly.pincode ?? "") === pincode;
-    });
-  }
-  if (zoneId) return zones.find((z) => z.id === zoneId);
-  return zones.length === 1 ? zones[0] : undefined;
+  const match = matchDeliveryZone(zones, { pincode });
+  return match.ok ? match.zone : undefined;
 }
 
 describe("guest marketplace helpers", () => {
@@ -56,7 +50,7 @@ describe("guest marketplace helpers", () => {
     ];
     expect(matchZone(zones, "560001")?.id).toBe("z1");
     expect(matchZone(zones, "999999")).toBeUndefined();
-    expect(matchZone(zones, undefined, "z2")?.id).toBe("z2");
+    expect(matchZone(zones, undefined)).toBeUndefined();
   });
 
   it("fuzzy-matches prefixes and small typos", () => {

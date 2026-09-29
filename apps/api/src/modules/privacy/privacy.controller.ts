@@ -19,6 +19,7 @@ import type { Request } from "express";
 import { IsBoolean, IsOptional, IsString, MinLength } from "class-validator";
 import type { JwtPayload } from "@cullinos/auth";
 import { CurrentUser, OrgId, Public } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { DPDP_NOTICE_SUMMARY } from "./privacy.constants";
 import { ConsentService } from "./consent.service";
 import { CustomerPrivacyService } from "./customer-privacy.service";
@@ -65,15 +66,25 @@ export class PrivacyController {
   @Get("public/privacy/unsubscribe")
   unsubscribeGet(@Query("token") token?: string) {
     if (!token?.trim()) throw new BadRequestException("token is required");
-    return this.customerPrivacy.unsubscribeByToken(token);
+    return this.customerPrivacy.describeUnsubscribeToken(token);
   }
 
+  /**
+   * Performs the opt-out. Accepts the token in the body (unsubscribe page) or the query
+   * string (RFC 8058 one-click POST from mail clients, body `List-Unsubscribe=One-Click`).
+   */
   @Public()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post("public/privacy/unsubscribe")
-  unsubscribePost(@Body() body: { token?: string }) {
-    if (!body.token?.trim()) throw new BadRequestException("token is required");
-    return this.customerPrivacy.unsubscribeByToken(body.token);
+  unsubscribePost(
+    @Body() body: { token?: string; channel?: string } | undefined,
+    @Query("token") queryToken?: string,
+  ) {
+    const token = (typeof body?.token === "string" ? body.token : queryToken)?.trim();
+    if (!token) throw new BadRequestException("token is required");
+    const channel =
+      body?.channel === "sms" || body?.channel === "all" ? body.channel : "email";
+    return this.customerPrivacy.unsubscribeByToken(token, channel);
   }
 
   @Public()
@@ -91,10 +102,13 @@ export class PrivacyController {
       throw new UnauthorizedException("Handoff code expired");
     }
 
-    await this.prisma.impersonationHandoff.update({
-      where: { id: handoff.id },
+    const claimed = await this.prisma.impersonationHandoff.updateMany({
+      where: { id: handoff.id, consumedAt: null },
       data: { consumedAt: new Date(), accessToken: "" },
     });
+    if (claimed.count !== 1 || !handoff.accessToken) {
+      throw new UnauthorizedException("Invalid or used handoff code");
+    }
 
     return {
       accessToken: handoff.accessToken,
@@ -170,6 +184,7 @@ export class PrivacyController {
   }
 
   @Get("customers/:id/export")
+  @RequirePermissions("customer:update")
   exportCustomer(
     @OrgId() orgId: string,
     @Param("id") id: string,
@@ -179,6 +194,7 @@ export class PrivacyController {
   }
 
   @Post("customers/:id/erase")
+  @RequirePermissions("customer:update")
   eraseCustomer(
     @OrgId() orgId: string,
     @Param("id") id: string,
@@ -188,11 +204,13 @@ export class PrivacyController {
   }
 
   @Get("customers/:id/consents")
+  @RequirePermissions("customer:read")
   listConsents(@OrgId() orgId: string, @Param("id") id: string) {
     return this.consent.listForSubject(orgId, "customer", id);
   }
 
   @Post("hospitality/guests/:id/erase")
+  @RequirePermissions("customer:update")
   eraseGuest(
     @OrgId() orgId: string,
     @Param("id") id: string,

@@ -15,16 +15,17 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
-import { CurrentUser } from "../../common/decorators";
+import { CurrentUser, RequirePlatformPermission } from "../../common/decorators";
 import type { JwtPayload } from "@cullinos/auth";
 import { SuperAdminGuard } from "../marketing/guards/super-admin.guard";
-import { MARKETING_UPLOAD_MAX_BYTES } from "../marketing/marketing-upload.service";
+import { MARKETING_UPLOAD_MAX_BYTES, marketingImageFileFilter } from "../marketing/marketing-upload.service";
 import { GuestOpsService } from "./guest-ops.service";
 import { GuestAppPrivacyService } from "./guest-app-privacy.service";
 import type { BannerInput } from "./guest-marketing.service";
 
 @Controller("super-admin/guest-ops")
 @UseGuards(SuperAdminGuard)
+@RequirePlatformPermission("guest_ops.manage")
 export class GuestOpsController {
   constructor(
     private ops: GuestOpsService,
@@ -118,6 +119,21 @@ export class GuestOpsController {
     return this.ops.createBanner(body);
   }
 
+  @Post("banners/upload-image")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: memoryStorage(),
+      limits: { fileSize: MARKETING_UPLOAD_MAX_BYTES },
+      fileFilter: marketingImageFileFilter,
+    }),
+  )
+  uploadBannerImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file?.buffer) throw new BadRequestException("No file uploaded.");
+    return this.ops.uploadBannerImage(file, {
+      isSuperAdmin: true,
+    });
+  }
+
   @Patch("banners/:id")
   updateBanner(@Param("id") id: string, @Body() body: BannerInput) {
     return this.ops.updateBanner(id, body);
@@ -164,6 +180,7 @@ export class GuestOpsController {
     FileInterceptor("file", {
       storage: memoryStorage(),
       limits: { fileSize: MARKETING_UPLOAD_MAX_BYTES },
+      fileFilter: marketingImageFileFilter,
     }),
   )
   uploadPushImage(
@@ -217,6 +234,14 @@ export class GuestOpsController {
   @Post("push-campaigns/:id/send")
   sendPushCampaign(@Param("id") id: string) {
     return this.ops.sendPushCampaign(id);
+  }
+
+  @Post("push-campaigns/:id/resend")
+  resendPushCampaign(
+    @CurrentUser() user: JwtPayload,
+    @Param("id") id: string,
+  ) {
+    return this.ops.resendPushCampaign(id, user?.sub);
   }
 
   // —— Discover sections ——

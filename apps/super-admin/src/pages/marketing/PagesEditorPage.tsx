@@ -43,7 +43,11 @@ export function PagesEditorPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Pages & blocks</h1>
-        <p className="mt-1 text-text-secondary">Edit structured content blocks per page (draft).</p>
+        <p className="mt-1 text-text-secondary">
+          Edit structured content blocks per page (draft). Prefer small JSON objects with{" "}
+          <code className="text-xs">title</code> and <code className="text-xs">body</code>. Publish
+          from Marketing overview to go live.
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-3">

@@ -10,6 +10,8 @@ export const IMAGE_UPLOAD_MAX_MB = 2;
 export const PLATFORM_IMAGE_UPLOAD_MAX_MB = 5;
 export const IMAGE_UPLOAD_MAX_PIXELS = 4096;
 
+export const ALLOWED_IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp';
+
 /** Effective upload limit for the signed-in user; super admins are exempt from the tenant cap. */
 export function useImageUploadMaxMb(): number {
   const impersonation = useAuthStore((s) => s.impersonation);
@@ -49,6 +51,7 @@ export const IMAGE_SLOT_HINTS: Record<string, ImageSlotHint> = {
     targetWidth: 1200,
     targetHeight: 400,
     maxMb: IMAGE_UPLOAD_MAX_MB,
+    cropBeforeUpload: true,
   },
   promoSlide: {
     label: 'Promo slide',
@@ -57,6 +60,7 @@ export const IMAGE_SLOT_HINTS: Record<string, ImageSlotHint> = {
     targetWidth: 1920,
     targetHeight: 1080,
     maxMb: IMAGE_UPLOAD_MAX_MB,
+    cropBeforeUpload: true,
   },
   coupon: {
     label: 'Coupon / offer',
@@ -83,6 +87,7 @@ export const IMAGE_SLOT_HINTS: Record<string, ImageSlotHint> = {
     targetWidth: 1600,
     targetHeight: 900,
     maxMb: IMAGE_UPLOAD_MAX_MB,
+    cropBeforeUpload: true,
   },
   outletGallery: {
     label: 'Gallery photo',
@@ -91,6 +96,25 @@ export const IMAGE_SLOT_HINTS: Record<string, ImageSlotHint> = {
     targetWidth: 1200,
     targetHeight: 900,
     maxMb: IMAGE_UPLOAD_MAX_MB,
+    cropBeforeUpload: true,
+  },
+  notification: {
+    label: 'Push notification hero',
+    ratioLabel: '2:1',
+    ratio: 2 / 1,
+    targetWidth: 1200,
+    targetHeight: 600,
+    maxMb: PLATFORM_IMAGE_UPLOAD_MAX_MB,
+    cropBeforeUpload: true,
+  },
+  orgLogo: {
+    label: 'Receipt / brand logo',
+    ratioLabel: '1:1',
+    ratio: 1,
+    targetWidth: 512,
+    targetHeight: 512,
+    maxMb: IMAGE_UPLOAD_MAX_MB,
+    cropBeforeUpload: true,
   },
 } as const;
 
@@ -202,7 +226,7 @@ export function ImageUploadField({
   }
 
   const hintText = hint.cropBeforeUpload
-    ? `Any ratio OK — crop to ${hint.targetWidth}×${hint.targetHeight}px before upload. PNG/JPG/WebP, max ${maxMb} MB.`
+    ? `Any ratio OK — crop to ${hint.targetWidth}×${hint.targetHeight}px (${hint.ratioLabel}) before upload. PNG/JPG/WebP, max ${maxMb} MB.`
     : `Recommended ${hint.targetWidth}×${hint.targetHeight}px (${hint.ratioLabel}), PNG/JPG/WebP, max ${maxMb} MB.`;
 
   const body = (
@@ -228,7 +252,7 @@ export function ImageUploadField({
           <input
             ref={inputRef}
             type="file"
-            accept="image/png,image/jpeg,image/webp"
+            accept={ALLOWED_IMAGE_ACCEPT}
             className="hidden"
             disabled={disabled || uploading}
             onChange={(e) => void handleFile(e.target.files?.[0] ?? null)}

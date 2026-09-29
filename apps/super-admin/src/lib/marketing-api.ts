@@ -81,13 +81,35 @@ export const marketingApi = {
   deleteTestimonial: (id: string) =>
     request(`/super-admin/marketing/testimonials/${id}`, { method: 'DELETE' }),
 
-  listBlog: (status = 'draft') =>
-    request<Array<Record<string, unknown>>>(`/super-admin/marketing/blog?status=${status}`),
+  listBlog: (status?: string) =>
+    request<Array<Record<string, unknown>>>(
+      status
+        ? `/super-admin/marketing/blog?status=${status}`
+        : '/super-admin/marketing/blog',
+    ),
   createBlog: (body: Record<string, unknown>) =>
     request('/super-admin/marketing/blog', { method: 'POST', body: JSON.stringify(body) }),
   updateBlog: (id: string, body: Record<string, unknown>) =>
     request(`/super-admin/marketing/blog/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteBlog: (id: string) => request(`/super-admin/marketing/blog/${id}`, { method: 'DELETE' }),
+  publishBlog: (id: string) =>
+    request(`/super-admin/marketing/blog/${id}/publish`, { method: 'POST' }),
+  unpublishBlog: (id: string) =>
+    request(`/super-admin/marketing/blog/${id}/unpublish`, { method: 'POST' }),
+
+  listInquiries: (status?: string) =>
+    request<Array<Record<string, unknown>>>(
+      status
+        ? `/super-admin/marketing/inquiries?status=${status}`
+        : '/super-admin/marketing/inquiries',
+    ),
+  countNewInquiries: () =>
+    request<{ count: number }>('/super-admin/marketing/inquiries/count-new'),
+  updateInquiry: (id: string, status: string) =>
+    request(`/super-admin/marketing/inquiries/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
 
   listPages: (status = 'draft') =>
     request<Array<Record<string, unknown>>>(`/super-admin/marketing/pages?status=${status}`),
