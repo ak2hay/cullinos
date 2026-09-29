@@ -1,9 +1,12 @@
+const MAX_QUERY_LENGTH = 64;
+
 /** Higher is a stronger name match. 0 means no match. */
 export function fuzzyMatchScore(
   query: string,
   fields: Array<string | null | undefined>,
 ): number {
-  const q = query.trim().toLowerCase();
+  if (typeof query !== "string") return 0;
+  const q = query.trim().toLowerCase().slice(0, MAX_QUERY_LENGTH);
   if (q.length < 2) return 0;
   const limit = q.length <= 4 ? 1 : 2;
   let best = 0;

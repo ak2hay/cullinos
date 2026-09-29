@@ -501,7 +501,11 @@ export class MarketingUploadService {
           "Image storage is not configured for production. Set R2_* + R2_PUBLIC_URL, or an absolute MARKETING_PUBLIC_URL / API_PUBLIC_URL.",
         );
       }
-      const dest = path.join(this.uploadDir, relativePath);
+      const root = path.resolve(this.uploadDir);
+      const dest = path.resolve(root, relativePath);
+      if (!dest.startsWith(root + path.sep)) {
+        throw new BadRequestException("Invalid upload path.");
+      }
       fs.mkdirSync(path.dirname(dest), { recursive: true });
       fs.writeFileSync(dest, body);
       url = `${base}/${relativePath}`;

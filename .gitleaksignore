@@ -1,0 +1,8 @@
+# Reviewed findings in existing history (fingerprint = commit:file:rule:line).
+# Firebase client API keys are public by design; restrict them in Google Cloud instead.
+2cde3a4f60a7e19eb6d4b467caf7463614f01b2c:apps/guest/lib/core/firebase/firebase_options.dart:gcp-api-key:24
+2cde3a4f60a7e19eb6d4b467caf7463614f01b2c:apps/guest/lib/core/firebase/firebase_options.dart:gcp-api-key:32
+# Placeholder Grafana password, since removed from the manifest.
+2cde3a4f60a7e19eb6d4b467caf7463614f01b2c:infrastructure/k8s/monitoring/stack.yaml:kubernetes-secret-yaml:135
+# Matches the config key name MSG91_OTP_TTL_SECONDS, not a secret value.
+6566a32064f032e9a6d8201fbf67ab2d1773f400:apps/api/src/modules/platform-config/platform-config.registry.ts:generic-api-key:117

@@ -142,16 +142,8 @@ data:
         url: http://prometheus:9090
         isDefault: true
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: grafana-admin
-  namespace: monitoring
-type: Opaque
-stringData:
-  admin-user: admin
-  admin-password: change-me-grafana
----
+# The grafana-admin Secret is created by scripts/install-monitoring.sh from
+# GRAFANA_ADMIN_PASSWORD so re-applying this file never resets the password.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

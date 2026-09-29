@@ -68,7 +68,7 @@ Workflows:
 # On VM as root
 cd /opt/cullinos && git pull
 bash infrastructure/k8s/scripts/install-k3s.sh
-bash infrastructure/k8s/scripts/install-monitoring.sh
+GRAFANA_ADMIN_PASSWORD='<16+ random chars>' bash infrastructure/k8s/scripts/install-monitoring.sh
 # Follow cutover-checklist.md (migrate DB, stop nginx/Compose)
 ```
 

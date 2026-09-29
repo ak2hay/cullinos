@@ -36,4 +36,4 @@ jobs:
         run: npm run build:api
 
       - name: Verify onboard route exists in build output
-        run: grep -q 'Post("organizations")' apps/api/dist/modules/super-admin/super-admin.controller.js
+        run: grep -q 'Post)("organizations")' apps/api/dist/modules/super-admin/super-admin.controller.js
