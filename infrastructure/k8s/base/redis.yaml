@@ -16,14 +16,31 @@ spec:
       labels:
         app: redis
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: redis
           image: redis:7-alpine
+          # args (not command) keep the image entrypoint, which chowns /data and drops to the redis user.
+          args: ["redis-server", "--requirepass", "$(REDIS_PASSWORD)"]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cullinos-secrets
+                  key: REDIS_PASSWORD
           ports:
             - containerPort: 6379
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 25m
@@ -33,13 +50,15 @@ spec:
               memory: 128Mi
           readinessProbe:
             exec:
-              command: ["redis-cli", "ping"]
+              command: ["sh", "-c", 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
             initialDelaySeconds: 3
             periodSeconds: 5
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: redis-data
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

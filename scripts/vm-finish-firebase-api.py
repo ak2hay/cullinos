@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Finish prod API bring-up after a docker recreate race."""
 from __future__ import annotations
+import os
 
 import sys
 import time
@@ -9,7 +10,7 @@ from pathlib import Path
 import paramiko
 
 ROOT = Path(__file__).resolve().parents[1]
-HOST = "95.135.254.46"
+HOST = os.environ.get("DEPLOY_HOST") or sys.exit("Set DEPLOY_HOST explicitly (no default target).")
 APP_DIR = "/opt/cullinos"
 
 
@@ -60,12 +61,12 @@ def main() -> int:
     run(f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml stop api || true")
     code, _ = run(
         f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml run --rm -T api "
-        "npx prisma db push --schema=packages/prisma/prisma/schema.prisma --accept-data-loss=false"
+        "node packages/prisma/scripts/migrate-deploy.mjs"
     )
     if code != 0:
         code, _ = run(
             f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml run --rm -T api "
-            "npx prisma db push --schema=packages/prisma/prisma/schema.prisma"
+            "node packages/prisma/scripts/migrate-deploy.mjs"
         )
     if code != 0:
         return code

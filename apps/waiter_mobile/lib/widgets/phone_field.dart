@@ -1,11 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cullinos_waiter/core/waiter_colors.dart';
 
 class DialCode {
   const DialCode({required this.dial, required this.iso, required this.label});
   final String dial;
   final String iso;
   final String label;
+
+  String get flag => isoToFlag(iso);
+}
+
+/// Regional-indicator flag emoji for a 2-letter ISO code.
+String isoToFlag(String iso) {
+  if (iso.length != 2) return iso;
+  final upper = iso.toUpperCase();
+  return String.fromCharCodes(
+    upper.codeUnits.map((c) => 0x1F1E6 + c - 65),
+  );
 }
 
 const kDefaultDialCode = '91';
@@ -27,12 +39,13 @@ const kDialCodes = <DialCode>[
   DialCode(dial: '880', iso: 'BD', label: 'Bangladesh (+880)'),
 ];
 
-/// Shared phone field with country dial-code dropdown (default India +91).
+/// Phone row: compact flag + dial-code picker and an expanded number field.
 class PhoneField extends StatefulWidget {
   const PhoneField({
     super.key,
     required this.controller,
     this.labelText = 'Phone',
+    this.hintText = 'Enter your phone number',
     this.enabled = true,
     this.onComposedChanged,
     this.onSubmitted,
@@ -41,6 +54,7 @@ class PhoneField extends StatefulWidget {
 
   final TextEditingController controller;
   final String labelText;
+  final String hintText;
   final bool enabled;
   final ValueChanged<String>? onComposedChanged;
   final ValueChanged<String>? onSubmitted;
@@ -64,53 +78,124 @@ class _PhoneFieldState extends State<PhoneField> {
     widget.onComposedChanged?.call(PhoneField.composedDigits(dial, national));
   }
 
+  DialCode get _current =>
+      kDialCodes.firstWhere((c) => c.dial == _dial, orElse: () => kDialCodes.first);
+
+  Future<void> _pickDial() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final c in kDialCodes)
+              ListTile(
+                leading: Text(c.flag, style: const TextStyle(fontSize: 22)),
+                title: Text(c.label),
+                trailing: c.dial == _dial
+                    ? const Icon(Icons.check_rounded, color: WaiterColors.primary)
+                    : null,
+                onTap: () => Navigator.of(ctx).pop(c.dial),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _dial = picked);
+    _emit(picked, widget.controller.text);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final radius = BorderRadius.circular(14);
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: 108,
-          child: DropdownButtonFormField<String>(
-            value: _dial,
-            decoration: const InputDecoration(
-              labelText: 'Code',
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        if (widget.labelText.isNotEmpty) ...[
+          Text(
+            widget.labelText,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: WaiterColors.ink,
             ),
-            items: [
-              for (final c in kDialCodes)
-                DropdownMenuItem(
-                  value: c.dial,
-                  child: Text('${c.iso} +${c.dial}', overflow: TextOverflow.ellipsis),
+          ),
+          const SizedBox(height: 8),
+        ],
+        Row(
+          children: [
+            Material(
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: radius,
+                side: const BorderSide(color: WaiterColors.border),
+              ),
+              child: InkWell(
+                borderRadius: radius,
+                onTap: widget.enabled ? _pickDial : null,
+                child: SizedBox(
+                  height: 54,
+                  width: 104,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(_current.flag, style: const TextStyle(fontSize: 20)),
+                      const SizedBox(width: 6),
+                      Text(
+                        '+${_current.dial}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: WaiterColors.ink,
+                        ),
+                      ),
+                      const Icon(Icons.keyboard_arrow_down_rounded,
+                          size: 20, color: WaiterColors.muted),
+                    ],
+                  ),
                 ),
-            ],
-            onChanged: widget.enabled
-                ? (v) {
-                    if (v == null) return;
-                    setState(() => _dial = v);
-                    _emit(v, widget.controller.text);
-                  }
-                : null,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: TextField(
-            controller: widget.controller,
-            enabled: widget.enabled,
-            keyboardType: TextInputType.phone,
-            textInputAction: widget.textInputAction,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(
-              labelText: widget.labelText,
-              prefixText: '+$_dial  ',
+              ),
             ),
-            onChanged: (v) => _emit(_dial, v),
-            onSubmitted: (v) {
-              final composed = PhoneField.composedDigits(_dial, v);
-              widget.onSubmitted?.call(composed);
-            },
-          ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: SizedBox(
+                height: 54,
+                child: TextField(
+                  controller: widget.controller,
+                  enabled: widget.enabled,
+                  keyboardType: TextInputType.phone,
+                  textInputAction: widget.textInputAction,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(15),
+                  ],
+                  decoration: InputDecoration(
+                    hintText: widget.hintText,
+                    hintStyle: const TextStyle(color: WaiterColors.muted, fontSize: 14),
+                    prefixIcon: const Icon(Icons.phone_outlined,
+                        color: WaiterColors.primary, size: 20),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: radius,
+                      borderSide: const BorderSide(color: WaiterColors.primary, width: 1.2),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: radius,
+                      borderSide: const BorderSide(color: WaiterColors.primary, width: 1.8),
+                    ),
+                    border: OutlineInputBorder(borderRadius: radius),
+                  ),
+                  onChanged: (v) => _emit(_dial, v),
+                  onSubmitted: (v) {
+                    final composed = PhoneField.composedDigits(_dial, v);
+                    widget.onSubmitted?.call(composed);
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

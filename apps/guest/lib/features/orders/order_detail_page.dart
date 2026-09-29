@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cullinos_guest/core/guest_colors.dart';
 import 'package:cullinos_guest/core/guest_spacing.dart';
 import 'package:cullinos_guest/data/guest_api.dart';
+import 'package:cullinos_guest/features/outlet/alcohol_gate.dart';
 import 'package:cullinos_guest/features/outlet/cart_controller.dart';
 import 'package:cullinos_guest/widgets/guest_back_button.dart';
 import 'package:cullinos_guest/widgets/guest_empty_state.dart';
@@ -77,20 +78,25 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         outletSlug: outlet['slug'] as String,
         customerId: cart.customerId,
       );
-      cart.replaceFromReorder(
-        available
-            .map((raw) {
-              final a = Map<String, dynamic>.from(raw as Map);
-              return CartLine(
-                menuItemId: a['menuItemId'].toString(),
-                name: a['name']?.toString() ?? '',
-                unitPrice: (a['unitPrice'] as num?)?.toDouble() ?? 0,
-                quantity: (a['quantity'] as num?)?.toInt() ?? 1,
-                variantId: a['variantId']?.toString(),
-              );
-            })
-            .toList(),
-      );
+      var lines = available.map((raw) {
+        final a = Map<String, dynamic>.from(raw as Map);
+        return CartLine(
+          menuItemId: a['menuItemId'].toString(),
+          name: a['name']?.toString() ?? '',
+          unitPrice: (a['unitPrice'] as num?)?.toDouble() ?? 0,
+          quantity: (a['quantity'] as num?)?.toInt() ?? 1,
+          variantId: a['variantId']?.toString(),
+          isAlcohol: a['isAlcohol'] == true,
+        );
+      }).toList();
+      if (lines.any((l) => l.isAlcohol)) {
+        if (!mounted) return;
+        if (!await ensureDrinkingAge(context, cart)) {
+          lines = lines.where((l) => !l.isAlcohol).toList();
+          if (lines.isEmpty) return;
+        }
+      }
+      cart.replaceFromReorder(lines);
       if (!mounted) return;
       if (unavailableCount > 0) {
         ScaffoldMessenger.of(context).showSnackBar(

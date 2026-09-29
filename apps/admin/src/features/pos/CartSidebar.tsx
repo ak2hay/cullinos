@@ -1,12 +1,22 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PhoneField } from '@cullinos/ui';
 import { formatMoney } from '@/lib/format';
 import { useCartStore } from './cartStore';
+import { CartLineNote } from './CartLineNote';
 
 interface UnpaidTicket {
   id: string;
   orderNumber: string;
 }
+
+export type PosOrderType = 'takeaway' | 'dine_in' | 'delivery';
+
+const ORDER_TYPE_LABELS: Record<PosOrderType, string> = {
+  takeaway: 'Pickup',
+  dine_in: 'Eat in',
+  delivery: 'Delivery',
+};
 
 export interface PosCustomer {
   id: string;
@@ -19,6 +29,8 @@ interface CartSidebarProps {
   onCash: () => void;
   onOnline: () => void;
   cashDisabled?: boolean;
+  /** When set, UPI/card tender is unavailable (e.g. no gateway configured). */
+  onlineDisabledReason?: string | null;
   unpaidOrder?: UnpaidTicket | null;
   unpaidBalance?: { total: number; remaining: number; paid: number } | null;
   splitItems?: Array<{ id: string; name: string; quantity: number }>;
@@ -41,8 +53,13 @@ interface CartSidebarProps {
   customerLookupLoading?: boolean;
   linkedCustomer?: PosCustomer | null;
   onClearCustomer?: () => void;
-  orderType?: 'takeaway' | 'dine_in';
-  onOrderTypeChange?: (type: 'takeaway' | 'dine_in') => void;
+  orderType?: PosOrderType;
+  onOrderTypeChange?: (type: PosOrderType) => void;
+  orderTypeOptions?: PosOrderType[];
+  deliveryAddress?: string;
+  onDeliveryAddressChange?: (value: string) => void;
+  deliveryPincode?: string;
+  onDeliveryPincodeChange?: (value: string) => void;
   tipAmount?: number;
   onTipChange?: (tip: number) => void;
   rewards?: Array<{ id: string; name: string; pointsCost: number; affordable: boolean }>;
@@ -57,12 +74,14 @@ interface CartSidebarProps {
   onManualDiscountChange?: (amount: number) => void;
   partialCashAmount?: number;
   onPartialCashAmountChange?: (amount: number | undefined) => void;
+  onBack?: () => void;
 }
 
 export function CartSidebar({
   onCash,
   onOnline,
   cashDisabled = false,
+  onlineDisabledReason = null,
   unpaidOrder,
   unpaidBalance = null,
   splitItems = [],
@@ -87,6 +106,11 @@ export function CartSidebar({
   onClearCustomer,
   orderType = 'takeaway',
   onOrderTypeChange,
+  orderTypeOptions = ['takeaway', 'dine_in'],
+  deliveryAddress = '',
+  onDeliveryAddressChange,
+  deliveryPincode = '',
+  onDeliveryPincodeChange,
   tipAmount = 0,
   onTipChange,
   rewards = [],
@@ -101,10 +125,13 @@ export function CartSidebar({
   onManualDiscountChange,
   partialCashAmount,
   onPartialCashAmountChange,
+  onBack,
 }: CartSidebarProps) {
+  const { t } = useTranslation();
   const lines = useCartStore((s) => s.lines);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
+  const setLineNote = useCartStore((s) => s.setLineNote);
   const subtotal = useCartStore((s) => s.subtotal());
   const itemCount = useCartStore((s) => s.itemCount());
   const [tenderOpen, setTenderOpen] = useState(false);
@@ -117,10 +144,20 @@ export function CartSidebar({
   const duePaise = Math.max(0, subtotal + tipPaise - discountPaise);
 
   return (
-    <aside className="flex h-full min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-white/5 bg-bg-secondary lg:w-[26rem] lg:border-l lg:border-t-0">
-      <div className="flex shrink-0 items-center justify-between border-b border-white/5 px-5 py-4">
-        <div>
-          <h2 className="text-lg font-semibold">Current order</h2>
+    <aside className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden border-t border-white/5 bg-bg-secondary lg:w-[26rem] lg:flex-none lg:border-l lg:border-t-0">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/5 px-4 py-3 lg:px-5 lg:py-4">
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex h-10 shrink-0 items-center gap-1 rounded-lg border border-white/10 px-3 text-sm font-medium text-text-secondary active:scale-95 lg:hidden"
+            aria-label="Back to menu"
+          >
+            <span aria-hidden="true">←</span> Menu
+          </button>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-semibold">{t('pos.currentOrder')}</h2>
           <p className="text-sm text-text-muted">
             {itemCount} {itemCount === 1 ? 'item' : 'items'}
           </p>
@@ -135,21 +172,27 @@ export function CartSidebar({
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {lines.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/10 bg-bg-primary/40 px-4 py-8 text-center">
-            <p className="text-sm font-medium text-text-secondary">Cart is empty</p>
-            <p className="text-xs text-text-muted">Tap menu items to build the order</p>
+            <p className="text-sm font-medium text-text-secondary">{t('pos.cartEmpty')}</p>
+            <p className="text-xs text-text-muted">{t('pos.cartEmptyHint')}</p>
           </div>
         ) : (
           <ul className="space-y-2">
             {lines.map((line) => (
               <li
-                key={line.menuItemId}
+                key={line.lineId}
                 className="rounded-xl border border-white/5 bg-bg-card/90 p-3 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-medium leading-tight">{line.name}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium leading-tight">{line.name}</p>
+                    <CartLineNote
+                      notes={line.notes}
+                      onSave={(notes) => setLineNote(line.lineId, notes)}
+                    />
+                  </div>
                   <button
                     type="button"
-                    onClick={() => removeItem(line.menuItemId)}
+                    onClick={() => removeItem(line.lineId)}
                     className="text-sm text-text-muted hover:text-status-error"
                     aria-label="Remove item"
                   >
@@ -160,7 +203,7 @@ export function CartSidebar({
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => updateQuantity(line.menuItemId, line.quantity - 1)}
+                      onClick={() => updateQuantity(line.lineId, line.quantity - 1)}
                       className="flex h-10 w-10 items-center justify-center rounded-lg bg-bg-elevated text-lg font-bold active:scale-95"
                     >
                       −
@@ -170,7 +213,7 @@ export function CartSidebar({
                     </span>
                     <button
                       type="button"
-                      onClick={() => updateQuantity(line.menuItemId, line.quantity + 1)}
+                      onClick={() => updateQuantity(line.lineId, line.quantity + 1)}
                       className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-primary/20 text-lg font-bold text-brand-primary active:scale-95"
                     >
                       +
@@ -238,7 +281,7 @@ export function CartSidebar({
                         max={linkedCustomer.loyaltyPoints}
                         value={redeemPoints || ''}
                         onChange={(e) =>
-                          onRedeemPointsChange?.(Math.max(0, Number(e.target.value) || 0))
+                          onRedeemPointsChange?.(Math.max(0, Math.floor(Number(e.target.value) || 0)))
                         }
                         placeholder={`0 – ${linkedCustomer.loyaltyPoints} pts available`}
                         className="w-full rounded-xl border border-white/10 bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-primary"
@@ -285,22 +328,46 @@ export function CartSidebar({
               onChange={(e) => onCustomerNameChange?.(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
             />
-            <div className="grid grid-cols-2 gap-2">
-              {(['takeaway', 'dine_in'] as const).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => onOrderTypeChange?.(type)}
-                  className={`rounded-xl border px-2 py-3 text-sm font-semibold transition active:scale-[0.98] ${
-                    orderType === type
-                      ? 'border-brand-primary bg-brand-primary text-bg-primary shadow-md shadow-brand-primary/20'
-                      : 'border-white/10 bg-bg-elevated text-text-secondary'
-                  }`}
-                >
-                  {type === 'takeaway' ? 'Pickup' : 'Eat in'}
-                </button>
-              ))}
-            </div>
+            {orderTypeOptions.length > 1 ? (
+              <div
+                className="grid gap-2"
+                style={{ gridTemplateColumns: `repeat(${orderTypeOptions.length}, minmax(0, 1fr))` }}
+              >
+                {orderTypeOptions.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => onOrderTypeChange?.(type)}
+                    className={`rounded-xl border px-2 py-3 text-sm font-semibold transition active:scale-[0.98] ${
+                      orderType === type
+                        ? 'border-brand-primary bg-brand-primary text-bg-primary shadow-md shadow-brand-primary/20'
+                        : 'border-white/10 bg-bg-elevated text-text-secondary'
+                    }`}
+                  >
+                    {ORDER_TYPE_LABELS[type]}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {orderType === 'delivery' ? (
+              <div className="space-y-2">
+                <textarea
+                  rows={2}
+                  placeholder="Delivery address"
+                  value={deliveryAddress}
+                  onChange={(e) => onDeliveryAddressChange?.(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                />
+                <input
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="Pincode"
+                  value={deliveryPincode}
+                  onChange={(e) => onDeliveryPincodeChange?.(e.target.value.replace(/\D/g, ''))}
+                  className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                />
+              </div>
+            ) : null}
             <div className="flex items-center gap-2">
               <label className="shrink-0 text-xs text-text-muted">Tip (₹)</label>
               <input
@@ -367,7 +434,8 @@ export function CartSidebar({
               </button>
               <button
                 type="button"
-                disabled={checkoutLoading}
+                disabled={checkoutLoading || Boolean(onlineDisabledReason)}
+                title={onlineDisabledReason ?? undefined}
                 onClick={onRetryUnpaidOnline}
                 className="rounded-lg border border-white/10 px-2 py-2 text-xs font-semibold disabled:opacity-40"
               >
@@ -408,13 +476,13 @@ export function CartSidebar({
       <div className="shrink-0 space-y-3 border-t border-white/5 bg-bg-secondary p-4">
         {discountPaise > 0 ? (
           <div className="flex items-center justify-between text-sm text-text-muted">
-            <span>Loyalty discount</span>
+            <span>{t('pos.loyaltyDiscount')}</span>
             <span className="font-mono">−{formatMoney(discountPaise)}</span>
           </div>
         ) : null}
         <div className="flex items-center justify-between text-lg">
           <span className="text-text-secondary">
-            {unpaidBalance ? 'Remaining' : 'Subtotal'}
+            {unpaidBalance ? t('pos.remaining') : t('pos.subtotal')}
           </span>
           <span className="font-mono font-semibold text-brand-primary">
             {unpaidBalance
@@ -430,12 +498,12 @@ export function CartSidebar({
           className="h-14 w-full rounded-2xl bg-brand-primary text-lg font-bold text-bg-primary shadow-lg shadow-brand-primary/20 transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
         >
           {checkoutLoading
-            ? 'Processing…'
+            ? t('pos.processing')
             : unpaidOrder
-              ? 'Pay remainder'
+              ? t('pos.payRemainder')
               : partialCashAmount
-                ? 'Pay amount'
-                : 'Pay full'}
+                ? t('pos.payAmount')
+                : t('pos.payFull')}
         </button>
 
         {tenderOpen && (canCharge || unpaidOrder) ? (
@@ -449,19 +517,23 @@ export function CartSidebar({
               }}
               className="h-12 rounded-xl bg-brand-primary/20 font-medium text-brand-primary disabled:opacity-40"
             >
-              {cashDisabled ? 'Cash (open shift)' : 'Cash (Enter)'}
+              {cashDisabled ? t('pos.cashOpenShift') : t('pos.cashEnter')}
             </button>
             <button
               type="button"
-              disabled={checkoutLoading}
+              disabled={checkoutLoading || Boolean(onlineDisabledReason)}
+              title={onlineDisabledReason ?? undefined}
               onClick={() => {
                 setTenderOpen(false);
                 onOnline();
               }}
               className="h-12 rounded-xl border border-white/10 font-medium disabled:opacity-40"
             >
-              UPI / card
+              {t('pos.upiCard')}
             </button>
+            {onlineDisabledReason ? (
+              <p className="col-span-2 text-xs text-text-muted">{onlineDisabledReason}</p>
+            ) : null}
           </div>
         ) : null}
 
@@ -472,7 +544,7 @@ export function CartSidebar({
             onClick={onHold}
             className="h-12 rounded-xl border border-white/10 bg-bg-elevated font-medium transition active:scale-[0.98] disabled:opacity-40"
           >
-            {holdLoading ? 'Holding…' : 'Hold (H)'}
+            {holdLoading ? t('pos.holding') : t('pos.hold')}
           </button>
           <button
             type="button"

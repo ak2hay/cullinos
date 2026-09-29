@@ -4,10 +4,12 @@ import {
   Controller,
   Get,
   Headers,
+  HttpException,
   NotFoundException,
   Param,
   Post,
   Put,
+  Query,
   Req,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -21,12 +23,15 @@ import {
 } from "class-validator";
 import type { Request } from "express";
 import { OrgId, Public, RequireModule, CurrentUser } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import type { JwtPayload } from "@cullinos/auth";
 import { SaasBillingService } from "../subscriptions/saas-billing.service";
+import { AuditService } from "../audit/audit.service";
 import { CashfreeClient } from "./cashfree.client";
 import { PaymentCredentialsService } from "./payment-credentials.service";
 import { PaymentsService } from "./payments.service";
 import { RazorpayClient } from "./razorpay.client";
+import { cashfreeWebhookEventId, razorpayWebhookEventId } from "./webhook-event-id.util";
 
 class CashPaymentDto {
   @IsString()
@@ -143,53 +148,93 @@ export class PaymentsController {
     private cashfree: CashfreeClient,
     private razorpay: RazorpayClient,
     private saas: SaasBillingService,
+    private audit: AuditService,
   ) {}
 
+  private auditGatewayChange(
+    orgId: string,
+    user: JwtPayload,
+    provider: string,
+    body: object,
+    outletId?: string,
+  ) {
+    const fields = Object.entries(body)
+      .filter(([, v]) => v !== undefined)
+      .map(([k]) => k);
+    return this.audit.log({
+      organizationId: orgId,
+      userId: user.sub,
+      action: "payments.gateway_update",
+      entityType: "payment_gateway",
+      entityId: outletId ? `${provider}:${outletId}` : provider,
+      metadata: { provider, outletId: outletId ?? null, fields },
+    });
+  }
+
   @Get()
+  @RequirePermissions("reports:read", "pos:access")
   list(@OrgId() orgId: string) {
     return this.service.list(orgId);
   }
 
+  @Get("gateways/status")
+  @RequireModule("pos")
+  @RequirePermissions("pos:access", "settings:read", "order:read")
+  gatewayStatus(@OrgId() orgId: string, @Query("outletId") outletId?: string) {
+    return this.credentials.onlineStatus(orgId, outletId || null);
+  }
+
   @Get("gateways")
   @RequireModule("settings")
+  @RequirePermissions("settings:read", "org:read")
   listGateways(@OrgId() orgId: string) {
     return this.credentials.listGateways(orgId);
   }
 
   @Get("gateways/:provider")
   @RequireModule("settings")
+  @RequirePermissions("settings:read", "org:read")
   getGateway(@OrgId() orgId: string, @Param("provider") provider: string) {
     return this.credentials.getGateway(orgId, provider);
   }
 
   @Put("gateways/:provider")
   @RequireModule("settings")
-  upsertGateway(
+  @RequirePermissions("settings:update", "org:manage_settings")
+  async upsertGateway(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @Param("provider") provider: string,
     @Body() body: UpsertGatewayDto,
   ) {
-    return this.credentials.upsertOrgGateway(orgId, provider, body);
+    const result = await this.credentials.upsertOrgGateway(orgId, provider, body);
+    await this.auditGatewayChange(orgId, user, provider, body);
+    return result;
   }
 
   @Put("gateways/:provider/outlets/:outletId")
   @RequireModule("settings")
-  upsertOutletGateway(
+  @RequirePermissions("settings:update", "org:manage_settings")
+  async upsertOutletGateway(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @Param("provider") provider: string,
     @Param("outletId") outletId: string,
     @Body() body: UpsertOutletGatewayDto,
   ) {
-    return this.credentials.upsertOutletOverride(
+    const result = await this.credentials.upsertOutletOverride(
       orgId,
       provider,
       outletId,
       body,
     );
+    await this.auditGatewayChange(orgId, user, provider, body, outletId);
+    return result;
   }
 
   @Post("cash")
   @RequireModule("pos")
+  @RequirePermissions("pos:access", "order:update")
   recordCash(
     @OrgId() orgId: string,
     @CurrentUser() user: JwtPayload,
@@ -200,12 +245,14 @@ export class PaymentsController {
 
   @Get("orders/:orderId/balance")
   @RequireModule("pos")
+  @RequirePermissions("order:read")
   balance(@OrgId() orgId: string, @Param("orderId") orderId: string) {
     return this.service.getBalance(orgId, orderId);
   }
 
   @Post("online/intent")
   @RequireModule("pos")
+  @RequirePermissions("pos:access", "order:update")
   createIntent(@OrgId() orgId: string, @Body() body: OnlineIntentDto) {
     return this.service.createOnlineIntent(
       orgId,
@@ -217,6 +264,7 @@ export class PaymentsController {
 
   @Post("online/verify")
   @RequireModule("pos")
+  @RequirePermissions("pos:access", "order:update")
   verify(@OrgId() orgId: string, @Body() body: OnlineVerifyDto) {
     return this.service.verifyOnlinePayment(orgId, body);
   }
@@ -226,6 +274,7 @@ export class PaymentsController {
   async razorpayWebhook(
     @Req() req: RawBodyRequest<Request>,
     @Headers("x-razorpay-signature") signature: string | undefined,
+    @Headers("x-razorpay-event-id") headerEventId: string | undefined,
     @Body() body: Record<string, unknown>,
   ) {
     const raw = req.rawBody;
@@ -251,27 +300,23 @@ export class PaymentsController {
     }
 
     const event = typeof body.event === "string" ? body.event : "";
-    const eventId =
-      typeof body.id === "string"
-        ? body.id
-        : typeof (body as { event_id?: unknown }).event_id === "string"
-          ? (body as { event_id: string }).event_id
-          : null;
+    const eventId = razorpayWebhookEventId(headerEventId, body);
 
     if (!eventId) {
       throw new BadRequestException("Missing webhook event id");
     }
 
-    const claimed = await this.service.claimWebhookEvent({
-      provider: "razorpay",
-      eventId,
-      eventType: event || "unknown",
-      payload: body,
-    });
-    if (!claimed) {
-      return { duplicate: true, event, eventId };
-    }
+    return this.runClaimedWebhook(
+      { provider: "razorpay", eventId, eventType: event || "unknown", payload: body },
+      () => this.processRazorpayWebhook(event, body, resolved),
+    );
+  }
 
+  private async processRazorpayWebhook(
+    event: string,
+    body: Record<string, unknown>,
+    resolved: Awaited<ReturnType<PaymentsService["resolveRazorpayWebhookCredentials"]>>,
+  ) {
     const payload = (body.payload ?? {}) as Record<string, unknown>;
     const payment = (payload.payment as { entity?: Record<string, unknown> } | undefined)
       ?.entity;
@@ -360,6 +405,7 @@ export class PaymentsController {
     @Req() req: RawBodyRequest<Request>,
     @Headers("x-webhook-signature") signature: string | undefined,
     @Headers("x-webhook-timestamp") timestamp: string | undefined,
+    @Headers("x-idempotency-key") idempotencyKey: string | undefined,
     @Body() body: Record<string, unknown>,
   ) {
     const raw = req.rawBody;
@@ -386,21 +432,24 @@ export class PaymentsController {
         : typeof body.event === "string"
           ? body.event
           : "cashfree.webhook";
-    const eventId =
-      typeof body.event_time === "string"
-        ? `${resolved.cashfreeOrderId ?? "cf"}:${body.event_time}:${eventType}`
-        : `${resolved.cashfreeOrderId ?? "cf"}:${eventType}:${Date.now()}`;
-
-    const claimed = await this.service.claimWebhookEvent({
-      provider: "cashfree",
-      eventId,
+    const eventId = cashfreeWebhookEventId(
+      idempotencyKey,
+      body,
+      resolved.cashfreeOrderId,
       eventType,
-      payload: body,
-    });
-    if (!claimed) {
-      return { duplicate: true, event: eventType, eventId };
-    }
+    );
 
+    return this.runClaimedWebhook(
+      { provider: "cashfree", eventId, eventType, payload: body },
+      () => this.processCashfreeWebhook(eventType, body, resolved),
+    );
+  }
+
+  private async processCashfreeWebhook(
+    eventType: string,
+    body: Record<string, unknown>,
+    resolved: Awaited<ReturnType<PaymentsService["resolveCashfreeWebhookCredentials"]>>,
+  ) {
     const data = (body.data ?? body) as Record<string, unknown>;
     const order = (data.order ?? data) as Record<string, unknown>;
     const payment = (data.payment ?? {}) as Record<string, unknown>;
@@ -454,6 +503,29 @@ export class PaymentsController {
     }
 
     return { ignored: true, event: eventType, status };
+  }
+
+  /**
+   * Claim first so concurrent deliveries process once; release on unexpected errors so
+   * the provider's retry is not swallowed as a duplicate. HTTP errors (amount mismatch
+   * etc.) are permanent and stay claimed.
+   */
+  private async runClaimedWebhook<T>(
+    claim: { provider: string; eventId: string; eventType: string; payload: unknown },
+    process: () => Promise<T>,
+  ) {
+    const claimed = await this.service.claimWebhookEvent(claim);
+    if (!claimed) {
+      return { duplicate: true, event: claim.eventType, eventId: claim.eventId };
+    }
+    try {
+      return await process();
+    } catch (err) {
+      if (!(err instanceof HttpException)) {
+        await this.service.releaseWebhookEvent(claim.provider, claim.eventId);
+      }
+      throw err;
+    }
   }
 
   private async completeDinerFromWebhook(

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Button, Input, PageHeader, useToast } from '@cullinos/ui';
 import { loyaltyApi, type LoyaltySettings } from '@/lib/api';
+import { RedeemPointsPanel } from './loyalty/RedeemPointsPanel';
 
 const DEFAULT_SETTINGS: LoyaltySettings = {
   pointsPerCurrency: 1,
@@ -117,6 +118,7 @@ export function LoyaltyPage() {
         description="Points wallet, catalog rewards (e.g. free drink for 100 pts), stamps, and tiers."
       />
 
+      <RedeemPointsPanel settings={settingsQuery.data} />
       <section className="rounded-xl border border-white/5 bg-bg-card p-5">
         <h2 className="font-semibold">Settings</h2>
         {settingsQuery.isLoading ? (

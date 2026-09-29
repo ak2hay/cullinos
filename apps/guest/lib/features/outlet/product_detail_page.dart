@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:cullinos_guest/core/guest_colors.dart';
 import 'package:cullinos_guest/core/guest_spacing.dart';
 import 'package:cullinos_guest/data/guest_api.dart';
+import 'package:cullinos_guest/features/outlet/alcohol_gate.dart';
 import 'package:cullinos_guest/features/outlet/cart_controller.dart';
 import 'package:cullinos_guest/features/outlet/menu_utils.dart';
 import 'package:cullinos_guest/widgets/guest_badges.dart';
@@ -38,11 +39,18 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   int _qty = 1;
   String? _selectedVariantId;
   final Map<String, Map<String, dynamic>> _selectedMods = {};
+  final _noteController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -95,9 +103,14 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     return price;
   }
 
-  void _addToCart() {
+  Future<void> _addToCart() async {
     final item = _item;
     if (item == null) return;
+    final alcohol = isAlcoholItem(item);
+    if (alcohol && !await ensureDrinkingAge(context, ref.read(cartProvider))) {
+      return;
+    }
+    if (!mounted) return;
     final variants = List<Map<String, dynamic>>.from(
       (item['variants'] as List? ?? [])
           .map((e) => Map<String, dynamic>.from(e as Map)),
@@ -147,13 +160,17 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       variantLabel: variantLabel,
       modifiers: mods.isEmpty ? null : mods,
       quantity: _qty,
+      notes: _noteController.text,
       imageUrl: item['imageUrl']?.toString(),
       isVeg: item['isVeg'] == true,
+      isAlcohol: alcohol,
     );
+    _noteController.clear();
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Added ${item['name']} to cart'),
+        duration: const Duration(seconds: 2),
         action: SnackBarAction(
           label: 'View Cart',
           onPressed: () => context.push(
@@ -300,13 +317,20 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                         spacing: 10,
                         runSpacing: 8,
                         children: [
-                          _metaChip(
-                            isVeg ? Icons.circle : Icons.circle,
-                            isVeg ? 'Veg' : 'Non-Veg',
-                            isVeg
-                                ? const Color(0xFF16A34A)
-                                : GuestColors.popularRed,
-                          ),
+                          if (isAlcoholItem(item))
+                            _metaChip(
+                              Icons.local_bar_rounded,
+                              'Dine-in only',
+                              GuestColors.primaryOf(context),
+                            )
+                          else
+                            _metaChip(
+                              isVeg ? Icons.circle : Icons.circle,
+                              isVeg ? 'Veg' : 'Non-Veg',
+                              isVeg
+                                  ? const Color(0xFF16A34A)
+                                  : GuestColors.popularRed,
+                            ),
                           if (item['calories'] != null)
                             _metaChip(
                               Icons.local_fire_department_rounded,
@@ -461,6 +485,30 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                           ),
                         ),
                       ],
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Add note',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _noteController,
+                        maxLines: 2,
+                        maxLength: cartNoteMaxLength,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          hintText: 'E.g. no onion, less spicy, extra cheese',
+                          prefixIcon: const Icon(Icons.edit_note_rounded),
+                          filled: true,
+                          fillColor: GuestColors.surface,
+                          border: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(GuestSpacing.radiusSm),
+                            borderSide:
+                                const BorderSide(color: GuestColors.border),
+                          ),
+                        ),
+                      ),
                       if (desc.isNotEmpty) ...[
                         const SizedBox(height: 16),
                         Container(

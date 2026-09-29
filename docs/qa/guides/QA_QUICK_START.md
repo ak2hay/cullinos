@@ -147,7 +147,7 @@ If you run the app **locally** with `npm run db:seed`, these demo accounts exist
 
 | Role | Email | Password |
 |------|-------|----------|
-| Super Admin | `akshrkd@gmail.com` | `Missyou@1` |
+| Super Admin | `SEED_SUPER_ADMIN_EMAIL` | `SEED_SUPER_ADMIN_PASSWORD` (set before seeding) |
 | Owner | `owner@cullinos.com` | `demo1234` |
 
 Local app ports: API `3000`, Admin `5181`, etc. — Waiter is Flutter `apps/waiter_mobile`; see root [README.md](../../README.md).

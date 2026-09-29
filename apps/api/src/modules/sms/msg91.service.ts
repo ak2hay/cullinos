@@ -9,6 +9,8 @@ import { redactPhone } from "../../common/pii-redact.util";
 export type SendOtpResult = {
   sent: boolean;
   provider: "msg91" | "log";
+  /** Set when sent is false — distinguishes missing Flow config from API/network failure. */
+  failureKind?: "not_configured" | "provider_failed";
 };
 
 export type SendCampaignSmsResult = {
@@ -280,7 +282,7 @@ export class Msg91Service {
       this.logger.warn(
         `MSG91 Flow not configured. Skipping OTP SMS to ${redactPhone(mobile)}`,
       );
-      return { sent: false, provider: "log" };
+      return { sent: false, provider: "log", failureKind: "not_configured" };
     }
 
     try {
@@ -307,7 +309,7 @@ export class Msg91Service {
       if (!res.ok) {
         const text = await res.text();
         this.logger.error(`MSG91 send failed (${res.status}): ${text}`);
-        return { sent: false, provider: "log" };
+        return { sent: false, provider: "log", failureKind: "provider_failed" };
       }
 
       return { sent: true, provider: "msg91" };
@@ -315,7 +317,7 @@ export class Msg91Service {
       this.logger.error(
         `MSG91 error: ${err instanceof Error ? err.message : String(err)}`,
       );
-      return { sent: false, provider: "log" };
+      return { sent: false, provider: "log", failureKind: "provider_failed" };
     }
   }
 
@@ -371,7 +373,7 @@ export class Msg91Service {
             raw && typeof raw === "object" ? Object.keys(raw as object).join(",") : typeof raw
           }`,
         );
-        // Token is valid — caller may supply the widget success identifier.
+        // Callers must fail closed — never substitute a client-supplied phone.
         return {
           ok: true,
           raw,
@@ -494,7 +496,7 @@ export class Msg91Service {
     if (phoneTrimmed) {
       if (!status.flowConfigured) {
         const widgetHint = status.widgetConfigured
-          ? " Widget is configured — use customer login for end-to-end OTP, or set Flow template ID (+ sender ID) to send a test SMS from here."
+          ? " Widget is configured — Guest and Waiter use Widget OTP; set Flow template ID (+ sender ID) only if you need Flow SMS test or marketing."
           : "";
         return {
           ok: false,
@@ -517,7 +519,7 @@ export class Msg91Service {
       return {
         ok: true,
         message:
-          "MSG91 OTP Widget is configured (auth key + widget id + tokenAuth). Enter a phone + set Flow template ID to send a test SMS, or use customer login for widget OTP.",
+          "MSG91 OTP Widget is configured (auth key + widget id + tokenAuth). Guest and Waiter phone OTP use Widget. Enter a phone + set Flow template ID to send a Flow test SMS.",
         status,
       };
     }

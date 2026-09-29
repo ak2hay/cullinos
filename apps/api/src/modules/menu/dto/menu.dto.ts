@@ -1,14 +1,18 @@
 import {
   IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { MENU_PRODUCT_TYPES } from '../product-types';
 
 export class CreateCategoryDto {
   @IsString()
@@ -27,7 +31,7 @@ export class CreateCategoryDto {
   sortOrder?: number;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   parentId?: string;
 }
 
@@ -49,7 +53,7 @@ export class UpdateCategoryDto {
   sortOrder?: number;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   parentId?: string;
 
   @IsOptional()
@@ -131,6 +135,13 @@ export class VariantDto {
   @IsOptional()
   @IsInt()
   sortOrder?: number;
+
+  /** Recipe stock multiplier (Half = 0.5, Full = 1, 60 mL on a 30 mL recipe = 2). */
+  @IsOptional()
+  @IsNumber()
+  @Min(0.001)
+  @Max(1000)
+  stockMultiplier?: number;
 }
 
 export class CreateMenuItemDto {
@@ -202,6 +213,10 @@ export class CreateMenuItemDto {
   @IsOptional()
   @IsBoolean()
   isSpecial?: boolean;
+
+  @IsOptional()
+  @IsIn(MENU_PRODUCT_TYPES)
+  productType?: string;
 
   @IsOptional()
   @IsInt()
@@ -292,6 +307,10 @@ export class UpdateMenuItemDto {
   @IsOptional()
   @IsBoolean()
   isSpecial?: boolean;
+
+  @IsOptional()
+  @IsIn(MENU_PRODUCT_TYPES)
+  productType?: string;
 
   @IsOptional()
   @IsInt()

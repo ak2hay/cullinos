@@ -28,9 +28,20 @@ enum UserStatus {
   invited
 }
 
+/// Rkyves internal staff role inside the super admin panel. Only set when isSuperAdmin is true.
+enum PlatformRole {
+  owner
+  support
+  sales
+  marketing
+  finance
+  viewer
+}
+
 enum EmailOtpPurpose {
   login_2fa
   password_reset
+  labs_step_up
 }
 
 enum EmailCampaignScope {
@@ -50,6 +61,11 @@ enum SubscriptionStatus {
   past_due
   suspended
   cancelled
+}
+
+enum PlanVisibility {
+  public
+  private
 }
 
 enum OrderStatus {
@@ -248,6 +264,7 @@ enum BusinessType {
   qsr
   cloud_kitchen
   catering
+  bar
 }
 
 enum RestaurantSize {
@@ -311,6 +328,8 @@ model Organization {
   sandboxRelaxPassword Boolean @default(true) @map("sandbox_relax_password")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
+  /// Soft delete — financial records are kept; status is set to cancelled.
+  deletedAt          DateTime? @map("deleted_at")
 
   brands              Brand[]
   outlets             Outlet[]
@@ -329,6 +348,7 @@ model Organization {
   notifications         Notification[]
   integrations          Integration[]
   menuSchedules         MenuSchedule[]
+  happyHourRules        HappyHourRule[]
   outletEvents          OutletEvent[]
   productionBatches     ProductionBatch[]
   devices               Device[]
@@ -358,7 +378,10 @@ model Organization {
   centralKitchens       CentralKitchen[]
   centralKitchenIndents CentralKitchenIndent[]
   wallet                OrganizationWallet?
+  invoices              Invoice[]
+  creditNotes           CreditNote[]
 
+  @@index([deletedAt])
   @@map("organizations")
 }
 
@@ -386,6 +409,7 @@ model OrganizationWallet {
 enum WalletLedgerType {
   topup
   sms_charge
+  whatsapp_charge
   manual_credit
   manual_debit
   refund
@@ -403,7 +427,7 @@ model WalletLedgerEntry {
   createdByUserId String?          @map("created_by_user_id")
   createdAt       DateTime         @default(now()) @map("created_at")
 
-  wallet OrganizationWallet @relation(fields: [organizationId], references: [organizationId], onDelete: Cascade)
+  wallet OrganizationWallet @relation(fields: [organizationId], references: [organizationId], onDelete: Restrict)
 
   @@index([organizationId, createdAt])
   @@map("wallet_ledger_entries")
@@ -478,6 +502,7 @@ model Outlet {
   orders          Order[]
   menuPrices      OutletMenuPrice[]
   kitchenStations KitchenStation[]
+  happyHourRules  HappyHourRule[]
   cashierShifts   CashierShift[]
   inventoryItems  InventoryItem[]
   employees       Employee[]
@@ -529,7 +554,10 @@ model User {
   phone          String?
   status             UserStatus @default(active)
   isSuperAdmin       Boolean    @default(false) @map("is_super_admin")
+  platformRole       PlatformRole? @map("platform_role")
   mustChangePassword Boolean    @default(false) @map("must_change_password")
+  /// Bumped to revoke every access/refresh token issued before (logout-all, password change, deactivation).
+  tokenVersion       Int        @default(0) @map("token_version")
   lastLoginAt        DateTime?  @map("last_login_at")
   createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt          DateTime   @updatedAt @map("updated_at")
@@ -630,15 +658,27 @@ model OutletPhoto {
   @@map("outlet_photos")
 }
 
+/// One row per issued staff refresh token (id = JWT jti). Rotation marks the old row
+/// revoked; presenting a revoked token again revokes the whole family (reuse detection).
 model Session {
-  id        String   @id @default(cuid())
-  userId    String   @map("user_id")
-  token     String   @unique
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  /// sha256 of the refresh JWT
+  token        String    @unique
+  familyId     String    @map("family_id")
+  portal       String?
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  replacedById String?   @map("replaced_by_id")
+  lastUsedAt   DateTime? @map("last_used_at")
+  userAgent    String?   @map("user_agent")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
   @@map("sessions")
 }
 
@@ -666,7 +706,7 @@ model AuditLog {
   ipAddress      String?  @map("ip_address")
   createdAt      DateTime @default(now()) @map("created_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, createdAt])
@@ -684,15 +724,18 @@ model Plan {
   priceYearly  Decimal  @default(0) @map("price_yearly") @db.Decimal(12, 2)
   maxOutlets   Int      @default(1) @map("max_outlets")
   maxTerminals Int      @default(2) @map("max_terminals")
-  isActive              Boolean  @default(true) @map("is_active")
-  sortOrder             Int      @default(0) @map("sort_order")
-  razorpayPlanIdMonthly String?  @map("razorpay_plan_id_monthly")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  maxUsers              Int             @default(5) @map("max_users")
+  visibility            PlanVisibility  @default(public)
+  isActive              Boolean         @default(true) @map("is_active")
+  sortOrder             Int             @default(0) @map("sort_order")
+  razorpayPlanIdMonthly String?         @map("razorpay_plan_id_monthly")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
 
   features      PlanFeature[]
   subscriptions Subscription[]
 
+  @@index([visibility, isActive])
   @@map("plans")
 }
 
@@ -721,6 +764,9 @@ model Subscription {
   razorpaySubId           String?            @map("razorpay_sub_id")
   razorpayShortUrl        String?            @map("razorpay_short_url")
   lastRazorpayPaymentId   String?            @map("last_razorpay_payment_id")
+  /// Plan change on a paid subscription: the old plan stays live until this gateway sub's first charge.
+  pendingPlanId           String?            @map("pending_plan_id")
+  pendingRazorpaySubId    String?            @map("pending_razorpay_sub_id")
   cancelledAt             DateTime?          @map("cancelled_at")
   createdAt      DateTime           @default(now()) @map("created_at")
   updatedAt      DateTime           @updatedAt @map("updated_at")
@@ -796,6 +842,8 @@ model MenuCategory {
   sortOrder      Int      @default(0) @map("sort_order")
   isActive       Boolean  @default(true) @map("is_active")
   parentId       String?  @map("parent_id")
+  /// Routes this category's items to the outlet KitchenStation with this code (e.g. BAR).
+  kitchenStationCode String? @map("kitchen_station_code")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -821,6 +869,7 @@ model MenuItem {
   isActive       Boolean  @default(true) @map("is_active")
   isVeg          Boolean  @default(false) @map("is_veg")
   isSpecial      Boolean  @default(false) @map("is_special")
+  productType    String?  @map("product_type")
   allergens      String[] @default([])
   sortOrder      Int      @default(0) @map("sort_order")
   sku            String?
@@ -828,6 +877,8 @@ model MenuItem {
   packagingCharge Decimal @default(0) @map("packaging_charge") @db.Decimal(12, 2)
   onlineAvailable Boolean @default(true) @map("online_available")
   stockBasedAvailability Boolean @default(false) @map("stock_based_availability")
+  /// Universal menu catalog id this item was imported from (idempotent re-import).
+  catalogItemId  String?  @map("catalog_item_id")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -844,6 +895,7 @@ model MenuItem {
   guestFavorites GuestFavoriteItem[]
 
   @@unique([organizationId, slug])
+  @@index([organizationId, catalogItemId])
   @@map("menu_items")
 }
 
@@ -855,6 +907,8 @@ model MenuItemVariant {
   sku        String?
   isDefault  Boolean @default(false) @map("is_default")
   sortOrder  Int     @default(0) @map("sort_order")
+  /// Recipe quantities are multiplied by this for the variant (Half = 0.5, 60 mL peg = 2 when recipe is 30 mL).
+  stockMultiplier Decimal @default(1) @map("stock_multiplier") @db.Decimal(8, 3)
 
   menuItem   MenuItem    @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
   orderItems OrderItem[]
@@ -942,6 +996,34 @@ model MenuSchedule {
   @@map("menu_schedules")
 }
 
+/// Time-window price discount (happy hour). Evaluated in the organization timezone.
+/// endTime <= startTime means the window runs past midnight.
+model HappyHourRule {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  /// Null = all outlets
+  outletId       String?  @map("outlet_id")
+  name           String
+  daysOfWeek     Int[]    @map("days_of_week")
+  startTime      String   @map("start_time")
+  endTime        String   @map("end_time")
+  /// percent | amount (amount in rupees off per unit)
+  discountType   String   @default("percent") @map("discount_type")
+  discountValue  Decimal  @map("discount_value") @db.Decimal(12, 2)
+  /// Both empty = every menu item
+  categoryIds    String[] @map("category_ids")
+  menuItemIds    String[] @map("menu_item_ids")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet?      @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, isActive])
+  @@map("happy_hour_rules")
+}
+
 model OutletMenuPrice {
   id          String    @id @default(cuid())
   outletId    String    @map("outlet_id")
@@ -1005,13 +1087,17 @@ model Table {
   sortOrder Int         @default(0) @map("sort_order")
   qrCode    String?     @unique @map("qr_code")
   status    TableStatus @default(available)
+  mergedIntoTableId String? @map("merged_into_table_id")
 
   section         Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  mergedInto      Table?           @relation("TableMerge", fields: [mergedIntoTableId], references: [id], onDelete: SetNull)
+  mergedTables    Table[]          @relation("TableMerge")
   tableSessions   TableSession[]
   orders          Order[]
   serviceRequests ServiceRequest[]
   reservations    Reservation[]
 
+  @@index([mergedIntoTableId])
   @@map("tables")
 }
 
@@ -1111,6 +1197,8 @@ model Order {
   @@unique([outletId, orderNumber])
   @@unique([outletId, pickupCode])
   @@index([organizationId, status, createdAt])
+  @@index([outletId, status, createdAt])
+  @@index([customerId])
   @@map("orders")
 }
 
@@ -1133,6 +1221,7 @@ model OrderItem {
   variant  MenuItemVariant? @relation(fields: [variantId], references: [id])
   kotItems KOTItem[]
 
+  @@index([orderId])
   @@map("order_items")
 }
 
@@ -1196,6 +1285,8 @@ model KOT {
   kitchenStation KitchenStation? @relation(fields: [kitchenStationId], references: [id])
   items          KOTItem[]
 
+  @@index([orderId])
+  @@index([kitchenStationId, status])
   @@map("kots")
 }
 
@@ -1208,6 +1299,8 @@ model KOTItem {
   kot       KOT       @relation(fields: [kotId], references: [id], onDelete: Cascade)
   orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
 
+  @@index([kotId])
+  @@index([orderItemId])
   @@map("kot_items")
 }
 
@@ -1236,12 +1329,15 @@ model Payment {
   processedAt     DateTime?     @map("processed_at")
   createdAt       DateTime      @default(now()) @map("created_at")
 
-  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  order         Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order         Order          @relation(fields: [orderId], references: [id], onDelete: Restrict)
   paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
 
+  @@unique([organizationId, reference])
   @@index([organizationId, createdAt])
   @@index([organizationId, status])
+  @@index([orderId])
+  @@index([reference])
   @@map("payments")
 }
 
@@ -1260,8 +1356,9 @@ model PaymentWebhookEvent {
 }
 
 model Invoice {
-  id            String        @id @default(cuid())
-  orderId       String?       @map("order_id")
+  id             String        @id @default(cuid())
+  organizationId String?       @map("organization_id")
+  orderId        String?       @map("order_id")
   invoiceNumber String        @map("invoice_number")
   status        InvoiceStatus @default(draft)
   subtotal      Decimal       @default(0) @db.Decimal(12, 2)
@@ -1271,11 +1368,14 @@ model Invoice {
   dueAt         DateTime?     @map("due_at")
   createdAt     DateTime      @default(now()) @map("created_at")
 
-  order      Order?           @relation(fields: [orderId], references: [id])
+  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order      Order?           @relation(fields: [orderId], references: [id], onDelete: Restrict)
   items      InvoiceItem[]
   taxLines   InvoiceTaxLine[]
   creditNotes CreditNote[]
 
+  @@unique([organizationId, invoiceNumber])
+  @@index([orderId])
   @@map("invoices")
 }
 
@@ -1306,14 +1406,18 @@ model InvoiceTaxLine {
 }
 
 model CreditNote {
-  id        String  @id @default(cuid())
-  invoiceId String  @map("invoice_id")
-  amount    Decimal @db.Decimal(12, 2)
-  reason    String?
-  createdAt DateTime @default(now()) @map("created_at")
+  id             String   @id @default(cuid())
+  organizationId String?  @map("organization_id")
+  invoiceId      String   @map("invoice_id")
+  amount         Decimal  @db.Decimal(12, 2)
+  reason         String?
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  invoice Invoice @relation(fields: [invoiceId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invoice      Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
 
+  @@index([organizationId, createdAt])
+  @@index([invoiceId])
   @@map("credit_notes")
 }
 
@@ -1327,10 +1431,12 @@ model CashierShift {
   openedAt    DateTime    @default(now()) @map("opened_at")
   closedAt    DateTime?   @map("closed_at")
 
-  outlet        Outlet         @relation(fields: [outletId], references: [id], onDelete: Cascade)
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outlet        Outlet         @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Restrict)
   cashMovements CashMovement[]
 
+  @@index([outletId, status])
+  @@index([userId])
   @@map("cashier_shifts")
 }
 
@@ -1399,6 +1505,12 @@ model InventoryItem {
   costPerUnit    Decimal   @default(0) @map("cost_per_unit") @db.Decimal(12, 2)
   batchNumber    String?   @map("batch_number")
   expiryDate     DateTime? @map("expiry_date")
+  /// Purchase pack name, e.g. "packet", "bucket", "bottle". Stock stays in `unit`.
+  packLabel      String?   @map("pack_label")
+  /// How many `unit` one pack contains (e.g. 50 pcs per packet, 2500 g per bucket).
+  packSize       Decimal?  @map("pack_size") @db.Decimal(12, 3)
+  /// Stable key from the universal menu catalog stock templates (e.g. "burger_bun").
+  catalogKey     String?   @map("catalog_key")
 
   organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   outlet       Outlet?            @relation(fields: [outletId], references: [id])
@@ -1409,6 +1521,7 @@ model InventoryItem {
   wastageRecords    Wastage[]
   centralKitchenIndentItems CentralKitchenIndentItem[]
 
+  @@unique([organizationId, outletId, catalogKey])
   @@map("inventory_items")
 }
 
@@ -1678,10 +1791,14 @@ model GuestUser {
   email               String?
   pinHash             String?   @map("pin_hash")
   pinUpdatedAt        DateTime? @map("pin_updated_at")
+  pinFailedAttempts   Int       @default(0) @map("pin_failed_attempts")
+  pinLockedUntil      DateTime? @map("pin_locked_until")
   cullinosCoins       Int       @default(0) @map("cullinos_coins")
   marketingEmailOptIn Boolean   @default(false) @map("marketing_email_opt_in")
   marketingSmsOptIn   Boolean   @default(false) @map("marketing_sms_opt_in")
   anonymizedAt        DateTime? @map("anonymized_at")
+  suspendedAt         DateTime? @map("suspended_at")
+  suspendReason       String?   @map("suspend_reason")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
@@ -1889,6 +2006,11 @@ model GuestPushCampaign {
   title          String
   body           String
   data           Json      @default("{}")
+  imageUrl       String?   @map("image_url")
+  /// offer | alert | promo | custom
+  stylePreset    String?   @map("style_preset")
+  /// { titleColor, bodyColor, bgColor, accentColor, fontFamily, ctaLabel, headlineSize? }
+  creative       Json      @default("{}")
   /// all | org_members | city | org | marketing_opt_in
   audience       String    @default("org_members")
   audienceFilter Json      @default("{}") @map("audience_filter")
@@ -1952,6 +2074,8 @@ model LoyaltyTransaction {
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
+  @@index([customerId, createdAt])
+  @@index([reference])
   @@map("loyalty_transactions")
 }
 
@@ -2006,6 +2130,8 @@ model CouponUsage {
   coupon   Coupon    @relation(fields: [couponId], references: [id])
   customer Customer? @relation(fields: [customerId], references: [id])
 
+  @@unique([couponId, orderId])
+  @@index([customerId])
   @@map("coupon_usages")
 }
 
@@ -2428,6 +2554,18 @@ model MarketingTheme {
   @@map("marketing_themes")
 }
 
+/// Tenant-owned uploaded objects, for per-organization storage quotas.
+model StoredObject {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  key            String   @unique
+  sizeBytes      Int      @map("size_bytes")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@map("stored_objects")
+}
+
 model MarketingAsset {
   id           String   @id @default(cuid())
   filename     String
@@ -2567,6 +2705,25 @@ model MarketingBlogPost {
   @@map("marketing_blog_posts")
 }
 
+model MarketingInquiry {
+  id            String   @id @default(cuid())
+  name          String
+  business      String
+  email         String
+  phone         String?
+  city          String?
+  outlets       String?
+  planInterest  String?  @map("plan_interest")
+  message       String
+  status        String   @default("new") // new | read | archived
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("marketing_inquiries")
+}
+
 model MarketingDesignPreset {
   id          String   @id @default(cuid())
   slug        String   @unique
@@ -2660,12 +2817,15 @@ model PhoneOtp {
   organizationId String   @map("organization_id")
   codeHash       String   @map("code_hash")
   challengeToken String   @unique @map("challenge_token")
+  /// customer_login | staff_login | staff_widget_binding
+  purpose        String   @default("customer_login")
   attempts       Int      @default(0)
   expiresAt      DateTime @map("expires_at")
   consumedAt     DateTime? @map("consumed_at")
   createdAt      DateTime @default(now()) @map("created_at")
 
   @@index([phone, organizationId])
+  @@index([organizationId, createdAt])
   @@index([challengeToken])
   @@map("phone_otps")
 }

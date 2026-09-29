@@ -176,7 +176,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/wallets',
-        builder: (_, __) => const WalletsPage(),
+        builder: (_, state) => WalletsPage(
+          initialOrgId: state.uri.queryParameters['orgId'],
+        ),
       ),
       GoRoute(
         path: '/coins',
@@ -406,8 +408,6 @@ class _GuestShellScaffoldState extends ConsumerState<_GuestShellScaffold> {
   }
 
   void _handleBack() {
-    final loc = widget.matchedLocation;
-
     if (!_onShellRoot) {
       context.go('/');
       return;

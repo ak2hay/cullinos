@@ -7,6 +7,8 @@ import { SmsModule } from "../sms/sms.module";
 import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { SuperAdminGuard } from "../marketing/guards/super-admin.guard";
 import { PlanBootstrapService } from "./plan-bootstrap.service";
+import { PlatformTeamController } from "./platform-team.controller";
+import { PlatformTeamService } from "./platform-team.service";
 import { SuperAdminController } from "./super-admin.controller";
 import { SuperAdminService } from "./super-admin.service";
 
@@ -19,8 +21,8 @@ import { SuperAdminService } from "./super-admin.service";
     AuthModule,
     SmsModule,
   ],
-  controllers: [SuperAdminController],
-  providers: [SuperAdminService, SuperAdminGuard, PlanBootstrapService],
+  controllers: [SuperAdminController, PlatformTeamController],
+  providers: [SuperAdminService, PlatformTeamService, SuperAdminGuard, PlanBootstrapService],
   exports: [SuperAdminService],
 })
 export class SuperAdminModule {}

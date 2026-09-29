@@ -1,6 +1,17 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+/// Matches the API limit on `CreateOrderItemDto.notes`.
+const int cartNoteMaxLength = 200;
+
+String? normalizeCartNote(String? notes) {
+  final trimmed = notes?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  return trimmed.length > cartNoteMaxLength
+      ? trimmed.substring(0, cartNoteMaxLength)
+      : trimmed;
+}
+
 class CartLine {
   CartLine({
     required this.menuItemId,
@@ -14,6 +25,7 @@ class CartLine {
     this.lineKey,
     this.imageUrl,
     this.isVeg,
+    this.isAlcohol = false,
   });
 
   final String menuItemId;
@@ -27,6 +39,7 @@ class CartLine {
   String? lineKey;
   String? imageUrl;
   bool? isVeg;
+  final bool isAlcohol;
 
   double get lineTotal => unitPrice * quantity;
 
@@ -50,9 +63,15 @@ class CartState extends ChangeNotifier {
   String? restaurantLocation;
   String? specialInstructions;
 
+  /// Guest confirmed legal drinking age for this outlet session.
+  bool ageConfirmed = false;
+
   double get subtotal => lines.fold(0, (s, l) => s + l.lineTotal);
 
   int get itemCount => lines.fold(0, (s, l) => s + l.quantity);
+
+  /// Drinks in the cart restrict the order to dine-in.
+  bool get hasAlcohol => lines.any((l) => l.isAlcohol);
 
   void bindOutlet({
     required String orgId,
@@ -69,6 +88,7 @@ class CartState extends ChangeNotifier {
     if (this.outletId != null && this.outletId != outletId) {
       lines.clear();
       specialInstructions = null;
+      ageConfirmed = false;
     }
     this.orgId = orgId;
     this.outletId = outletId;
@@ -107,9 +127,12 @@ class CartState extends ChangeNotifier {
     int quantity = 1,
     String? imageUrl,
     bool? isVeg,
+    bool isAlcohol = false,
   }) {
+    final cleanNotes = normalizeCartNote(notes);
+    // Notes are part of the key so each note stays on its own kitchen line.
     final key =
-        '$menuItemId|${variantId ?? ''}|${(modifiers ?? []).map((m) => m['id']).join(',')}';
+        '$menuItemId|${variantId ?? ''}|${(modifiers ?? []).map((m) => m['id']).join(',')}|${cleanNotes ?? ''}';
     final existingIndex = lines.indexWhere((l) => l.key == key);
     if (existingIndex >= 0) {
       lines[existingIndex].quantity += quantity;
@@ -119,15 +142,22 @@ class CartState extends ChangeNotifier {
         name: name,
         unitPrice: unitPrice,
         quantity: quantity,
-        notes: notes,
+        notes: cleanNotes,
         variantId: variantId,
         variantLabel: variantLabel,
         modifiers: modifiers,
         lineKey: key,
         imageUrl: imageUrl,
         isVeg: isVeg,
+        isAlcohol: isAlcohol,
       ));
     }
+    if (isAlcohol) orderType = 'dine_in';
+    notifyListeners();
+  }
+
+  void confirmAge() {
+    ageConfirmed = true;
     notifyListeners();
   }
 
@@ -159,8 +189,7 @@ class CartState extends ChangeNotifier {
   void setLineNotes(String key, String? notes) {
     for (final line in lines) {
       if (line.key == key) {
-        final trimmed = notes?.trim();
-        line.notes = (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+        line.notes = normalizeCartNote(notes);
         break;
       }
     }
@@ -176,6 +205,7 @@ class CartState extends ChangeNotifier {
     lines
       ..clear()
       ..addAll(next);
+    if (hasAlcohol) orderType = 'dine_in';
     notifyListeners();
   }
 
@@ -186,7 +216,7 @@ class CartState extends ChangeNotifier {
   }
 
   void setOrderType(String type) {
-    orderType = type;
+    orderType = hasAlcohol ? 'dine_in' : type;
     notifyListeners();
   }
 }

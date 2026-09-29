@@ -8,7 +8,7 @@ import {
   Post,
   UseGuards,
 } from "@nestjs/common";
-import { CurrentUser } from "../../common/decorators";
+import { CurrentUser, RequirePlatformPermission } from "../../common/decorators";
 import type { JwtPayload } from "@cullinos/auth";
 import { SuperAdminGuard } from "../marketing/guards/super-admin.guard";
 import {
@@ -18,6 +18,7 @@ import {
 
 @Controller("super-admin/guest-marketing")
 @UseGuards(SuperAdminGuard)
+@RequirePlatformPermission("guest_ops.manage")
 export class GuestMarketingSuperAdminController {
   constructor(private service: GuestMarketingService) {}
 

@@ -1,5 +1,11 @@
 import { PrismaClient } from "@prisma/client";
+import {
+  PUBLIC_PLAN_CATALOG,
+  modulesForPublicPlanSlug,
+  type PublicPlanSlug,
+} from "@cullinos/shared";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 
 const prisma = new PrismaClient();
 
@@ -37,12 +43,6 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   waiter: WAITER_PERMISSIONS,
   cashier: CASHIER_PERMISSIONS,
 };
-
-const ALL_MODULES = [
-  "pos", "kds", "admin", "waiter", "customer", "menu", "orders", "tables",
-  "billing", "tax", "inventory", "crm", "loyalty", "management", "franchise",
-  "hotel", "analytics", "delivery", "settings", "reports", "events", "production",
-];
 
 type MenuItemDef = {
   slug: string;
@@ -336,6 +336,36 @@ const SMB_MENUS: Record<
       ],
     },
   ],
+  bar: [
+    {
+      category: "Whisky",
+      items: [
+        { slug: "blenders-pride-30ml", name: "Blenders Pride (30 mL)", price: 190, isVeg: true },
+        { slug: "jw-black-label-30ml", name: "Johnnie Walker Black Label (30 mL)", price: 460, isVeg: true },
+      ],
+    },
+    {
+      category: "Beer",
+      items: [
+        { slug: "kingfisher-draught-mug", name: "Kingfisher Draught (Mug)", price: 190, isVeg: true },
+        { slug: "bira-white-650", name: "Bira 91 White (650 mL)", price: 340, isVeg: true },
+      ],
+    },
+    {
+      category: "Cocktails",
+      items: [
+        { slug: "mojito", name: "Mojito", price: 450, isVeg: true },
+        { slug: "liit", name: "Long Island Iced Tea", price: 650, isVeg: true },
+      ],
+    },
+    {
+      category: "Bar Snacks",
+      items: [
+        { slug: "masala-peanuts", name: "Masala Peanuts", price: 150, isVeg: true },
+        { slug: "chicken-lollipop", name: "Chicken Lollipop", price: 370, isVeg: false },
+      ],
+    },
+  ],
 };
 
 async function seedPermissions() {
@@ -359,79 +389,43 @@ async function seedPermissions() {
 }
 
 async function seedPlans() {
-  const starterPlan = await prisma.plan.upsert({
-    where: { slug: "starter" },
-    update: {},
-    create: {
-      name: "Starter",
-      slug: "starter",
-      description: "Single outlet — POS, KDS, Admin, GST billing",
-      priceMonthly: 2999,
-      priceYearly: 29990,
-      maxOutlets: 1,
-      maxTerminals: 2,
-    },
-  });
+  const bySlug: Record<string, { id: string; slug: string }> = {};
+  for (const slug of Object.keys(PUBLIC_PLAN_CATALOG) as PublicPlanSlug[]) {
+    const catalog = PUBLIC_PLAN_CATALOG[slug];
+    const modules = modulesForPublicPlanSlug(slug);
+    const plan = await prisma.plan.upsert({
+      where: { slug },
+      update: {
+        name: catalog.name,
+        description: catalog.description,
+        priceMonthly: catalog.priceMonthly,
+        priceYearly: catalog.priceYearly,
+        maxOutlets: catalog.maxOutlets,
+        maxTerminals: catalog.maxTerminals,
+        maxUsers: catalog.maxUsers,
+        sortOrder: catalog.sortOrder,
+        visibility: "public",
+        isActive: true,
+      },
+      create: {
+        name: catalog.name,
+        slug,
+        description: catalog.description,
+        priceMonthly: catalog.priceMonthly,
+        priceYearly: catalog.priceYearly,
+        maxOutlets: catalog.maxOutlets,
+        maxTerminals: catalog.maxTerminals,
+        maxUsers: catalog.maxUsers,
+        sortOrder: catalog.sortOrder,
+        visibility: "public",
+        isActive: true,
+      },
+    });
 
-  const professionalPlan = await prisma.plan.upsert({
-    where: { slug: "professional" },
-    update: {},
-    create: {
-      name: "Professional",
-      slug: "professional",
-      description: "Up to 3 outlets — Waiter, QR, inventory, CRM",
-      priceMonthly: 7999,
-      priceYearly: 79990,
-      maxOutlets: 3,
-      maxTerminals: 6,
-    },
-  });
-
-  const enterprisePlan = await prisma.plan.upsert({
-    where: { slug: "enterprise" },
-    update: {},
-    create: {
-      name: "Enterprise",
-      slug: "enterprise",
-      description: "Multi-outlet chains — Management, franchise, analytics",
-      priceMonthly: 19999,
-      priceYearly: 199990,
-      maxOutlets: 999,
-      maxTerminals: 999,
-    },
-  });
-
-  const qsrPlan = await prisma.plan.upsert({
-    where: { slug: "qsr" },
-    update: {},
-    create: {
-      name: "QSR / Food SMB",
-      slug: "qsr",
-      description: "Cafes, food trucks, bakeries — counter POS, QR ordering, pickup queue",
-      priceMonthly: 4999,
-      priceYearly: 49990,
-      maxOutlets: 1,
-      maxTerminals: 3,
-    },
-  });
-
-  for (const plan of [starterPlan, qsrPlan, professionalPlan, enterprisePlan]) {
-    const modules =
-      plan.slug === "starter"
-        ? ["pos", "kds", "admin", "menu", "orders", "tables", "billing", "tax", "settings", "reports", "analytics"]
-        : plan.slug === "qsr"
-          ? [
-              "pos", "kds", "admin", "menu", "orders", "tables", "billing", "tax", "customer",
-              "loyalty", "inventory", "events", "production", "settings", "reports", "analytics",
-            ]
-          : plan.slug === "professional"
-            ? [
-                "pos", "kds", "admin", "waiter", "customer", "menu", "orders", "tables",
-                "billing", "tax", "inventory", "crm", "loyalty", "delivery", "events",
-                "production", "settings", "reports", "analytics",
-              ]
-            : ALL_MODULES;
-
+    await prisma.planFeature.updateMany({
+      where: { planId: plan.id, module: { notIn: [...modules] } },
+      data: { enabled: false },
+    });
     for (const module of modules) {
       await prisma.planFeature.upsert({
         where: { planId_module: { planId: plan.id, module } },
@@ -439,9 +433,16 @@ async function seedPlans() {
         create: { planId: plan.id, module, enabled: true },
       });
     }
+    bySlug[slug] = plan;
   }
 
-  return { starterPlan, qsrPlan, professionalPlan, enterprisePlan };
+  return {
+    starterPlan: bySlug.starter,
+    qsrPlan: bySlug.qsr,
+    professionalPlan: bySlug.professional,
+    enterprisePlan: bySlug.enterprise,
+    hospitalityPlan: bySlug.hospitality,
+  };
 }
 
 async function markSetupCompleted(orgId: string) {
@@ -1446,6 +1447,7 @@ async function seedSampleOrders(
       update: { amount: doneTotal, status: "completed" },
       create: {
         id: "seed-payment-done",
+        organizationId: orgId,
         orderId: doneOrder.id,
         paymentMethodId: cashMethod.id,
         amount: doneTotal,
@@ -1461,6 +1463,7 @@ async function seedSampleOrders(
     update: { status: "paid", total: doneTotal },
     create: {
       id: "seed-invoice-done",
+      organizationId: orgId,
       orderId: doneOrder.id,
       invoiceNumber: "INV-1000",
       status: "paid",
@@ -1540,6 +1543,7 @@ async function seedSampleOrders(
       update: { amount: readyTotal, status: "completed" },
       create: {
         id: "seed-payment-ready",
+        organizationId: orgId,
         orderId: readyOrder.id,
         paymentMethodId: upiMethod.id,
         amount: readyTotal,
@@ -1554,7 +1558,7 @@ async function seedSampleOrders(
 async function seedSmbMenu(
   orgId: string,
   outletId: string,
-  businessType: "cafe" | "food_truck" | "bakery",
+  businessType: "cafe" | "food_truck" | "bakery" | "bar",
 ) {
   const menu = SMB_MENUS[businessType];
   if (!menu) return;
@@ -1628,7 +1632,12 @@ async function main() {
   }
 
   const passwordHash = await bcrypt.hash("demo1234", 10);
-  const productionAdminHash = await bcrypt.hash("Missyou@1", 10);
+  // Never commit or log the platform super-admin password. When unset, a random one is used
+  // and the account must be recovered via password reset.
+  const superAdminEmail = process.env.SEED_SUPER_ADMIN_EMAIL?.trim() || "akshrkd@gmail.com";
+  const superAdminPassword =
+    process.env.SEED_SUPER_ADMIN_PASSWORD || randomBytes(24).toString("base64url");
+  const productionAdminHash = await bcrypt.hash(superAdminPassword, 10);
 
   // ── Platform ──────────────────────────────────────────────────────────────
   const platformOrg = await prisma.organization.upsert({
@@ -1648,21 +1657,23 @@ async function main() {
     where: {
       organizationId_email: {
         organizationId: platformOrg.id,
-        email: "akshrkd@gmail.com",
+        email: superAdminEmail,
       },
     },
     // Never reset existing production passwords on re-seed.
-    update: { isSuperAdmin: true },
+    update: { isSuperAdmin: true, platformRole: "owner" },
     create: {
       organizationId: platformOrg.id,
-      email: "akshrkd@gmail.com",
+      email: superAdminEmail,
       passwordHash: productionAdminHash,
       name: "Platform Super Admin",
       isSuperAdmin: true,
+      platformRole: "owner",
+      mustChangePassword: true,
     },
   });
 
-  // Remove legacy Super Admin accounts so only akshrkd@gmail.com remains.
+  // Remove legacy Super Admin accounts so only the configured super admin remains.
   await prisma.user.deleteMany({
     where: {
       organizationId: platformOrg.id,
@@ -1847,17 +1858,38 @@ async function main() {
   const foodBusinessDemos: Array<{
     slug: string;
     name: string;
-    businessType: "cafe" | "food_truck" | "bakery";
+    businessType: "cafe" | "food_truck" | "bakery" | "bar";
     operatingMode: "counter" | "hybrid";
+    enabledOrderTypes: string[];
   }> = [
-    { slug: "demo-cafe", name: "Demo Cafe", businessType: "cafe", operatingMode: "counter" },
+    {
+      slug: "demo-cafe",
+      name: "Demo Cafe",
+      businessType: "cafe",
+      operatingMode: "counter",
+      enabledOrderTypes: ["takeaway", "qr", "online"],
+    },
     {
       slug: "demo-food-truck",
       name: "Demo Food Truck",
       businessType: "food_truck",
       operatingMode: "counter",
+      enabledOrderTypes: ["takeaway", "qr", "online"],
     },
-    { slug: "demo-bakery", name: "Demo Bakery", businessType: "bakery", operatingMode: "hybrid" },
+    {
+      slug: "demo-bakery",
+      name: "Demo Bakery",
+      businessType: "bakery",
+      operatingMode: "hybrid",
+      enabledOrderTypes: ["takeaway", "qr", "online"],
+    },
+    {
+      slug: "demo-bar",
+      name: "Demo Bar & Pub",
+      businessType: "bar",
+      operatingMode: "hybrid",
+      enabledOrderTypes: ["dine_in", "takeaway", "qr"],
+    },
   ];
 
   for (const demo of foodBusinessDemos) {
@@ -1881,7 +1913,14 @@ async function main() {
         sandboxSkipSmsOtp: true,
         sandboxRelaxPassword: true,
         settings: {
-          create: { settings: { businessType: demo.businessType, setupCompleted: true } },
+          create: {
+            settings: {
+              businessType: demo.businessType,
+              setupCompleted: true,
+              enabledOrderTypes: demo.enabledOrderTypes,
+              ...(demo.businessType === "bar" ? { servesAlcohol: true } : {}),
+            },
+          },
         },
       },
     });
@@ -1914,7 +1953,7 @@ async function main() {
           create: {
             settings: {
               operatingMode: demo.operatingMode,
-              enabledOrderTypes: ["takeaway", "qr", "online"],
+              enabledOrderTypes: demo.enabledOrderTypes,
             },
           },
         },
@@ -1992,7 +2031,7 @@ async function main() {
   console.log("Seed complete:", {
     org: org.slug,
     logins: {
-      superAdmin: "akshrkd@gmail.com / Missyou@1",
+      superAdmin: `${superAdminEmail} / (SEED_SUPER_ADMIN_PASSWORD)`,
       owner: "owner@cullinos.com / demo1234",
       manager: "manager@cullinos.com / demo1234",
       waiter: "waiter@cullinos.com / demo1234",
@@ -2000,6 +2039,7 @@ async function main() {
       cafeOwner: "demo-cafe-owner@cullinos.com / demo1234",
       foodTruckOwner: "demo-food-truck-owner@cullinos.com / demo1234",
       bakeryOwner: "demo-bakery-owner@cullinos.com / demo1234",
+      barOwner: "demo-bar-owner@cullinos.com / demo1234",
     },
     outlets: [outlet1.slug, outlet2.slug],
     menuCategories: RESTAURANT_MENU.map((c) => c.name),

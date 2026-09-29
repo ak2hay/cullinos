@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -11,6 +12,7 @@ import 'package:cullinos_guest/core/guest_spacing.dart';
 import 'package:cullinos_guest/data/guest_api.dart';
 import 'package:cullinos_guest/features/auth/auth_controller.dart';
 import 'package:cullinos_guest/features/outlet/active_outlet_controller.dart';
+import 'package:cullinos_guest/features/outlet/alcohol_gate.dart';
 import 'package:cullinos_guest/features/outlet/cart_controller.dart';
 import 'package:cullinos_guest/features/outlet/menu_utils.dart';
 import 'package:cullinos_guest/widgets/guest_badges.dart';
@@ -419,23 +421,11 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(
                       GuestSpacing.page, 0, GuestSpacing.page, 12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      GuestPillButton(
-                        label: 'Reserve a table',
-                        icon: Icons.event_seat_rounded,
-                        onPressed: () => context.push(
-                            '/o/${widget.orgSlug}/${widget.outletSlug}/book'),
-                      ),
-                      const SizedBox(height: 8),
-                      GuestPillButton(
-                        label: 'View Full Menu',
-                        icon: Icons.restaurant_menu_rounded,
-                        onPressed: () => context.push(
-                            '/o/${widget.orgSlug}/${widget.outletSlug}/menu'),
-                      ),
-                    ],
+                  child: GuestPillButton(
+                    label: 'View Full Menu',
+                    icon: Icons.restaurant_menu_rounded,
+                    onPressed: () => context.push(
+                        '/o/${widget.orgSlug}/${widget.outletSlug}/menu'),
                   ),
                 ),
               )
@@ -793,45 +783,64 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                 separatorBuilder: (_, __) => const SizedBox(width: 10),
                 itemBuilder: (_, i) {
                   final offer = _offers[i];
+                  final code = offer['code']?.toString();
                   final title = offer['title']?.toString().isNotEmpty == true
                       ? offer['title'].toString()
-                      : offer['code']?.toString() ?? 'Offer';
+                      : code ?? 'Offer';
                   final desc = offer['description']?.toString() ??
-                      (offer['code'] != null
-                          ? 'Use code ${offer['code']}'
-                          : '');
-                  return Container(
-                    width: 220,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: GuestColors.surface,
+                      (code != null ? 'Use code $code' : '');
+                  return Material(
+                    color: GuestColors.surface,
+                    borderRadius:
+                        BorderRadius.circular(GuestSpacing.radiusMd),
+                    child: InkWell(
                       borderRadius:
                           BorderRadius.circular(GuestSpacing.radiusMd),
-                      border: Border.all(color: GuestColors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
+                      onTap: code == null || code.isEmpty
+                          ? null
+                          : () async {
+                              await Clipboard.setData(ClipboardData(text: code));
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Copied $code'),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                      child: Container(
+                        width: 220,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          borderRadius:
+                              BorderRadius.circular(GuestSpacing.radiusMd),
+                          border: Border.all(color: GuestColors.border),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          desc,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: GuestColors.muted,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              desc,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: GuestColors.muted,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   );
                 },
@@ -890,15 +899,22 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                 final item = popularItems[i];
                 final price =
                     (item['price'] as num?)?.toDouble() ?? 0.0;
+                final alcohol = isAlcoholItem(item);
                 return GuestDishCard(
                   name: item['name']?.toString() ?? '',
                   priceLabel: '₹${price.toStringAsFixed(0)}',
                   imageUrl: item['imageUrl']?.toString(),
                   description: item['description']?.toString(),
+                  badgeLabel: alcohol ? 'Dine-in only' : null,
                   onTap: () => context.push(
                     '/o/${widget.orgSlug}/${widget.outletSlug}/item/${item['id']}',
                   ),
-                  onAdd: () {
+                  onAdd: () async {
+                    if (alcohol &&
+                        !await ensureDrinkingAge(context, ref.read(cartProvider))) {
+                      return;
+                    }
+                    if (!mounted) return;
                     final variants = List<Map<String, dynamic>>.from(
                       (item['variants'] as List? ?? [])
                           .map((v) => Map<String, dynamic>.from(v as Map)),
@@ -915,12 +931,13 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                             unitPrice: price,
                             imageUrl: item['imageUrl']?.toString(),
                             isVeg: item['isVeg'] as bool?,
+                            isAlcohol: alcohol,
                           );
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
                               '${item['name']} added to cart'),
-                          duration: const Duration(seconds: 1),
+                          duration: const Duration(seconds: 2),
                         ),
                       );
                     } else {
@@ -987,7 +1004,7 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                       Row(
                         children: List.generate(5, (i) {
                           return Icon(
-                            i < (averageRating as num).round()
+                            i < averageRating.round()
                                 ? Icons.star_rounded
                                 : Icons.star_outline_rounded,
                             size: 20,
@@ -1271,8 +1288,22 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
 
           // ── Loyalty ──────────────────────────────────────────────────
           const SizedBox(height: 16),
+          GuestPillButton(
+            label: 'Reserve a table',
+            icon: Icons.event_seat_rounded,
+            onPressed: () => context.push(
+                '/o/${widget.orgSlug}/${widget.outletSlug}/book'),
+          ),
+          const SizedBox(height: 8),
           TextButton(
-            onPressed: () => context.push('/wallets'),
+            onPressed: () {
+              final orgId = org['id']?.toString();
+              if (orgId != null && orgId.isNotEmpty) {
+                context.push('/wallets?orgId=$orgId');
+              } else {
+                context.push('/wallets');
+              }
+            },
             child: const Text('View loyalty at this place'),
           ),
 

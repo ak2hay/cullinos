@@ -25,6 +25,7 @@ abstract final class WaiterColors {
   static const reserved = Color(0xFF2563EB);
   static const cleaning = Color(0xFFCA8A04);
   static const billing = Color(0xFF9333EA);
+  static const merged = Color(0xFF0E7490);
 
   static Color primaryOf(BuildContext context) =>
       Theme.of(context).colorScheme.primary;

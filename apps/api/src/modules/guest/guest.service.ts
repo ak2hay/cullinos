@@ -1,8 +1,12 @@
 import {
   BadRequestException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -12,14 +16,21 @@ import { hashPassword, verifyPassword } from "@cullinos/auth";
 import { getJwtSecret } from "../../common/jwt-secret.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import { Msg91Service } from "../sms/msg91.service";
+import { friendlyMsg91WidgetMessage } from "../sms/msg91-widget-messages";
 import {
-  PHONE_OTP_SMS_UNAVAILABLE_MESSAGE,
+  PHONE_OTP_MAX_ATTEMPTS,
+  PHONE_OTP_PER_PHONE_PER_HOUR,
+  phoneOtpSmsFailureMessage,
 } from "../customers/phone-otp-request.util";
+
+const GUEST_PIN_MAX_FAILURES = 5;
+const GUEST_PIN_LOCK_MS = 15 * 60 * 1000;
 import {
   DPDP_NOTICE_VERSION,
   DPDP_PURPOSES,
 } from "../privacy/privacy.constants";
 import { newUnsubscribeToken } from "../privacy/privacy.crypto";
+import { ConsentService } from "../privacy/consent.service";
 import { LoyaltyService } from "../loyalty/loyalty.service";
 import { FirebaseAdminService } from "./firebase-admin.service";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
@@ -52,7 +63,61 @@ export class GuestService {
     private loyalty: LoyaltyService,
     private firebaseAdmin: FirebaseAdminService,
     private platformConfig: PlatformConfigService,
+    @Optional() private consent?: ConsentService,
   ) {}
+
+  /**
+   * Guest app marketing choices apply to every restaurant the guest has joined: mirror
+   * them onto each linked customer and keep a per-restaurant consent record (DPDP).
+   */
+  private async syncGuestMarketingConsent(
+    guestUserId: string,
+    prefs: { marketingEmailOptIn?: boolean; marketingSmsOptIn?: boolean },
+    source: string,
+    onlyOrganizationId?: string,
+  ) {
+    const channels: Array<{ field: "marketingEmailOptIn" | "marketingSmsOptIn"; purpose: string; value: boolean }> = [];
+    if (prefs.marketingEmailOptIn != null) {
+      channels.push({ field: "marketingEmailOptIn", purpose: DPDP_PURPOSES.MARKETING_EMAIL, value: Boolean(prefs.marketingEmailOptIn) });
+    }
+    if (prefs.marketingSmsOptIn != null) {
+      channels.push({ field: "marketingSmsOptIn", purpose: DPDP_PURPOSES.MARKETING_SMS, value: Boolean(prefs.marketingSmsOptIn) });
+    }
+    if (!channels.length) return;
+    const memberships = await this.prisma.guestOrgMembership.findMany({
+      where: { guestUserId, ...(onlyOrganizationId ? { organizationId: onlyOrganizationId } : {}) },
+      select: { organizationId: true, customerId: true, customer: { select: { marketingEmailOptIn: true, marketingSmsOptIn: true, anonymizedAt: true } } },
+    });
+    for (const m of memberships) {
+      if (m.customer.anonymizedAt) continue;
+      const changed = channels.filter((c) => m.customer[c.field] !== c.value);
+      if (!changed.length && !onlyOrganizationId) continue;
+      if (changed.length) {
+        const granting = changed.some((c) => c.value);
+        await this.prisma.customer.update({
+          where: { id: m.customerId },
+          data: {
+            ...Object.fromEntries(changed.map((c) => [c.field, c.value])),
+            ...(granting ? { marketingOptInAt: new Date() } : { marketingOptOutAt: new Date() }),
+          },
+        });
+      }
+      for (const c of onlyOrganizationId ? channels : changed) {
+        await this.consent
+          ?.record({
+            organizationId: m.organizationId,
+            subjectType: "customer",
+            subjectId: m.customerId,
+            purpose: c.purpose,
+            granted: c.value,
+            source,
+          })
+          .catch((err) =>
+            this.logger.warn(`Consent record failed: ${err instanceof Error ? err.message : err}`),
+          );
+      }
+    }
+  }
 
   private normalizeGuestPhone(rawPhone?: string): string {
     if (!rawPhone?.trim()) {
@@ -61,11 +126,9 @@ export class GuestService {
     const phone = this.msg91.normalizePhone(rawPhone);
     const digits = phone.replace(/\D/g, "");
     // Accept 10-digit local or 12-digit 91XXXXXXXXXX
-    if (digits.length === 10) {
-      return this.msg91.normalizePhone(digits);
-    }
-    if (digits.length === 12 && digits.startsWith("91")) {
-      return digits;
+    const canonical = digits.length === 10 ? `91${digits}` : digits;
+    if (/^91[6-9]\d{9}$/.test(canonical)) {
+      return canonical;
     }
     throw new BadRequestException("Enter a valid 10-digit mobile number");
   }
@@ -76,14 +139,23 @@ export class GuestService {
       where: { phone },
       select: { id: true, pinHash: true, anonymizedAt: true },
     });
-    if (!guest || guest.anonymizedAt) {
-      return { exists: false, hasPin: false };
-    }
-    return { exists: true, hasPin: Boolean(guest.pinHash) };
+    // Accounts without a PIN look identical to unknown numbers (both go through OTP), so only
+    // PIN holders are distinguishable, and the route is tightly throttled.
+    const hasPin = Boolean(guest && !guest.anonymizedAt && guest.pinHash);
+    return { exists: hasPin, hasPin };
   }
 
   async requestOtp(rawPhone?: string) {
     const phone = this.normalizeGuestPhone(rawPhone);
+    const recent = await this.prisma.guestPhoneOtp.count({
+      where: { phone, createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) } },
+    });
+    if (recent >= PHONE_OTP_PER_PHONE_PER_HOUR) {
+      throw new HttpException(
+        "Too many OTP requests. Please try again later.",
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
 
     const otp = String(randomInt(100000, 999999));
     const challengeToken = randomBytes(24).toString("hex");
@@ -105,7 +177,7 @@ export class GuestService {
       await this.prisma.guestPhoneOtp
         .delete({ where: { id: challenge.id } })
         .catch(() => undefined);
-      throw new ServiceUnavailableException(PHONE_OTP_SMS_UNAVAILABLE_MESSAGE);
+      throw new ServiceUnavailableException(phoneOtpSmsFailureMessage(send.failureKind));
     }
 
     return {
@@ -140,21 +212,29 @@ export class GuestService {
     if (challenge.expiresAt.getTime() < Date.now()) {
       throw new UnauthorizedException("OTP expired");
     }
-    if (challenge.attempts >= 5) {
+    if (challenge.attempts >= PHONE_OTP_MAX_ATTEMPTS) {
       throw new UnauthorizedException("Too many attempts");
     }
+    const live = {
+      id: challenge.id,
+      consumedAt: null,
+      attempts: { lt: PHONE_OTP_MAX_ATTEMPTS },
+    };
     if (challenge.codeHash !== hashCode(code)) {
-      await this.prisma.guestPhoneOtp.update({
-        where: { id: challenge.id },
+      await this.prisma.guestPhoneOtp.updateMany({
+        where: live,
         data: { attempts: { increment: 1 } },
       });
       throw new UnauthorizedException("Invalid code");
     }
 
-    await this.prisma.guestPhoneOtp.update({
-      where: { id: challenge.id },
+    const claimed = await this.prisma.guestPhoneOtp.updateMany({
+      where: live,
       data: { consumedAt: new Date() },
     });
+    if (claimed.count !== 1) {
+      throw new UnauthorizedException("Invalid or used challenge");
+    }
 
     const guest = await this.prisma.guestUser.upsert({
       where: { phone: challenge.phone },
@@ -175,6 +255,9 @@ export class GuestService {
         anonymizedAt: null,
       },
     });
+
+    this.assertGuestActive(guest);
+    await this.syncGuestMarketingConsent(guest.id, body, "guest_app_login");
 
     const accessToken = this.signGuestToken(guest.id, guest.phone);
     const requiresPinSetup = !guest.pinHash;
@@ -280,24 +363,7 @@ export class GuestService {
   }
 
   private friendlyMsg91Message(message?: string): string {
-    const raw = (message || "").trim();
-    const lower = raw.toLowerCase();
-    if (!raw) {
-      return "SMS could not be sent. Please try again in a moment.";
-    }
-    if (lower.includes("ipblocked") || lower.includes("ip blocked")) {
-      return "MSG91 blocked this network IP. Ask an admin to allow it in MSG91, or try another network.";
-    }
-    if (lower.includes("captcha")) {
-      return "MSG91 captcha is enabled on this OTP widget. Open MSG91 dashboard > OTP Widget settings and turn OFF Captcha Validation (required for in-app SMS).";
-    }
-    if (lower.includes("mobile requests are not allowed")) {
-      return "This MSG91 widget is web-only. Open MSG91 dashboard > OTP Widget settings and turn ON Mobile Integration for the Guest app.";
-    }
-    if (lower.includes("web requests are not allowed")) {
-      return "This MSG91 widget is mobile-only. Disable Mobile Integration or use the mobile send path.";
-    }
-    return raw;
+    return friendlyMsg91WidgetMessage(message);
   }
 
   /**
@@ -323,20 +389,8 @@ export class GuestService {
     }
 
     const verified = await this.msg91.verifyWidgetAccessToken(accessToken);
-    const fallbackRaw = body.identifier ?? body.phone;
-    let fallbackPhone: string | null = null;
-    if (fallbackRaw) {
-      try {
-        fallbackPhone = this.normalizeGuestPhone(String(fallbackRaw));
-      } catch {
-        fallbackPhone = null;
-      }
-    }
-
+    // Client-supplied identifiers are never trusted: the phone must come from MSG91.
     let phone = verified.ok && verified.phone ? verified.phone : null;
-    if (!phone && verified.ok && fallbackPhone) {
-      phone = fallbackPhone;
-    }
     if (!phone) {
       throw new UnauthorizedException(
         verified.ok
@@ -371,6 +425,9 @@ export class GuestService {
       },
     });
 
+    this.assertGuestActive(guest);
+    await this.syncGuestMarketingConsent(guest.id, body, "guest_app_login");
+
     return {
       accessToken: this.signGuestToken(guest.id, guest.phone),
       guest: this.mapGuest(guest),
@@ -387,6 +444,7 @@ export class GuestService {
     if (!guest || guest.anonymizedAt) {
       throw new NotFoundException("Guest not found");
     }
+    this.assertGuestActive(guest);
     const pinHash = await hashPassword(pin!.trim());
     const updated = await this.prisma.guestUser.update({
       where: { id: guestUserId },
@@ -411,9 +469,33 @@ export class GuestService {
     if (!guest || guest.anonymizedAt || !guest.pinHash) {
       throw new UnauthorizedException("Invalid phone or PIN");
     }
+    this.assertGuestActive(guest);
+    if (guest.pinLockedUntil && guest.pinLockedUntil.getTime() > Date.now()) {
+      throw new HttpException(
+        "Too many wrong PIN attempts. Use OTP login or try again later.",
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
     const ok = await verifyPassword(pin!.trim(), guest.pinHash);
     if (!ok) {
+      const failed = guest.pinFailedAttempts + 1;
+      await this.prisma.guestUser.update({
+        where: { id: guest.id },
+        data:
+          failed >= GUEST_PIN_MAX_FAILURES
+            ? {
+                pinFailedAttempts: 0,
+                pinLockedUntil: new Date(Date.now() + GUEST_PIN_LOCK_MS),
+              }
+            : { pinFailedAttempts: { increment: 1 } },
+      });
       throw new UnauthorizedException("Invalid phone or PIN");
+    }
+    if (guest.pinFailedAttempts > 0 || guest.pinLockedUntil) {
+      await this.prisma.guestUser.update({
+        where: { id: guest.id },
+        data: { pinFailedAttempts: 0, pinLockedUntil: null },
+      });
     }
     return {
       accessToken: this.signGuestToken(guest.id, guest.phone),
@@ -444,7 +526,10 @@ export class GuestService {
       }
     }
 
-    const email = verified.email?.trim().toLowerCase() || null;
+    // Unverified emails must never link to (or take over) an existing guest account.
+    const email = verified.emailVerified
+      ? verified.email?.trim().toLowerCase() || null
+      : null;
     const name =
       body.name?.trim() ||
       verified.name?.trim() ||
@@ -470,7 +555,7 @@ export class GuestService {
     if (!guest) {
       if (!phone && !email) {
         throw new BadRequestException(
-          "Firebase account must include a phone number or email",
+          "Firebase account must include a phone number or a verified email",
         );
       }
       guest = await this.prisma.guestUser.create({
@@ -495,6 +580,8 @@ export class GuestService {
         },
       });
     }
+
+    this.assertGuestActive(guest);
 
     return {
       accessToken: this.signGuestToken(guest.id, guest.phone),
@@ -634,6 +721,7 @@ export class GuestService {
     let customer = await this.prisma.customer.findFirst({
       where: { organizationId: orgId, phone: guest.phone! },
     });
+    const createdFromGuest = !customer;
     if (!customer) {
       customer = await this.prisma.customer.create({
         data: {
@@ -660,6 +748,18 @@ export class GuestService {
       },
       include: { customer: true },
     });
+    if (createdFromGuest) {
+      // The new customer inherited the guest's app choices; record them for this restaurant.
+      await this.syncGuestMarketingConsent(
+        guestUserId,
+        {
+          marketingEmailOptIn: guest.marketingEmailOptIn,
+          marketingSmsOptIn: guest.marketingSmsOptIn,
+        },
+        "guest_app_join",
+        orgId,
+      );
+    }
 
     const portal = await this.loyalty.getCustomerPortal(orgId, customer.id);
     return {
@@ -706,17 +806,36 @@ export class GuestService {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
       take: 100,
     });
-    return rows.map((r) => ({
-      membershipId: r.id,
-      organization: r.organization,
-      customerId: r.customerId,
-      loyaltyPoints: r.customer.loyaltyPoints,
-      stampCount: r.customer.stampCount,
-      customerName: r.customer.name,
-    }));
+    const customerIds = rows.map((r) => r.customerId);
+    const visitRows = customerIds.length
+      ? await this.prisma.order.groupBy({
+          by: ["customerId"],
+          where: {
+            customerId: { in: customerIds },
+            status: { notIn: ["draft", "cancelled", "voided"] },
+          },
+          _count: { _all: true },
+        })
+      : [];
+    const visitsByCustomer = new Map(
+      visitRows.map((row) => [row.customerId, row._count._all]),
+    );
+    return rows
+      .map((r) => ({
+        membershipId: r.id,
+        organization: r.organization,
+        customerId: r.customerId,
+        loyaltyPoints: r.customer.loyaltyPoints,
+        stampCount: r.customer.stampCount,
+        customerName: r.customer.name,
+        visitCount: visitsByCustomer.get(r.customerId) ?? 0,
+      }))
+      .sort((a, b) => {
+        if (b.visitCount !== a.visitCount) return b.visitCount - a.visitCount;
+        return b.loyaltyPoints - a.loyaltyPoints;
+      });
   }
 
   async registerDevice(
@@ -870,6 +989,18 @@ export class GuestService {
     return m.customerId;
   }
 
+  private assertGuestActive(guest: {
+    anonymizedAt?: Date | null;
+    suspendedAt?: Date | null;
+  }) {
+    if (guest.anonymizedAt) {
+      throw new UnauthorizedException("Account not available");
+    }
+    if (guest.suspendedAt) {
+      throw new ForbiddenException("This guest account has been suspended");
+    }
+  }
+
   private mapGuest(guest: {
     id: string;
     phone: string | null;
@@ -879,6 +1010,7 @@ export class GuestService {
     marketingSmsOptIn: boolean;
     pinHash?: string | null;
     cullinosCoins?: number;
+    suspendedAt?: Date | null;
   }) {
     return {
       id: guest.id,
@@ -890,6 +1022,7 @@ export class GuestService {
       hasPin: Boolean(guest.pinHash),
       cullinosCoins:
         typeof guest.cullinosCoins === "number" ? guest.cullinosCoins : 0,
+      suspended: Boolean(guest.suspendedAt),
     };
   }
 

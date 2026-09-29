@@ -18,6 +18,12 @@ function isOwner(user: StaffUser) {
   return user.roles.some((r) => r.slug === 'owner');
 }
 
+function phoneLoginHint(roleSlug: string): string {
+  return roleSlug === 'waiter'
+    ? 'Waiters sign in to the Android app with a one-time code sent to this number.'
+    : 'Optional. Only needed if this person also signs in to the Waiter app; web portals use email and password.';
+}
+
 export function StaffPage() {
   const queryClient = useQueryClient();
   const permissions = useAuthStore((s) => s.permissions);
@@ -35,6 +41,11 @@ export function StaffPage() {
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<StaffUser | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editRole, setEditRole] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
 
   const { data: staff = [], isLoading } = useQuery({
     queryKey: ['staff', 'users'],
@@ -110,6 +121,28 @@ export function StaffPage() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (vars: {
+      id: string;
+      payload: { name?: string; phone?: string | null; roleSlug?: string };
+    }) => usersApi.update(vars.id, vars.payload),
+    onSuccess: () => {
+      setMessage('Staff member updated.');
+      setError(null);
+      setEditing(null);
+      queryClient.invalidateQueries({ queryKey: ['staff', 'users'] });
+    },
+    onError: (err: Error) => setEditError(err.message),
+  });
+
+  function openEdit(user: StaffUser) {
+    setEditing(user);
+    setEditName(user.name);
+    setEditPhone(user.phone ?? '');
+    setEditRole(user.roles.find((r) => STAFF_ROLES.some((s) => s.slug === r.slug))?.slug ?? '');
+    setEditError(null);
+  }
+
   function handleStatusChange(user: StaffUser, nextStatus: string) {
     if (nextStatus === user.status) return;
     if (nextStatus === 'inactive') {
@@ -182,11 +215,10 @@ export function StaffPage() {
           }}
         >
           <Input label="Full name" required value={name} onChange={(e) => setName(e.target.value)} />
-          <PhoneField
-            label="Phone (Waiter OTP login)"
-            value={phone}
-            onChange={setPhone}
-          />
+          <div>
+            <PhoneField label="Phone (OTP login)" value={phone} onChange={setPhone} />
+            <p className="mt-1 text-xs text-text-muted">{phoneLoginHint(roleSlug)}</p>
+          </div>
           <Input
             label="Email (secondary login)"
             type="email"
@@ -275,8 +307,80 @@ export function StaffPage() {
         </form>
       </Drawer>
 
+      <Drawer
+        open={Boolean(editing) && canManageStaff}
+        onClose={() => setEditing(null)}
+        title={editing ? `Edit ${editing.name}` : 'Edit staff'}
+        description="Update name, role, or the phone number used for OTP login."
+        footer={
+          <Button type="submit" form="staff-edit-form" loading={updateMutation.isPending}>
+            Save changes
+          </Button>
+        }
+      >
+        {editing ? (
+          <form
+            id="staff-edit-form"
+            className="grid gap-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setEditError(null);
+              const currentRole =
+                editing.roles.find((r) => STAFF_ROLES.some((s) => s.slug === r.slug))?.slug ?? '';
+              updateMutation.mutate({
+                id: editing.id,
+                payload: {
+                  name: editName.trim(),
+                  phone: editPhone.trim() || null,
+                  ...(editRole && editRole !== currentRole && !isOwner(editing)
+                    ? { roleSlug: editRole }
+                    : {}),
+                },
+              });
+            }}
+          >
+            <Input
+              label="Full name"
+              required
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+            />
+            <div>
+              <PhoneField label="Phone (OTP login)" value={editPhone} onChange={setEditPhone} />
+              <p className="mt-1 text-xs text-text-muted">
+                {phoneLoginHint(
+                  editRole ||
+                    editing.roles.find((r) => STAFF_ROLES.some((s) => s.slug === r.slug))?.slug ||
+                    '',
+                )}
+              </p>
+            </div>
+            <Input label="Email" value={editing.email} disabled readOnly />
+            {!isOwner(editing) ? (
+              <label className="block">
+                <span className="text-sm text-text-secondary">Role</span>
+                <select
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                >
+                  {editRole === '' ? <option value="">Keep current role</option> : null}
+                  {STAFF_ROLES.map((role) => (
+                    <option key={role.slug} value={role.slug}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {editError ? <p className="text-sm text-status-error">{editError}</p> : null}
+          </form>
+        ) : null}
+      </Drawer>
+
       <Card padding="none" className="overflow-hidden">
-        <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[56rem] text-left text-sm">
           <thead>
             <tr className="border-b border-white/5 bg-bg-secondary text-text-muted">
               <th className="px-4 py-3 font-medium">Name</th>
@@ -292,7 +396,7 @@ export function StaffPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-text-muted">
+                <td colSpan={8} className="px-4 py-8 text-center text-text-muted">
                   Loading staff…
                 </td>
               </tr>
@@ -336,19 +440,24 @@ export function StaffPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {owner ? (
-                        <span className="text-text-muted">Owner</span>
-                      ) : !canManageStaff ? (
+                      {!canManageStaff ? (
                         <span className="text-text-muted">—</span>
                       ) : (
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => handleDelete(user)}
-                          loading={deleteMutation.isPending}
-                        >
-                          Delete
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="button" variant="secondary" onClick={() => openEdit(user)}>
+                            Edit
+                          </Button>
+                          {owner ? null : (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              onClick={() => handleDelete(user)}
+                              loading={deleteMutation.isPending}
+                            >
+                              Delete
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -357,13 +466,14 @@ export function StaffPage() {
             )}
             {!isLoading && staff.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-text-muted">
+                <td colSpan={8} className="px-4 py-8 text-center text-text-muted">
                   No staff accounts yet. Add your first team member above.
                 </td>
               </tr>
             ) : null}
           </tbody>
         </table>
+        </div>
       </Card>
     </PageShell>
   );

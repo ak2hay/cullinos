@@ -18,6 +18,7 @@ import {
   superAdminApi,
   type AnalyticsRange,
 } from '@/lib/api';
+import { useCan } from '@/lib/permissions';
 
 const RANGES: AnalyticsRange[] = ['7d', '30d', '90d'];
 const PIE_COLORS = ['#3d9a6a', '#5b8def', '#e8a317', '#e85d5d', '#9b7ed9', '#5ec8c8'];
@@ -37,6 +38,8 @@ function shortDate(iso: string) {
 
 export function DashboardPage() {
   const [range, setRange] = useState<AnalyticsRange>('30d');
+  const can = useCan();
+  const canSeeTenants = can('tenants.read');
 
   const analyticsQuery = useQuery({
     queryKey: ['super-admin', 'analytics', range],
@@ -47,6 +50,7 @@ export function DashboardPage() {
   const tenantsQuery = useQuery({
     queryKey: ['super-admin', 'organizations', 1, 'dash'],
     queryFn: () => superAdminApi.listOrganizations(1, 8),
+    enabled: canSeeTenants,
   });
 
   const data = analyticsQuery.data;

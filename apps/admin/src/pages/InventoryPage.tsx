@@ -3,7 +3,9 @@ import { useState } from 'react';
 import { INVENTORY_UNIT_OPTIONS } from '@cullinos/shared';
 import { Button, Card, CardHeader, Drawer, Input, PageShell, Select } from '@cullinos/ui';
 import { inventoryApi, outletsApi, wastageApi } from '@/lib/api';
+import { formatPackDefinition, formatPackStock, hasPack } from '@/lib/inventory-packs';
 import { useAuthStore } from '@/stores/auth';
+import { StockRegisterPanel } from './inventory/StockRegisterPanel';
 
 type SortField = 'name' | 'stock' | 'reorder';
 type SortDir = 'asc' | 'desc';
@@ -47,6 +49,8 @@ export function InventoryPage() {
   const [unit, setUnit] = useState('kg');
   const [currentStock, setCurrentStock] = useState('0');
   const [reorderLevel, setReorderLevel] = useState('0');
+  const [packLabel, setPackLabel] = useState('');
+  const [packSize, setPackSize] = useState('');
 
   // ─── edit form ─────────────────────────────────────────────────
   const [editItem, setEditItem] = useState<null | {
@@ -62,6 +66,8 @@ export function InventoryPage() {
   const [editUnit, setEditUnit] = useState('kg');
   const [editStock, setEditStock] = useState('0');
   const [editReorder, setEditReorder] = useState('0');
+  const [editPackLabel, setEditPackLabel] = useState('');
+  const [editPackSize, setEditPackSize] = useState('');
 
   // ─── delete confirm ────────────────────────────────────────────
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -79,6 +85,7 @@ export function InventoryPage() {
   const [adjustQty, setAdjustQty] = useState('1');
   const [adjustType, setAdjustType] = useState<'in' | 'out' | 'waste'>('in');
   const [adjustNotes, setAdjustNotes] = useState('');
+  const [adjustInPacks, setAdjustInPacks] = useState(false);
 
   // ─── wastage ───────────────────────────────────────────────────
   const [wasteItemId, setWasteItemId] = useState('');
@@ -125,6 +132,8 @@ export function InventoryPage() {
   });
 
   const lowStockIds = new Set(lowStock.map((i) => i.id));
+  const adjustItem = items.find((i) => i.id === adjustItemId);
+  const adjustCanUsePacks = adjustItem ? hasPack(adjustItem) : false;
 
   // ─── sorted + filtered items ───────────────────────────────────
   const displayItems = [...items]
@@ -149,6 +158,8 @@ export function InventoryPage() {
     setEditUnit(item.unit);
     setEditStock(String(item.currentStock));
     setEditReorder(String(item.reorderLevel ?? 0));
+    setEditPackLabel(item.packLabel ?? '');
+    setEditPackSize(item.packSize ? String(item.packSize) : '');
   }
 
   // ─── mutations ─────────────────────────────────────────────────
@@ -161,6 +172,7 @@ export function InventoryPage() {
     onSuccess: () => {
       notify('Inventory item created.');
       setName(''); setSku(''); setUnit('kg'); setCurrentStock('0'); setReorderLevel('0');
+      setPackLabel(''); setPackSize('');
       setShowForm(false);
       invalidate();
     },
@@ -168,7 +180,7 @@ export function InventoryPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...payload }: { id: string; name?: string; sku?: string; unit?: string; currentStock?: number; reorderLevel?: number }) =>
+    mutationFn: ({ id, ...payload }: Parameters<typeof inventoryApi.updateItem>[1] & { id: string }) =>
       inventoryApi.updateItem(id, payload),
     onSuccess: () => {
       notify('Item updated.');
@@ -212,6 +224,7 @@ export function InventoryPage() {
         quantity: Number(adjustQty),
         type: adjustType,
         notes: adjustNotes || undefined,
+        inPacks: adjustCanUsePacks && adjustInPacks ? true : undefined,
       }),
     onSuccess: () => {
       notify('Stock adjusted.');
@@ -314,12 +327,21 @@ export function InventoryPage() {
               name, sku: sku || undefined, unit: unit || 'kg',
               currentStock: Number(currentStock) || 0,
               reorderLevel: Number(reorderLevel) || 0,
+              packLabel: packLabel.trim() || null,
+              packSize: Number(packSize) > 0 ? Number(packSize) : null,
             });
           }}
         >
           <Input label="Item name" required placeholder="Flour" value={name} onChange={(e) => setName(e.target.value)} />
           <Input label="SKU" placeholder="Optional" value={sku} onChange={(e) => setSku(e.target.value)} />
           <Select label="Unit" required options={INVENTORY_UNIT_OPTIONS} value={unit} onChange={(e) => setUnit(e.target.value)} />
+          <PackFields
+            unit={unit}
+            packLabel={packLabel}
+            packSize={packSize}
+            onPackLabelChange={setPackLabel}
+            onPackSizeChange={setPackSize}
+          />
           <Input label="Current stock" type="number" min={0} step="any" value={currentStock} onChange={(e) => setCurrentStock(e.target.value)} />
           <Input label="Reorder level" type="number" min={0} step="any" value={reorderLevel} onChange={(e) => setReorderLevel(e.target.value)} />
         </form>
@@ -363,12 +385,21 @@ export function InventoryPage() {
               unit: editUnit,
               currentStock: Number(editStock),
               reorderLevel: Number(editReorder),
+              packLabel: editPackLabel.trim() || null,
+              packSize: Number(editPackSize) > 0 ? Number(editPackSize) : null,
             });
           }}
         >
           <Input label="Item name" required value={editName} onChange={(e) => setEditName(e.target.value)} />
           <Input label="SKU" placeholder="Optional" value={editSku} onChange={(e) => setEditSku(e.target.value)} />
           <Select label="Unit" required options={INVENTORY_UNIT_OPTIONS} value={editUnit} onChange={(e) => setEditUnit(e.target.value)} />
+          <PackFields
+            unit={editUnit}
+            packLabel={editPackLabel}
+            packSize={editPackSize}
+            onPackLabelChange={setEditPackLabel}
+            onPackSizeChange={setEditPackSize}
+          />
           <Input label="Current stock" type="number" min={0} step="any" value={editStock} onChange={(e) => setEditStock(e.target.value)} />
           <Input label="Reorder level" type="number" min={0} step="any" value={editReorder} onChange={(e) => setEditReorder(e.target.value)} />
           {editItem ? <InventoryLotsPreview itemId={editItem.id} /> : null}
@@ -512,7 +543,7 @@ export function InventoryPage() {
             <span className="text-text-secondary">Item</span>
             <select
               value={adjustItemId}
-              onChange={(e) => setAdjustItemId(e.target.value)}
+              onChange={(e) => { setAdjustItemId(e.target.value); setAdjustInPacks(false); }}
               className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
               required
             >
@@ -524,15 +555,31 @@ export function InventoryPage() {
               ))}
             </select>
           </label>
-          <Input
-            label="Quantity"
-            type="number"
-            min={0.001}
-            step="any"
-            required
-            value={adjustQty}
-            onChange={(e) => setAdjustQty(e.target.value)}
-          />
+          <div className="space-y-1">
+            <Input
+              label={
+                adjustCanUsePacks && adjustInPacks
+                  ? `Quantity (${adjustItem?.packLabel || 'pack'}s)`
+                  : `Quantity${adjustItem ? ` (${adjustItem.unit})` : ''}`
+              }
+              type="number"
+              min={0.001}
+              step="any"
+              required
+              value={adjustQty}
+              onChange={(e) => setAdjustQty(e.target.value)}
+            />
+            {adjustCanUsePacks && adjustItem ? (
+              <label className="flex items-center gap-2 text-xs text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={adjustInPacks}
+                  onChange={(e) => setAdjustInPacks(e.target.checked)}
+                />
+                Enter in {adjustItem.packLabel || 'pack'}s ({formatPackDefinition(adjustItem)})
+              </label>
+            ) : null}
+          </div>
           <label className="space-y-1 text-sm">
             <span className="text-text-secondary">Type</span>
             <select
@@ -692,6 +739,11 @@ export function InventoryPage() {
                     <td className="px-4 py-3">{item.unit}</td>
                     <td className={`px-4 py-3 ${isLow ? 'font-bold text-status-warning' : ''}`}>
                       {item.currentStock}
+                      {formatPackStock(item) ? (
+                        <span className="block text-xs font-normal text-text-muted">
+                          {formatPackStock(item)}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-text-secondary">
                       {item.reorderLevel ?? 0}
@@ -721,7 +773,49 @@ export function InventoryPage() {
           </tbody>
         </table>
       </Card>
+
+      <StockRegisterPanel outletId={outletId} />
     </PageShell>
+  );
+}
+
+function PackFields({
+  unit,
+  packLabel,
+  packSize,
+  onPackLabelChange,
+  onPackSizeChange,
+}: {
+  unit: string;
+  packLabel: string;
+  packSize: string;
+  onPackLabelChange: (v: string) => void;
+  onPackSizeChange: (v: string) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-white/5 bg-bg-elevated/40 p-3">
+      <p className="text-xs font-medium text-text-secondary">Purchase pack (optional)</p>
+      <p className="mt-0.5 text-xs text-text-muted">
+        Buy in packets, buckets or bottles? Stock stays in {unit}; packs make receiving easier.
+      </p>
+      <div className="mt-2 grid grid-cols-2 gap-3">
+        <Input
+          label="Pack name"
+          placeholder="packet"
+          value={packLabel}
+          onChange={(e) => onPackLabelChange(e.target.value)}
+        />
+        <Input
+          label={`${unit} per pack`}
+          type="number"
+          min={0}
+          step="any"
+          placeholder="50"
+          value={packSize}
+          onChange={(e) => onPackSizeChange(e.target.value)}
+        />
+      </div>
+    </div>
   );
 }
 

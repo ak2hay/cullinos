@@ -3,7 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
+
+const STAMPS_PER_CARD = 10;
+const earnTransactionId = (orderId: string) => `earn_${orderId}`;
 
 export type LoyaltySettings = {
   pointsPerCurrency: number;
@@ -18,6 +22,28 @@ export const DEFAULT_LOYALTY_SETTINGS: LoyaltySettings = {
   minRedeem: 100,
   stampCardEnabled: true,
 };
+
+const CLOSED_ORDER_STATUSES = ["completed", "cancelled", "voided"];
+
+function roundMoney(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** Never discount more than is still owed; only charge the points needed to cover it. */
+export function capRedemption(
+  points: number,
+  redemptionValue: number,
+  outstanding: number,
+): { pointsUsed: number; discountAmount: number } {
+  const full = roundMoney(points * redemptionValue);
+  if (full <= outstanding || redemptionValue <= 0) {
+    return { pointsUsed: points, discountAmount: full };
+  }
+  return {
+    pointsUsed: Math.min(points, Math.ceil(outstanding / redemptionValue - 1e-9)),
+    discountAmount: outstanding,
+  };
+}
 
 @Injectable()
 export class LoyaltyService {
@@ -116,52 +142,51 @@ export class LoyaltyService {
     if (!settings.stampCardEnabled) {
       throw new BadRequestException("Stamp card is disabled");
     }
-    const customer = await this.prisma.customer.findFirst({
+    return this.prisma.$transaction(async (tx) => {
+      const { customer, rewardEarned } = await this.bumpStampTx(tx, orgId, customerId);
+      await tx.loyaltyTransaction.create({
+        data: {
+          customerId,
+          points: rewardEarned ? 100 : 1,
+          type: rewardEarned ? "stamp_reward" : "stamp",
+          reference: `stamp:${rewardEarned ? STAMPS_PER_CARD : customer.stampCount}`,
+        },
+      });
+      return { customer, stampCount: customer.stampCount, rewardEarned };
+    });
+  }
+
+  /**
+   * Atomic +1 stamp; a full card converts to 100 points. Increments are done in SQL so
+   * concurrent stamps/orders can't overwrite each other.
+   */
+  private async bumpStampTx(tx: Prisma.TransactionClient, orgId: string, customerId: string) {
+    const bumped = await tx.customer.updateMany({
       where: { id: customerId, organizationId: orgId },
+      data: { stampCount: { increment: 1 } },
     });
-    if (!customer) throw new NotFoundException("Customer not found");
-
-    const newCount = customer.stampCount + 1;
-    const rewardEarned = newCount >= 10;
-
-    const updated = await this.prisma.customer.update({
-      where: { id: customerId },
-      data: {
-        stampCount: rewardEarned ? 0 : newCount,
-        loyaltyPoints: rewardEarned
-          ? customer.loyaltyPoints + 100
-          : customer.loyaltyPoints,
-      },
+    if (bumped.count === 0) throw new NotFoundException("Customer not found");
+    const rewarded = await tx.customer.updateMany({
+      where: { id: customerId, organizationId: orgId, stampCount: { gte: STAMPS_PER_CARD } },
+      data: { stampCount: { decrement: STAMPS_PER_CARD }, loyaltyPoints: { increment: 100 } },
     });
-
-    await this.prisma.loyaltyTransaction.create({
-      data: {
-        customerId,
-        points: rewardEarned ? 100 : 1,
-        type: rewardEarned ? "stamp_reward" : "stamp",
-        reference: `stamp:${newCount}`,
-      },
-    });
-
-    return {
-      customer: updated,
-      stampCount: rewardEarned ? 0 : newCount,
-      rewardEarned,
-    };
+    const customer = await tx.customer.findUniqueOrThrow({ where: { id: customerId } });
+    return { customer, rewardEarned: rewarded.count > 0 };
   }
 
   async redeemStamps(orgId: string, customerId: string) {
-    const customer = await this.prisma.customer.findFirst({
-      where: { id: customerId, organizationId: orgId },
+    const redeemed = await this.prisma.customer.updateMany({
+      where: { id: customerId, organizationId: orgId, stampCount: { gte: STAMPS_PER_CARD } },
+      data: { stampCount: 0, loyaltyPoints: { increment: 100 } },
     });
-    if (!customer) throw new NotFoundException("Customer not found");
-    if (customer.stampCount < 10) {
+    if (redeemed.count === 0) {
+      const exists = await this.prisma.customer.count({
+        where: { id: customerId, organizationId: orgId },
+      });
+      if (!exists) throw new NotFoundException("Customer not found");
       throw new BadRequestException("Need 10 stamps to redeem");
     }
-    return this.prisma.customer.update({
-      where: { id: customerId },
-      data: { stampCount: 0, loyaltyPoints: customer.loyaltyPoints + 100 },
-    });
+    return this.prisma.customer.findUniqueOrThrow({ where: { id: customerId } });
   }
 
   /** Earn points from a paid/completed order (idempotent). */
@@ -187,43 +212,48 @@ export class LoyaltyService {
     const points = Math.floor(orderTotal * settings.pointsPerCurrency);
     if (points <= 0) return null;
 
-    const updated = await this.prisma.customer.update({
-      where: { id: customerId },
-      data: { loyaltyPoints: { increment: points } },
-    });
-
-    const tx = await this.prisma.loyaltyTransaction.create({
-      data: {
-        customerId,
-        points,
-        type: "earn",
-        reference: `order:${orderId}`,
-      },
-    });
-
-    if (settings.stampCardEnabled) {
-      const newCount = updated.stampCount + 1;
-      const rewardEarned = newCount >= 10;
-      await this.prisma.customer.update({
-        where: { id: customerId },
-        data: {
-          stampCount: rewardEarned ? 0 : newCount,
-          ...(rewardEarned ? { loyaltyPoints: { increment: 100 } } : {}),
-        },
-      });
-      if (rewardEarned) {
-        await this.prisma.loyaltyTransaction.create({
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        // Deterministic id: a concurrent second completion hits the primary key and earns nothing.
+        const transaction = await tx.loyaltyTransaction.create({
           data: {
+            id: earnTransactionId(orderId),
             customerId,
-            points: 100,
-            type: "stamp_reward",
-            reference: `stamp_reward:${orderId}`,
+            points,
+            type: "earn",
+            reference: `order:${orderId}`,
           },
         });
-      }
-    }
+        let updated = await tx.customer.update({
+          where: { id: customerId },
+          data: { loyaltyPoints: { increment: points } },
+        });
 
-    return { transaction: tx, customer: updated, pointsEarned: points };
+        if (settings.stampCardEnabled) {
+          const stamp = await this.bumpStampTx(tx, orgId, customerId);
+          updated = stamp.customer;
+          if (stamp.rewardEarned) {
+            await tx.loyaltyTransaction.create({
+              data: {
+                customerId,
+                points: 100,
+                type: "stamp_reward",
+                reference: `stamp_reward:${orderId}`,
+              },
+            });
+          }
+        }
+
+        return { transaction, customer: updated, pointsEarned: points };
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        return this.prisma.loyaltyTransaction.findUnique({
+          where: { id: earnTransactionId(orderId) },
+        });
+      }
+      throw err;
+    }
   }
 
   /**
@@ -235,9 +265,10 @@ export class LoyaltyService {
     customerId: string,
     points: number,
     orderId?: string,
+    opts: { requireOwnedOrder?: boolean } = {},
   ) {
-    if (!Number.isFinite(points) || points <= 0) {
-      throw new BadRequestException("points must be a positive number");
+    if (!Number.isInteger(points) || points <= 0) {
+      throw new BadRequestException("points must be a positive whole number");
     }
 
     const settings = await this.getSettings(orgId);
@@ -247,54 +278,108 @@ export class LoyaltyService {
       );
     }
 
-    const customer = await this.prisma.customer.findFirst({
-      where: { id: customerId, organizationId: orgId },
-    });
-    if (!customer) throw new NotFoundException("Customer not found");
-    if (customer.loyaltyPoints < points) {
-      throw new BadRequestException("Insufficient points");
-    }
-
-    const discountAmount = points * settings.redemptionValue;
-
-    const updated = await this.prisma.customer.update({
-      where: { id: customerId },
-      data: { loyaltyPoints: { decrement: points } },
-    });
-
-    await this.prisma.loyaltyTransaction.create({
-      data: {
-        customerId,
-        points: -points,
-        type: "redeem",
-        reference: orderId ? `redeem:${orderId}` : `redeem:${Date.now()}`,
-      },
-    });
-
-    if (orderId) {
-      const order = await this.prisma.order.findFirst({
-        where: { id: orderId, organizationId: orgId },
+    return this.prisma.$transaction(async (tx) => {
+      const customer = await tx.customer.findFirst({
+        where: { id: customerId, organizationId: orgId },
+        select: { id: true, loyaltyPoints: true },
       });
+      if (!customer) throw new NotFoundException("Customer not found");
+      if (customer.loyaltyPoints < points) {
+        throw new BadRequestException("Insufficient points");
+      }
+
+      let redemption = {
+        pointsUsed: points,
+        discountAmount: roundMoney(points * settings.redemptionValue),
+      };
+
+      if (orderId) {
+        // Serialize redemptions on the same order so the outstanding cap can't be exceeded.
+        await tx.$queryRaw`SELECT id FROM orders WHERE id = ${orderId} FOR UPDATE`;
+      }
+      const order = orderId
+        ? await tx.order.findFirst({ where: { id: orderId, organizationId: orgId } })
+        : null;
+      if (orderId) {
+        if (!order) throw new NotFoundException("Order not found");
+        if (CLOSED_ORDER_STATUSES.includes(order.status)) {
+          throw new BadRequestException("Cannot redeem points on a closed order");
+        }
+        if (
+          (order.customerId && order.customerId !== customerId) ||
+          (opts.requireOwnedOrder && order.customerId !== customerId)
+        ) {
+          throw new BadRequestException("Order belongs to a different customer");
+        }
+        const paid = await tx.payment.aggregate({
+          where: { orderId: order.id, status: "completed" },
+          _sum: { amount: true },
+        });
+        const outstanding = Math.max(
+          0,
+          roundMoney(Number(order.total) - Number(paid._sum.amount ?? 0)),
+        );
+        if (outstanding <= 0) {
+          throw new BadRequestException("Order is already fully paid");
+        }
+        redemption = capRedemption(points, settings.redemptionValue, outstanding);
+      }
+
+      const { pointsUsed, discountAmount } = redemption;
+
+      // Conditional decrement so concurrent redemptions cannot overspend the balance.
+      const deducted = await tx.customer.updateMany({
+        where: { id: customerId, organizationId: orgId, loyaltyPoints: { gte: pointsUsed } },
+        data: { loyaltyPoints: { decrement: pointsUsed } },
+      });
+      if (deducted.count === 0) {
+        throw new BadRequestException("Insufficient points");
+      }
+
+      await tx.loyaltyTransaction.create({
+        data: {
+          customerId,
+          points: -pointsUsed,
+          type: "redeem",
+          reference: orderId ? `redeem:${orderId}` : `redeem:${Date.now()}`,
+        },
+      });
+
       if (order) {
-        const newTotal = Math.max(0, Number(order.total) - discountAmount);
-        await this.prisma.order.update({
-          where: { id: orderId },
+        const note = `Loyalty −₹${discountAmount.toFixed(2)} (${pointsUsed} pts)`;
+        await tx.orderDiscount.create({
           data: {
-            total: newTotal,
-            notes: order.notes
-              ? `${order.notes} · Loyalty −₹${discountAmount.toFixed(2)} (${points} pts)`
-              : `Loyalty −₹${discountAmount.toFixed(2)} (${points} pts)`,
+            orderId: order.id,
+            type: "loyalty",
+            value: pointsUsed,
+            amount: discountAmount,
+          },
+        });
+        await tx.order.update({
+          where: { id: order.id },
+          data: {
+            customerId: order.customerId ?? customerId,
+            discountTotal: roundMoney(Number(order.discountTotal) + discountAmount),
+            total: Math.max(0, roundMoney(Number(order.total) - discountAmount)),
+            notes: order.notes ? `${order.notes} · ${note}` : note,
+            timeline: {
+              create: {
+                event: "order.discount",
+                metadata: { amount: discountAmount, type: "loyalty", points: pointsUsed },
+              },
+            },
           },
         });
       }
-    }
 
-    return {
-      customer: updated,
-      pointsRedeemed: points,
-      discountAmount,
-      remainingPoints: updated.loyaltyPoints,
-    };
+      const updated = await tx.customer.findUniqueOrThrow({ where: { id: customerId } });
+      return {
+        customer: updated,
+        pointsRedeemed: pointsUsed,
+        discountAmount,
+        remainingPoints: updated.loyaltyPoints,
+      };
+    });
   }
 
   listRewards(orgId: string, activeOnly = false) {
@@ -309,7 +394,17 @@ export class LoyaltyService {
     });
   }
 
-  createReward(
+  private async assertOwnedRewardMenuItem(orgId: string, menuItemId: unknown) {
+    if (menuItemId == null || menuItemId === "") return;
+    if (typeof menuItemId !== "string") throw new BadRequestException("Invalid menuItemId");
+    const item = await this.prisma.menuItem.findFirst({
+      where: { id: menuItemId, organizationId: orgId },
+      select: { id: true },
+    });
+    if (!item) throw new BadRequestException("Invalid menuItemId");
+  }
+
+  async createReward(
     orgId: string,
     data: {
       name: string;
@@ -322,6 +417,7 @@ export class LoyaltyService {
     if (!Number.isFinite(data.pointsCost) || data.pointsCost <= 0) {
       throw new BadRequestException("pointsCost must be a positive number");
     }
+    await this.assertOwnedRewardMenuItem(orgId, data.menuItemId);
     return this.prisma.loyaltyReward.create({
       data: {
         organizationId: orgId,
@@ -348,6 +444,15 @@ export class LoyaltyService {
       where: { id: rewardId, organizationId: orgId },
     });
     if (!existing) throw new NotFoundException("Reward not found");
+    if (
+      patch.pointsCost !== undefined &&
+      (!Number.isFinite(patch.pointsCost) || patch.pointsCost <= 0)
+    ) {
+      throw new BadRequestException("pointsCost must be a positive number");
+    }
+    if (patch.menuItemId !== undefined) {
+      await this.assertOwnedRewardMenuItem(orgId, patch.menuItemId);
+    }
     return this.prisma.loyaltyReward.update({
       where: { id: rewardId },
       data: {
@@ -380,6 +485,7 @@ export class LoyaltyService {
     customerId: string,
     rewardId: string,
     orderId?: string,
+    opts: { requireOwnedOrder?: boolean } = {},
   ) {
     const reward = await this.prisma.loyaltyReward.findFirst({
       where: { id: rewardId, organizationId: orgId, isActive: true },
@@ -391,41 +497,65 @@ export class LoyaltyService {
       where: { id: customerId, organizationId: orgId },
     });
     if (!customer) throw new NotFoundException("Customer not found");
-    if (customer.loyaltyPoints < reward.pointsCost) {
-      throw new BadRequestException("Insufficient points");
+
+    if (orderId) {
+      const order = await this.prisma.order.findFirst({
+        where: { id: orderId, organizationId: orgId },
+        select: { status: true, customerId: true },
+      });
+      if (!order) throw new NotFoundException("Order not found");
+      if (CLOSED_ORDER_STATUSES.includes(order.status)) {
+        throw new BadRequestException("Cannot add a reward to a closed order");
+      }
+      if (
+        (order.customerId && order.customerId !== customerId) ||
+        (opts.requireOwnedOrder && order.customerId !== customerId)
+      ) {
+        throw new BadRequestException("Order belongs to another customer");
+      }
     }
 
-    const updated = await this.prisma.customer.update({
-      where: { id: customerId },
-      data: { loyaltyPoints: { decrement: reward.pointsCost } },
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const deducted = await tx.customer.updateMany({
+        where: {
+          id: customerId,
+          organizationId: orgId,
+          loyaltyPoints: { gte: reward.pointsCost },
+        },
+        data: { loyaltyPoints: { decrement: reward.pointsCost } },
+      });
+      if (deducted.count === 0) {
+        throw new BadRequestException("Insufficient points");
+      }
 
-    await this.prisma.loyaltyTransaction.create({
-      data: {
-        customerId,
-        points: -reward.pointsCost,
-        type: "redeem_reward",
-        reference: orderId
-          ? `reward:${reward.id}:order:${orderId}`
-          : `reward:${reward.id}:${Date.now()}`,
-      },
-    });
-
-    if (orderId && reward.menuItemId && reward.menuItem) {
-      const unitPrice = 0;
-      await this.prisma.orderItem.create({
+      await tx.loyaltyTransaction.create({
         data: {
-          orderId,
-          menuItemId: reward.menuItemId,
-          name: `${reward.menuItem.name} (reward)`,
-          quantity: 1,
-          unitPrice,
-          taxAmount: 0,
-          total: 0,
-          notes: `Loyalty reward: ${reward.name}`,
+          customerId,
+          points: -reward.pointsCost,
+          type: "redeem_reward",
+          reference: orderId
+            ? `reward:${reward.id}:order:${orderId}`
+            : `reward:${reward.id}:${Date.now()}`,
         },
       });
-    }
+
+      if (orderId && reward.menuItemId && reward.menuItem) {
+        await tx.orderItem.create({
+          data: {
+            orderId,
+            menuItemId: reward.menuItemId,
+            name: `${reward.menuItem.name} (reward)`,
+            quantity: 1,
+            unitPrice: 0,
+            taxAmount: 0,
+            total: 0,
+            notes: `Loyalty reward: ${reward.name}`,
+          },
+        });
+      }
+
+      return tx.customer.findUniqueOrThrow({ where: { id: customerId } });
+    });
 
     return {
       customer: updated,

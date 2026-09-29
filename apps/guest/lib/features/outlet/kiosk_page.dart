@@ -26,14 +26,12 @@ class _KioskLine {
     required this.menuItemId,
     required this.name,
     required this.unitPrice,
-    this.quantity = 1,
-    this.variantId,
   });
 
   final String menuItemId;
   final String name;
   final double unitPrice;
-  int quantity;
+  int quantity = 1;
   String? variantId;
 }
 
@@ -84,6 +82,8 @@ class _KioskPageState extends ConsumerState<KioskPage> {
     return items.where((raw) {
       final m = Map<String, dynamic>.from(raw as Map);
       if (m['isAvailable'] == false) return false;
+      // Self-service kiosk has no age check or table service for drinks.
+      if (m['isAlcohol'] == true) return false;
       if (_categoryId == null) return true;
       return m['categoryId']?.toString() == _categoryId;
     }).toList();

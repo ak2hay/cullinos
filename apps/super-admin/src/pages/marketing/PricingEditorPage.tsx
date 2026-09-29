@@ -18,7 +18,14 @@ export function PricingEditorPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Pricing cards</h1>
+      <div>
+        <h1 className="text-2xl font-semibold">Pricing cards</h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          Draft marketing prices (paise). Use Marketing → Overview → Import from codebase to seed
+          Starter ₹2,999 · QSR ₹4,999 · Professional ₹7,999 · Enterprise ₹19,999 · Hospitality
+          ₹29,999, then Publish site.
+        </p>
+      </div>
       <div className="space-y-4">
         {cards.map((card) => (
           <form

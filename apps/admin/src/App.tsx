@@ -3,6 +3,7 @@ import { defaultPortalMode, PERMISSIONS } from '@cullinos/shared';
 import { ErpAccessRoute } from '@/components/auth/ErpAccessRoute';
 import { PermissionRoute } from '@/components/auth/PermissionRoute';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { PortalGate } from '@/components/PortalGate';
 import { AppShell } from '@/components/layout/AppShell';
 import { BusinessTypeRoute } from '@/components/layout/BusinessTypeRoute';
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
@@ -11,7 +12,6 @@ import { ChangePasswordPage } from '@/pages/ChangePasswordPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { DeliveryPage } from '@/pages/DeliveryPage';
 import { AggregatorsPage } from '@/pages/AggregatorsPage';
-import { PaymentsPage } from '@/pages/PaymentsPage';
 import { MarketplaceListingPage } from '@/pages/MarketplaceListingPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { GuestsPage } from '@/pages/GuestsPage';
@@ -59,6 +59,7 @@ function ErpPage({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <PortalGate>
     <Routes>
       <Route
         path="/login"
@@ -361,16 +362,7 @@ export default function App() {
             </ErpPage>
           }
         />
-        <Route
-          path="payments"
-          element={
-            <ErpPage>
-              <PermissionRoute allOf={[PERMISSIONS.SETTINGS_READ]}>
-                <PaymentsPage />
-              </PermissionRoute>
-            </ErpPage>
-          }
-        />
+        <Route path="payments" element={<Navigate to="/settings?tab=payments" replace />} />
         <Route
           path="marketplace"
           element={
@@ -446,5 +438,6 @@ export default function App() {
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </PortalGate>
   );
 }

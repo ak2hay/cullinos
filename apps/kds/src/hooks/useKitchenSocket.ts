@@ -29,15 +29,21 @@ export function useKitchenSocket(outletId: string | null): KitchenSocketStatus {
       transports: ['websocket', 'polling'],
       withCredentials: true,
       auth: { token: accessToken },
-      query: { token: accessToken },
-      reconnectionAttempts: 8,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1500,
+      reconnectionDelayMax: 15_000,
     });
     socketRef.current = socket;
+
+    const invalidate = () => {
+      queryClient.invalidateQueries({ queryKey: ['kitchen-display', outletId] });
+    };
 
     socket.on('connect', () => {
       setStatus('connected');
       socket.emit('join_outlet', outletId);
+      invalidate();
     });
 
     socket.on('disconnect', (reason) => {
@@ -65,10 +71,6 @@ export function useKitchenSocket(outletId: string | null): KitchenSocketStatus {
         setStatus('auth_failed');
       }
     });
-
-    const invalidate = () => {
-      queryClient.invalidateQueries({ queryKey: ['kitchen-display', outletId] });
-    };
 
     socket.on('kot:created', invalidate);
     socket.on('kot:updated', invalidate);

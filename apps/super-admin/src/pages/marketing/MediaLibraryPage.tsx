@@ -46,7 +46,7 @@ export function MediaLibraryPage() {
           <span className="text-sm text-text-secondary">Upload file</span>
           <input
             type="file"
-            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            accept="image/png,image/jpeg,image/webp"
             className="mt-1 block w-full text-sm"
             onChange={(e) => {
               const file = e.target.files?.[0];

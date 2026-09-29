@@ -7,7 +7,6 @@ const SECTION_LINKS = [
   { to: '/guest-ops/discover', label: 'Discover', desc: 'Home screen sections and curation' },
   { to: '/guest-ops/banners', label: 'Banners', desc: 'Platform and org carousel slides' },
   { to: '/guest-ops/push', label: 'Push', desc: 'Draft, schedule, and send campaigns' },
-  { to: '/guest-ops/offers', label: 'Offers', desc: 'Cross-tenant coupon oversight' },
   { to: '/guest-ops/reviews', label: 'Reviews', desc: 'Moderate guest outlet reviews' },
   { to: '/guest-ops/users', label: 'Users', desc: 'Search, export, and erase guest accounts' },
   { to: '/guest-ops/analytics', label: 'Analytics', desc: '30-day marketplace metrics' },

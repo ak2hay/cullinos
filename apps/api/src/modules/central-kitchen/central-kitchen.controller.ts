@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { OrgId, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { CentralKitchenService } from "./central-kitchen.service";
 
 @Controller("central-kitchen")
+@RequirePermissions("inventory:read")
 export class CentralKitchenController {
   constructor(private service: CentralKitchenService) {}
 
@@ -38,6 +40,7 @@ export class CentralKitchenController {
 
   @Post()
   @RequireModule("management")
+  @RequirePermissions("settings:update")
   create(
     @OrgId() orgId: string,
     @Body()
@@ -48,6 +51,7 @@ export class CentralKitchenController {
 
   @Patch(":id/links")
   @RequireModule("management")
+  @RequirePermissions("settings:update")
   updateLinks(
     @OrgId() orgId: string,
     @Param("id") id: string,
@@ -58,6 +62,7 @@ export class CentralKitchenController {
 
   @Post("indents")
   @RequireModule("management")
+  @RequirePermissions("inventory:transfer", "purchase:create")
   createIndent(
     @OrgId() orgId: string,
     @Body()
@@ -73,6 +78,7 @@ export class CentralKitchenController {
 
   @Post("indents/:id/fulfill")
   @RequireModule("management")
+  @RequirePermissions("inventory:transfer")
   fulfillIndent(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.fulfillIndent(orgId, id);
   }

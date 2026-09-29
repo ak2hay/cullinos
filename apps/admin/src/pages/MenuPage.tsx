@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Button, Card, Drawer, Input, PageShell, Tabs, useToast } from '@cullinos/ui';
+import { useTranslation } from 'react-i18next';
+import { Button, Card, Drawer, Input, PageShell, Select, Tabs, useToast } from '@cullinos/ui';
 import { ImageUploadField } from '@/components/ImageUploadField';
+import { CatalogPickerDrawer } from '@/features/menu/CatalogPickerDrawer';
+import { HappyHoursPanel } from '@/features/menu/HappyHoursPanel';
+import {
+  PRODUCT_TYPE_PRESETS,
+  getProductTypePreset,
+  presetOptions,
+} from '@/features/menu/productTypes';
 import {
   menuApi,
   taxApi,
@@ -17,9 +25,22 @@ import {
 import { formatMoney } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
 
-type Tab = 'categories' | 'items' | 'combos' | 'schedules' | 'outlet-prices';
+type Tab = 'categories' | 'items' | 'combos' | 'schedules' | 'happy-hours' | 'outlet-prices';
+
+const TAB_LABEL_KEYS: Record<Tab, string> = {
+  categories: 'menu.categories',
+  items: 'menu.menuItems',
+  combos: 'menu.combos',
+  schedules: 'menu.dayparts',
+  'happy-hours': 'menu.happyHours',
+  'outlet-prices': 'menu.outletPrices',
+};
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function hasOwnPhoto(url: string | null | undefined): boolean {
+  return Boolean(url) && !url!.includes('/catalog-placeholders/');
+}
 
 const EMPTY_VARIANT: MenuItemVariant = { name: '', price: 0 };
 const EMPTY_MODIFIER: MenuModifier = { name: '', price: 0 };
@@ -31,12 +52,18 @@ const EMPTY_MODIFIER_GROUP: MenuModifierGroup = {
 };
 
 export function MenuPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const toast = useToast();
   const outletId = useAuthStore((s) => s.selectedOutletId);
   const [activeTab, setActiveTab] = useState<Tab>('categories');
+  const [missingPhotosOnly, setMissingPhotosOnly] = useState(false);
 
-  const [categoryForm, setCategoryForm] = useState({ name: '', description: '' });
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
+    description: '',
+    kitchenStationCode: '',
+  });
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
 
   const [itemForm, setItemForm] = useState({
@@ -49,6 +76,7 @@ export function MenuPage() {
     stockBasedAvailability: false,
     isVeg: false,
     isSpecial: false,
+    productType: 'other',
     taxGroupId: '',
     hsnCode: '996331',
     imageUrl: '' as string,
@@ -57,6 +85,24 @@ export function MenuPage() {
   });
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [itemDrawerOpen, setItemDrawerOpen] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const selectedPreset = getProductTypePreset(itemForm.productType);
+
+  function changeProductType(nextId: string) {
+    const preset = getProductTypePreset(nextId);
+    const hasOptions = itemForm.variants.length > 0 || itemForm.modifierGroups.length > 0;
+    const hasPresetOptions = preset.variants.length > 0 || preset.modifierGroups.length > 0;
+    const replace =
+      hasPresetOptions &&
+      (!hasOptions ||
+        window.confirm(`Replace current sizes and options with ${preset.label} defaults?`));
+    setItemForm((f) => ({
+      ...f,
+      productType: preset.id,
+      ...(preset.showVeg ? {} : { isVeg: preset.defaultVeg }),
+      ...(replace ? presetOptions(preset) : {}),
+    }));
+  }
 
   const [comboForm, setComboForm] = useState({
     name: '',
@@ -76,7 +122,7 @@ export function MenuPage() {
   const [editingSchedule, setEditingSchedule] = useState<MenuSchedule | null>(null);
 
   const [priceEdits, setPriceEdits] = useState<
-    Record<string, { price: string; isAvailable: boolean }>
+    Record<string, { price: string; packaging: string; isAvailable: boolean }>
   >({});
 
   function showNotice(type: 'success' | 'error', text: string) {
@@ -93,6 +139,12 @@ export function MenuPage() {
     queryKey: ['tax'],
     queryFn: taxApi.list,
   });
+
+  const stationsQuery = useQuery({
+    queryKey: ['menu', 'kitchen-stations'],
+    queryFn: menuApi.listKitchenStations,
+  });
+  const stations = stationsQuery.data ?? [];
 
   const itemsQuery = useQuery({
     queryKey: ['menu', 'items'],
@@ -124,7 +176,7 @@ export function MenuPage() {
     mutationFn: menuApi.createCategory,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu', 'categories'] });
-      setCategoryForm({ name: '', description: '' });
+      setCategoryForm({ name: '', description: '', kitchenStationCode: '' });
     },
   });
 
@@ -158,6 +210,7 @@ export function MenuPage() {
           price: Math.round(Number(v.price) * 100) || basePrice,
           isDefault: v.isDefault ?? idx === 0,
           sortOrder: idx,
+          stockMultiplier: Number(v.stockMultiplier) > 0 ? Number(v.stockMultiplier) : 1,
         }));
       const modifierGroups = itemForm.modifierGroups
         .filter((g) => g.name.trim())
@@ -182,8 +235,9 @@ export function MenuPage() {
         packagingCharge,
         onlineAvailable: itemForm.onlineAvailable,
         stockBasedAvailability: itemForm.stockBasedAvailability,
-        isVeg: itemForm.isVeg,
+        isVeg: selectedPreset.showVeg ? itemForm.isVeg : selectedPreset.defaultVeg,
         isSpecial: itemForm.isSpecial,
+        productType: itemForm.productType === 'other' ? null : itemForm.productType,
         taxGroupId: itemForm.taxGroupId || null,
         hsnCode: itemForm.hsnCode.trim() || null,
         variants,
@@ -294,11 +348,21 @@ export function MenuPage() {
       const edit = priceEdits[row.menuItemId];
       const priceStr = edit?.price ?? (row.outletPrice != null ? String(row.outletPrice / 100) : String(row.basePrice / 100));
       const price = Math.round(parseFloat(priceStr) * 100);
+      const packagingStr =
+        edit?.packaging ?? String((row.packagingCharge ?? 0) / 100);
+      const packagingCharge = Math.round(parseFloat(packagingStr || '0') * 100);
       const isAvailable = edit?.isAvailable ?? row.isAvailable;
-      return menuApi.setOutletPrice(outletId!, row.menuItemId, { price, isAvailable });
+      const packagingChanged =
+        Number.isFinite(packagingCharge) &&
+        packagingCharge !== (row.packagingCharge ?? 0);
+      await menuApi.setOutletPrice(outletId!, row.menuItemId, { price, isAvailable });
+      if (packagingChanged) {
+        await menuApi.updateItem(row.menuItemId, { packagingCharge });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu', 'outlet-prices', outletId] });
+      queryClient.invalidateQueries({ queryKey: ['menu', 'items'] });
       showNotice('success', 'Outlet price saved.');
     },
     onError: (err: Error) => showNotice('error', err.message ?? 'Failed to save outlet price.'),
@@ -306,6 +370,8 @@ export function MenuPage() {
 
   const categories = categoriesQuery.data ?? [];
   const items = itemsQuery.data ?? [];
+  const missingPhotoCount = items.filter((item) => !hasOwnPhoto(item.imageUrl)).length;
+  const visibleItems = missingPhotosOnly ? items.filter((item) => !hasOwnPhoto(item.imageUrl)) : items;
   const combos = combosQuery.data ?? [];
   const schedules = schedulesQuery.data ?? [];
   const outletPrices = outletPricesQuery.data ?? [];
@@ -323,6 +389,7 @@ export function MenuPage() {
       stockBasedAvailability: item.stockBasedAvailability ?? false,
       isVeg: item.isVeg ?? false,
       isSpecial: item.isSpecial ?? false,
+      productType: getProductTypePreset(item.productType).id,
       taxGroupId: item.taxGroupId ?? '',
       hsnCode: item.hsnCode ?? '996331',
       imageUrl: item.imageUrl ?? '',
@@ -349,6 +416,7 @@ export function MenuPage() {
       stockBasedAvailability: false,
       isVeg: false,
       isSpecial: false,
+      productType: 'other',
       taxGroupId: '',
       hsnCode: '996331',
       imageUrl: '',
@@ -371,6 +439,7 @@ export function MenuPage() {
       stockBasedAvailability: false,
       isVeg: false,
       isSpecial: false,
+      productType: 'other',
       taxGroupId: '',
       hsnCode: '996331',
       imageUrl: '',
@@ -390,16 +459,16 @@ export function MenuPage() {
     return result.imageUrl;
   }
 
-  const tabs: Tab[] = ['categories', 'items', 'combos', 'schedules', 'outlet-prices'];
+  const tabs: Tab[] = ['categories', 'items', 'combos', 'schedules', 'happy-hours', 'outlet-prices'];
   const tabItems = tabs.map((tab) => ({
     id: tab,
-    label: tab.replace('-', ' '),
+    label: t(TAB_LABEL_KEYS[tab]),
   }));
 
   return (
     <PageShell
-      title="Menu"
-      description="Categories, items, variants, combos, dayparts, and outlet pricing."
+      title={t('menu.title')}
+      description={t('menu.description')}
       actions={
         <Tabs items={tabItems} value={activeTab} onChange={setActiveTab} />
       }
@@ -419,18 +488,41 @@ export function MenuPage() {
                     payload: {
                       name: categoryForm.name,
                       description: categoryForm.description || undefined,
+                      kitchenStationCode: categoryForm.kitchenStationCode || null,
                     },
                   });
                 } else {
                   createCategory.mutate({
                     name: categoryForm.name,
                     description: categoryForm.description || undefined,
+                    kitchenStationCode: categoryForm.kitchenStationCode || null,
                   });
                 }
               }}
             >
               <Input label="Name" required value={categoryForm.name} onChange={(e) => setCategoryForm((f) => ({ ...f, name: e.target.value }))} />
               <Input label="Description" value={categoryForm.description} onChange={(e) => setCategoryForm((f) => ({ ...f, description: e.target.value }))} />
+              {stations.length > 0 || categoryForm.kitchenStationCode ? (
+                <div className="space-y-1">
+                  <Select
+                    label="Ticket station"
+                    value={categoryForm.kitchenStationCode}
+                    onChange={(e) => setCategoryForm((f) => ({ ...f, kitchenStationCode: e.target.value }))}
+                    options={[
+                      { value: '', label: 'Kitchen (default)' },
+                      ...stations.map((s) => ({ value: s.code, label: s.name })),
+                      ...(categoryForm.kitchenStationCode &&
+                      !stations.some((s) => s.code === categoryForm.kitchenStationCode)
+                        ? [{ value: categoryForm.kitchenStationCode, label: categoryForm.kitchenStationCode }]
+                        : []),
+                    ]}
+                  />
+                  <p className="text-xs text-text-muted">
+                    Items in this category go on this station&apos;s ticket (for example Bar) instead of
+                    the kitchen ticket.
+                  </p>
+                </div>
+              ) : null}
               <div className="flex gap-2">
                 <Button type="submit" loading={createCategory.isPending || updateCategory.isPending}>
                   {editingCategory ? 'Save changes' : 'Add category'}
@@ -442,7 +534,7 @@ export function MenuPage() {
             </form>
           </div>
           <div className="rounded-xl border border-white/5 bg-bg-card p-5">
-            <h2 className="font-semibold">Categories</h2>
+            <h2 className="font-semibold">{t('menu.categories')}</h2>
             {categoriesQuery.isLoading ? (
               <p className="mt-4 text-sm text-text-muted">Loading…</p>
             ) : categories.length === 0 ? (
@@ -458,7 +550,11 @@ export function MenuPage() {
                     <div className="flex gap-2">
                       <Button type="button" variant="ghost" onClick={() => {
                         setEditingCategory(category);
-                        setCategoryForm({ name: category.name, description: category.description ?? '' });
+                        setCategoryForm({
+                          name: category.name,
+                          description: category.description ?? '',
+                          kitchenStationCode: category.kitchenStationCode ?? '',
+                        });
                       }}>Edit</Button>
                       <Button type="button" variant="ghost" loading={deleteCategory.isPending} onClick={() => {
                         if (window.confirm(`Delete category "${category.name}"?`)) deleteCategory.mutate(category.id);
@@ -475,39 +571,75 @@ export function MenuPage() {
       {activeTab === 'items' ? (
         <Card>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-display font-semibold tracking-tight">Menu items</h2>
-            <Button type="button" onClick={openNewItemDrawer}>
-              Add item
-            </Button>
+            <h2 className="font-display font-semibold tracking-tight">{t('menu.menuItems')}</h2>
+            <div className="flex flex-wrap items-center gap-3">
+              {missingPhotoCount > 0 || missingPhotosOnly ? (
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-text-secondary">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-brand-primary"
+                    checked={missingPhotosOnly}
+                    onChange={(e) => setMissingPhotosOnly(e.target.checked)}
+                  />
+                  {t('menu.missingPhotosOnly')} ({missingPhotoCount})
+                </label>
+              ) : null}
+              <Button type="button" variant="ghost" onClick={() => setCatalogOpen(true)}>
+                Add from catalog
+              </Button>
+              <Button type="button" onClick={openNewItemDrawer}>
+                Add item
+              </Button>
+            </div>
           </div>
+          <CatalogPickerDrawer open={catalogOpen} onClose={() => setCatalogOpen(false)} />
           {itemsQuery.isLoading ? (
-            <p className="text-sm text-text-muted">Loading…</p>
-          ) : items.length === 0 ? (
+            <p className="text-sm text-text-muted">{t('common.loading')}</p>
+          ) : visibleItems.length === 0 ? (
             <p className="text-sm text-text-muted">No items yet.</p>
           ) : (
             <ul className="divide-y divide-white/5">
-              {items.map((item) => (
+              {visibleItems.map((item) => (
                 <li key={item.id} className="flex items-start justify-between gap-3 py-3">
                   <div className="flex min-w-0 items-start gap-3">
-                    {item.imageUrl ? (
+                    {hasOwnPhoto(item.imageUrl) ? (
                       <img
-                        src={item.imageUrl}
+                        src={item.imageUrl!}
                         alt=""
                         className="h-12 w-12 shrink-0 rounded-lg object-cover"
                       />
+                    ) : item.imageUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => loadItemForEdit(item)}
+                        title={t('menu.addPhoto')}
+                        className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg"
+                      >
+                        <img src={item.imageUrl} alt="" className="h-full w-full object-cover opacity-70" />
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-[10px] leading-tight text-white">
+                          {t('menu.addPhoto')}
+                        </span>
+                      </button>
                     ) : (
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-dashed border-white/15 text-[10px] text-text-muted">
-                        No photo
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => loadItemForEdit(item)}
+                        title={t('menu.addPhoto')}
+                        className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-dashed border-white/15 text-[10px] leading-tight text-text-muted transition hover:border-brand-primary hover:text-brand-primary"
+                      >
+                        <span aria-hidden="true" className="text-base leading-none">+</span>
+                        {t('menu.addPhoto')}
+                      </button>
                     )}
-                    <div>
-                    <p className="font-medium">{item.name}</p>
+                    <div className="min-w-0">
+                    <p className="break-words font-medium">{item.name}</p>
                     <p className="text-sm text-text-muted">
                       {formatMoney(item.basePrice)}
                       {(item.packagingCharge ?? 0) > 0 ? ` · pkg ${formatMoney(item.packagingCharge!)}` : ''}
                       {item.onlineAvailable === false ? ' · Online OFF' : ''}
                       {item.stockBasedAvailability ? ' · Stock-linked' : ''}
-                      {item.isVeg ? ' · Veg' : ' · Non-veg'}
+                      {item.productType ? ` · ${getProductTypePreset(item.productType).label}` : ''}
+                      {getProductTypePreset(item.productType).showVeg ? (item.isVeg ? ' · Veg' : ' · Non-veg') : ''}
                       {item.isSpecial ? ' · Special' : ''}
                     </p>
                     {(item.variants?.length ?? 0) > 0 ? (
@@ -543,7 +675,7 @@ export function MenuPage() {
           <Drawer
             open={itemDrawerOpen}
             onClose={closeItemDrawer}
-            title={editingItem ? 'Edit item' : 'New menu item'}
+            title={editingItem ? t('menu.editItem') : t('menu.newItem')}
             description="Variants and modifiers live with the item."
             width="xl"
             footer={
@@ -567,6 +699,21 @@ export function MenuPage() {
                   </select>
                 </div>
               ) : null}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-text-secondary">Product type</label>
+                <select
+                  value={itemForm.productType}
+                  onChange={(e) => changeProductType(e.target.value)}
+                  className="h-11 w-full rounded-lg border border-white/10 bg-bg-card px-3 text-sm"
+                >
+                  {PRODUCT_TYPE_PRESETS.map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-text-muted">
+                  Fills in typical sizes and choices for this kind of product. You can edit them below. Tax group and HSN are not changed.
+                </p>
+              </div>
               <Input label="Name" required value={itemForm.name} onChange={(e) => setItemForm((f) => ({ ...f, name: e.target.value }))} />
               <Input label="Description" value={itemForm.description} onChange={(e) => setItemForm((f) => ({ ...f, description: e.target.value }))} />
               <ImageUploadField
@@ -613,14 +760,16 @@ export function MenuPage() {
                   <input type="checkbox" checked={itemForm.stockBasedAvailability} onChange={(e) => setItemForm((f) => ({ ...f, stockBasedAvailability: e.target.checked }))} />
                   Stock-based availability
                 </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={itemForm.isVeg}
-                    onChange={(e) => setItemForm((f) => ({ ...f, isVeg: e.target.checked }))}
-                  />
-                  Veg
-                </label>
+                {selectedPreset.showVeg ? (
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={itemForm.isVeg}
+                      onChange={(e) => setItemForm((f) => ({ ...f, isVeg: e.target.checked }))}
+                    />
+                    Veg
+                  </label>
+                ) : null}
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -646,11 +795,16 @@ export function MenuPage() {
 
               <div className="space-y-2 rounded-lg border border-white/5 p-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">Variants</p>
+                  <div>
+                    <p className="text-sm font-medium">Variants</p>
+                    {itemForm.variants.length > 0 ? (
+                      <p className="text-xs text-text-muted">Name · price · stock × (Half = 0.5, 60 mL peg on a 30 mL recipe = 2)</p>
+                    ) : null}
+                  </div>
                   <Button type="button" variant="ghost" onClick={() => setItemForm((f) => ({ ...f, variants: [...f.variants, { ...EMPTY_VARIANT }] }))}>Add variant</Button>
                 </div>
                 {itemForm.variants.map((v, idx) => (
-                  <div key={idx} className="grid gap-2 sm:grid-cols-[1fr_100px_auto]">
+                  <div key={idx} className="grid gap-2 sm:grid-cols-[1fr_100px_90px_auto]">
                     <Input label="" placeholder="Name" value={v.name} onChange={(e) => setItemForm((f) => {
                       const variants = [...f.variants];
                       variants[idx] = { ...variants[idx], name: e.target.value };
@@ -661,6 +815,20 @@ export function MenuPage() {
                       variants[idx] = { ...variants[idx], price: Number(e.target.value) };
                       return { ...f, variants };
                     })} />
+                    <Input
+                      label=""
+                      type="number"
+                      min={0.001}
+                      step="any"
+                      placeholder="Stock ×"
+                      title="Stock multiplier: Half = 0.5, Full = 1, 60 mL on a 30 mL recipe = 2"
+                      value={v.stockMultiplier == null ? '1' : String(v.stockMultiplier)}
+                      onChange={(e) => setItemForm((f) => {
+                        const variants = [...f.variants];
+                        variants[idx] = { ...variants[idx], stockMultiplier: Number(e.target.value) };
+                        return { ...f, variants };
+                      })}
+                    />
                     <Button type="button" variant="ghost" onClick={() => setItemForm((f) => ({ ...f, variants: f.variants.filter((_, i) => i !== idx) }))}>Remove</Button>
                   </div>
                 ))}
@@ -690,6 +858,20 @@ export function MenuPage() {
                         return { ...f, modifierGroups };
                       })} />
                     </div>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={g.isRequired ?? false} onChange={(e) => setItemForm((f) => {
+                        const isRequired = e.target.checked;
+                        const modifierGroups = [...f.modifierGroups];
+                        const current = modifierGroups[gIdx];
+                        modifierGroups[gIdx] = {
+                          ...current,
+                          isRequired,
+                          minSelect: isRequired ? Math.max(1, current.minSelect ?? 0) : 0,
+                        };
+                        return { ...f, modifierGroups };
+                      })} />
+                      Required (guest must choose)
+                    </label>
                     {(g.modifiers ?? []).map((m, mIdx) => (
                       <div key={mIdx} className="grid gap-2 sm:grid-cols-[1fr_100px]">
                         <Input label="" placeholder="Modifier" value={m.name} onChange={(e) => setItemForm((f) => {
@@ -882,6 +1064,8 @@ export function MenuPage() {
         </div>
       ) : null}
 
+      {activeTab === 'happy-hours' ? <HappyHoursPanel categories={categories} /> : null}
+
       {activeTab === 'outlet-prices' ? (
         <div className="rounded-xl border border-white/5 bg-bg-card p-5">
           <h2 className="font-semibold">Outlet prices</h2>
@@ -906,6 +1090,8 @@ export function MenuPage() {
                   {outletPrices.map((row) => {
                     const edit = priceEdits[row.menuItemId];
                     const priceVal = edit?.price ?? (row.outletPrice != null ? String(row.outletPrice / 100) : String(row.basePrice / 100));
+                    const packagingVal =
+                      edit?.packaging ?? String((row.packagingCharge ?? 0) / 100);
                     const available = edit?.isAvailable ?? row.isAvailable;
                     return (
                       <tr key={row.menuItemId} className="border-b border-white/5">
@@ -914,7 +1100,23 @@ export function MenuPage() {
                           {row.onlineAvailable === false ? <p className="text-xs text-text-muted">Online OFF globally</p> : null}
                         </td>
                         <td className="py-3 pr-4">{formatMoney(row.basePrice)}</td>
-                        <td className="py-3 pr-4">{formatMoney(row.packagingCharge)}</td>
+                        <td className="py-3 pr-4">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={packagingVal}
+                            onChange={(e) => setPriceEdits((prev) => ({
+                              ...prev,
+                              [row.menuItemId]: {
+                                price: priceVal,
+                                packaging: e.target.value,
+                                isAvailable: available,
+                              },
+                            }))}
+                            className="h-9 w-24 rounded border border-white/10 bg-bg-card px-2"
+                          />
+                        </td>
                         <td className="py-3 pr-4">
                           <input
                             type="number"
@@ -923,7 +1125,11 @@ export function MenuPage() {
                             value={priceVal}
                             onChange={(e) => setPriceEdits((prev) => ({
                               ...prev,
-                              [row.menuItemId]: { price: e.target.value, isAvailable: available },
+                              [row.menuItemId]: {
+                                price: e.target.value,
+                                packaging: packagingVal,
+                                isAvailable: available,
+                              },
                             }))}
                             className="h-9 w-24 rounded border border-white/10 bg-bg-card px-2"
                           />
@@ -934,7 +1140,11 @@ export function MenuPage() {
                             checked={available}
                             onChange={(e) => setPriceEdits((prev) => ({
                               ...prev,
-                              [row.menuItemId]: { price: priceVal, isAvailable: e.target.checked },
+                              [row.menuItemId]: {
+                                price: priceVal,
+                                packaging: packagingVal,
+                                isAvailable: e.target.checked,
+                              },
                             }))}
                           />
                         </td>

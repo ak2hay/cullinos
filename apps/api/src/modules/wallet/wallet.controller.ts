@@ -1,6 +1,11 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
 import type { JwtPayload } from "@cullinos/auth";
-import { CurrentUser, OrgId, RequireModule } from "../../common/decorators";
+import {
+  CurrentUser,
+  OrgId,
+  RequireModule,
+  RequirePlatformPermission,
+} from "../../common/decorators";
 import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { SuperAdminGuard } from "../marketing/guards/super-admin.guard";
 import { WalletService } from "./wallet.service";
@@ -63,11 +68,13 @@ export class SuperAdminWalletController {
   constructor(private wallet: WalletService) {}
 
   @Get(":orgId/wallet")
+  @RequirePlatformPermission("tenants.read")
   getBalance(@Param("orgId") orgId: string) {
     return this.wallet.getBalance(orgId);
   }
 
   @Post(":orgId/wallet/adjust")
+  @RequirePlatformPermission("wallet.manage")
   adjust(
     @Param("orgId") orgId: string,
     @CurrentUser() user: JwtPayload,

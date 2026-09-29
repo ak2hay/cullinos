@@ -63,6 +63,17 @@ async function deleteOrganizationTree(orgId: string) {
        OR outlet_id IN (SELECT id FROM outlets WHERE organization_id = ${orgId})
   `;
 
+  // Financial tables use ON DELETE RESTRICT; demo tenants are removed explicitly.
+  await prisma.$executeRaw`DELETE FROM credit_notes WHERE organization_id = ${orgId}
+    OR invoice_id IN (SELECT i.id FROM invoices i JOIN orders o ON o.id = i.order_id WHERE o.organization_id = ${orgId})`;
+  await prisma.$executeRaw`DELETE FROM invoices WHERE organization_id = ${orgId}
+    OR order_id IN (SELECT id FROM orders WHERE organization_id = ${orgId})`;
+  await prisma.$executeRaw`DELETE FROM payments WHERE organization_id = ${orgId}`;
+  await prisma.$executeRaw`DELETE FROM cashier_shifts
+    WHERE outlet_id IN (SELECT id FROM outlets WHERE organization_id = ${orgId})`;
+  await prisma.$executeRaw`DELETE FROM wallet_ledger_entries WHERE organization_id = ${orgId}`;
+  await prisma.$executeRaw`DELETE FROM audit_logs WHERE organization_id = ${orgId}`;
+
   await prisma.organization.delete({ where: { id: orgId } });
 }
 

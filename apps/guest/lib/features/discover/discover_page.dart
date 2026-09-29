@@ -7,12 +7,10 @@ import 'package:cullinos_guest/core/guest_spacing.dart';
 import 'package:cullinos_guest/data/guest_api.dart';
 import 'package:cullinos_guest/features/auth/auth_controller.dart';
 import 'package:cullinos_guest/features/location/guest_location_controller.dart';
-import 'package:cullinos_guest/widgets/guest_badges.dart';
 import 'package:cullinos_guest/widgets/guest_banner_carousel.dart';
 import 'package:cullinos_guest/widgets/guest_brand_wordmark.dart';
 import 'package:cullinos_guest/widgets/guest_empty_state.dart';
 import 'package:cullinos_guest/widgets/guest_location_chip.dart';
-import 'package:cullinos_guest/widgets/guest_network_image.dart';
 import 'package:cullinos_guest/widgets/guest_soft_card.dart';
 
 /// Home dashboard — featured place, quick actions, loyalty, browse entry points.
@@ -28,10 +26,9 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
   List<dynamic> _outlets = [];
   List<Map<String, dynamic>> _banners = [];
   List<dynamic> _offers = [];
-  List<dynamic> _recentOrders = [];
-  List<dynamic> _favorites = [];
   List<dynamic> _memberships = [];
   int _coinsBalance = 0;
+  int _unreadNotifications = 0;
   bool _loading = true;
   String? _error;
 
@@ -81,17 +78,10 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
         offersRes = await api.offers(lat: lat, lng: lng);
       } catch (_) {}
 
-      List<dynamic> recent = [];
-      List<dynamic> favs = [];
       List<dynamic> wallets = [];
       int coins = 0;
+      int unread = 0;
       if (ref.read(authControllerProvider).isAuthenticated) {
-        try {
-          recent = await api.orders();
-        } catch (_) {}
-        try {
-          favs = await api.favoriteOutlets();
-        } catch (_) {}
         try {
           wallets = await api.memberships();
         } catch (_) {}
@@ -101,6 +91,9 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
               (coinsData['coins'] as num?)?.toInt() ??
               0;
         } catch (_) {}
+        try {
+          unread = await api.unreadNotificationCount();
+        } catch (_) {}
       }
 
       if (!mounted) return;
@@ -108,33 +101,15 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
         _outlets = nearbyOutlets;
         _banners = banners;
         _offers = List<dynamic>.from(offersRes['offers'] as List? ?? []);
-        _recentOrders = recent;
-        _favorites = favs;
         _memberships = wallets;
         _coinsBalance = coins;
+        _unreadNotifications = unread;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = friendlyApiError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Map<String, dynamic> _orgOf(Map<String, dynamic> o) {
-    if (o['organization'] is Map) {
-      return Map<String, dynamic>.from(o['organization'] as Map);
-    }
-    return {};
-  }
-
-  void _openOutlet(Map<String, dynamic> o) {
-    final org = _orgOf(o);
-    final orgSlug =
-        org['slug']?.toString() ?? o['organizationSlug']?.toString();
-    final slug = o['slug']?.toString() ?? o['outletSlug']?.toString();
-    if (orgSlug != null && slug != null) {
-      context.push('/o/$orgSlug/$slug');
     }
   }
 
@@ -241,21 +216,24 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
                       '/login?next=${Uri.encodeComponent('/notifications')}');
                   return;
                 }
-                context.push('/notifications');
+                context.push('/notifications').then((_) {
+                  if (mounted) _load();
+                });
               },
             ),
-            Positioned(
-              right: 2,
-              top: 2,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: GuestColors.popularRed,
-                  shape: BoxShape.circle,
+            if (authed && _unreadNotifications > 0)
+              Positioned(
+                right: 2,
+                top: 2,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: GuestColors.popularRed,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ],

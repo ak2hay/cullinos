@@ -14,6 +14,7 @@ import { Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
 import { Public } from "../../common/decorators";
 import { assertTurnstile } from "../../common/turnstile.util";
+import { clientIp } from "../../common/client-ip.util";
 import {
   CurrentGuest,
   GuestAuth,
@@ -22,12 +23,6 @@ import {
 } from "./guest-auth.util";
 import { GuestService } from "./guest.service";
 import { GuestEngagementService } from "./guest-engagement.service";
-
-function clientIp(req: Request): string | undefined {
-  const xf = req.headers["x-forwarded-for"];
-  if (typeof xf === "string" && xf.length > 0) return xf.split(",")[0]?.trim();
-  return req.ip;
-}
 
 @Controller("public/guest")
 @UseGuards(GuestAuthGuard)
@@ -38,7 +33,7 @@ export class GuestController {
   ) {}
 
   @Public()
-  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("auth/phone-status")
   phoneStatus(@Body() body: { phone?: string }) {
     return this.service.phoneStatus(body.phone);
@@ -76,7 +71,11 @@ export class GuestController {
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post("auth/otp/widget-retry")
-  widgetRetry(@Body() body: { reqId?: string }) {
+  async widgetRetry(
+    @Body() body: { reqId?: string; captchaToken?: string },
+    @Req() req: Request,
+  ) {
+    await assertTurnstile(body.captchaToken, clientIp(req));
     return this.service.widgetRetryOtp(body.reqId);
   }
 
@@ -408,6 +407,25 @@ export class GuestController {
   @Post("notifications/read-all")
   markAllRead(@CurrentGuest() guest: GuestJwtPayload) {
     return this.engagement.markAllNotificationsRead(guest.sub);
+  }
+
+  @Public()
+  @GuestAuth()
+  @Delete("notifications/:id")
+  deleteNotification(
+    @CurrentGuest() guest: GuestJwtPayload,
+    @Param("id") id: string,
+  ) {
+    return this.engagement.deleteNotification(guest.sub, id);
+  }
+
+  @Public()
+  @GuestAuth()
+  @Get("notifications/unread-count")
+  unreadCount(@CurrentGuest() guest: GuestJwtPayload) {
+    return this.engagement.unreadNotificationCount(guest.sub).then((count) => ({
+      count,
+    }));
   }
 
   @Public()

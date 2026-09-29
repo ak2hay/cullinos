@@ -9,7 +9,7 @@ from pathlib import Path
 import paramiko
 
 ROOT = Path(__file__).resolve().parents[1]
-HOST = os.environ.get("DEPLOY_HOST", "95.135.254.46")
+HOST = os.environ.get("DEPLOY_HOST") or sys.exit("Set DEPLOY_HOST explicitly (no default target).")
 PASSWORD = os.environ.get("DEPLOY_PASSWORD", "") or (sys.argv[1] if len(sys.argv) > 1 else "")
 REMOTE = "/etc/nginx/sites-available/cullinos-frontends.conf"
 LOCAL = ROOT / "infrastructure" / "nginx" / "cullinos-frontends.conf"

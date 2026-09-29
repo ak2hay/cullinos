@@ -1,11 +1,14 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WebsocketGateway } from "../../websocket/websocket.gateway";
 import { fromApiTableStatus, toApiTableStatus } from "../../common/status.util";
+import { releaseMergedTables } from "./table-merge.util";
+import { businessTypeUsesTables } from "./business-type-tables.util";
 
 const GUEST_APP_BASE =
   process.env.GUEST_APP_URL ?? "https://guest.cullinos.com";
@@ -41,6 +44,9 @@ export class TablesService {
       include: { organization: true },
     });
     if (!outlet) throw new NotFoundException("Outlet not found");
+    if (!businessTypeUsesTables(outlet.organization?.businessType)) {
+      throw new BadRequestException("This business type does not use tables");
+    }
     if (!data.name?.trim()) throw new BadRequestException("Table name is required");
 
     let section =
@@ -123,6 +129,9 @@ export class TablesService {
         name: string;
         floor?: { id: string; name: string; sortOrder: number } | null;
       } | null;
+      mergedIntoTableId?: string | null;
+      mergedInto?: { id: string; name: string } | null;
+      mergedTables?: Array<{ id: string; name: string }>;
     },
     outletId: string,
     orgSlug: string,
@@ -135,6 +144,10 @@ export class TablesService {
       name: table.name,
       capacity: table.capacity,
       status: toApiTableStatus(table.status),
+      mergedIntoTableId: table.mergedIntoTableId ?? null,
+      mergedIntoTableName: table.mergedInto?.name ?? null,
+      mergedTableIds: (table.mergedTables ?? []).map((t) => t.id),
+      mergedTableNames: (table.mergedTables ?? []).map((t) => t.name),
       qrCode: table.qrCode,
       qrUrl: table.qrCode
         ? this.buildQrUrl(orgSlug, outletSlug, table.qrCode)
@@ -164,7 +177,11 @@ export class TablesService {
 
     const tables = await this.prisma.table.findMany({
       where: { section: { floor: { outletId } } },
-      include: { section: { include: { floor: true } } },
+      include: {
+        section: { include: { floor: true } },
+        mergedInto: { select: { id: true, name: true } },
+        mergedTables: { select: { id: true, name: true }, orderBy: { sortOrder: "asc" } },
+      },
       orderBy: [
         { section: { floor: { sortOrder: "asc" } } },
         { section: { sortOrder: "asc" } },
@@ -219,6 +236,7 @@ export class TablesService {
     if (!outlet) throw new NotFoundException("Outlet not found");
     const name = data.name?.trim();
     if (!name) throw new BadRequestException("Floor name is required");
+    await this.assertFloorNameAvailable(outletId, name);
 
     const floor = await this.prisma.floor.create({
       data: {
@@ -234,6 +252,79 @@ export class TablesService {
     return this.listFloors(orgId, outletId).then((floors) =>
       floors.find((f) => f.id === floor.id),
     );
+  }
+
+  private async assertFloorNameAvailable(
+    outletId: string,
+    name: string,
+    excludeFloorId?: string,
+  ) {
+    const clash = await this.prisma.floor.findFirst({
+      where: {
+        outletId,
+        name: { equals: name, mode: "insensitive" },
+        ...(excludeFloorId ? { id: { not: excludeFloorId } } : {}),
+      },
+      select: { id: true },
+    });
+    if (clash) {
+      throw new ConflictException(`A floor named "${name}" already exists in this outlet`);
+    }
+  }
+
+  private async findScopedFloor(orgId: string, outletId: string, floorId: string) {
+    const floor = await this.prisma.floor.findFirst({
+      where: { id: floorId, outletId, outlet: { organizationId: orgId } },
+    });
+    if (!floor) throw new NotFoundException("Floor not found");
+    return floor;
+  }
+
+  async updateFloor(
+    orgId: string,
+    outletId: string,
+    floorId: string,
+    data: { name?: string; sortOrder?: number },
+  ) {
+    await this.findScopedFloor(orgId, outletId, floorId);
+
+    const patch: { name?: string; sortOrder?: number } = {};
+    if (data.name !== undefined) {
+      const name = String(data.name).trim();
+      if (!name) throw new BadRequestException("Floor name is required");
+      if (name.length > 80) throw new BadRequestException("Floor name is too long");
+      await this.assertFloorNameAvailable(outletId, name, floorId);
+      patch.name = name;
+    }
+    if (data.sortOrder !== undefined) {
+      const sortOrder = Number(data.sortOrder);
+      if (!Number.isInteger(sortOrder)) {
+        throw new BadRequestException("sortOrder must be an integer");
+      }
+      patch.sortOrder = sortOrder;
+    }
+
+    if (Object.keys(patch).length > 0) {
+      await this.prisma.floor.update({ where: { id: floorId }, data: patch });
+    }
+    return this.listFloors(orgId, outletId).then((floors) =>
+      floors.find((f) => f.id === floorId),
+    );
+  }
+
+  /** Sections cascade-delete their tables, so refuse while any table remains on the floor. */
+  async deleteFloor(orgId: string, outletId: string, floorId: string) {
+    await this.findScopedFloor(orgId, outletId, floorId);
+    const tableCount = await this.prisma.table.count({
+      where: { section: { floorId } },
+    });
+    if (tableCount > 0) {
+      throw new BadRequestException(
+        `This floor still has ${tableCount} table${tableCount === 1 ? "" : "s"}. Move or delete its tables first.`,
+      );
+    }
+    await this.prisma.floor.delete({ where: { id: floorId } });
+    return { id: floorId, deleted: true };
   }
 
   async createSection(
@@ -269,14 +360,6 @@ export class TablesService {
   }
 
   /** Public list for QR ordering — no auth. */
-  async listByOutletPublic(outletId: string) {
-    const tables = await this.prisma.table.findMany({
-      where: { section: { floor: { outletId } } },
-      select: { id: true, name: true, qrCode: true },
-    });
-    return tables;
-  }
-
   /** Resolve permanent table sticker without starting a session. */
   async resolveByQrCode(qrCode: string) {
     const code = qrCode?.trim();
@@ -339,7 +422,13 @@ export class TablesService {
 
     const updated = await this.prisma.table.update({
       where: { id: tableId },
-      data: { status: normalized as never },
+      data: {
+        status: normalized as never,
+        // A merged table that is manually set to anything but occupied leaves the group.
+        ...(table.mergedIntoTableId && normalized !== "occupied"
+          ? { mergedIntoTableId: null }
+          : {}),
+      },
       include: { section: true },
     });
 
@@ -348,6 +437,21 @@ export class TablesService {
         where: { tableId, status: "active" },
         data: { status: "closed", endedAt: new Date() },
       });
+    }
+
+    if (normalized === "available" || normalized === "cleaning") {
+      const released = await this.prisma.$transaction((tx) =>
+        releaseMergedTables(tx, tableId, normalized),
+      );
+      for (const id of released) {
+        this.ws.emitToOutlet(outletId, "table.updated", {
+          id,
+          outletId,
+          status: toApiTableStatus(normalized),
+          mergedIntoTableId: null,
+          mergedIntoTableName: null,
+        });
+      }
     }
 
     const org = table.section.floor.outlet.organization;
@@ -360,6 +464,7 @@ export class TablesService {
       name: updated.name,
       capacity: updated.capacity,
       status: toApiTableStatus(updated.status),
+      mergedIntoTableId: updated.mergedIntoTableId,
       qrCode: updated.qrCode,
       qrUrl: updated.qrCode
         ? this.buildQrUrl(org.slug, outlet.slug, updated.qrCode)
@@ -548,7 +653,14 @@ export class TablesService {
       );
     }
 
-    await this.prisma.table.delete({ where: { id: tableId } });
+    const released = await this.prisma.$transaction(async (tx) => {
+      const ids = await releaseMergedTables(tx, tableId, "available");
+      await tx.table.delete({ where: { id: tableId } });
+      return ids;
+    });
+    for (const id of released) {
+      this.ws.emitToOutlet(outletId, "table.updated", { id, outletId, status: "AVAILABLE" });
+    }
     this.ws.emitToOutlet(outletId, "table.deleted", { id: tableId, outletId });
     return { success: true, id: tableId };
   }

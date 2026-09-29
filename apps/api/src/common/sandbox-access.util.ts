@@ -15,22 +15,34 @@ export function isSandboxTenant(
   return org != null && Number(org.environmentClass) === TENANT_ENV_SANDBOX;
 }
 
+/**
+ * @deprecated OTP skip is controlled by sandbox org flags only.
+ * Kept for callers/tests that still pass an env argument; always returns true.
+ */
+export function sandboxOtpSkipPermittedByRuntime(
+  _env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return true;
+}
+
 export function sandboxAllowsEmailOtpSkip(
   org: SandboxOrgFlags | null | undefined,
+  _env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  return isSandboxTenant(org) && org!.sandboxSkipEmailOtp !== false;
+  return isSandboxTenant(org) && org!.sandboxSkipEmailOtp === true;
 }
 
 export function sandboxAllowsSmsOtpSkip(
   org: SandboxOrgFlags | null | undefined,
+  _env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  return isSandboxTenant(org) && org!.sandboxSkipSmsOtp !== false;
+  return isSandboxTenant(org) && org!.sandboxSkipSmsOtp === true;
 }
 
 export function sandboxAllowsRelaxedPassword(
   org: SandboxOrgFlags | null | undefined,
 ): boolean {
-  return isSandboxTenant(org) && org!.sandboxRelaxPassword !== false;
+  return isSandboxTenant(org) && org!.sandboxRelaxPassword === true;
 }
 
 /** Min password length: 6 for sandbox relax, else 8. */

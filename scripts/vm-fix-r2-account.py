@@ -9,7 +9,7 @@ from pathlib import Path
 import paramiko
 
 ROOT = Path(__file__).resolve().parents[1]
-HOST = os.environ.get("DEPLOY_HOST", "95.135.254.46")
+HOST = os.environ.get("DEPLOY_HOST") or sys.exit("Set DEPLOY_HOST explicitly (no default target).")
 USER_ACCOUNT = "b8ca0cf70da5a81d986dd7727d3ceaf7"
 DB_ACCOUNT = "b8ca8c770da5a81d986dd7777d3ceaf7"
 

@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
 import { OrgId } from "../../common/decorators";
 import { RequirePermissions } from "../../common/decorators/permissions.decorator";
-import { UsersService } from "./users.service";
+import { UsersService, type UpdateStaffUserInput } from "./users.service";
 
 @Controller("users")
 export class UsersController {
@@ -30,6 +30,22 @@ export class UsersController {
     },
   ) {
     return this.service.createStaffUser(orgId, body);
+  }
+
+  /** Edit name, phone (waiter OTP login) or role of a staff member. */
+  @Patch(":id")
+  @RequirePermissions("staff:manage", "org:manage_users")
+  update(
+    @OrgId() orgId: string,
+    @Param("id") id: string,
+    @Body() body: UpdateStaffUserInput,
+  ) {
+    return this.service.updateStaffUser(orgId, id, {
+      name: typeof body?.name === "string" ? body.name : undefined,
+      phone:
+        body?.phone === null || typeof body?.phone === "string" ? body.phone : undefined,
+      roleSlug: typeof body?.roleSlug === "string" ? body.roleSlug : undefined,
+    });
   }
 
   @Patch(":id/deactivate")

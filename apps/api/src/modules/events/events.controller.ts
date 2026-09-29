@@ -9,20 +9,24 @@ import {
   Query,
 } from "@nestjs/common";
 import { OrgId, Public, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { EventsService } from "./events.service";
 
 @Controller("events")
+@RequirePermissions("outlet:update")
 export class EventsController {
   constructor(private service: EventsService) {}
 
   @Get()
   @RequireModule("events")
+  @RequirePermissions("outlet:read", "order:read")
   list(@OrgId() orgId: string, @Query("outletId") outletId?: string) {
     return this.service.list(orgId, outletId);
   }
 
   @Get(":id")
   @RequireModule("events")
+  @RequirePermissions("outlet:read", "order:read")
   get(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.get(orgId, id);
   }
@@ -57,6 +61,6 @@ export class PublicEventsController {
   @Public()
   @Get("outlets/:outletId")
   listByOutlet(@Param("outletId") outletId: string) {
-    return this.service.list("", outletId);
+    return this.service.listPublicByOutlet(outletId);
   }
 }

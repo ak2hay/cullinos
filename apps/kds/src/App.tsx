@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { PortalGate } from '@/components/PortalGate';
 import { KitchenDisplayPage } from '@/pages/KitchenDisplayPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { PickupDisplayPage } from '@/pages/PickupDisplayPage';
@@ -28,18 +29,31 @@ export default function App() {
   const outletSlug = getQueryParam('outletSlug');
 
   if (mode === 'playlist' && orgSlug && outletSlug) {
-    return <PromoPlaylistPage orgSlug={orgSlug} outletSlug={outletSlug} />;
+    return (
+      <PortalGate>
+        <PromoPlaylistPage orgSlug={orgSlug} outletSlug={outletSlug} />
+      </PortalGate>
+    );
   }
 
   if ((mode === 'pickup' || mode === 'cds') && orgSlug && outletSlug) {
-    return <PickupDisplayPage orgSlug={orgSlug} outletSlug={outletSlug} mode={mode} />;
+    return (
+      <PortalGate>
+        <PickupDisplayPage orgSlug={orgSlug} outletSlug={outletSlug} mode={mode} />
+      </PortalGate>
+    );
   }
 
   if (mode === 'receipt' && outletId) {
-    return <ReceiptPrintPage outletId={outletId} />;
+    return (
+      <PortalGate>
+        <ReceiptPrintPage outletId={outletId} />
+      </PortalGate>
+    );
   }
 
   return (
+    <PortalGate>
     <Routes>
       <Route
         path="/login"
@@ -59,5 +73,6 @@ export default function App() {
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </PortalGate>
   );
 }

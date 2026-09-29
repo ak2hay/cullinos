@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { superAdminApi } from '@/lib/api';
+import { openRazorpaySubscriptionCheckout } from '@/lib/razorpay-subscription-checkout';
 
 export function SubscriptionsPage() {
   const queryClient = useQueryClient();
@@ -46,16 +47,29 @@ export function SubscriptionsPage() {
 
   const collectMutation = useMutation({
     mutationFn: (orgId: string) => superAdminApi.collectSubscription(orgId),
-    onSuccess: (result) => {
-      setMessage(
-        result.shortUrl
-          ? `Razorpay checkout ready: ${result.shortUrl}`
-          : 'Razorpay subscription created.',
-      );
+    onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ['super-admin', 'organizations'] });
-      if (result.shortUrl) {
-        window.open(result.shortUrl, '_blank', 'noopener,noreferrer');
+      if (result.keyId && result.razorpaySubId) {
+        try {
+          setMessage('Opening Razorpay Checkout…');
+          await openRazorpaySubscriptionCheckout({
+            keyId: result.keyId,
+            subscriptionId: result.razorpaySubId,
+            description: 'Cullinos subscription',
+            prefill: result.prefill,
+          });
+          setMessage('Payment submitted. Subscription will activate when Razorpay confirms.');
+        } catch (err) {
+          setMessage(err instanceof Error ? err.message : 'Checkout failed');
+        }
+        return;
       }
+      if (result.shortUrl) {
+        setMessage(`Razorpay checkout ready: ${result.shortUrl}`);
+        window.open(result.shortUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      setMessage('Razorpay subscription created but no checkout method was returned.');
     },
     onError: (err: Error) => setMessage(err.message),
   });
@@ -175,7 +189,9 @@ export function SubscriptionsPage() {
                 >
                   {plans.map((p) => (
                     <option key={p.id} value={p.slug}>
+                      {p.visibility === 'private' ? 'Custom — ' : ''}
                       {p.name} (₹{p.priceMonthly})
+                      {p.visibility === 'private' ? ' (private)' : ''}
                     </option>
                   ))}
                 </select>

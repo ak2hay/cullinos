@@ -52,7 +52,8 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | **Customer** | *(decommissioned web)* → Cullinos App | Guests | Use Android Cullinos App / guest deep links |
 | **Guest** | Android app · guest.cullinos.com deep links | Consumers | Marketplace discover + outlet ordering |
 | **Management** | manage.cullinos.com | Multi-outlet ops | Network KPIs, stock transfer, franchise |
-| **Super Admin** | platform.cullinos.com | Rkyves | Tenants, plans, CMS, **Cullinos App Ops** |
+| **Super Admin** | platform.cullinos.com | Rkyves | Tenants, plans, CMS |
+| **Cullinos App Ops** | app.cullinos.com | Rkyves | Guest users, rich FCM, marketplace, Discover, banners, runtime |
 | **Web** | cullinos.com | Prospects | Marketing site, pricing, blog |
 
 ---
@@ -149,7 +150,8 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | **Loyalty** | Stamps, points, rewards (admin + public) |
 | **Coupons** | Discount codes across channels |
 | **Promo email** | Compose and send email campaigns |
-| **SMS campaigns** | MSG91 marketing SMS |
+| **SMS campaigns** | MSG91 marketing SMS (prepaid portal wallet) |
+| **WhatsApp e-bills** | Platform Meta Cloud API; owner enable + per-message wallet charge |
 | **Events / pop-ups** | Event-driven pre-orders |
 | **Privacy & consent** | Consent, export/erase, retention (DPDP-oriented) |
 
@@ -175,7 +177,7 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | **Suspend / activate** | Lifecycle control |
 | **Plans & entitlements** | Module feature flags per plan |
 | **Impersonation** | Support handoff into tenant Admin |
-| **Platform config** | SMTP, Razorpay, MSG91, FCM, R2, OpenAI, … |
+| **Platform config** | SMTP, Razorpay, MSG91, WhatsApp (Meta), FCM, R2, OpenAI, wallet messaging rates, … |
 | **Marketing CMS** | Hero, pages, pricing, blog, media, theme |
 | **Cullinos App Ops** | Full Cullinos App portal under `/guest-ops`: marketplace moderation & featuring, Discover CMS, banners (all scopes), segmented/scheduled push, offers featuring, review moderation, GuestUser support/privacy, analytics, app runtime (force/soft update, maintenance, remote legal URLs) |
 | **Health & audit** | Platform health, audit trails |
@@ -188,6 +190,7 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 |-------------|--------|-----|
 | **Razorpay** | Available | Online payments, Guest/Customer verify, subscription collect |
 | **MSG91** | Available | Phone OTP widget / Flow SMS; marketing SMS |
+| **WhatsApp (Meta Cloud API)** | Available | Cullinos platform account; tenant e-bill receipts (wallet-metered) |
 | **Firebase Auth + FCM** | Available | Guest auth; order & marketing push |
 | **SMTP / Brevo** | Available | Staff email OTP, promo email |
 | **Resend** | Available | Owner onboarding credential emails |
@@ -206,13 +209,15 @@ List prices; custom enterprise quotes available.
 
 | Plan | From | Best for | Highlights |
 |------|------|----------|------------|
-| **Starter** | ₹999/mo | Single outlet launch | POS, KDS, tables, QR + online ordering, reports |
-| **QSR / Food SMB** | ₹1,499/mo | Cafes, trucks, counters | + counter mode, pickup queue, loyalty, production |
-| **Professional** | ₹2,999/mo | Growing restaurants | + inventory, CRM, delivery, up to 3 outlets |
-| **Enterprise** | ₹9,999/mo | Chains & franchise | + multi-outlet, multi-brand, franchise, analytics, API |
-| **Hospitality** | ₹14,999/mo | Hotels & resorts | + room service, room posting, banquet, PMS-ready |
+| **Starter** | ₹2,999/mo | Single outlet launch | POS, KDS, tables, QR + online ordering, reports |
+| **QSR / Food SMB** | ₹4,999/mo | Cafes, trucks, counters | + counter mode, pickup queue, loyalty, production |
+| **Professional** | ₹7,999/mo | Growing restaurants | + inventory, CRM, delivery, up to 3 outlets |
+| **Enterprise** | ₹19,999/mo | Chains & franchise | + multi-outlet, multi-brand, franchise, analytics, API |
+| **Hospitality** | ₹29,999/mo | Hotels & resorts | + room service, room posting, banquet, PMS-ready |
 
-Entitlement keys live in `packages/shared` (`FEATURES` / `PLAN_FEATURES`).
+Entitlement keys live in `packages/shared` (`FEATURES` / `PLAN_FEATURES` / `PUBLIC_PLAN_CATALOG`).
+
+**Custom quotes:** Super Admin creates a **private** plan row (hidden from marketing and `GET /subscriptions/plans`), then assigns it to one or more restaurants via Subscriptions / tenant management. Tenants see their assigned plan on Billing but cannot self-serve onto other private plans.
 
 ---
 
@@ -226,6 +231,7 @@ Entitlement keys live in `packages/shared` (`FEATURES` / `PLAN_FEATURES`).
 | Bakeries | Production batches, recipes, pre-orders |
 | Cloud kitchens | Multi-brand menus, delivery, aggregators |
 | Catering | Events, pre-orders, production planning |
+| Bars & pubs | Tables/tabs, auto-created Bar station with per-category ticket routing, happy-hour pricing (Menu → Happy hours, enforced server-side), pour-size recipes with bottle stock, liquor stock register (Inventory → Stock register, CSV), State Excise tax group |
 | Hotels & resorts | Room service, rooms, banquets (Hospitality / Enterprise) |
 
 ---

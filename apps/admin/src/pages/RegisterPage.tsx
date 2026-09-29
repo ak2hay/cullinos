@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Button, Input, PhoneField, Turnstile, isTurnstileEnabled } from '@cullinos/ui';
 import { authApi } from '@/lib/api';
+import { isValidMobile } from '@/lib/format';
 import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
 
 export function RegisterPage() {
@@ -23,6 +24,10 @@ export function RegisterPage() {
     e.preventDefault();
     setError('');
     setSuccess('');
+    if (!isValidMobile(ownerPhone)) {
+      setError('Enter a valid mobile number');
+      return;
+    }
     if (turnstileOn && !captchaToken) {
       setError('Please complete the security check');
       return;
@@ -33,10 +38,16 @@ export function RegisterPage() {
         companyName,
         ownerName,
         ownerEmail,
-        ownerPhone: ownerPhone || undefined,
+        ownerPhone,
         captchaToken: captchaToken || undefined,
       });
-      setSuccess(result.message);
+      const deliveryNote =
+        result.emailSent || result.smsSent
+          ? result.message
+          : `${result.message} (Email sent: ${result.emailSent ? 'yes' : 'no'}; SMS sent: ${
+              result.smsSent ? 'yes' : 'no'
+            }. Ensure Resend and MSG91 are configured in Super Admin → Settings.)`;
+      setSuccess(deliveryNote);
       setCompanyName('');
       setOwnerName('');
       setOwnerEmail('');
@@ -53,7 +64,7 @@ export function RegisterPage() {
   return (
     <AuthLayout
       title="Start your free trial"
-      subtitle="15 days of Enterprise features. Credentials are emailed (and SMS’d when a phone is provided)."
+      subtitle="15 days of Enterprise features. Login credentials are sent to your email and mobile."
     >
       {success ? (
         <div className="space-y-4">
@@ -92,7 +103,8 @@ export function RegisterPage() {
             onChange={(e) => setOwnerEmail(e.target.value)}
           />
           <PhoneField
-            label="Mobile (for SMS credentials)"
+            label="Mobile number"
+            required
             value={ownerPhone}
             onChange={setOwnerPhone}
           />

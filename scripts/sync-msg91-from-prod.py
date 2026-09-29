@@ -1,5 +1,6 @@
 """Print which MSG91 keys exist on prod (secrets masked). Optionally upsert non-debug keys into local .env."""
 from __future__ import annotations
+import os
 
 import json
 import re
@@ -51,7 +52,7 @@ def main() -> None:
 
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect("95.135.254.46", username="root", password=pw, timeout=25)
+    client.connect(os.environ.get("DEPLOY_HOST") or sys.exit("Set DEPLOY_HOST explicitly (no default target)."), username="root", password=pw, timeout=25)
 
     remote = r"""
 set -e

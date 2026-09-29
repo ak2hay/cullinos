@@ -300,4 +300,77 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get allFloors => 'All floors';
+
+  @override
+  String get portalDisabledTitle => 'ವೇಟರ್ ಆ್ಯಪ್ ಆಫ್ ಆಗಿದೆ';
+
+  @override
+  String get portalDisabledBody =>
+      'Cullinos ವೇಟರ್ ಆ್ಯಪ್ ಅನ್ನು ತಾತ್ಕಾಲಿಕವಾಗಿ ಆಫ್ ಮಾಡಿದೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಮ್ಯಾನೇಜರ್ ಅನ್ನು ಸಂಪರ್ಕಿಸಿ ಅಥವಾ ಅಡ್ಮಿನ್ ಪೋರ್ಟಲ್ ಬಳಸಿ.';
+
+  @override
+  String get portalMaintenanceLabel => 'MAINTENANCE';
+
+  @override
+  String get portalMaintenanceTitle => 'Waiter app is under maintenance';
+
+  @override
+  String get portalMaintenanceBody =>
+      'Cullinos is performing maintenance on the waiter app. Please try again shortly.';
+
+  @override
+  String get checkAgain => 'ಮತ್ತೆ ಪರಿಶೀಲಿಸಿ';
+
+  @override
+  String get mergeStepPrimary => 'Step 1 of 2: Tap the main table';
+
+  @override
+  String mergeStepSecondary(String table) {
+    return 'Step 2 of 2: Tap the table to merge into $table';
+  }
+
+  @override
+  String get transferStepSource => 'Step 1 of 2: Tap the table to move';
+
+  @override
+  String transferStepTarget(String table) {
+    return 'Step 2 of 2: Tap a free table to move $table to';
+  }
+
+  @override
+  String mergedWith(String table) {
+    return 'Merged with $table';
+  }
+
+  @override
+  String get primaryTag => 'Main';
+
+  @override
+  String get fromTag => 'From';
+
+  @override
+  String confirmMerge(String secondary, String primary) {
+    return 'Merge $secondary into $primary?';
+  }
+
+  @override
+  String confirmTransfer(String from, String to) {
+    return 'Move $from to $to?';
+  }
+
+  @override
+  String get confirm => 'Confirm';
+
+  @override
+  String get unmerge => 'Unmerge';
+
+  @override
+  String openTable(String table) {
+    return 'Open $table';
+  }
+
+  @override
+  String mergedTableHint(String table) {
+    return 'Orders and bill for this table are on $table.';
+  }
 }

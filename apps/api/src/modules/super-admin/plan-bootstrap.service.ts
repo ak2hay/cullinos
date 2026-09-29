@@ -1,112 +1,13 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import {
+  PUBLIC_PLAN_CATALOG,
+  modulesForPublicPlanSlug,
+  type PublicPlanSlug,
+} from "@cullinos/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { SaasBillingService } from "../subscriptions/saas-billing.service";
 
-const DEFAULT_PLANS = [
-  {
-    slug: "starter",
-    name: "Starter",
-    description: "Single outlet — POS, KDS, Admin, GST billing",
-    priceMonthly: 2999,
-    priceYearly: 29990,
-    maxOutlets: 1,
-    maxTerminals: 2,
-    modules: ["pos", "kds", "admin", "menu", "orders", "tables", "billing", "tax", "settings", "reports", "analytics", "sms"],
-  },
-  {
-    slug: "qsr",
-    name: "QSR / Food SMB",
-    description: "Cafes, food trucks, bakeries — counter POS, QR ordering, pickup queue",
-    priceMonthly: 4999,
-    priceYearly: 49990,
-    maxOutlets: 1,
-    maxTerminals: 3,
-    modules: [
-      "pos",
-      "kds",
-      "admin",
-      "menu",
-      "orders",
-      "tables",
-      "billing",
-      "tax",
-      "customer",
-      "loyalty",
-      "inventory",
-      "events",
-      "production",
-      "settings",
-      "reports",
-      "analytics",
-      "sms",
-    ],
-  },
-  {
-    slug: "professional",
-    name: "Professional",
-    description: "Up to 3 outlets — Waiter, QR, inventory, CRM",
-    priceMonthly: 7999,
-    priceYearly: 79990,
-    maxOutlets: 3,
-    maxTerminals: 6,
-    modules: [
-      "pos",
-      "kds",
-      "admin",
-      "waiter",
-      "customer",
-      "menu",
-      "orders",
-      "tables",
-      "billing",
-      "tax",
-      "inventory",
-      "crm",
-      "loyalty",
-      "delivery",
-      "events",
-      "production",
-      "settings",
-      "reports",
-      "analytics",
-      "sms",
-    ],
-  },
-  {
-    slug: "enterprise",
-    name: "Enterprise",
-    description: "Multi-outlet chains — Management, franchise, analytics",
-    priceMonthly: 19999,
-    priceYearly: 199990,
-    maxOutlets: 999,
-    maxTerminals: 999,
-    modules: [
-      "pos",
-      "kds",
-      "admin",
-      "waiter",
-      "customer",
-      "menu",
-      "orders",
-      "tables",
-      "billing",
-      "tax",
-      "inventory",
-      "crm",
-      "loyalty",
-      "management",
-      "franchise",
-      "hotel",
-      "analytics",
-      "delivery",
-      "events",
-      "production",
-      "settings",
-      "reports",
-      "sms",
-    ],
-  },
-] as const;
+const PUBLIC_SLUGS = Object.keys(PUBLIC_PLAN_CATALOG) as PublicPlanSlug[];
 
 @Injectable()
 export class PlanBootstrapService implements OnModuleInit {
@@ -140,44 +41,69 @@ export class PlanBootstrapService implements OnModuleInit {
   }
 
   /**
-   * Upsert all default plans and their features. Safe to run on every startup —
-   * uses upsert so it never overwrites custom plan pricing or extra features.
+   * Upsert all public catalog plans. Updates metadata/pricing/modules for known
+   * public slugs on every startup. Never touches private (custom) plan rows.
    */
   private async upsertPlans() {
-    let created = 0;
-    for (const plan of DEFAULT_PLANS) {
+    let upserted = 0;
+    for (const slug of PUBLIC_SLUGS) {
+      const catalog = PUBLIC_PLAN_CATALOG[slug];
+      const modules = modulesForPublicPlanSlug(slug);
+
+      const existing = await this.prisma.plan.findUnique({ where: { slug } });
+      const priceChanged =
+        existing != null && Number(existing.priceMonthly) !== catalog.priceMonthly;
+
       const record = await this.prisma.plan.upsert({
-        where: { slug: plan.slug },
-        update: {},
+        where: { slug },
+        update: {
+          name: catalog.name,
+          description: catalog.description,
+          priceMonthly: catalog.priceMonthly,
+          priceYearly: catalog.priceYearly,
+          maxOutlets: catalog.maxOutlets,
+          maxTerminals: catalog.maxTerminals,
+          maxUsers: catalog.maxUsers,
+          sortOrder: catalog.sortOrder,
+          visibility: "public",
+          isActive: true,
+          ...(priceChanged ? { razorpayPlanIdMonthly: null } : {}),
+        },
         create: {
-          name: plan.name,
-          slug: plan.slug,
-          description: plan.description,
-          priceMonthly: plan.priceMonthly,
-          priceYearly: plan.priceYearly,
-          maxOutlets: plan.maxOutlets,
-          maxTerminals: plan.maxTerminals,
+          name: catalog.name,
+          slug,
+          description: catalog.description,
+          priceMonthly: catalog.priceMonthly,
+          priceYearly: catalog.priceYearly,
+          maxOutlets: catalog.maxOutlets,
+          maxTerminals: catalog.maxTerminals,
+          maxUsers: catalog.maxUsers,
+          sortOrder: catalog.sortOrder,
+          visibility: "public",
+          isActive: true,
         },
       });
 
-      for (const module of plan.modules) {
+      await this.prisma.planFeature.updateMany({
+        where: { planId: record.id, module: { notIn: [...modules] } },
+        data: { enabled: false },
+      });
+      for (const module of modules) {
         await this.prisma.planFeature.upsert({
           where: { planId_module: { planId: record.id, module } },
           update: { enabled: true },
           create: { planId: record.id, module, enabled: true },
         });
       }
-      created++;
+      upserted++;
     }
-    this.logger.log(`Plan bootstrap complete — upserted ${created} plans`);
+    this.logger.log(`Plan bootstrap complete — upserted ${upserted} public plans`);
   }
 
   /**
    * For every active/trial subscription, insert any missing SubscriptionEntitlement
    * rows that exist on the plan's features but not yet on the subscription, and
    * re-enable rows that were left disabled after plan modules were restored.
-   * This syncs existing tenants after new modules are added to plans without
-   * requiring a manual re-provision in Super Admin.
    */
   private async syncSubscriptionEntitlements() {
     const subscriptions = await this.prisma.subscription.findMany({
@@ -192,6 +118,7 @@ export class PlanBootstrapService implements OnModuleInit {
     for (const sub of subscriptions) {
       const byModule = new Map(sub.entitlements.map((e) => [e.module, e]));
       for (const feature of sub.plan.features) {
+        if (!feature.enabled) continue;
         const existing = byModule.get(feature.module);
         if (!existing) {
           await this.prisma.subscriptionEntitlement.create({
@@ -215,7 +142,9 @@ export class PlanBootstrapService implements OnModuleInit {
     }
 
     if (synced > 0) {
-      this.logger.log(`Synced ${synced} subscription entitlement(s) across ${subscriptions.length} subscription(s)`);
+      this.logger.log(
+        `Synced ${synced} subscription entitlement(s) across ${subscriptions.length} subscription(s)`,
+      );
     }
   }
 }

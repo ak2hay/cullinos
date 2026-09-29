@@ -17,8 +17,10 @@ import {
 import {
   IMAGE_SLOT_HINTS,
   ImageUploadField,
+  useImageUploadMaxMb,
   validateClientImageFile,
 } from '@/components/ImageUploadField';
+import { ImageCropModal } from '@/components/ImageCropModal';
 import { outletsApi, type Outlet, type OutletPhoto, API_BASE } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
@@ -81,6 +83,7 @@ export function MarketplaceListingPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const selectedOutletId = useAuthStore((s) => s.selectedOutletId);
+  const uploadMaxMb = useImageUploadMaxMb();
   const [outletId, setOutletId] = useState('');
   const [form, setForm] = useState({
     marketplaceListed: false,
@@ -98,6 +101,7 @@ export function MarketplaceListingPage() {
   const [openingHours, setOpeningHours] = useState<OpeningHours>(defaultOpeningHours);
   const [pincodeLoading, setPincodeLoading] = useState(false);
   const [galleryUploading, setGalleryUploading] = useState(false);
+  const [galleryCropFile, setGalleryCropFile] = useState<File | null>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
@@ -214,16 +218,15 @@ export function MarketplaceListingPage() {
     return result.coverImageUrl ?? '';
   }
 
-  async function handleGalleryFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !outletId) return;
+  async function uploadGalleryFile(file: File) {
+    if (!outletId) return;
     if (photos.length >= 8) {
       toast.error('Maximum 8 restaurant photos.');
       return;
     }
     setGalleryUploading(true);
     try {
-      await validateClientImageFile(file, IMAGE_SLOT_HINTS.outletGallery);
+      await validateClientImageFile(file, IMAGE_SLOT_HINTS.outletGallery, uploadMaxMb);
       await outletsApi.uploadPhoto(outletId, file, { setAsCover: photos.length === 0 });
       queryClient.invalidateQueries({ queryKey: ['outlets', outletId, 'photos'] });
       queryClient.invalidateQueries({ queryKey: ['outlets'] });
@@ -232,6 +235,23 @@ export function MarketplaceListingPage() {
       toast.error(err instanceof Error ? err.message : 'Upload failed.');
     } finally {
       setGalleryUploading(false);
+      if (galleryInputRef.current) galleryInputRef.current.value = '';
+    }
+  }
+
+  async function handleGalleryFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !outletId) return;
+    if (photos.length >= 8) {
+      toast.error('Maximum 8 restaurant photos.');
+      e.target.value = '';
+      return;
+    }
+    try {
+      await validateClientImageFile(file, IMAGE_SLOT_HINTS.outletGallery, uploadMaxMb);
+      setGalleryCropFile(file);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Invalid image');
       if (galleryInputRef.current) galleryInputRef.current.value = '';
     }
   }
@@ -354,8 +374,8 @@ export function MarketplaceListingPage() {
             <div>
               <p className="text-sm font-medium text-text-secondary">Restaurant photos</p>
               <p className="text-xs text-text-muted">
-                Gallery shown on the guest app menu (up to 8). Recommended 1200×900px (4:3),
-                PNG/JPG/WebP, max 5 MB. Cover is used as the hero.
+                Gallery shown on the guest app menu (up to 8). Crop to 1200×900px (4:3) before
+                upload. PNG/JPG/WebP, max {uploadMaxMb} MB. Cover is used as the hero.
               </p>
             </div>
             <div>
@@ -523,6 +543,21 @@ export function MarketplaceListingPage() {
           </Button>
         </div>
       </div>
+      {galleryCropFile ? (
+        <ImageCropModal
+          file={galleryCropFile}
+          targetWidth={IMAGE_SLOT_HINTS.outletGallery.targetWidth}
+          targetHeight={IMAGE_SLOT_HINTS.outletGallery.targetHeight}
+          onCancel={() => {
+            setGalleryCropFile(null);
+            if (galleryInputRef.current) galleryInputRef.current.value = '';
+          }}
+          onCropped={(cropped) => {
+            setGalleryCropFile(null);
+            void uploadGalleryFile(cropped);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

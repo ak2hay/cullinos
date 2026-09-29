@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cullinos_guest/core/guest_colors.dart';
 import 'package:cullinos_guest/core/guest_spacing.dart';
 import 'package:cullinos_guest/data/guest_api.dart';
+import 'package:cullinos_guest/features/outlet/alcohol_gate.dart';
 import 'package:cullinos_guest/features/outlet/cart_controller.dart';
 import 'package:cullinos_guest/features/outlet/menu_utils.dart';
 import 'package:cullinos_guest/widgets/guest_back_button.dart';
@@ -444,6 +445,10 @@ class _MenuPageState extends ConsumerState<MenuPage> {
                       ),
                     ],
                   ),
+                  if (isAlcoholItem(item)) ...[
+                    const SizedBox(height: 4),
+                    const DineInOnlyBadge(),
+                  ],
                   if (desc.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
@@ -510,7 +515,12 @@ class _MenuPageState extends ConsumerState<MenuPage> {
 
   // ─── Handle ADD ────────────────────────────────────────────────────────────
 
-  void _handleAdd(Map<String, dynamic> item, double price) {
+  Future<void> _handleAdd(Map<String, dynamic> item, double price) async {
+    final alcohol = isAlcoholItem(item);
+    if (alcohol && !await ensureDrinkingAge(context, ref.read(cartProvider))) {
+      return;
+    }
+    if (!mounted) return;
     final variants = List<Map<String, dynamic>>.from(
       (item['variants'] as List? ?? [])
           .map((v) => Map<String, dynamic>.from(v as Map)),
@@ -528,6 +538,7 @@ class _MenuPageState extends ConsumerState<MenuPage> {
             unitPrice: price,
             imageUrl: item['imageUrl']?.toString(),
             isVeg: item['isVeg'] as bool?,
+            isAlcohol: alcohol,
           );
       setState(() {}); // Refresh to update cart qty display
     } else {

@@ -38,7 +38,6 @@ export const ERP_NAV_PERMISSION_MAP: Record<string, string> = {
   '/settings': PERMISSIONS.SETTINGS_READ,
   '/reports': PERMISSIONS.REPORTS_READ,
   '/aggregators': PERMISSIONS.REPORTS_READ,
-  '/payments': PERMISSIONS.SETTINGS_READ,
   '/billing': PERMISSIONS.ORG_READ,
   '/onboarding': PERMISSIONS.ORG_UPDATE,
   '/customers': PERMISSIONS.CUSTOMER_READ,

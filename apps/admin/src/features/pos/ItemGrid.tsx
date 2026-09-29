@@ -1,5 +1,12 @@
 interface ItemGridProps {
-  items: Array<{ id: string; name: string; price: number; isAvailable: boolean }>;
+  items: Array<{
+    id: string;
+    name: string;
+    price: number;
+    /** Set during happy hour when `price` is discounted */
+    regularPrice?: number;
+    isAvailable: boolean;
+  }>;
   quantities?: Record<string, number>;
   onAdd: (item: { id: string; name: string; price: number }) => void;
   emptyHint?: string;
@@ -20,7 +27,7 @@ export function ItemGrid({ items, quantities = {}, onAdd, emptyHint }: ItemGridP
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-5">
       {items.map((item) => {
         const qty = quantities[item.id] ?? 0;
         return (
@@ -29,18 +36,25 @@ export function ItemGrid({ items, quantities = {}, onAdd, emptyHint }: ItemGridP
             type="button"
             disabled={!item.isAvailable}
             onClick={() => onAdd({ id: item.id, name: item.name, price: item.price })}
-            className="group relative flex min-h-[112px] flex-col items-start justify-between overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-bg-card to-bg-elevated/80 p-4 text-left shadow-sm transition hover:border-brand-primary/50 hover:shadow-md hover:shadow-brand-primary/10 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+            className="group relative flex min-h-[92px] flex-col items-start justify-between overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-bg-card to-bg-elevated/80 p-3 text-left sm:min-h-[112px] sm:p-4 shadow-sm transition hover:border-brand-primary/50 hover:shadow-md hover:shadow-brand-primary/10 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {qty > 0 ? (
               <span className="absolute right-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-primary px-2 font-mono text-sm font-bold text-bg-primary">
                 {qty}
               </span>
             ) : null}
-            <span className="line-clamp-2 pr-8 text-base font-semibold leading-tight text-text-primary">
+            <span className="line-clamp-2 pr-8 text-sm font-semibold leading-tight text-text-primary sm:text-base">
               {item.name}
             </span>
-            <span className="mt-3 rounded-lg bg-brand-primary/15 px-2.5 py-1 font-mono text-sm font-semibold text-brand-primary">
-              ₹{(item.price / 100).toFixed(0)}
+            <span className="mt-2 flex items-center gap-2 sm:mt-3">
+              <span className="rounded-lg bg-brand-primary/15 px-2.5 py-1 font-mono text-sm font-semibold text-brand-primary">
+                ₹{(item.price / 100).toFixed(0)}
+              </span>
+              {item.regularPrice != null && item.regularPrice > item.price ? (
+                <span className="font-mono text-xs text-text-muted line-through">
+                  ₹{(item.regularPrice / 100).toFixed(0)}
+                </span>
+              ) : null}
             </span>
           </button>
         );

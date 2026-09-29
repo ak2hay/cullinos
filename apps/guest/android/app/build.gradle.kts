@@ -90,6 +90,20 @@ flutter {
     source = "../.."
 }
 
+// Debug-signed release artifacts cannot be updated from Play and break App Links verification.
+gradle.taskGraph.whenReady {
+    val buildsRelease = allTasks.any {
+        it.project == project && it.name.contains("Release") &&
+            (it.name.startsWith("assemble") || it.name.startsWith("bundle"))
+    }
+    if (buildsRelease && !keystorePropertiesFile.exists() && !project.hasProperty("allowDebugSignedRelease")) {
+        throw GradleException(
+            "Release build without android/key.properties. Add the upload keystore, " +
+                "or pass -PallowDebugSignedRelease for a local-only test build.",
+        )
+    }
+}
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.multidex:multidex:2.0.1")

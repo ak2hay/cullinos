@@ -2,10 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { superAdminApi } from '@/lib/api';
+import { useCan } from '@/lib/permissions';
+import { openRazorpaySubscriptionCheckout } from '@/lib/razorpay-subscription-checkout';
 
 export function TenantDetailPage() {
   const { id = '' } = useParams();
   const queryClient = useQueryClient();
+  const can = useCan();
+  const canManageUsers = can('tenant_users.manage');
   const [suspendReason, setSuspendReason] = useState('');
   const [showSuspend, setShowSuspend] = useState(false);
   const [resetResult, setResetResult] = useState<{
@@ -57,14 +61,29 @@ export function TenantDetailPage() {
 
   const collectMutation = useMutation({
     mutationFn: () => superAdminApi.collectSubscription(id),
-    onSuccess: (result) => {
-      setMessage(
-        result.shortUrl
-          ? `Checkout ready: ${result.shortUrl}`
-          : 'Razorpay subscription created.',
-      );
-      if (result.shortUrl) window.open(result.shortUrl, '_blank', 'noopener,noreferrer');
+    onSuccess: async (result) => {
       invalidate();
+      if (result.keyId && result.razorpaySubId) {
+        try {
+          setMessage('Opening Razorpay Checkout…');
+          await openRazorpaySubscriptionCheckout({
+            keyId: result.keyId,
+            subscriptionId: result.razorpaySubId,
+            description: 'Cullinos subscription',
+            prefill: result.prefill,
+          });
+          setMessage('Payment submitted. Subscription will activate when Razorpay confirms.');
+        } catch (err) {
+          setMessage(err instanceof Error ? err.message : 'Checkout failed');
+        }
+        return;
+      }
+      if (result.shortUrl) {
+        setMessage(`Checkout ready: ${result.shortUrl}`);
+        window.open(result.shortUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      setMessage('Razorpay subscription created but no checkout method was returned.');
     },
     onError: (err: Error) => setMessage(err.message),
   });
@@ -83,9 +102,10 @@ export function TenantDetailPage() {
   });
 
   const deactivateUserMutation = useMutation({
-    mutationFn: (userId: string) => superAdminApi.deactivateOrganizationUser(id, userId),
+    mutationFn: ({ userId, reason }: { userId: string; reason?: string }) =>
+      superAdminApi.deactivateOrganizationUser(id, userId, reason),
     onSuccess: () => {
-      setMessage('User deactivated.');
+      setMessage('User suspended.');
       usersQuery.refetch();
     },
     onError: (err: Error) => setMessage(err.message),
@@ -169,35 +189,44 @@ export function TenantDetailPage() {
             >
               {org.environmentClass === 0 ? 'Sandbox' : 'Live'}
             </span>
+            {org.environmentClass !== 0 ? (
+              <span className="text-xs text-text-muted">
+                Live tenants always require OTP (Sandbox Labs toggles do not apply).
+              </span>
+            ) : null}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              const reason = window.prompt(
-                'Support reason for impersonation (required, min 8 characters):',
-              );
-              if (!reason || reason.trim().length < 8) {
-                setMessage('Impersonation cancelled — a support reason is required.');
-                return;
-              }
-              impersonateMutation.mutate(reason.trim());
-            }}
-            disabled={impersonateMutation.isPending || !isActive}
-            className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary disabled:opacity-60"
-          >
-            {impersonateMutation.isPending ? 'Opening…' : 'Open as tenant'}
-          </button>
-          <button
-            type="button"
-            onClick={() => collectMutation.mutate()}
-            disabled={collectMutation.isPending}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
-          >
-            Collect payment
-          </button>
-          {isActive ? (
+          {can('tenants.impersonate') ? (
+            <button
+              type="button"
+              onClick={() => {
+                const reason = window.prompt(
+                  'Support reason for impersonation (required, min 8 characters):',
+                );
+                if (!reason || reason.trim().length < 8) {
+                  setMessage('Impersonation cancelled — a support reason is required.');
+                  return;
+                }
+                impersonateMutation.mutate(reason.trim());
+              }}
+              disabled={impersonateMutation.isPending || !isActive}
+              className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary disabled:opacity-60"
+            >
+              {impersonateMutation.isPending ? 'Opening…' : 'Open as tenant'}
+            </button>
+          ) : null}
+          {can('subscriptions.manage') ? (
+            <button
+              type="button"
+              onClick={() => collectMutation.mutate()}
+              disabled={collectMutation.isPending}
+              className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
+            >
+              Collect payment
+            </button>
+          ) : null}
+          {!can('tenants.suspend') ? null : isActive ? (
             <button
               type="button"
               onClick={() => setShowSuspend(true)}
@@ -328,6 +357,7 @@ export function TenantDetailPage() {
             </div>
           </dl>
         )}
+        {can('wallet.manage') ? (
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <label className="text-sm">
             <span className="mb-1 block text-text-muted">Amount (₹)</span>
@@ -394,6 +424,7 @@ export function TenantDetailPage() {
             Debit
           </button>
         </div>
+        ) : null}
         {walletError ? (
           <p className="mt-2 text-sm text-status-error">{walletError}</p>
         ) : null}
@@ -455,13 +486,13 @@ export function TenantDetailPage() {
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Roles</th>
               <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
+              {canManageUsers ? <th className="px-4 py-3 font-medium">Actions</th> : null}
             </tr>
           </thead>
           <tbody>
             {usersQuery.isLoading ? (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-text-muted">
+                <td colSpan={canManageUsers ? 4 : 3} className="px-4 py-6 text-center text-text-muted">
                   Loading…
                 </td>
               </tr>
@@ -476,6 +507,7 @@ export function TenantDetailPage() {
                     {user.roles.map((r) => r.name).join(', ') || '—'}
                   </td>
                   <td className="px-4 py-3 capitalize">{user.status}</td>
+                  {canManageUsers ? (
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-3">
                       <button
@@ -493,7 +525,7 @@ export function TenantDetailPage() {
                           disabled={activateUserMutation.isPending}
                           className="text-xs text-brand-primary hover:underline disabled:opacity-60"
                         >
-                          Activate
+                          Unsuspend
                         </button>
                       ) : (
                         <button
@@ -501,19 +533,25 @@ export function TenantDetailPage() {
                           onClick={() => {
                             const isOwner = user.roles.some((r) => r.slug === 'owner');
                             const label = isOwner
-                              ? `Deactivate owner "${user.name}"? They will not be able to sign in. (Blocked if this is the last active owner.)`
-                              : `Deactivate "${user.name}"? They will not be able to sign in.`;
+                              ? `Suspend owner "${user.name}"? They will not be able to sign in. (Blocked if this is the last active owner.)`
+                              : `Suspend "${user.name}"? They will not be able to sign in.`;
                             if (!window.confirm(label)) return;
-                            deactivateUserMutation.mutate(user.id);
+                            const reason = window.prompt('Optional suspend reason (shown in audit):');
+                            if (reason === null) return;
+                            deactivateUserMutation.mutate({
+                              userId: user.id,
+                              reason: reason.trim() || undefined,
+                            });
                           }}
                           disabled={deactivateUserMutation.isPending}
                           className="text-xs text-status-error hover:underline disabled:opacity-60"
                         >
-                          Deactivate
+                          Suspend
                         </button>
                       )}
                     </div>
                   </td>
+                  ) : null}
                 </tr>
               ))
             )}

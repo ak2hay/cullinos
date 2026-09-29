@@ -42,6 +42,18 @@ export function assertProductionSecurityConfig(env: NodeJS.ProcessEnv = process.
     );
   }
 
+  const superAdminSecret = (env.SUPER_ADMIN_JWT_SECRET ?? "").trim();
+  if (
+    !superAdminSecret ||
+    superAdminSecret.length < 32 ||
+    isPlaceholderSecret(superAdminSecret) ||
+    superAdminSecret === jwtSecret
+  ) {
+    throw new Error(
+      "SUPER_ADMIN_JWT_SECRET must be a strong value (min 32 chars) different from JWT_SECRET in production",
+    );
+  }
+
   const internalKey = (env.INTERNAL_API_KEY ?? "").trim();
   if (!internalKey || isPlaceholderSecret(internalKey)) {
     throw new Error(
@@ -53,6 +65,13 @@ export function assertProductionSecurityConfig(env: NodeJS.ProcessEnv = process.
   if (!encKey || isPlaceholderSecret(encKey)) {
     throw new Error(
       "ENCRYPTION_KEY must be set to a non-placeholder value in production",
+    );
+  }
+
+  const turnstileSecret = (env.TURNSTILE_SECRET_KEY ?? "").trim();
+  if (!turnstileSecret || isPlaceholderSecret(turnstileSecret)) {
+    throw new Error(
+      "TURNSTILE_SECRET_KEY must be set in production (captcha protects OTP, login and public forms)",
     );
   }
 }

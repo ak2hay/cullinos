@@ -1,17 +1,19 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:cullinos_guest/core/router.dart';
 import 'package:cullinos_guest/data/guest_api.dart';
 import 'package:cullinos_guest/features/auth/auth_controller.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // FCM displays notification payloads automatically when backgrounded.
+  // FCM displays notification payloads (incl. image) automatically when backgrounded.
 }
 
 class GuestPushService {
@@ -118,6 +120,16 @@ class GuestPushService {
     } catch (_) {}
   }
 
+  Future<Uint8List?> _downloadImage(String url) async {
+    try {
+      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return res.bodyBytes;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> _showForeground(RemoteMessage msg) async {
     final n = msg.notification;
     final title = n?.title ?? msg.data['title']?.toString() ?? 'Cullinos';
@@ -126,12 +138,34 @@ class GuestPushService {
     final isMarketing = type.startsWith('marketing');
     final channelId = isMarketing ? _marketingChannelId : _ordersChannelId;
     final channelName = isMarketing ? 'Offers & news' : 'Order updates';
+    final imageUrl =
+        (msg.data['imageUrl'] ?? n?.android?.imageUrl ?? msg.data['image'])
+            ?.toString();
 
     final payload = jsonEncode({
       'orderId': msg.data['orderId']?.toString(),
       'deepLink': msg.data['deepLink']?.toString(),
       'type': type,
+      'imageUrl': imageUrl,
     });
+
+    StyleInformation style = BigTextStyleInformation(
+      body.isNotEmpty ? body : title,
+      contentTitle: title,
+      summaryText: 'Cullinos',
+    );
+
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      final bytes = await _downloadImage(imageUrl);
+      if (bytes != null && bytes.isNotEmpty) {
+        style = BigPictureStyleInformation(
+          ByteArrayAndroidBitmap(bytes),
+          contentTitle: title,
+          summaryText: body,
+          largeIcon: ByteArrayAndroidBitmap(bytes),
+        );
+      }
+    }
 
     await _local.show(
       title.hashCode ^ body.hashCode,
@@ -147,11 +181,7 @@ class GuestPushService {
           importance:
               isMarketing ? Importance.defaultImportance : Importance.high,
           priority: isMarketing ? Priority.defaultPriority : Priority.high,
-          styleInformation: BigTextStyleInformation(
-            body.isNotEmpty ? body : title,
-            contentTitle: title,
-            summaryText: 'Cullinos',
-          ),
+          styleInformation: style,
           icon: '@mipmap/ic_launcher',
         ),
       ),

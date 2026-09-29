@@ -89,6 +89,7 @@ Crons installed:
 |----------|--------|-----|
 | `0 2 * * *` | `/bin/bash …/backup.sh` | `/var/log/cullinos-backup.log` |
 | `5 * * * *` | `/bin/bash …/backup-db-hourly.sh` | `/var/log/cullinos-backup-hourly.log` |
+| `0 4 * * 0` | `docker builder prune -f --keep-storage 10GB` | `/var/log/docker-prune.log` |
 
 Cron invokes scripts via `/bin/bash` so a missing execute bit (common after Windows→VM uploads) does not break backups.
 

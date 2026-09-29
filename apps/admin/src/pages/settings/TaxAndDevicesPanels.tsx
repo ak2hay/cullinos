@@ -1,5 +1,5 @@
 /**
- * Settings tax + devices panels — extracted for maintainability.
+ * Settings tax + devices panels ? extracted for maintainability.
  * Used only by SettingsPage.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -7,15 +7,21 @@ import { useMemo, useState } from 'react';
 import { Button, Input, useToast } from '@cullinos/ui';
 import {
   devicesApi,
+  menuApi,
+  organizationsApi,
   outletsApi,
+  settingsApi,
   taxApi,
   type DeviceRow,
+  type PrintProfileRow,
   type TaxGroupRow,
 } from '@/lib/api';
 import {
   buildTestPrintOrder,
   printWithProfile,
 } from '@/features/pos/printHelper';
+import { ImageUploadField } from '@/components/ImageUploadField';
+import { useQrDataUrl } from '@/lib/qr';
 import { useAuthStore } from '@/stores/auth';
 
 const ONLINE_MS = 2 * 60_000;
@@ -56,6 +62,26 @@ export function TaxGroupsSettingsPanel() {
   const [exciseRate, setExciseRate] = useState('0');
 
   const taxQuery = useQuery({ queryKey: ['tax'], queryFn: taxApi.list });
+  const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get });
+  const menuItemsQuery = useQuery({ queryKey: ['menu', 'items'], queryFn: menuApi.listItems });
+
+  const groups = taxQuery.data ?? [];
+  const configuredDefault =
+    typeof settingsQuery.data?.settings?.defaultTaxGroupId === 'string'
+      ? (settingsQuery.data.settings.defaultTaxGroupId as string)
+      : '';
+  const effectiveDefault =
+    groups.find((g) => g.id === configuredDefault) ?? (groups.length === 1 ? groups[0] : null);
+  const itemsWithoutGroup = (menuItemsQuery.data ?? []).filter((i) => !i.taxGroupId).length;
+
+  const defaultGroupMutation = useMutation({
+    mutationFn: (id: string) => settingsApi.update({ defaultTaxGroupId: id || null }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      toast.success('Default tax group saved');
+    },
+    onError: (err: Error) => toast.error(err.message ?? 'Failed to save default tax group.'),
+  });
 
   const createTaxMutation = useMutation({
     mutationFn: () => {
@@ -130,6 +156,39 @@ export function TaxGroupsSettingsPanel() {
           Seed India presets
         </Button>
       </div>
+      {groups.length > 0 ? (
+        <div className="space-y-2 rounded-lg border border-white/5 bg-bg-elevated/50 p-3">
+          <label className="block space-y-1 text-sm">
+            <span className="text-text-secondary">Default tax group</span>
+            <select
+              value={configuredDefault}
+              disabled={defaultGroupMutation.isPending}
+              onChange={(e) => defaultGroupMutation.mutate(e.target.value)}
+              className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+            >
+              <option value="">
+                {groups.length === 1 ? `Use ${groups[0].name} (only group)` : 'None ? untaxed'}
+              </option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="text-xs text-text-muted">
+            Applied to menu items and custom items that have no tax group of their own.
+          </p>
+          {itemsWithoutGroup > 0 ? (
+            <p className="text-xs text-status-warning">
+              {itemsWithoutGroup} menu item{itemsWithoutGroup === 1 ? '' : 's'} have no tax group
+              {effectiveDefault
+                ? ` ? they will be billed with ${effectiveDefault.name}.`
+                : ' and will be billed without tax. Assign groups in Menu or pick a default.'}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <ul className="divide-y divide-white/5">
         {(taxQuery.data ?? []).map((group: TaxGroupRow) => (
           <li key={group.id} className="flex items-start justify-between gap-3 py-3">
@@ -138,7 +197,7 @@ export function TaxGroupsSettingsPanel() {
               <p className="text-xs text-text-muted">
                 {(group.rates ?? [])
                   .map((r) => `${r.name} ${Number(r.rate)}% (${r.type})`)
-                  .join(' · ') || 'No rates'}
+                  .join(' ? ') || 'No rates'}
               </p>
             </div>
             <Button
@@ -255,6 +314,7 @@ export function DevicesSettingsPanel() {
     code: string;
     qrPayload: string;
   } | null>(null);
+  const pairingQrSrc = useQrDataUrl(pairing?.qrPayload, 128);
 
   const devicesQuery = useQuery({ queryKey: ['devices'], queryFn: () => devicesApi.list() });
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
@@ -403,7 +463,7 @@ export function DevicesSettingsPanel() {
           kind: 'receipt',
           status: 'failed',
           error: err instanceof Error ? err.message : 'Test print failed',
-          payloadSummary: `Test print · ${device.name}`,
+          payloadSummary: `Test print ? ${device.name}`,
         })
         .catch(() => undefined);
       queryClient.invalidateQueries({ queryKey: ['devices', 'print-jobs'] });
@@ -451,7 +511,7 @@ export function DevicesSettingsPanel() {
       </div>
 
       {devicesQuery.isLoading ? (
-        <p className="text-sm text-text-muted">Loading devices…</p>
+        <p className="text-sm text-text-muted">Loading devices?</p>
       ) : grouped.length === 0 ? (
         <p className="text-sm text-text-muted">No devices registered.</p>
       ) : (
@@ -477,12 +537,12 @@ export function DevicesSettingsPanel() {
                           <p className="font-medium">{device.name}</p>
                         </div>
                         <p className="text-xs text-text-muted">
-                          {online ? 'Online' : 'Offline'} · Last seen {formatLastSeen(device.lastSeenAt)}
+                          {online ? 'Online' : 'Offline'} ? Last seen {formatLastSeen(device.lastSeenAt)}
                           {device.metadata?.connectionType
-                            ? ` · ${String(device.metadata.connectionType)}`
+                            ? ` ? ${String(device.metadata.connectionType)}`
                             : ''}
                           {device.metadata?.printCategories?.length
-                            ? ` · ${(device.metadata.printCategories as string[]).join(', ')}`
+                            ? ` ? ${(device.metadata.printCategories as string[]).join(', ')}`
                             : ''}
                         </p>
                       </div>
@@ -524,7 +584,7 @@ export function DevicesSettingsPanel() {
             {(failedJobsQuery.data ?? []).map((job) => (
               <li key={job.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                 <span className="text-text-secondary">
-                  {job.payloadSummary || job.kind} · {job.error || 'failed'}
+                  {job.payloadSummary || job.kind} ? {job.error || 'failed'}
                 </span>
                 <Button
                   type="button"
@@ -543,13 +603,15 @@ export function DevicesSettingsPanel() {
         <div className="rounded-lg border border-brand-primary/30 bg-bg-elevated p-4 text-center">
           <p className="text-sm text-text-secondary">Pairing code</p>
           <p className="mt-1 font-mono text-2xl tracking-widest text-brand-primary">{pairing.code}</p>
-          <img
-            alt="Pairing QR"
-            className="mx-auto mt-3 rounded bg-white p-2"
-            width={128}
-            height={128}
-            src={`https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(pairing.qrPayload)}`}
-          />
+          {pairingQrSrc ? (
+            <img
+              alt="Pairing QR"
+              className="mx-auto mt-3 rounded bg-white p-2"
+              width={128}
+              height={128}
+              src={pairingQrSrc}
+            />
+          ) : null}
           <div className="mt-3 flex justify-center gap-2">
             <Button
               type="button"
@@ -684,6 +746,239 @@ export function DevicesSettingsPanel() {
           </Button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function ProfileEditor({
+  title,
+  description,
+  profile,
+  onSave,
+  saving,
+}: {
+  title: string;
+  description: string;
+  profile: PrintProfileRow | undefined;
+  onSave: (patch: Partial<PrintProfileRow>) => void;
+  saving: boolean;
+}) {
+  const [draft, setDraft] = useState<Partial<PrintProfileRow>>({});
+  const merged = { ...profile, ...draft } as PrintProfileRow | undefined;
+
+  if (!profile || !merged) {
+    return (
+      <div className="rounded-lg border border-white/5 p-4 text-sm text-text-muted">
+        Loading {title}...
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-white/5 bg-bg-elevated/40 p-4">
+      <div>
+        <h3 className="font-medium">{title}</h3>
+        <p className="text-xs text-text-muted">{description}</p>
+      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={merged.enabled !== false}
+          onChange={(e) => setDraft((d) => ({ ...d, enabled: e.target.checked }))}
+        />
+        Auto-print after POS checkout
+      </label>
+      <Input
+        label="Header text"
+        value={merged.headerText ?? ''}
+        onChange={(e) => setDraft((d) => ({ ...d, headerText: e.target.value }))}
+      />
+      <Input
+        label="Footer text"
+        value={merged.footerText ?? ''}
+        onChange={(e) => setDraft((d) => ({ ...d, footerText: e.target.value }))}
+      />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Input
+          label="Copies (1-3)"
+          type="number"
+          min={1}
+          max={3}
+          value={String(merged.copies ?? 1)}
+          onChange={(e) =>
+            setDraft((d) => ({
+              ...d,
+              copies: Math.min(3, Math.max(1, Number(e.target.value) || 1)),
+            }))
+          }
+        />
+        <label className="space-y-1 text-sm">
+          <span className="text-text-secondary">Paper (mm)</span>
+          <select
+            className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm"
+            value={merged.paperWidthMm ?? 80}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, paperWidthMm: Number(e.target.value) || 80 }))
+            }
+          >
+            <option value={58}>58</option>
+            <option value={80}>80</option>
+          </select>
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-text-secondary">Font</span>
+          <select
+            className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm"
+            value={merged.fontSize ?? 'normal'}
+            onChange={(e) =>
+              setDraft((d) => ({
+                ...d,
+                fontSize: e.target.value as PrintProfileRow['fontSize'],
+              }))
+            }
+          >
+            <option value="small">Small</option>
+            <option value="normal">Normal</option>
+            <option value="large">Large</option>
+          </select>
+        </label>
+      </div>
+      {merged.kind === 'receipt' ? (
+        <>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={Boolean(merged.showLogo)}
+              onChange={(e) => setDraft((d) => ({ ...d, showLogo: e.target.checked }))}
+            />
+            Show logo on bill
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={Boolean(merged.showTaxBreakdown)}
+              onChange={(e) => setDraft((d) => ({ ...d, showTaxBreakdown: e.target.checked }))}
+            />
+            Show tax breakdown
+          </label>
+        </>
+      ) : null}
+      <Button
+        type="button"
+        loading={saving}
+        onClick={() => {
+          onSave(draft);
+          setDraft({});
+        }}
+        disabled={Object.keys(draft).length === 0}
+      >
+        Save {title.toLowerCase()}
+      </Button>
+    </div>
+  );
+}
+
+/** Receipt / KOT print profiles + org logo for the selected outlet. */
+export function PrintProfilesSettingsPanel() {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const selectedOutletId = useAuthStore((s) => s.selectedOutletId);
+
+  const orgQuery = useQuery({
+    queryKey: ['organizations', 'current'],
+    queryFn: organizationsApi.current,
+  });
+
+  const profilesQuery = useQuery({
+    queryKey: ['devices', 'print-profiles', selectedOutletId],
+    queryFn: () => devicesApi.printProfiles(selectedOutletId!),
+    enabled: Boolean(selectedOutletId),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: ({
+      kind,
+      patch,
+    }: {
+      kind: 'receipt' | 'kot';
+      patch: Partial<PrintProfileRow>;
+    }) => devicesApi.updatePrintProfile(kind, selectedOutletId!, patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['devices', 'print-profiles'] });
+      toast.success('Print profile saved');
+    },
+    onError: (err: Error) => toast.error(err.message ?? 'Failed to save'),
+  });
+
+  const logoMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const result = await organizationsApi.uploadLogo(file);
+      return result.logoUrl;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations', 'current'] });
+      toast.success('Logo uploaded');
+    },
+    onError: (err: Error) => toast.error(err.message ?? 'Upload failed'),
+  });
+
+  if (!selectedOutletId) {
+    return (
+      <p className="text-sm text-text-muted">
+        Select an outlet to configure receipt and kitchen (KOT) print settings.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-medium">Receipt &amp; kitchen print</h2>
+        <p className="text-sm text-text-muted">
+          Control what prints after POS checkout. Disable kitchen print to avoid extra browser print
+          dialogs when you use the KDS screen instead.
+        </p>
+      </div>
+
+      <div className="space-y-3 rounded-lg border border-white/5 bg-bg-elevated/40 p-4">
+        <h3 className="font-medium">Brand logo</h3>
+        <p className="text-xs text-text-muted">
+          Shown on bills when ?Show logo on bill? is enabled. Square PNG/JPG/WebP, crop to 512?512.
+        </p>
+        <ImageUploadField
+          slot="orgLogo"
+          value={orgQuery.data?.logoUrl ?? ''}
+          onChange={(url) => {
+            void organizationsApi
+              .updateCurrent({ logoUrl: url || null })
+              .then(() => {
+                queryClient.invalidateQueries({ queryKey: ['organizations', 'current'] });
+              })
+              .catch((err: Error) => toast.error(err.message));
+          }}
+          onUpload={async (file) => {
+            const url = await logoMutation.mutateAsync(file);
+            return url;
+          }}
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ProfileEditor
+          title="Customer bill"
+          description="GST receipt printed for the guest."
+          profile={profilesQuery.data?.receipt}
+          saving={saveMutation.isPending}
+          onSave={(patch) => saveMutation.mutate({ kind: 'receipt', patch })}
+        />
+        <ProfileEditor
+          title="Kitchen ticket (KOT)"
+          description="Browser kitchen print ? leave off if you use KDS only."
+          profile={profilesQuery.data?.kot}
+          saving={saveMutation.isPending}
+          onSave={(patch) => saveMutation.mutate({ kind: 'kot', patch })}
+        />
+      </div>
     </div>
   );
 }

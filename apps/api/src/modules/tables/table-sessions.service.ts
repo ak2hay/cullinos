@@ -9,9 +9,13 @@ import { WebsocketGateway } from "../../websocket/websocket.gateway";
 import { IncomingOrderItem } from "../../common/order-items.util";
 import { OrdersService } from "../orders/orders.service";
 import { toApiTableStatus } from "../../common/status.util";
+import { releaseMergedTables, repointMergedTables } from "./table-merge.util";
+import { businessTypeUsesTables } from "./business-type-tables.util";
 
 const GUEST_APP_BASE =
   process.env.GUEST_APP_URL ?? "https://guest.cullinos.com";
+
+const CLOSED_ORDER_STATUSES: readonly string[] = ["completed", "cancelled", "voided"];
 
 @Injectable()
 export class TableSessionsService {
@@ -30,45 +34,59 @@ export class TableSessionsService {
     if (fromTableId === toTableId) {
       throw new BadRequestException("Cannot transfer a table to itself");
     }
-    await this.assertTable(orgId, outletId, fromTableId);
-    await this.assertTable(orgId, outletId, toTableId);
+    const fromTable = await this.assertTable(orgId, outletId, fromTableId);
+    const toTable = await this.assertTable(orgId, outletId, toTableId);
+    if (fromTable.mergedIntoTableId) {
+      throw new BadRequestException(
+        `${fromTable.name} is merged with ${fromTable.mergedInto?.name ?? "another table"} — transfer that table instead`,
+      );
+    }
+    if (toTable.mergedIntoTableId) {
+      throw new BadRequestException(`${toTable.name} is merged with another table`);
+    }
 
-    const fromSession = await this.prisma.tableSession.findFirst({
-      where: { tableId: fromTableId, status: "active" },
-      include: { order: true },
-    });
-    if (!fromSession) throw new BadRequestException("Source table has no active session");
+    const fromSession = await this.findActiveSession(fromTableId);
+    const fromOrders = await this.openOrdersForTable(orgId, outletId, fromTableId);
+    if (!fromSession && fromOrders.length === 0) {
+      throw new BadRequestException("Source table has no active session or open order");
+    }
 
-    const toBusy = await this.prisma.tableSession.findFirst({
-      where: { tableId: toTableId, status: "active" },
-    });
+    const toBusy = await this.findActiveSession(toTableId);
     if (toBusy) throw new BadRequestException("Target table already has an active session");
+    const toOrders = await this.openOrdersForTable(orgId, outletId, toTableId);
+    if (toOrders.length > 0) {
+      throw new BadRequestException("Target table already has an open order");
+    }
+    if (toTable.status !== "available") {
+      throw new BadRequestException(`${toTable.name} is not free`);
+    }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.tableSession.update({
-        where: { id: fromSession.id },
-        data: { tableId: toTableId },
-      });
-      if (fromSession.order) {
-        await tx.order.update({
-          where: { id: fromSession.order.id },
+    const orderIds = new Set(fromOrders.map((o) => o.id));
+    if (fromSession?.order) orderIds.add(fromSession.order.id);
+
+    const movedChildren = await this.prisma.$transaction(async (tx) => {
+      if (fromSession) {
+        await tx.tableSession.update({
+          where: { id: fromSession.id },
+          data: { tableId: toTableId },
+        });
+      }
+      if (orderIds.size > 0) {
+        await tx.order.updateMany({
+          where: { id: { in: [...orderIds] }, organizationId: orgId },
           data: { tableId: toTableId },
         });
       }
       await tx.table.update({ where: { id: fromTableId }, data: { status: "available" } });
       await tx.table.update({ where: { id: toTableId }, data: { status: "occupied" } });
+      return repointMergedTables(tx, fromTableId, toTableId);
     });
 
-    this.ws.emitToOutlet(outletId, "table.updated", {
-      id: fromTableId,
-      outletId,
-      status: "AVAILABLE",
-    });
-    this.ws.emitToOutlet(outletId, "table.updated", {
-      id: toTableId,
-      outletId,
-      status: "OCCUPIED",
-    });
+    this.emitTable(outletId, fromTableId, "AVAILABLE");
+    this.emitTable(outletId, toTableId, "OCCUPIED");
+    for (const id of movedChildren) {
+      this.emitTable(outletId, id, "OCCUPIED", { id: toTableId, name: toTable.name });
+    }
 
     return this.getActiveSession(orgId, outletId, toTableId);
   }
@@ -83,89 +101,144 @@ export class TableSessionsService {
     if (unique.length === 0) {
       throw new BadRequestException("Select at least one other table to merge");
     }
-    await this.assertTable(orgId, outletId, primaryTableId);
-    for (const id of unique) await this.assertTable(orgId, outletId, id);
-
-    let primarySession = await this.prisma.tableSession.findFirst({
-      where: { tableId: primaryTableId, status: "active" },
-      include: { order: { include: { items: true } } },
-    });
-    if (!primarySession) {
-      await this.startSession(orgId, outletId, primaryTableId);
-      primarySession = await this.prisma.tableSession.findFirst({
-        where: { tableId: primaryTableId, status: "active" },
-        include: { order: { include: { items: true } } },
-      });
+    const primary = await this.assertTable(orgId, outletId, primaryTableId);
+    if (primary.mergedIntoTableId) {
+      throw new BadRequestException(
+        `${primary.name} is merged with ${primary.mergedInto?.name ?? "another table"} — pick that table as the main table`,
+      );
     }
-    if (!primarySession) throw new BadRequestException("Could not open primary session");
+    const toLink: string[] = [];
+    for (const id of unique) {
+      const t = await this.assertTable(orgId, outletId, id);
+      if (t.mergedIntoTableId === primaryTableId) continue;
+      if (t.mergedIntoTableId) {
+        throw new BadRequestException(
+          `${t.name} is already merged with ${t.mergedInto?.name ?? "another table"}`,
+        );
+      }
+      toLink.push(id);
+    }
+    if (toLink.length === 0) {
+      throw new BadRequestException(`Selected tables are already merged with ${primary.name}`);
+    }
 
-    for (const secondaryId of unique) {
-      const secondary = await this.prisma.tableSession.findFirst({
-        where: { tableId: secondaryId, status: "active" },
-        include: { order: { include: { items: true } } },
-      });
-      if (!secondary) continue;
+    const secondaries: Array<{
+      tableId: string;
+      sessionId: string | null;
+      orders: Awaited<ReturnType<TableSessionsService["openOrdersForTable"]>>;
+    }> = [];
+    for (const secondaryId of toLink) {
+      const session = await this.findActiveSession(secondaryId);
+      const orders = await this.openOrdersForTable(orgId, outletId, secondaryId);
+      const sessionOrder = session?.order;
+      if (
+        sessionOrder &&
+        !CLOSED_ORDER_STATUSES.includes(sessionOrder.status) &&
+        !orders.some((o) => o.id === sessionOrder.id)
+      ) {
+        const extra = await this.prisma.order.findFirst({
+          where: { id: sessionOrder.id, organizationId: orgId },
+          include: { items: true },
+        });
+        if (extra) orders.push(extra);
+      }
+      secondaries.push({ tableId: secondaryId, sessionId: session?.id ?? null, orders });
+    }
 
-      if (secondary.order?.items?.length) {
-        if (!primarySession.order) {
-          await this.prisma.order.updateMany({
-            where: { id: secondary.order.id },
+    let primarySession = await this.findActiveSession(primaryTableId);
+    const primaryOrders = await this.openOrdersForTable(orgId, outletId, primaryTableId);
+    if (!primarySession && primaryOrders.length === 0) {
+      await this.startSession(orgId, outletId, primaryTableId);
+      primarySession = await this.findActiveSession(primaryTableId);
+    }
+
+    let target: { id: string; orderNumber: string } | null =
+      primarySession?.order && !CLOSED_ORDER_STATUSES.includes(primarySession.order.status)
+        ? primarySession.order
+        : (primaryOrders[0] ?? null);
+
+    for (const secondary of secondaries) {
+      for (const order of secondary.orders) {
+        if (!target) {
+          const linkToPrimarySession = primarySession && !primarySession.order;
+          const moved = await this.prisma.order.update({
+            where: { id: order.id },
             data: {
               tableId: primaryTableId,
-              tableSessionId: primarySession.id,
+              tableSessionId: linkToPrimarySession ? primarySession!.id : null,
             },
           });
-        } else if (secondary.order.id !== primarySession.order.id) {
-          const items = secondary.order.items.map((i) => ({
-            menuItemId: i.menuItemId ?? undefined,
-            variantId: i.variantId ?? undefined,
-            name: i.name,
-            quantity: i.quantity,
-            unitPrice: Number(i.unitPrice),
-            notes: i.notes ?? undefined,
-            modifiers: (i.modifiers as IncomingOrderItem["modifiers"]) ?? undefined,
-          }));
-          await this.ordersService.addItems(orgId, primarySession.order.id, items as never);
-          await this.prisma.order.update({
-            where: { id: secondary.order.id },
-            data: {
-              status: "cancelled",
-              notes: `Merged into ${primarySession.order.orderNumber}`,
-              tableSessionId: null,
-            },
-          });
+          target = { id: moved.id, orderNumber: moved.orderNumber };
+          if (linkToPrimarySession) {
+            primarySession = await this.findActiveSession(primaryTableId);
+          }
+          continue;
         }
+        if (order.id === target.id) continue;
+
+        await this.ordersService.absorbOrder(orgId, order.id, target.id);
       }
 
-      await this.prisma.$transaction(async (tx) => {
-        await tx.tableSession.update({
-          where: { id: secondary.id },
-          data: { status: "closed", endedAt: new Date() },
-        });
+      const secondaryId = secondary.tableId;
+      const secondarySessionId = secondary.sessionId;
+      const linked = await this.prisma.$transaction(async (tx) => {
+        if (secondarySessionId) {
+          await tx.tableSession.update({
+            where: { id: secondarySessionId },
+            data: { status: "closed", endedAt: new Date() },
+          });
+        }
         await tx.table.update({
           where: { id: secondaryId },
-          data: { status: "available" },
+          data: { status: "occupied", mergedIntoTableId: primaryTableId },
         });
+        const moved = await repointMergedTables(tx, secondaryId, primaryTableId);
+        return [secondaryId, ...moved];
       });
 
-      this.ws.emitToOutlet(outletId, "table.updated", {
-        id: secondaryId,
-        outletId,
-        status: "AVAILABLE",
-      });
+      for (const id of linked) {
+        this.emitTable(outletId, id, "OCCUPIED", { id: primaryTableId, name: primary.name });
+      }
     }
 
     await this.prisma.table.update({
       where: { id: primaryTableId },
       data: { status: "occupied" },
     });
-    this.ws.emitToOutlet(outletId, "table.updated", {
-      id: primaryTableId,
-      outletId,
-      status: "OCCUPIED",
-    });
+    this.emitTable(outletId, primaryTableId, "OCCUPIED");
 
     return this.getActiveSession(orgId, outletId, primaryTableId);
+  }
+
+  /** Detach one merged table from its primary and free it. */
+  async unmergeTable(orgId: string, outletId: string, tableId: string) {
+    const table = await this.assertTable(orgId, outletId, tableId);
+    const primaryId = table.mergedIntoTableId;
+    if (!primaryId) {
+      throw new BadRequestException(`${table.name} is not merged with another table`);
+    }
+    await this.prisma.table.update({
+      where: { id: tableId },
+      data: { mergedIntoTableId: null, status: "available" },
+    });
+    this.emitTable(outletId, tableId, "AVAILABLE");
+    this.ws.emitToOutlet(outletId, "table.updated", { id: primaryId, outletId });
+    return { success: true, tableId };
+  }
+
+  private emitTable(
+    outletId: string,
+    id: string,
+    status: string,
+    mergedInto?: { id: string; name: string },
+  ) {
+    this.ws.emitToOutlet(outletId, "table.updated", {
+      id,
+      outletId,
+      status,
+      mergedIntoTableId: mergedInto?.id ?? null,
+      mergedIntoTableName: mergedInto?.name ?? null,
+    });
   }
 
   private async assertTable(orgId: string, outletId: string, tableId: string) {
@@ -176,10 +249,32 @@ export class TableSessionsService {
       },
       include: {
         section: { include: { floor: { include: { outlet: { include: { organization: true } } } } } },
+        mergedInto: { select: { id: true, name: true } },
       },
     });
     if (!table) throw new NotFoundException("Table not found");
     return table;
+  }
+
+  private findActiveSession(tableId: string) {
+    return this.prisma.tableSession.findFirst({
+      where: { tableId, status: "active" },
+      include: { order: true },
+    });
+  }
+
+  /** Open orders on a table, newest first — includes POS/waiter orders that have no TableSession. */
+  private openOrdersForTable(orgId: string, outletId: string, tableId: string) {
+    return this.prisma.order.findMany({
+      where: {
+        tableId,
+        organizationId: orgId,
+        outletId,
+        status: { notIn: ["completed", "cancelled", "voided"] },
+      },
+      include: { items: true },
+      orderBy: { createdAt: "desc" },
+    });
   }
 
   async startSession(
@@ -189,6 +284,14 @@ export class TableSessionsService {
     guestCount?: number,
   ) {
     const table = await this.assertTable(orgId, outletId, tableId);
+    if (!businessTypeUsesTables(table.section.floor.outlet.organization?.businessType)) {
+      throw new BadRequestException("This business type does not use tables");
+    }
+    if (table.mergedIntoTableId) {
+      throw new BadRequestException(
+        `${table.name} is merged with ${table.mergedInto?.name ?? "another table"} — use that table`,
+      );
+    }
 
     const existing = await this.prisma.tableSession.findFirst({
       where: { tableId, status: "active" },
@@ -246,17 +349,27 @@ export class TableSessionsService {
     const code = qrCode?.trim();
     if (!code) throw new BadRequestException("QR code is required");
 
-    const table = await this.prisma.table.findFirst({
-      where: { qrCode: code },
-      include: {
-        section: {
-          include: {
-            floor: { include: { outlet: { include: { organization: true } } } },
-          },
+    const tableInclude = {
+      section: {
+        include: {
+          floor: { include: { outlet: { include: { organization: true } } } },
         },
       },
+    } as const;
+    const scanned = await this.prisma.table.findFirst({
+      where: { qrCode: code },
+      include: tableInclude,
     });
-    if (!table) throw new NotFoundException("Table not found for this QR code");
+    if (!scanned) throw new NotFoundException("Table not found for this QR code");
+
+    // A merged table's sticker joins the primary table's session so the group shares one order.
+    const table =
+      (scanned.mergedIntoTableId
+        ? await this.prisma.table.findFirst({
+            where: { id: scanned.mergedIntoTableId },
+            include: tableInclude,
+          })
+        : null) ?? scanned;
 
     const outlet = table.section.floor.outlet;
     const org = outlet.organization;
@@ -343,7 +456,18 @@ export class TableSessionsService {
     });
     if (!session) throw new NotFoundException("Active session not found");
 
-    await this.prisma.$transaction(async (tx) => {
+    const openOrders = await this.prisma.order.count({
+      where: {
+        organizationId: orgId,
+        OR: [{ tableSessionId: sessionId }, { tableId }],
+        status: { notIn: ["completed", "cancelled", "voided"] },
+      },
+    });
+    if (openOrders > 0) {
+      throw new BadRequestException("Settle or cancel open orders before closing the table");
+    }
+
+    const released = await this.prisma.$transaction(async (tx) => {
       await tx.tableSession.update({
         where: { id: sessionId },
         data: { status: "closed", endedAt: new Date() },
@@ -352,13 +476,11 @@ export class TableSessionsService {
         where: { id: tableId },
         data: { status: "available" },
       });
+      return releaseMergedTables(tx, tableId, "available");
     });
 
-    this.ws.emitToOutlet(outletId, "table.updated", {
-      id: tableId,
-      outletId,
-      status: "AVAILABLE",
-    });
+    this.emitTable(outletId, tableId, "AVAILABLE");
+    for (const id of released) this.emitTable(outletId, id, "AVAILABLE");
 
     return { success: true, sessionId };
   }
@@ -410,7 +532,7 @@ export class TableSessionsService {
   async addItemsToSession(
     token: string,
     items: IncomingOrderItem[],
-    meta?: { customerName?: string; notes?: string },
+    meta?: { customerName?: string; notes?: string; ageConfirmed?: boolean },
   ) {
     const session = await this.getActiveSessionByToken(token);
     const outlet = session.table.section.floor.outlet;
@@ -423,7 +545,10 @@ export class TableSessionsService {
     const existingOrder = session.order;
 
     if (existingOrder && !["completed", "cancelled", "voided"].includes(existingOrder.status)) {
-      const updated = await this.ordersService.addItems(orgId, existingOrder.id, items);
+      const updated = await this.ordersService.addItems(orgId, existingOrder.id, items, {
+        customerOrder: true,
+        ageConfirmed: meta?.ageConfirmed === true,
+      });
       if (meta?.customerName || meta?.notes) {
         await this.prisma.order.update({
           where: { id: existingOrder.id },
@@ -445,6 +570,8 @@ export class TableSessionsService {
       notes: meta?.notes,
       items,
       autoConfirm: false,
+      customerOrder: true,
+      ageConfirmed: meta?.ageConfirmed === true,
     });
   }
 

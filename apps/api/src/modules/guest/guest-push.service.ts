@@ -1,17 +1,17 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
-import { PlatformConfigService } from "../platform-config/platform-config.service";
+import { FirebaseAdminService } from "./firebase-admin.service";
 
 type PushPayload = {
   title: string;
   body: string;
+  imageUrl?: string | null;
   data?: Record<string, string>;
 };
 
 /**
- * FCM HTTP v1 sender. Uses platform setting `fcm.server_key` (legacy) or
- * `fcm.service_account_json` when available. In development without config,
- * logs and no-ops so guest flows stay usable.
+ * Guest FCM sender via Firebase Admin SDK (HTTP v1).
+ * Requires FIREBASE_SERVICE_ACCOUNT_* (same credentials as guest Firebase auth).
  */
 @Injectable()
 export class GuestPushService {
@@ -19,8 +19,13 @@ export class GuestPushService {
 
   constructor(
     private prisma: PrismaService,
-    private platformConfig: PlatformConfigService,
+    private firebase: FirebaseAdminService,
   ) {}
+
+  /** True when Firebase Admin service-account credentials are loaded. */
+  isConfigured(): boolean {
+    return this.firebase.isConfigured();
+  }
 
   async notifyGuestUser(guestUserId: string, payload: PushPayload) {
     try {
@@ -30,7 +35,10 @@ export class GuestPushService {
           title: payload.title,
           body: payload.body,
           type: payload.data?.type || "push",
-          data: payload.data ?? {},
+          data: {
+            ...(payload.data ?? {}),
+            ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {}),
+          },
         },
       });
     } catch (err) {
@@ -56,7 +64,7 @@ export class GuestPushService {
 
     let sent = 0;
     for (const device of devices) {
-      const ok = await this.sendToToken(device.fcmToken, payload);
+      const ok = await this.sendToToken(device.fcmToken, payload, isMarketing);
       if (ok) sent += 1;
     }
     return { sent };
@@ -74,43 +82,49 @@ export class GuestPushService {
     return this.notifyGuestUser(membership.guestUserId, payload);
   }
 
-  private async sendToToken(token: string, payload: PushPayload): Promise<boolean> {
-    const serverKey =
-      this.platformConfig.get("FCM_SERVER_KEY") || process.env.FCM_SERVER_KEY;
-
-    if (!serverKey) {
+  private async sendToToken(
+    token: string,
+    payload: PushPayload,
+    isMarketing: boolean,
+  ): Promise<boolean> {
+    if (!this.firebase.isConfigured()) {
       this.logger.debug(
-        `FCM skip (no key): ${payload.title} → ${token.slice(0, 12)}…`,
+        `FCM skip (Firebase Admin not configured): ${payload.title} → ${token.slice(0, 12)}…`,
       );
       return false;
     }
 
-    try {
-      const res = await fetch("https://fcm.googleapis.com/fcm/send", {
-        method: "POST",
-        headers: {
-          Authorization: `key=${serverKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          to: token,
-          notification: {
-            title: payload.title,
-            body: payload.body,
-          },
-          data: payload.data ?? {},
-          priority: "high",
-        }),
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        this.logger.warn(`FCM failed ${res.status}: ${text.slice(0, 200)}`);
-        return false;
+    const imageUrl = payload.imageUrl?.trim() || payload.data?.imageUrl?.trim();
+    const data: Record<string, string> = { ...(payload.data ?? {}) };
+    if (imageUrl) data.imageUrl = imageUrl;
+
+    const result = await this.firebase.sendFcm({
+      token,
+      title: payload.title,
+      body: payload.body,
+      imageUrl,
+      data,
+      androidChannelId: isMarketing ? "marketing" : "orders",
+    });
+
+    if (result.ok) return true;
+
+    if (result.invalidToken) {
+      try {
+        await this.prisma.guestDevice.deleteMany({ where: { fcmToken: token } });
+        this.logger.warn(
+          `FCM pruned invalid token ${token.slice(0, 12)}… (${result.code ?? "invalid"})`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `FCM prune failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
-      return true;
-    } catch (err) {
-      this.logger.warn(`FCM error: ${(err as Error).message}`);
-      return false;
+    } else {
+      this.logger.warn(
+        `FCM error${result.code ? ` ${result.code}` : ""}: ${result.message.slice(0, 200)}`,
+      );
     }
+    return false;
   }
 }

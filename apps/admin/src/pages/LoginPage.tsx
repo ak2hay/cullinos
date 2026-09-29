@@ -1,7 +1,9 @@
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { defaultPortalMode } from '@cullinos/shared';
 import { AuthLayout } from '@/components/auth/AuthLayout';
+import { LanguageSelect } from '@/components/LanguageSelect';
 import { Button, Input, PasswordInput, Turnstile, isTurnstileEnabled } from '@cullinos/ui';
 import { authApi } from '@/lib/api';
 import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
@@ -13,6 +15,7 @@ function postLoginPath(permissions: string[], mustChangePassword?: boolean) {
 }
 
 export function LoginPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [email, setEmail] = useState('');
@@ -22,7 +25,9 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(
+    () => localStorage.getItem(ADMIN_REMEMBER_KEY) === 'true',
+  );
   const [captchaToken, setCaptchaToken] = useState('');
   const turnstileOn = isTurnstileEnabled(TURNSTILE_SITE_KEY);
 
@@ -34,7 +39,7 @@ export function LoginPage() {
     setError('');
     setResendMessage('');
     if (turnstileOn && !captchaToken) {
-      setError('Please complete the security check');
+      setError(t('auth.completeSecurityCheck'));
       return;
     }
     setLoading(true);
@@ -53,7 +58,7 @@ export function LoginPage() {
       setAuth(response);
       navigate(postLoginPath(response.permissions, response.user.mustChangePassword));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : t('auth.loginFailed'));
       setCaptchaToken('');
     } finally {
       setLoading(false);
@@ -70,7 +75,7 @@ export function LoginPage() {
       setAuth(response);
       navigate(postLoginPath(response.permissions, response.user.mustChangePassword));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verification failed');
+      setError(err instanceof Error ? err.message : t('auth.verificationFailed'));
     } finally {
       setLoading(false);
     }
@@ -84,20 +89,24 @@ export function LoginPage() {
     try {
       const response = await authApi.resendOtp({ challengeToken });
       setChallengeToken(response.challengeToken);
-      setResendMessage('A new code has been sent to your email.');
+      setResendMessage(t('auth.codeResent'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not resend code');
+      setError(err instanceof Error ? err.message : t('auth.resendFailed'));
     } finally {
       setLoading(false);
     }
   }
 
+  const languagePicker = (
+    <div className="mb-4 flex justify-end">
+      <LanguageSelect />
+    </div>
+  );
+
   if (challengeToken) {
     return (
-      <AuthLayout
-        title="Check your email"
-        subtitle="Enter the 6-digit verification code we sent you"
-      >
+      <AuthLayout title={t('auth.checkEmail')} subtitle={t('auth.otpSubtitle')}>
+        {languagePicker}
         <form onSubmit={handleOtpSubmit} className="space-y-5">
           {error ? (
             <div className="rounded-lg border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
@@ -111,7 +120,7 @@ export function LoginPage() {
           ) : null}
 
           <Input
-            label="Verification code"
+            label={t('auth.verificationCode')}
             inputMode="numeric"
             autoComplete="one-time-code"
             required
@@ -121,7 +130,7 @@ export function LoginPage() {
           />
 
           <Button type="submit" className="w-full" loading={loading}>
-            Verify and sign in
+            {t('auth.verifyAndSignIn')}
           </Button>
 
           <button
@@ -130,7 +139,7 @@ export function LoginPage() {
             disabled={loading}
             className="w-full text-sm text-brand-primary hover:underline disabled:opacity-60"
           >
-            Resend code
+            {t('auth.resendCode')}
           </button>
 
           <button
@@ -143,7 +152,7 @@ export function LoginPage() {
             }}
             className="w-full text-sm text-text-secondary hover:underline"
           >
-            Back to sign in
+            {t('auth.backToSignIn')}
           </button>
         </form>
       </AuthLayout>
@@ -151,7 +160,8 @@ export function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Sign in to manage your restaurant">
+    <AuthLayout title={t('auth.welcomeBack')} subtitle={t('auth.signInSubtitle')}>
+      {languagePicker}
       <form onSubmit={handlePasswordSubmit} className="space-y-5">
         {error ? (
           <div className="rounded-lg border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
@@ -160,7 +170,7 @@ export function LoginPage() {
         ) : null}
 
         <Input
-          label="Email"
+          label={t('common.email')}
           type="email"
           autoComplete="email"
           required
@@ -169,7 +179,7 @@ export function LoginPage() {
         />
 
         <PasswordInput
-          label="Password"
+          label={t('auth.password')}
           autoComplete="current-password"
           required
           value={password}
@@ -186,7 +196,7 @@ export function LoginPage() {
 
         <div className="flex justify-end">
           <Link to="/forgot-password" className="text-sm text-brand-primary hover:underline">
-            Forgot password?
+            {t('auth.forgotPassword')}
           </Link>
         </div>
 
@@ -197,24 +207,23 @@ export function LoginPage() {
             onChange={(e) => setRemember(e.target.checked)}
             className="h-4 w-4 rounded accent-brand-primary"
           />
-          Keep me signed in
+          {t('auth.keepSignedIn')}
         </label>
 
         <Button type="submit" className="w-full" loading={loading}>
-          Sign in
+          {t('auth.signIn')}
         </Button>
 
         <p className="text-center text-sm text-text-secondary">
-          New restaurant?{' '}
+          {t('auth.newRestaurant')}{' '}
           <Link to="/register" className="text-brand-primary hover:underline">
-            Start free Enterprise trial
+            {t('auth.startTrial')}
           </Link>
         </p>
       </form>
 
       <p className="mt-6 rounded-lg border border-white/10 bg-bg-card px-4 py-3 text-center text-sm text-text-secondary">
-        Owner credentials are issued when your restaurant is onboarded. Use Admin to create staff
-        accounts for your team — contact Rkyves if you need owner access.
+        {t('auth.ownerNote')}
       </p>
     </AuthLayout>
   );

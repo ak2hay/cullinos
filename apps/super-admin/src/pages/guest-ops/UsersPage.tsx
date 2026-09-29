@@ -3,6 +3,17 @@ import { useState } from 'react';
 import { Button, Input } from '@cullinos/ui';
 import { guestOpsApi, type GuestOpsUserSearchRow } from '@/lib/api';
 
+/** Prefer digit-only phone queries so MSG91-normalized `91…` storage matches. */
+function normalizeSearchQuery(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length >= 8 && digits.length >= trimmed.replace(/\s/g, '').length * 0.7) {
+    return digits;
+  }
+  return trimmed;
+}
+
 export function GuestOpsUsersPage() {
   const queryClient = useQueryClient();
   const [q, setQ] = useState('');
@@ -13,8 +24,11 @@ export function GuestOpsUsersPage() {
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['guest-ops', 'users', searchQ],
-    queryFn: () => guestOpsApi.searchUsers({ q: searchQ || undefined, limit: '30' }),
-    enabled: searchQ.length > 0,
+    queryFn: () =>
+      guestOpsApi.searchUsers({
+        q: searchQ || undefined,
+        limit: '50',
+      }),
   });
 
   const { data: detail, isLoading: detailLoading } = useQuery({
@@ -70,7 +84,7 @@ export function GuestOpsUsersPage() {
       <div>
         <h1 className="text-2xl font-semibold">Guest users</h1>
         <p className="mt-1 max-w-2xl text-text-secondary">
-          Search guest accounts, inspect memberships and devices, export data, or erase (GDPR).
+          Recent guest accounts load automatically. Search by name, phone, email, or user ID.
         </p>
       </div>
 
@@ -90,7 +104,7 @@ export function GuestOpsUsersPage() {
           className="flex flex-wrap items-end gap-3"
           onSubmit={(e) => {
             e.preventDefault();
-            setSearchQ(q.trim());
+            setSearchQ(normalizeSearchQuery(q));
             setSelectedId(null);
           }}
         >
@@ -103,18 +117,33 @@ export function GuestOpsUsersPage() {
             />
           </div>
           <Button type="submit">Search</Button>
+          {searchQ ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setQ('');
+                setSearchQ('');
+                setSelectedId(null);
+              }}
+            >
+              Clear
+            </Button>
+          ) : null}
         </form>
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-white/5 bg-bg-card p-5">
-          <h2 className="text-lg font-medium">Results</h2>
-          {!searchQ ? (
-            <p className="mt-3 text-sm text-text-muted">Enter a query to search.</p>
-          ) : isLoading ? (
-            <p className="mt-3 text-sm text-text-muted">Searching…</p>
+          <h2 className="text-lg font-medium">
+            {searchQ ? 'Results' : 'Recent users'}
+          </h2>
+          {isLoading ? (
+            <p className="mt-3 text-sm text-text-muted">Loading…</p>
           ) : users.length === 0 ? (
-            <p className="mt-3 text-sm text-text-muted">No users found.</p>
+            <p className="mt-3 text-sm text-text-muted">
+              {searchQ ? 'No users found.' : 'No guest users yet.'}
+            </p>
           ) : (
             <ul className="mt-4 divide-y divide-white/5">
               {users.map((u) => (
@@ -144,7 +173,7 @@ export function GuestOpsUsersPage() {
         <section className="rounded-xl border border-white/5 bg-bg-card p-5">
           <h2 className="text-lg font-medium">Detail</h2>
           {!selectedId ? (
-            <p className="mt-3 text-sm text-text-muted">Select a user from results.</p>
+            <p className="mt-3 text-sm text-text-muted">Select a user from the list.</p>
           ) : detailLoading ? (
             <p className="mt-3 text-sm text-text-muted">Loading…</p>
           ) : detail ? (
@@ -198,7 +227,7 @@ export function GuestOpsUsersPage() {
                 {prefs ? (
                   <p className="text-text-secondary">
                     Marketing: {prefs.marketingEnabled ? 'on' : 'off'} · Orders:{' '}
-                    {prefs.orderUpdatesEnabled ? 'on' : 'off'}
+                    {prefs.transactionalEnabled ? 'on' : 'off'}
                   </p>
                 ) : (
                   <p className="text-text-muted">Not set</p>

@@ -1,8 +1,10 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import { OrgId, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { ErpExportService } from "./erp-export.service";
 
 @Controller("erp-export")
+@RequirePermissions("reports:export")
 export class ErpExportController {
   constructor(private service: ErpExportService) {}
 

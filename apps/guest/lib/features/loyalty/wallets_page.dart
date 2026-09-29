@@ -11,7 +11,9 @@ import 'package:cullinos_guest/widgets/guest_section_header.dart';
 import 'package:cullinos_guest/widgets/guest_soft_card.dart';
 
 class WalletsPage extends ConsumerStatefulWidget {
-  const WalletsPage({super.key});
+  const WalletsPage({super.key, this.initialOrgId});
+
+  final String? initialOrgId;
 
   @override
   ConsumerState<WalletsPage> createState() => _WalletsPageState();
@@ -39,6 +41,18 @@ class _WalletsPageState extends ConsumerState<WalletsPage> {
     try {
       final rows = await ref.read(guestApiProvider).memberships();
       setState(() => _rows = rows);
+      final prefer = widget.initialOrgId?.trim();
+      if (prefer != null && prefer.isNotEmpty) {
+        final match = rows.cast<dynamic>().where((r) {
+          final org = Map<String, dynamic>.from(
+            (r as Map)['organization'] as Map? ?? {},
+          );
+          return org['id']?.toString() == prefer;
+        });
+        if (match.isNotEmpty) {
+          await _openOrg(Map<String, dynamic>.from(match.first as Map));
+        }
+      }
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {

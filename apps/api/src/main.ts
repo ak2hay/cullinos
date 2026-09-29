@@ -13,6 +13,8 @@ import {
   parseCorsOrigins,
 } from "./common/cors.util";
 import { initSentry } from "./common/sentry.init";
+import { parseTrustProxyHops } from "./common/client-ip.util";
+import { RedisIoAdapter } from "./websocket/redis-io.adapter";
 
 // Monorepo root .env (apps/api/src|dist → ../../../.env)
 const rootEnvPath = resolve(__dirname, "../../../.env");
@@ -28,6 +30,10 @@ async function bootstrap() {
     rawBody: true,
   });
 
+  // Behind Traefik/nginx every request arrives from the proxy; without this, rate limits
+  // and login backoff share one bucket for all clients. Set to the number of proxy hops.
+  app.set("trust proxy", parseTrustProxyHops(process.env.TRUST_PROXY_HOPS));
+
   // Local-disk marketing uploads (when R2 is unset). Served at /cms/* outside api/v1.
   const marketingUploadDir =
     process.env.MARKETING_UPLOAD_DIR ||
@@ -42,6 +48,21 @@ async function bootstrap() {
     });
   } catch {
     // Non-fatal — R2-only deployments may omit a writable upload dir.
+  }
+
+  // Universal menu catalog placeholder photos (apps/api/assets/catalog-placeholders).
+  const catalogPlaceholderDir = [
+    resolve(__dirname, "../assets/catalog-placeholders"),
+    resolve(__dirname, "../../assets/catalog-placeholders"),
+    resolve(process.cwd(), "assets/catalog-placeholders"),
+  ].find((dir) => existsSync(dir));
+  if (catalogPlaceholderDir) {
+    app.useStaticAssets(catalogPlaceholderDir, {
+      prefix: "/catalog-placeholders",
+      setHeaders: (res) => {
+        res.setHeader("Cache-Control", "public, max-age=604800");
+      },
+    });
   }
 
   const allowedOrigins = new Set(parseCorsOrigins(process.env.CORS_ORIGINS));
@@ -65,6 +86,11 @@ async function bootstrap() {
     credentials: true,
     origin: createCorsOriginDelegate(allowedOrigins),
   });
+  const ioAdapter = new RedisIoAdapter(app);
+  if (ioAdapter.connectToRedis()) {
+    app.useWebSocketAdapter(ioAdapter);
+  }
+
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 

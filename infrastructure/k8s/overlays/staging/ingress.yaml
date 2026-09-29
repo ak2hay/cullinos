@@ -5,6 +5,7 @@ metadata:
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: staging-security-headers@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:
@@ -14,8 +15,10 @@ spec:
         - staging-admin.cullinos.com
         - staging-manage.cullinos.com
         - staging-platform.cullinos.com
+        - staging-app.cullinos.com
         - staging-pos.cullinos.com
         - staging-kds.cullinos.com
+        - staging-kiosk.cullinos.com
         - staging-guest.cullinos.com
         - staging-waiter.cullinos.com
         - staging.cullinos.com
@@ -60,6 +63,16 @@ spec:
                 name: spa-super-admin
                 port:
                   number: 80
+    - host: staging-app.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-app-ops
+                port:
+                  number: 80
     - host: staging-pos.cullinos.com
       http:
         paths:
@@ -78,6 +91,16 @@ spec:
             backend:
               service:
                 name: spa-kds
+                port:
+                  number: 80
+    - host: staging-kiosk.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-kiosk
                 port:
                   number: 80
     - host: staging-guest.cullinos.com

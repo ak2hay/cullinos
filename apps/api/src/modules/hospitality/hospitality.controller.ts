@@ -6,8 +6,8 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
+import type { JwtPayload } from '@cullinos/auth';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
   IsDateString,
@@ -18,9 +18,8 @@ import {
   IsString,
   Min,
 } from 'class-validator';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { RequireModule } from '../../common/decorators';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser, OrgId, RequireModule } from '../../common/decorators';
+import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { HospitalityService } from './hospitality.service';
 
 class CreateGuestDto {
@@ -134,108 +133,124 @@ class UpdateBanquetStatusDto {
 
 @ApiTags('hospitality')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @RequireModule('hotel')
+@RequirePermissions('order:update')
 @Controller('hospitality')
 export class HospitalityController {
   constructor(private readonly hospitalityService: HospitalityService) {}
 
   @Get('guests')
-  findAllGuests(@CurrentUser('organizationId') organizationId: string) {
+  @RequirePermissions('order:read', 'customer:read')
+  findAllGuests(@OrgId() organizationId: string) {
     return this.hospitalityService.findAllGuests(organizationId);
   }
 
   @Get('guests/:id')
+  @RequirePermissions('order:read', 'customer:read')
   findGuest(
     @Param('id') id: string,
-    @CurrentUser('organizationId') organizationId: string,
+    @OrgId() organizationId: string,
   ) {
     return this.hospitalityService.findGuest(id, organizationId);
   }
 
   @Post('guests')
   createGuest(
-    @CurrentUser() user: { id: string; organizationId: string },
+    @OrgId() organizationId: string,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: CreateGuestDto,
   ) {
-    return this.hospitalityService.createGuest(user.organizationId, user.id, dto);
+    return this.hospitalityService.createGuest(organizationId, user.sub, dto);
   }
 
   @Patch('guests/:id')
   updateGuest(
     @Param('id') id: string,
-    @CurrentUser() user: { id: string; organizationId: string },
+    @OrgId() organizationId: string,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: UpdateGuestDto,
   ) {
-    return this.hospitalityService.updateGuest(id, user.organizationId, user.id, dto);
+    return this.hospitalityService.updateGuest(id, organizationId, user.sub, dto);
   }
 
   @Post('guests/:id/checkout')
   checkOutGuest(
     @Param('id') id: string,
-    @CurrentUser() user: { id: string; organizationId: string },
+    @OrgId() organizationId: string,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.hospitalityService.checkOutGuest(id, user.organizationId, user.id);
+    return this.hospitalityService.checkOutGuest(id, organizationId, user.sub);
   }
 
   @Get('rooms')
+  @RequirePermissions('order:read', 'outlet:read')
   findAllRooms(
-    @CurrentUser('organizationId') organizationId: string,
+    @OrgId() organizationId: string,
     @Query('outletId') outletId?: string,
   ) {
     return this.hospitalityService.findAllRooms(outletId ?? '', organizationId);
   }
 
   @Post('rooms')
+  @RequirePermissions('outlet:update')
   createRoom(
-    @CurrentUser() user: { id: string; organizationId: string },
+    @OrgId() organizationId: string,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: CreateRoomDto,
   ) {
-    return this.hospitalityService.createRoom(user.organizationId, user.id, dto);
+    return this.hospitalityService.createRoom(organizationId, user.sub, dto);
   }
 
   @Patch('rooms/:id')
+  @RequirePermissions('outlet:update')
   updateRoom(
     @Param('id') id: string,
-    @CurrentUser() user: { id: string; organizationId: string },
+    @OrgId() organizationId: string,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: UpdateRoomDto,
   ) {
-    return this.hospitalityService.updateRoom(id, user.organizationId, user.id, dto);
+    return this.hospitalityService.updateRoom(id, organizationId, user.sub, dto);
   }
 
   @Post('room-postings')
   postToRoom(
-    @CurrentUser() user: { id: string; organizationId: string },
+    @OrgId() organizationId: string,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: RoomPostingDto,
   ) {
-    return this.hospitalityService.postToRoom(user.organizationId, user.id, {
+    return this.hospitalityService.postToRoom(organizationId, user.sub, {
       ...dto,
       checkIn: dto.checkIn ? new Date(dto.checkIn) : undefined,
     });
   }
 
   @Post('room-postings/:id/settle')
+  @RequirePermissions('pos:access')
   settleRoomPosting(
     @Param('id') id: string,
-    @CurrentUser() user: { id: string; organizationId: string },
+    @OrgId() organizationId: string,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.hospitalityService.settleRoomPosting(id, user.organizationId, user.id);
+    return this.hospitalityService.settleRoomPosting(id, organizationId, user.sub);
   }
 
   @Get('banquet-events')
+  @RequirePermissions('order:read')
   findBanquetEvents(
-    @CurrentUser('organizationId') organizationId: string,
+    @OrgId() organizationId: string,
     @Query('banquetId') banquetId?: string,
   ) {
     return this.hospitalityService.findBanquetEvents(organizationId, banquetId);
   }
 
   @Post('banquet-events')
+  @RequirePermissions('order:create')
   createBanquetEvent(
-    @CurrentUser() user: { id: string; organizationId: string },
+    @OrgId() organizationId: string,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: CreateBanquetEventDto,
   ) {
-    return this.hospitalityService.createBanquetEvent(user.organizationId, user.id, {
+    return this.hospitalityService.createBanquetEvent(organizationId, user.sub, {
       ...dto,
       eventDate: new Date(dto.eventDate),
     });
@@ -244,13 +259,14 @@ export class HospitalityController {
   @Patch('banquet-events/:id/status')
   updateBanquetStatus(
     @Param('id') id: string,
-    @CurrentUser() user: { id: string; organizationId: string },
+    @OrgId() organizationId: string,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: UpdateBanquetStatusDto,
   ) {
     return this.hospitalityService.updateBanquetEventStatus(
       id,
-      user.organizationId,
-      user.id,
+      organizationId,
+      user.sub,
       dto.status,
     );
   }

@@ -1,0 +1,54 @@
+# Applied by the deploy workflows before the API rollout (not part of kustomize):
+#   sed "s|__IMAGE__|ghcr.io/ak2hay/cullinos-api:<sha>|; s|__NAME__|db-migrate-<sha>|" \
+#     infrastructure/k8s/jobs/db-migrate.yaml | kubectl -n <ns> apply -f -
+#   kubectl -n <ns> wait --for=condition=complete job/db-migrate-<sha> --timeout=600s
+# migrate-deploy.mjs exits 3 on a database that was created with `db push` and never
+# baselined; follow "Database migrations" in docs/DEPLOYMENT.md once per environment.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: __NAME__
+  labels:
+    app: db-migrate
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 900
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: db-migrate
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: __IMAGE__
+          command: ["node", "packages/prisma/scripts/migrate-deploy.mjs"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: cullinos-secrets
+                  key: DATABASE_URL
+            - name: HOME
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

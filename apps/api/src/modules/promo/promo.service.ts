@@ -4,7 +4,8 @@ import { MailService } from "../mail/mail.service";
 import { AuditService } from "../audit/audit.service";
 import { CustomerPrivacyService } from "../privacy/customer-privacy.service";
 import { Msg91Service } from "../sms/msg91.service";
-import { WalletService } from "../wallet/wallet.service";
+import { WalletService, smsSegments } from "../wallet/wallet.service";
+import { resolveApiPublicOrigin } from "../../common/public-asset-url.util";
 
 const SEND_DELAY_MS = 50;
 
@@ -142,17 +143,21 @@ export class PromoService {
     let sentCount = 0;
     let failedCount = 0;
     const base = marketingSiteUrl();
+    const apiOrigin = resolveApiPublicOrigin();
 
     for (const recipient of withEmail) {
       const token =
         recipient.unsubscribeToken ??
         (await this.customerPrivacy.ensureUnsubscribeToken(recipient.id));
       const unsubscribeUrl = `${base}/unsubscribe?token=${encodeURIComponent(token)}`;
+      const oneClickUrl = apiOrigin
+        ? `${apiOrigin}/api/v1/public/privacy/unsubscribe?token=${encodeURIComponent(token)}`
+        : undefined;
       const ok = await this.mail.sendPromoEmail(
         recipient.email,
         subject,
         body,
-        { unsubscribeUrl },
+        { unsubscribeUrl, oneClickUrl },
       );
       if (ok) sentCount += 1;
       else failedCount += 1;
@@ -275,7 +280,9 @@ export class PromoService {
       .map((r) => r.phone)
       .filter((p): p is string => !!p);
 
-    await this.wallet.assertCanAffordSms(organizationId, phones.length);
+    const segments = smsSegments(body);
+    const reservedUnits = phones.length * segments;
+    await this.wallet.assertCanAffordSms(organizationId, reservedUnits);
 
     const campaign = await this.prisma.smsCampaign.create({
       data: {
@@ -287,30 +294,47 @@ export class PromoService {
       },
     });
 
-    const result = await this.sms.sendCampaignSms(phones, body);
-    const sentCount = result.sent;
-    const failedCount = result.failed;
+    let reservation;
+    try {
+      reservation = await this.wallet.reserveCharge(organizationId, "sms", reservedUnits, {
+        referenceType: "sms_campaign",
+        referenceId: campaign.id,
+        note: `SMS campaign: ${phones.length} recipients × ${segments} part(s)`,
+      });
+    } catch (err) {
+      await this.prisma.smsCampaign.update({
+        where: { id: campaign.id },
+        data: { status: "failed", failedCount: phones.length },
+      });
+      throw err;
+    }
+
+    let sentCount = 0;
+    let failedCount = phones.length;
+    let chargedPaise = reservation?.amountPaise ?? 0;
+    try {
+      const result = await this.sms.sendCampaignSms(phones, body);
+      sentCount = result.sent;
+      failedCount = result.failed;
+    } finally {
+      // Return credits for undelivered messages even if sending threw midway.
+      chargedPaise = await this.wallet
+        .settleReservation(organizationId, reservation, reservedUnits, sentCount * segments)
+        .catch((err) => {
+          this.logger.error(
+            `Wallet refund failed for SMS campaign ${campaign.id}: ${
+              err instanceof Error ? err.message : err
+            }`,
+          );
+          return chargedPaise;
+        });
+    }
     const status =
       sentCount === 0 && phones.length > 0
         ? "failed"
         : failedCount === phones.length && phones.length > 0
           ? "failed"
           : "sent";
-
-    let chargedPaise = 0;
-    try {
-      chargedPaise = await this.wallet.chargeForSmsSent(
-        organizationId,
-        campaign.id,
-        sentCount,
-      );
-    } catch (err) {
-      this.logger.error(
-        `Failed to charge wallet for SMS campaign ${campaign.id}: ${
-          err instanceof Error ? err.message : err
-        }`,
-      );
-    }
 
     await this.audit.log({
       organizationId,

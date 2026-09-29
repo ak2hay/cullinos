@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,8 +18,10 @@ import 'package:cullinos_guest/widgets/guest_section_header.dart';
 import 'package:cullinos_guest/widgets/guest_soft_card.dart';
 import 'package:cullinos_guest/widgets/guest_sticky_bars.dart';
 
-// Online-only preference (gateway still chosen by server).
-enum _PayMethod { upi, card, wallet }
+// Online preference (gateway still chosen by server) + offline settle options.
+enum _PayMethod { upi, card, wallet, payAtCounter, payToWaiter }
+
+const _drinksHint = 'Drinks are served at the table';
 
 class CheckoutPage extends ConsumerStatefulWidget {
   const CheckoutPage({
@@ -60,6 +63,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   double _pointsDiscount = 0;
   final _orderNotes = TextEditingController();
   final _pointsCtrl = TextEditingController();
+  bool _enablePayAtCounter = false;
+  bool _enablePayToWaiter = false;
 
   @override
   void initState() {
@@ -69,6 +74,24 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _onPayError);
     _loadAddresses();
     _loadLoyalty();
+    _loadPaymentOptions();
+  }
+
+  Future<void> _loadPaymentOptions() async {
+    try {
+      final profile = await ref.read(guestApiProvider).outletProfile(
+            widget.orgSlug,
+            widget.outletSlug,
+          );
+      final modes = profile['orderModes'] is Map
+          ? Map<String, dynamic>.from(profile['orderModes'] as Map)
+          : <String, dynamic>{};
+      if (!mounted) return;
+      setState(() {
+        _enablePayAtCounter = modes['enablePayAtCounter'] == true;
+        _enablePayToWaiter = modes['enablePayToWaiter'] == true;
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadAddresses() async {
@@ -147,10 +170,15 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   Future<void> _applyCoupon() async {
     final cart = ref.read(cartProvider);
     if (cart.orgId == null) return;
+    final code = _coupon.text.trim();
+    if (code.isEmpty) {
+      setState(() => _error = 'Enter a coupon code');
+      return;
+    }
     try {
       final res = await ref.read(guestApiProvider).validateCoupon(
             orgId: cart.orgId!,
-            code: _coupon.text.trim(),
+            code: code,
             orderTotal: cart.subtotal,
           );
       setState(() {
@@ -158,7 +186,13 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         _error = null;
       });
     } catch (e) {
-      setState(() => _error = friendlyApiError(e));
+      setState(() {
+        _couponDiscount = 0;
+        _error = friendlyApiError(
+          e,
+          fallback: 'Coupon not valid for this restaurant.',
+        );
+      });
     }
   }
 
@@ -195,11 +229,14 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         cart.subtotal - _couponDiscount - pointsDiscount + fee + tip;
     final sessionToken = cart.sessionToken;
     final payLater = sessionToken != null;
+    final payOffline = _payMethod == _PayMethod.payAtCounter ||
+        _payMethod == _PayMethod.payToWaiter;
+    final skipPayment = payLater || payOffline;
     if (total < 0) {
       setState(() => _error = 'Order total is invalid.');
       return;
     }
-    if (!payLater && total <= 0) {
+    if (!skipPayment && total <= 0) {
       setState(() => _error = 'Order total must be greater than zero.');
       return;
     }
@@ -253,6 +290,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
             cart.specialInstructions!.isNotEmpty)
           cart.specialInstructions!,
         if (payLater) 'Payment: Pay later',
+        if (_payMethod == _PayMethod.payAtCounter) 'Payment: Pay at counter',
+        if (_payMethod == _PayMethod.payToWaiter) 'Payment: Pay to waiter',
         if (_redeemPoints > 0) 'Redeem: $_redeemPoints pts',
       ];
       final orderNotes = noteParts.isEmpty ? null : noteParts.join(' · ');
@@ -264,6 +303,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               items: mappedItems,
               customerName: auth.name ?? auth.phone,
               notes: orderNotes,
+              ageConfirmed: cart.hasAlcohol ? cart.ageConfirmed : null,
             );
         order = await ref.read(guestApiProvider).sessionSubmit(sessionToken);
       } else {
@@ -272,7 +312,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           'outletSlug': widget.outletSlug,
           'outletId': cart.outletId,
           'source': 'ONLINE',
-          'type': cart.orderType,
+          'type': cart.hasAlcohol ? 'dine_in' : cart.orderType,
+          if (cart.hasAlcohol) 'ageConfirmed': cart.ageConfirmed,
           'customerId': customerId,
           'tipAmount': tip,
           'idempotencyKey':
@@ -294,7 +335,24 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
             'deliveryZoneId': _quote?['zoneId'],
           },
         };
-        order = await ref.read(guestApiProvider).createOrder(body);
+        try {
+          order = await ref.read(guestApiProvider).createOrder(body);
+        } on DioException catch (e) {
+          final msg = friendlyApiError(e).toLowerCase();
+          final isCoupon =
+              e.response?.statusCode == 404 && msg.contains('coupon');
+          if (isCoupon && body.containsKey('couponCode')) {
+            body.remove('couponCode');
+            setState(() {
+              _couponDiscount = 0;
+              _error =
+                  'Coupon no longer valid — continuing without discount.';
+            });
+            order = await ref.read(guestApiProvider).createOrder(body);
+          } else {
+            rethrow;
+          }
+        }
       }
 
       final orderId = order['id'] as String;
@@ -311,18 +369,19 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         } catch (_) {}
       }
 
-      if (payLater) {
+      if (skipPayment) {
         cart.clear();
         if (mounted) {
+          final message = payLater
+              ? 'Your items were sent to the table. Pay at the table when ready.'
+              : _payMethod == _PayMethod.payToWaiter
+                  ? 'Order placed. Pay your waiter when ready.'
+                  : 'Order placed. Pay at the counter when ready.';
           await showDialog<void>(
             context: context,
             builder: (ctx) => AlertDialog(
               title: const Text('Order placed'),
-              content: Text(
-                sessionToken != null
-                    ? 'Your items were sent to the table. Pay at the table when ready.'
-                    : 'Pay at the counter when your order is ready.',
-              ),
+              content: Text(message),
               actions: [
                 FilledButton(
                   onPressed: () => Navigator.pop(ctx),
@@ -462,11 +521,14 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     required String hint,
     required String current,
     required VoidCallback onTap,
+    bool enabled = true,
   }) {
     final selected = current == value;
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.45,
+        child: GestureDetector(
+        onTap: enabled ? onTap : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
@@ -508,6 +570,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
             ],
           ),
         ),
+        ),
       ),
     );
   }
@@ -517,46 +580,58 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     required IconData icon,
     required String label,
     required String hint,
+    bool expanded = true,
   }) {
     final selected = _payMethod == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _payMethod = value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-          decoration: BoxDecoration(
-            color: selected ? GuestColors.primarySoftOf(context) : GuestColors.surface,
-            borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
-            border: Border.all(
-              color: selected ? GuestColors.primaryOf(context) : GuestColors.border,
-              width: selected ? 2 : 1,
+    final card = GestureDetector(
+      onTap: () => setState(() => _payMethod = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: expanded ? null : double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? GuestColors.primarySoftOf(context)
+              : GuestColors.surface,
+          borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
+          border: Border.all(
+            color: selected
+                ? GuestColors.primaryOf(context)
+                : GuestColors.border,
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                color: selected
+                    ? GuestColors.primaryOf(context)
+                    : GuestColors.muted,
+                size: 22),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: selected
+                    ? GuestColors.primaryOf(context)
+                    : GuestColors.ink,
+              ),
             ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon,
-                  color: selected ? GuestColors.primaryOf(context) : GuestColors.muted,
-                  size: 22),
-              const SizedBox(height: 5),
-              Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  color: selected ? GuestColors.primaryOf(context) : GuestColors.ink,
-                ),
-              ),
-              Text(
-                hint,
-                style: const TextStyle(fontSize: 10, color: GuestColors.muted),
-              ),
-            ],
-          ),
+            Text(
+              hint,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 10, color: GuestColors.muted),
+            ),
+          ],
         ),
       ),
     );
+    if (expanded) return Expanded(child: card);
+    return card;
   }
 
   Widget _billRow(String label, String amount, {bool bold = false}) {
@@ -588,6 +663,11 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   @override
   Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
+    if (cart.hasAlcohol && cart.orderType != 'dine_in') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(cartProvider).setOrderType('dine_in');
+      });
+    }
     final deliveryFee = _quote?['inZone'] == true
         ? (_quote!['fee'] as num?)?.toDouble() ?? 0
         : 0.0;
@@ -642,8 +722,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 value: 'delivery',
                 icon: Icons.delivery_dining_rounded,
                 label: 'Delivery',
-                hint: 'To your door',
+                hint: cart.hasAlcohol ? _drinksHint : 'To your door',
                 current: cart.orderType,
+                enabled: !cart.hasAlcohol,
                 onTap: () {
                   ref.read(cartProvider).setOrderType('delivery');
                   _refreshQuote();
@@ -664,8 +745,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 value: 'takeaway',
                 icon: Icons.shopping_bag_rounded,
                 label: 'Takeaway',
-                hint: 'Pick up ready',
+                hint: cart.hasAlcohol ? _drinksHint : 'Pick up ready',
                 current: cart.orderType,
+                enabled: !cart.hasAlcohol,
                 onTap: () =>
                     ref.read(cartProvider).setOrderType('takeaway'),
               ),
@@ -1022,28 +1104,77 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
           const GuestSectionHeader(title: 'Payment method', emoji: '💳'),
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              _payMethodCard(
-                value: _PayMethod.upi,
-                icon: Icons.account_balance_wallet_outlined,
-                label: 'UPI',
-                hint: 'GPay · PhonePe',
+              SizedBox(
+                width: (MediaQuery.sizeOf(context).width -
+                        GuestSpacing.page * 2 -
+                        16) /
+                    3,
+                child: _payMethodCard(
+                  value: _PayMethod.upi,
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: 'UPI',
+                  hint: 'GPay · PhonePe',
+                  expanded: false,
+                ),
               ),
-              const SizedBox(width: 8),
-              _payMethodCard(
-                value: _PayMethod.card,
-                icon: Icons.credit_card_rounded,
-                label: 'Card',
-                hint: 'Debit / Credit',
+              SizedBox(
+                width: (MediaQuery.sizeOf(context).width -
+                        GuestSpacing.page * 2 -
+                        16) /
+                    3,
+                child: _payMethodCard(
+                  value: _PayMethod.card,
+                  icon: Icons.credit_card_rounded,
+                  label: 'Card',
+                  hint: 'Debit / Credit',
+                  expanded: false,
+                ),
               ),
-              const SizedBox(width: 8),
-              _payMethodCard(
-                value: _PayMethod.wallet,
-                icon: Icons.savings_outlined,
-                label: 'Wallet',
-                hint: 'Paytm · Others',
+              SizedBox(
+                width: (MediaQuery.sizeOf(context).width -
+                        GuestSpacing.page * 2 -
+                        16) /
+                    3,
+                child: _payMethodCard(
+                  value: _PayMethod.wallet,
+                  icon: Icons.savings_outlined,
+                  label: 'Wallet',
+                  hint: 'Paytm · Others',
+                  expanded: false,
+                ),
               ),
+              if (_enablePayAtCounter)
+                SizedBox(
+                  width: (MediaQuery.sizeOf(context).width -
+                          GuestSpacing.page * 2 -
+                          8) /
+                      2,
+                  child: _payMethodCard(
+                    value: _PayMethod.payAtCounter,
+                    icon: Icons.storefront_outlined,
+                    label: 'Pay at counter',
+                    hint: 'Settle in person',
+                    expanded: false,
+                  ),
+                ),
+              if (_enablePayToWaiter)
+                SizedBox(
+                  width: (MediaQuery.sizeOf(context).width -
+                          GuestSpacing.page * 2 -
+                          8) /
+                      2,
+                  child: _payMethodCard(
+                    value: _PayMethod.payToWaiter,
+                    icon: Icons.room_service_outlined,
+                    label: 'Pay to waiter',
+                    hint: 'Settle at table',
+                    expanded: false,
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 24),
@@ -1196,9 +1327,19 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
           // ── CTAs ─────────────────────────────────────────────────────────
           GuestPillButton(
-            label: 'Pay ₹${total.toStringAsFixed(0)}',
-            subtitle: 'Secure & Encrypted',
-            icon: Icons.lock_rounded,
+            label: _payMethod == _PayMethod.payAtCounter
+                ? 'Place order · Pay at counter'
+                : _payMethod == _PayMethod.payToWaiter
+                    ? 'Place order · Pay to waiter'
+                    : 'Pay ₹${total.toStringAsFixed(0)}',
+            subtitle: _payMethod == _PayMethod.payAtCounter ||
+                    _payMethod == _PayMethod.payToWaiter
+                ? 'No online payment required'
+                : 'Secure & Encrypted',
+            icon: _payMethod == _PayMethod.payAtCounter ||
+                    _payMethod == _PayMethod.payToWaiter
+                ? Icons.receipt_long_rounded
+                : Icons.lock_rounded,
             loading: _loading,
             onPressed: _loading ? null : _place,
           ),

@@ -41,8 +41,6 @@ class GuestNetworkImage extends StatelessWidget {
     return null;
   }
 
-  bool get _hasUrl => resolveUrl(url) != null;
-
   @override
   Widget build(BuildContext context) {
     final radius = borderRadius ?? BorderRadius.circular(GuestSpacing.radiusSm);

@@ -12,6 +12,10 @@ export async function verifyTurnstileToken(
 ): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      logger.error("TURNSTILE_SECRET_KEY not set in production — rejecting captcha");
+      return false;
+    }
     logger.warn("TURNSTILE_SECRET_KEY not set — skipping verification (dev only)");
     return true;
   }

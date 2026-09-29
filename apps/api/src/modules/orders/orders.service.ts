@@ -1,12 +1,21 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   Inject,
+  Logger,
   forwardRef,
   Optional,
 } from "@nestjs/common";
 import { calculateMixedGst, type TaxLineInput } from "@cullinos/tax-engine";
+import {
+  ALCOHOL_CUSTOMER_ORDER_TYPES,
+  type BusinessType,
+  getOrderTypeViolation,
+  isAlcoholProductType,
+  orgServesAlcohol,
+} from "@cullinos/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WebsocketGateway } from "../../websocket/websocket.gateway";
 import {
@@ -16,14 +25,34 @@ import {
   type ResolvedOrderItem,
 } from "../../common/order-items.util";
 import { generatePickupCode } from "../../common/pickup-code.util";
-import { fromApiStatus } from "../../common/status.util";
+import { loadActiveHappyHourRules } from "../../common/happy-hour.util";
+import { normalizeOrderStatusFilter } from "../../common/status.util";
 import { toPaise } from "../../common/money.util";
+import { orderGrandTotal, orderLineTotal, pickDefaultTaxGroup } from "./order-tax.util";
+import { matchDeliveryZone } from "../delivery/delivery-zone.util";
+import { groupItemsByStation, kotNumberFor, stationCodeFor } from "./kot-routing.util";
+import {
+  isOrderNumberCollision,
+  nextOrderNumberCandidate,
+  ORDER_NUMBER_MAX_ATTEMPTS,
+} from "./order-number.util";
 import { LoyaltyService } from "../loyalty/loyalty.service";
 import { GuestPushService } from "../guest/guest-push.service";
 import { RecipesService } from "../recipes/recipes.service";
+import { splitStockMetadata } from "../../common/recipe-stock.util";
+import {
+  canTransitionOrder,
+  reverseOrderIncentives,
+  TERMINAL_STATUSES,
+} from "./order-reversal.util";
+import { releaseMergedTables } from "../tables/table-merge.util";
 import { MailService } from "../mail/mail.service";
+import { buildReceiptEmail } from "../mail/templates";
 import { Msg91Service } from "../sms/msg91.service";
+import { WhatsappService } from "../sms/whatsapp.service";
 import { FeedbackService } from "../feedback/feedback.service";
+import { WalletService, smsSegments } from "../wallet/wallet.service";
+import { smsEbill } from "../sms/sms-templates";
 
 type TaxComputation = {
   subtotal: number;
@@ -31,7 +60,18 @@ type TaxComputation = {
   total: number;
   taxLines: Array<{ name: string; rate: number; amount: number; type?: string }>;
   itemTaxes: number[];
+  itemInclusive: boolean[];
 };
+
+const ORDER_CLIENT_INCLUDE = {
+  items: true,
+  table: true,
+  customer: true,
+  taxLines: true,
+} as const;
+
+const TERMINAL_ORDER_STATUSES = ["completed", "cancelled", "voided"];
+const KITCHEN_ACTIVE_STATUSES = ["confirmed", "preparing", "ready", "served"];
 
 type CreateOrderDto = {
   outletId: string;
@@ -59,10 +99,29 @@ type CreateOrderDto = {
   metadata?: Record<string, unknown>;
   /** Guest / public checkout coupon */
   couponCode?: string;
+  /** Placed by a guest (app or table QR session): drink orders need dine-in and age confirmation. Implied by publicOrder. */
+  customerOrder?: boolean;
+  /** Guest confirmed legal drinking age (required when a customer order contains alcohol). */
+  ageConfirmed?: boolean;
+};
+
+/** Server-side callers only (never populated from a request body). */
+type CreateOrderInternalOptions = {
+  /** Per-line unit price in rupees that replaces the menu price (aggregator-billed orders). */
+  priceOverrides?: Array<number | undefined>;
+  /** The order total was collected by a third party; record it as a completed payment. */
+  prepaid?: { methodCode: string; methodName: string; reference?: string; tender?: string };
+};
+
+type AddItemsOptions = {
+  customerOrder?: boolean;
+  ageConfirmed?: boolean;
 };
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private prisma: PrismaService,
     private ws: WebsocketGateway,
@@ -79,37 +138,41 @@ export class OrdersService {
     @Optional()
     private sms?: Msg91Service,
     @Optional()
+    private whatsapp?: WhatsappService,
+    @Optional()
     private feedback?: FeedbackService,
+    @Optional()
+    private wallet?: WalletService,
   ) {}
 
   private async computeTax(
     orgId: string,
     resolvedItems: ResolvedOrderItem[],
   ): Promise<TaxComputation> {
-    const taxGroupIds = [
-      ...new Set(resolvedItems.map((i) => i.taxGroupId).filter(Boolean)),
-    ] as string[];
-
-    const groups = taxGroupIds.length
-      ? await this.prisma.taxGroup.findMany({
-          where: { organizationId: orgId, id: { in: taxGroupIds } },
-          include: { rates: true },
-        })
-      : [];
-
-    let defaultGroup = await this.prisma.taxGroup.findFirst({
-      where: { organizationId: orgId },
-      include: { rates: true },
-      orderBy: { name: "asc" },
-    });
+    const [groups, settingsRow] = await Promise.all([
+      this.prisma.taxGroup.findMany({
+        where: { organizationId: orgId },
+        include: { rates: true },
+      }),
+      this.prisma.organizationSettings.findUnique({
+        where: { organizationId: orgId },
+        select: { settings: true },
+      }),
+    ]);
+    const settings = (settingsRow?.settings ?? {}) as Record<string, unknown>;
+    const configuredDefault =
+      typeof settings.defaultTaxGroupId === "string" ? settings.defaultTaxGroupId : null;
+    const defaultGroup = pickDefaultTaxGroup(groups, configuredDefault);
 
     const groupById = new Map(groups.map((g) => [g.id, g]));
 
+    const inclusiveFlags: boolean[] = [];
     const taxable = resolvedItems.map((item) => {
       const group =
         (item.taxGroupId ? groupById.get(item.taxGroupId) : undefined) ??
         defaultGroup ??
         null;
+      inclusiveFlags.push(Boolean(group?.isInclusive && group.rates.length));
       const rates: TaxLineInput[] = (group?.rates ?? []).map((r) => ({
         name: r.name,
         rate: Number(r.rate),
@@ -129,7 +192,85 @@ export class OrdersService {
       total: result.total,
       taxLines: result.taxLines,
       itemTaxes: result.itemTaxes,
+      itemInclusive: inclusiveFlags,
     };
+  }
+
+  /**
+   * Recompute every line's tax from its menu item's tax group, persist per-line tax/total,
+   * and rewrite order totals + taxLines from the same engine result so they cannot drift.
+   */
+  private async recomputeOrderFromItems(orgId: string, orderId: string, event: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, organizationId: orgId },
+    });
+    if (!order) throw new NotFoundException("Order not found");
+
+    const allItems = await this.prisma.orderItem.findMany({
+      where: { orderId },
+      include: { menuItem: { select: { taxGroupId: true } } },
+      orderBy: { id: "asc" },
+    });
+    const tax = await this.computeTax(
+      orgId,
+      allItems.map((i) => ({
+        menuItemId: i.menuItemId,
+        variantId: i.variantId,
+        name: i.name,
+        quantity: i.quantity,
+        unitPrice: Number(i.unitPrice),
+        notes: i.notes,
+        modifiers: null,
+        taxGroupId: i.menuItem?.taxGroupId ?? null,
+      })),
+    );
+
+    await this.prisma.$transaction(
+      allItems.map((item, index) => {
+        const taxAmount = tax.itemTaxes[index] ?? 0;
+        return this.prisma.orderItem.update({
+          where: { id: item.id },
+          data: {
+            taxAmount,
+            total: orderLineTotal(
+              Number(item.unitPrice) * item.quantity,
+              taxAmount,
+              tax.itemInclusive[index] ?? false,
+            ),
+          },
+        });
+      }),
+    );
+
+    const meta = (order.metadata ?? {}) as Record<string, unknown>;
+    const updated = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        subtotal: tax.subtotal,
+        taxTotal: tax.taxTotal,
+        total: orderGrandTotal({
+          subtotal: tax.subtotal,
+          taxTotal: tax.taxTotal,
+          tipAmount: Number(order.tipAmount ?? 0),
+          deliveryFee: Number(meta.deliveryFee ?? 0),
+          discountTotal: Number(order.discountTotal ?? 0),
+        }),
+        timeline: { create: { event, metadata: {} } },
+        taxLines: {
+          deleteMany: {},
+          create: tax.taxLines.map((t) => ({
+            taxName: t.name,
+            rate: t.rate,
+            amount: t.amount,
+          })),
+        },
+      },
+      include: ORDER_CLIENT_INCLUDE,
+    });
+
+    const mapped = mapOrderToClient(updated);
+    this.ws.emitToOutlet(order.outletId, "order.updated", mapped);
+    return mapped;
   }
 
   async list(
@@ -138,38 +279,48 @@ export class OrdersService {
       outletId?: string;
       tableId?: string;
       status?: string;
+      from?: string;
+      to?: string;
       page?: number;
       limit?: number;
     },
   ) {
-    const page = filters.page ?? 1;
+    const page = Math.max(1, filters.page ?? 1);
     const limit = Math.min(Math.max(1, filters.limit ?? 50), 100);
     const skip = (page - 1) * limit;
 
-    const statusParts = filters.status
-      ?.split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((s) => fromApiStatus(s))
-      .filter(Boolean);
+    const statusParts = [
+      ...new Set(
+        (filters.status ?? "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((s) => normalizeOrderStatusFilter(s)),
+      ),
+    ];
     const statusFilter =
-      statusParts && statusParts.length > 0
+      statusParts.length > 0
         ? statusParts.length === 1
           ? { status: statusParts[0] as never }
           : { status: { in: statusParts as never[] } }
         : {};
+
+    const createdAt: { gte?: Date; lt?: Date } = {};
+    if (filters.from) createdAt.gte = parseDateFilter(filters.from, "from");
+    if (filters.to) createdAt.lt = parseDateFilter(filters.to, "to");
 
     const where = {
       organizationId: orgId,
       ...(filters.outletId ? { outletId: filters.outletId } : {}),
       ...(filters.tableId ? { tableId: filters.tableId } : {}),
       ...statusFilter,
+      ...(createdAt.gte || createdAt.lt ? { createdAt } : {}),
     };
 
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
         where,
-        include: { items: true, table: true, customer: true },
+        include: ORDER_CLIENT_INCLUDE,
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
@@ -179,50 +330,116 @@ export class OrdersService {
 
     return {
       data: orders.map((order) => mapOrderToClient(order)),
-      meta: { total, page, limit },
+      meta: { total, page, limit, hasMore: skip + orders.length < total },
     };
+  }
+
+  /** Client-supplied foreign keys must belong to this tenant (and outlet, for tables). */
+  private async assertOrderReferences(
+    orgId: string,
+    outletId: string,
+    dto: Pick<CreateOrderDto, "tableId" | "tableSessionId" | "customerId">,
+  ) {
+    if (dto.tableId) {
+      const table = await this.prisma.table.findFirst({
+        where: { id: dto.tableId, section: { floor: { outletId, outlet: { organizationId: orgId } } } },
+        select: { id: true },
+      });
+      if (!table) throw new BadRequestException("Invalid table");
+    }
+    if (dto.tableSessionId) {
+      const session = await this.prisma.tableSession.findFirst({
+        where: {
+          id: dto.tableSessionId,
+          ...(dto.tableId ? { tableId: dto.tableId } : {}),
+          table: { section: { floor: { outletId, outlet: { organizationId: orgId } } } },
+        },
+        select: { id: true },
+      });
+      if (!session) throw new BadRequestException("Invalid table session");
+    }
+    if (dto.customerId) {
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: dto.customerId, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!customer) throw new BadRequestException("Invalid customer");
+    }
   }
 
   async get(orgId: string, orderId: string) {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, organizationId: orgId },
-      include: { items: true, table: true, customer: true },
+      include: ORDER_CLIENT_INCLUDE,
     });
     if (!order) throw new NotFoundException("Order not found");
     return mapOrderToClient(order);
   }
 
-  async create(orgId: string, userId: string | null, dto: CreateOrderDto) {
+  async create(
+    orgId: string,
+    userId: string | null,
+    dto: CreateOrderDto,
+    internal: CreateOrderInternalOptions = {},
+  ) {
     if (dto.idempotencyKey) {
       const existing = await this.prisma.order.findUnique({
         where: { idempotencyKey: dto.idempotencyKey },
         include: { items: true },
       });
-      if (existing) return mapOrderToClient(existing);
+      if (existing) {
+        if (existing.organizationId !== orgId) {
+          throw new ConflictException("Idempotency key already used");
+        }
+        return mapOrderToClient(existing);
+      }
     }
 
     const outlet = await this.prisma.outlet.findFirst({
       where: { id: dto.outletId, organizationId: orgId },
+      include: {
+        organization: {
+          select: { businessType: true, settings: { select: { settings: true } } },
+        },
+      },
     });
     if (!outlet) throw new BadRequestException("Invalid outlet");
+
+    const typeViolation = getOrderTypeViolation(outlet.organization?.businessType ?? null, {
+      type: this.normalizeType(dto.type, dto.source, dto.tableId),
+      hasTable: Boolean(dto.tableId),
+    });
+    if (typeViolation) throw new BadRequestException(typeViolation);
+
+    await this.assertOrderReferences(orgId, dto.outletId, dto);
 
     const resolvedItems = await resolveOrderItems(
       this.prisma,
       orgId,
       dto.outletId,
       dto.items ?? [],
-      { publicOrder: Boolean(dto.publicOrder) },
+      {
+        publicOrder: Boolean(dto.publicOrder || dto.customerOrder),
+        happyHourRules: await loadActiveHappyHourRules(this.prisma, orgId, dto.outletId),
+      },
     );
+    internal.priceOverrides?.forEach((price, index) => {
+      if (resolvedItems[index] && typeof price === "number" && Number.isFinite(price) && price >= 0) {
+        resolvedItems[index].unitPrice = price;
+      }
+    });
 
-    const count = await this.prisma.order.count({ where: { outletId: dto.outletId } });
-    const orderNumber = String(count + 1).padStart(4, "0");
-    const pickupCode = await this.allocatePickupCode(dto.outletId);
+    const hasAlcohol = assertAlcoholRules(resolvedItems, outlet.organization, {
+      customerOrder: Boolean(dto.publicOrder || dto.customerOrder),
+      orderType: this.normalizeType(dto.type, dto.source, dto.tableId),
+      ageConfirmed: dto.ageConfirmed === true,
+    });
 
-    const tipRupees = dto.tipAmount
-      ? dto.tipAmount >= 100
-        ? dto.tipAmount / 100
-        : dto.tipAmount
-      : 0;
+    // tipAmount is always rupees (POS tip field); never infer paise from magnitude.
+    const tipRupees = dto.tipAmount ?? 0;
+    if (!Number.isFinite(tipRupees) || tipRupees < 0) {
+      throw new BadRequestException("tipAmount must be a non-negative amount in rupees");
+    }
     const taxResult = await this.computeTax(orgId, resolvedItems);
     const source = this.normalizeSource(dto.source);
     const type = this.normalizeType(dto.type, dto.source, dto.tableId);
@@ -244,31 +461,27 @@ export class OrdersService {
         where: { outletId: dto.outletId },
         take: 100,
       });
-      const pincode = dto.deliveryPincode?.trim();
-      let matched = pincode
-        ? zones.find((z) => {
-            const poly = (z.polygon ?? {}) as Record<string, unknown>;
-            return String(poly.pincode ?? "") === pincode;
-          })
-        : dto.deliveryZoneId
-          ? zones.find((z) => z.id === dto.deliveryZoneId)
-          : zones.length === 1
-            ? zones[0]
-            : undefined;
-      if (!matched) {
-        throw new BadRequestException("Address is outside delivery zones");
+      const match = matchDeliveryZone(zones, {
+        pincode: dto.deliveryPincode,
+        lat: dto.deliveryLat,
+        lng: dto.deliveryLng,
+      });
+      if (!match.ok) {
+        throw new BadRequestException(
+          match.reason === "location_required"
+            ? "deliveryPincode or delivery coordinates are required"
+            : match.reason === "no_zones"
+              ? "Delivery is not available from this outlet"
+              : "Address is outside delivery zones",
+        );
       }
-      const poly = (matched.polygon ?? {}) as Record<string, unknown>;
-      deliveryFee = Number(matched.deliveryFee);
+      deliveryFee = match.fee;
       deliveryQuote = {
         inZone: true,
         fee: deliveryFee,
-        minOrder: Number(matched.minOrder),
-        estimatedMinutes:
-          typeof poly.estimatedMinutes === "number"
-            ? poly.estimatedMinutes
-            : Number(poly.estimatedMinutes) || null,
-        zoneId: matched.id,
+        minOrder: match.minOrder,
+        estimatedMinutes: match.estimatedMinutes,
+        zoneId: match.zone.id,
       };
       const goodsTotal = taxResult.total + tipRupees;
       if (goodsTotal < deliveryQuote.minOrder) {
@@ -278,100 +491,112 @@ export class OrdersService {
       }
     }
 
-    const totalWithTip = taxResult.total + tipRupees + deliveryFee;
+    const totalWithTip = orderGrandTotal({
+      subtotal: taxResult.subtotal,
+      taxTotal: taxResult.taxTotal,
+      tipAmount: tipRupees,
+      deliveryFee,
+    });
     const initialStatus = dto.autoConfirm ? "confirmed" : "draft";
 
-    const order = await this.prisma.order.create({
-      data: {
-        organizationId: orgId,
-        outletId: dto.outletId,
-        orderNumber,
-        pickupCode,
-        type: type as never,
-        source: source as never,
-        status: initialStatus as never,
-        tableId: dto.tableId,
-        tableSessionId: dto.tableSessionId,
-        customerId: dto.customerId,
-        createdById: userId,
-        guestCount: dto.guestCount,
-        customerName: dto.customerName,
-        scheduledPickupAt: dto.scheduledPickupAt
-          ? new Date(dto.scheduledPickupAt)
-          : undefined,
-        notes: dto.notes,
-        subtotal: taxResult.subtotal,
-        taxTotal: taxResult.taxTotal,
-        tipAmount: tipRupees,
-        total: totalWithTip,
-        idempotencyKey: dto.idempotencyKey,
-        metadata: (() => {
-          const merged = {
-            ...(dto.metadata ?? {}),
-            ...(type === "delivery"
-              ? {
-                  deliveryAddress: dto.deliveryAddress,
-                  deliveryPincode: dto.deliveryPincode,
-                  deliveryFee,
-                  deliveryZoneId: deliveryQuote?.zoneId,
-                }
-              : {}),
-          };
-          return Object.keys(merged).length ? merged : undefined;
-        })(),
-        items: {
-          create: resolvedItems.map((item, index) => {
-            const lineSubtotal = item.unitPrice * item.quantity;
-            const taxAmount = taxResult.itemTaxes[index] ?? 0;
-            return {
-              menuItemId: item.menuItemId,
-              variantId: item.variantId,
-              name: item.name,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              taxAmount,
-              total: lineSubtotal + taxAmount,
-              notes: item.notes,
-              modifiers: item.modifiers ?? undefined,
+    const order = await this.withOrderNumber(dto.outletId, ({ orderNumber, pickupCode }) =>
+      this.prisma.order.create({
+        data: {
+          organizationId: orgId,
+          outletId: dto.outletId,
+          orderNumber,
+          pickupCode,
+          type: type as never,
+          source: source as never,
+          status: initialStatus as never,
+          tableId: dto.tableId,
+          tableSessionId: dto.tableSessionId,
+          customerId: dto.customerId,
+          createdById: userId,
+          guestCount: dto.guestCount,
+          customerName: dto.customerName,
+          scheduledPickupAt: dto.scheduledPickupAt
+            ? new Date(dto.scheduledPickupAt)
+            : undefined,
+          notes: dto.notes,
+          subtotal: taxResult.subtotal,
+          taxTotal: taxResult.taxTotal,
+          tipAmount: tipRupees,
+          total: totalWithTip,
+          idempotencyKey: dto.idempotencyKey,
+          metadata: (() => {
+            const merged = {
+              ...(dto.metadata ?? {}),
+              ...(hasAlcohol && dto.ageConfirmed === true ? { alcoholAgeConfirmed: true } : {}),
+              ...(type === "delivery"
+                ? {
+                    deliveryAddress: dto.deliveryAddress,
+                    deliveryPincode: dto.deliveryPincode,
+                    deliveryFee,
+                    deliveryZoneId: deliveryQuote?.zoneId,
+                  }
+                : {}),
             };
-          }),
-        },
-        timeline: {
-          create: { event: "order.created", metadata: { source: dto.source } },
-        },
-        taxLines: {
-          create: taxResult.taxLines.map((t) => ({
-            taxName: t.name,
-            rate: t.rate,
-            amount: t.amount,
-          })),
-        },
-        ...(type === "delivery" && deliveryQuote
-          ? {
-              deliveryOrder: {
-                create: {
-                  address: dto.deliveryAddress!.trim(),
-                  pincode: dto.deliveryPincode?.trim(),
-                  zoneId: deliveryQuote.zoneId,
-                  latitude: dto.deliveryLat,
-                  longitude: dto.deliveryLng,
-                  deliveryFee,
-                  estimatedAt: deliveryQuote.estimatedMinutes
-                    ? new Date(
-                        Date.now() + deliveryQuote.estimatedMinutes * 60_000,
-                      )
-                    : undefined,
+            return Object.keys(merged).length ? merged : undefined;
+          })(),
+          items: {
+            create: resolvedItems.map((item, index) => {
+              const lineSubtotal = item.unitPrice * item.quantity;
+              const taxAmount = taxResult.itemTaxes[index] ?? 0;
+              return {
+                menuItemId: item.menuItemId,
+                variantId: item.variantId,
+                name: item.name,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                taxAmount,
+                total: orderLineTotal(
+                  lineSubtotal,
+                  taxAmount,
+                  taxResult.itemInclusive[index] ?? false,
+                ),
+                notes: item.notes,
+                modifiers: item.modifiers ?? undefined,
+              };
+            }),
+          },
+          timeline: {
+            create: { event: "order.created", metadata: { source: dto.source } },
+          },
+          taxLines: {
+            create: taxResult.taxLines.map((t) => ({
+              taxName: t.name,
+              rate: t.rate,
+              amount: t.amount,
+            })),
+          },
+          ...(type === "delivery" && deliveryQuote
+            ? {
+                deliveryOrder: {
+                  create: {
+                    address: dto.deliveryAddress!.trim(),
+                    pincode: dto.deliveryPincode?.trim(),
+                    zoneId: deliveryQuote.zoneId,
+                    latitude: dto.deliveryLat,
+                    longitude: dto.deliveryLng,
+                    deliveryFee,
+                    estimatedAt: deliveryQuote.estimatedMinutes
+                      ? new Date(
+                          Date.now() + deliveryQuote.estimatedMinutes * 60_000,
+                        )
+                      : undefined,
+                  },
                 },
-              },
-            }
-          : {}),
-      },
-      include: {
-        items: { include: { menuItem: { select: { hsnCode: true } } } },
-        taxLines: true,
-        deliveryOrder: true,
-      },
-    });
+              }
+            : {}),
+        },
+        include: {
+          items: { include: { menuItem: { select: { hsnCode: true } } } },
+          taxLines: true,
+          deliveryOrder: true,
+        },
+      }),
+    );
 
     if (dto.tableId) {
       await this.prisma.table.update({
@@ -380,10 +605,27 @@ export class OrdersService {
       });
     }
 
-    let kot = null;
-    if (initialStatus === "confirmed") {
-      kot = await this.createKot(order);
+    if (internal.prepaid && Number(order.total) > 0) {
+      const method = await this.prisma.paymentMethod.upsert({
+        where: { code: internal.prepaid.methodCode },
+        update: { isActive: true },
+        create: { code: internal.prepaid.methodCode, name: internal.prepaid.methodName },
+      });
+      await this.prisma.payment.create({
+        data: {
+          organizationId: orgId,
+          orderId: order.id,
+          paymentMethodId: method.id,
+          amount: order.total,
+          status: "completed",
+          processedAt: new Date(),
+          reference: internal.prepaid.reference,
+          metadata: { kind: "prepaid", tender: internal.prepaid.tender ?? internal.prepaid.methodCode },
+        },
+      });
     }
+
+    const kots = initialStatus === "confirmed" ? await this.createKot(order) : [];
 
     let mapped = mapOrderToClient(order);
     if (dto.couponCode?.trim()) {
@@ -392,7 +634,7 @@ export class OrdersService {
       });
     }
     this.ws.emitToOutlet(dto.outletId, "order.updated", mapped);
-    if (kot) {
+    for (const kot of kots) {
       this.ws.emitToOutlet(dto.outletId, "kot.created", { order: mapped, kot });
     }
     return mapped;
@@ -402,10 +644,16 @@ export class OrdersService {
     orgId: string,
     orderId: string,
     items: IncomingOrderItem[],
+    options: AddItemsOptions = {},
   ) {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, organizationId: orgId },
-      include: { items: true },
+      include: {
+        items: true,
+        organization: {
+          select: { businessType: true, settings: { select: { settings: true } } },
+        },
+      },
     });
     if (!order) throw new NotFoundException("Order not found");
     if (["completed", "cancelled", "voided"].includes(order.status)) {
@@ -417,78 +665,108 @@ export class OrdersService {
       orgId,
       order.outletId,
       items,
+      {
+        publicOrder: Boolean(options.customerOrder),
+        happyHourRules: await loadActiveHappyHourRules(this.prisma, orgId, order.outletId),
+      },
     );
-
-    const taxForNew = await this.computeTax(orgId, resolvedItems);
+    const hasAlcohol = assertAlcoholRules(resolvedItems, order.organization, {
+      customerOrder: Boolean(options.customerOrder),
+      orderType: order.type,
+      ageConfirmed: options.ageConfirmed === true,
+    });
+    if (hasAlcohol && options.customerOrder) {
+      await this.prisma.order.update({
+        where: { id: order.id },
+        data: {
+          metadata: {
+            ...((order.metadata ?? {}) as Record<string, unknown>),
+            alcoholAgeConfirmed: true,
+          } as never,
+        },
+      });
+    }
 
     await this.prisma.orderItem.createMany({
-      data: resolvedItems.map((item, index) => {
-        const lineSubtotal = item.unitPrice * item.quantity;
-        const taxAmount = taxForNew.itemTaxes[index] ?? 0;
-        return {
-          orderId: order.id,
-          menuItemId: item.menuItemId,
-          variantId: item.variantId,
-          name: item.name,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          taxAmount,
-          total: lineSubtotal + taxAmount,
-          notes: item.notes,
-          modifiers: item.modifiers ?? undefined,
-        };
-      }),
-    });
-
-    const allItems = await this.prisma.orderItem.findMany({ where: { orderId } });
-    const recomputed = await this.computeTax(
-      orgId,
-      allItems.map((i) => ({
-        menuItemId: i.menuItemId,
-        variantId: i.variantId,
-        name: i.name,
-        quantity: i.quantity,
-        unitPrice: Number(i.unitPrice),
-        notes: i.notes,
-        modifiers: null,
-        taxGroupId: null,
+      data: resolvedItems.map((item) => ({
+        orderId: order.id,
+        menuItemId: item.menuItemId,
+        variantId: item.variantId,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        taxAmount: 0,
+        total: item.unitPrice * item.quantity,
+        notes: item.notes,
+        modifiers: item.modifiers ?? undefined,
       })),
-    );
-
-    // Prefer stored line tax totals when full tax groups are unavailable for historical rows.
-    const subtotal = allItems.reduce(
-      (s, i) => s + Number(i.unitPrice) * i.quantity,
-      0,
-    );
-    const taxTotal = allItems.reduce((s, i) => s + Number(i.taxAmount), 0);
-
-    const updated = await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        subtotal,
-        taxTotal,
-        total: subtotal + taxTotal + Number(order.tipAmount ?? 0),
-        timeline: {
-          create: { event: "order.items_added", metadata: { count: items.length } },
-        },
-        taxLines: {
-          deleteMany: {},
-          create: (recomputed.taxLines.length
-            ? recomputed.taxLines
-            : [{ name: "Tax", rate: 0, amount: taxTotal }]
-          ).map((t) => ({
-            taxName: t.name,
-            rate: t.rate,
-            amount: t.amount,
-          })),
-        },
-      },
-      include: { items: true },
     });
+    if (this.recipes) {
+      await this.recipes.deductNewOrderItems(orgId, order.id);
+    }
 
-    const mapped = mapOrderToClient(updated);
-    this.ws.emitToOutlet(order.outletId, "order.updated", mapped);
+    const mapped = await this.recomputeOrderFromItems(orgId, orderId, "order.items_added");
+    // Staff adds on an order already in the kitchen go straight to a new KOT; guest QR adds wait for submit.
+    if (!options.customerOrder && KITCHEN_ACTIVE_STATUSES.includes(order.status)) {
+      await this.createKotForOrder(orgId, order.id);
+    }
     return mapped;
+  }
+
+  /**
+   * Table merge: move the source order's lines onto the target as-is (no re-pricing, no new KOT,
+   * stock stays deducted) and cancel the emptied source.
+   */
+  async absorbOrder(orgId: string, sourceOrderId: string, targetOrderId: string) {
+    if (sourceOrderId === targetOrderId) return;
+    const [source, target] = await Promise.all([
+      this.prisma.order.findFirst({ where: { id: sourceOrderId, organizationId: orgId } }),
+      this.prisma.order.findFirst({ where: { id: targetOrderId, organizationId: orgId } }),
+    ]);
+    if (!source || !target) throw new NotFoundException("Order not found");
+    if (TERMINAL_ORDER_STATUSES.includes(source.status) || TERMINAL_ORDER_STATUSES.includes(target.status)) {
+      throw new BadRequestException("Cannot merge closed orders");
+    }
+    const paid = await this.prisma.payment.aggregate({
+      where: { orderId: source.id, status: "completed" },
+      _sum: { amount: true },
+    });
+    if (Number(paid._sum.amount ?? 0) > 0) {
+      throw new BadRequestException(
+        `Order ${source.orderNumber} already has payments — settle it before merging`,
+      );
+    }
+
+    // Stock movements are keyed to the order, so hand the source's deductions back and let the
+    // target re-deduct the moved lines under its own reference.
+    await this.releaseStock(orgId, source.id);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderItem.updateMany({
+        where: { orderId: source.id },
+        data: { orderId: target.id },
+      });
+      // Tickets already in the kitchen follow their lines so the KDS keeps cooking them.
+      await tx.kOT.updateMany({
+        where: { orderId: source.id },
+        data: { orderId: target.id },
+      });
+      await tx.order.update({
+        where: { id: source.id },
+        data: {
+          status: "cancelled",
+          notes: [source.notes, `Merged into ${target.orderNumber}`].filter(Boolean).join("\n"),
+          tableSessionId: null,
+          timeline: {
+            create: { event: "order.merged_into", metadata: { targetOrderId: target.id } },
+          },
+        },
+      });
+      await reverseOrderIncentives(tx, source.id);
+    });
+    if (this.recipes) {
+      await this.recipes.deductNewOrderItems(orgId, target.id);
+    }
+    return this.recomputeOrderFromItems(orgId, target.id, "order.merged");
   }
 
   async updateItem(
@@ -514,22 +792,12 @@ export class OrdersService {
       throw new BadRequestException("quantity must be at least 1");
     }
 
-    const qty = Math.floor(quantity);
-    const lineSubtotal = Number(existing.unitPrice) * qty;
-    const unitTax =
-      existing.quantity > 0 ? Number(existing.taxAmount) / existing.quantity : 0;
-    const taxAmount = Math.round(unitTax * qty);
-
     await this.prisma.orderItem.update({
       where: { id: itemId },
-      data: {
-        quantity: qty,
-        taxAmount,
-        total: lineSubtotal + taxAmount,
-      },
+      data: { quantity: Math.floor(quantity) },
     });
 
-    return this.recalculateOrderTotals(orgId, orderId, order.outletId, "order.item_updated");
+    return this.recomputeOrderFromItems(orgId, orderId, "order.item_updated");
   }
 
   async removeItem(orgId: string, orderId: string, itemId: string) {
@@ -546,68 +814,7 @@ export class OrdersService {
     if (!existing) throw new NotFoundException("Order item not found");
 
     await this.prisma.orderItem.delete({ where: { id: itemId } });
-    return this.recalculateOrderTotals(orgId, orderId, order.outletId, "order.item_removed");
-  }
-
-  private async recalculateOrderTotals(
-    orgId: string,
-    orderId: string,
-    outletId: string,
-    event: string,
-  ) {
-    const order = await this.prisma.order.findFirst({
-      where: { id: orderId, organizationId: orgId },
-    });
-    if (!order) throw new NotFoundException("Order not found");
-
-    const allItems = await this.prisma.orderItem.findMany({ where: { orderId } });
-    const recomputed = await this.computeTax(
-      orgId,
-      allItems.map((i) => ({
-        menuItemId: i.menuItemId,
-        variantId: i.variantId,
-        name: i.name,
-        quantity: i.quantity,
-        unitPrice: Number(i.unitPrice),
-        notes: i.notes,
-        modifiers: null,
-        taxGroupId: null,
-      })),
-    );
-
-    const subtotal = allItems.reduce(
-      (s, i) => s + Number(i.unitPrice) * i.quantity,
-      0,
-    );
-    const taxTotal = allItems.reduce((s, i) => s + Number(i.taxAmount), 0);
-
-    const updated = await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        subtotal,
-        taxTotal,
-        total: subtotal + taxTotal + Number(order.tipAmount ?? 0),
-        timeline: {
-          create: { event, metadata: {} },
-        },
-        taxLines: {
-          deleteMany: {},
-          create: (recomputed.taxLines.length
-            ? recomputed.taxLines
-            : [{ name: "Tax", rate: 0, amount: taxTotal }]
-          ).map((t) => ({
-            taxName: t.name,
-            rate: t.rate,
-            amount: t.amount,
-          })),
-        },
-      },
-      include: { items: true },
-    });
-
-    const mapped = mapOrderToClient(updated);
-    this.ws.emitToOutlet(outletId, "order.updated", mapped);
-    return mapped;
+    return this.recomputeOrderFromItems(orgId, orderId, "order.item_removed");
   }
 
   async confirm(orgId: string, orderId: string) {
@@ -626,23 +833,57 @@ export class OrdersService {
         status: "confirmed",
         timeline: { create: { event: "order.confirmed", metadata: {} } },
       },
-      include: { items: true },
+      include: ORDER_CLIENT_INCLUDE,
     });
 
-    const kot = await this.createKot(updated);
+    const kots = await this.createKot(updated);
     const mapped = mapOrderToClient(updated);
     this.ws.emitToOutlet(order.outletId, "order.updated", mapped);
-    this.ws.emitToOutlet(order.outletId, "kot.created", { order: mapped, kot });
+    for (const kot of kots) {
+      this.ws.emitToOutlet(order.outletId, "kot.created", { order: mapped, kot });
+    }
     return mapped;
   }
 
-  async updateStatus(orgId: string, orderId: string, status: string) {
-    const apiStatus = fromApiStatus(status);
+  async updateStatus(
+    orgId: string,
+    orderId: string,
+    status: string,
+    opts: { allowUnpaidComplete?: boolean } = {},
+  ) {
+    const apiStatus = normalizeOrderStatusFilter(status ?? "");
+    if (apiStatus === "cancelled") {
+      return this.cancel(orgId, orderId);
+    }
     const existing = await this.prisma.order.findFirst({
       where: { id: orderId, organizationId: orgId },
-      select: { status: true, readyAt: true, metadata: true },
+      select: { status: true, readyAt: true, metadata: true, total: true },
     });
     if (!existing) throw new NotFoundException("Order not found");
+    if (!canTransitionOrder(existing.status, apiStatus)) {
+      throw new BadRequestException(
+        `Cannot move order from ${existing.status} to ${apiStatus}`,
+      );
+    }
+    if (existing.status === apiStatus) {
+      const same = await this.prisma.order.findFirstOrThrow({
+        where: { id: orderId, organizationId: orgId },
+        include: ORDER_CLIENT_INCLUDE,
+      });
+      return mapOrderToClient(same);
+    }
+    const paid = await this.completedPaymentsTotal(orderId);
+    if (apiStatus === "completed" && !opts.allowUnpaidComplete) {
+      const outstanding = Math.round((Number(existing.total) - paid) * 100) / 100;
+      if (outstanding > 0) {
+        throw new BadRequestException(
+          `Order has ₹${outstanding.toFixed(2)} outstanding — take payment before completing`,
+        );
+      }
+    }
+    if (apiStatus === "voided" && paid > 0) {
+      throw new BadRequestException("Order has payments — refund them before voiding");
+    }
 
     const order = await this.prisma.order.update({
       where: { id: orderId, organizationId: orgId },
@@ -656,15 +897,26 @@ export class OrdersService {
           create: { event: "order.status_changed", metadata: { status } },
         },
       },
-      include: { items: true, table: true },
+      include: ORDER_CLIENT_INCLUDE,
     });
+
+    if (apiStatus === "completed" || apiStatus === "served" || apiStatus === "voided") {
+      await this.closeOpenKots(order.id, order.outletId, apiStatus === "voided" ? "cancelled" : "served");
+    }
 
     const shouldDeductStock =
       (apiStatus === "completed" || apiStatus === "served") &&
       existing.status !== "completed" &&
       existing.status !== "served";
     if (shouldDeductStock && this.recipes) {
-      await this.recipes.deductForOrder(orgId, order);
+      await this.recipes.deductForOrder(orgId, order.id);
+    }
+    if (apiStatus === "voided" && existing.status !== "voided") {
+      if (this.recipes) await this.recipes.restoreForOrder(orgId, order.id);
+      await this.prisma.$transaction((tx) => reverseOrderIncentives(tx, order.id));
+    }
+    if (apiStatus === "completed" || apiStatus === "voided") {
+      await this.releaseTableIfIdle(order);
     }
     const mapped = mapOrderToClient(order);
     this.ws.emitToOutlet(order.outletId, "order.updated", mapped);
@@ -707,34 +959,135 @@ export class OrdersService {
       where: { id: orderId, organizationId: orgId },
     });
     if (!existing) throw new NotFoundException("Order not found");
-    if (["completed", "cancelled", "voided"].includes(existing.status)) {
+    if (!canTransitionOrder(existing.status, "cancelled")) {
       throw new BadRequestException(`Cannot cancel order in status ${existing.status}`);
     }
+    if ((await this.completedPaymentsTotal(orderId)) > 0) {
+      throw new BadRequestException("Order has payments — refund them before cancelling");
+    }
 
-    const refundNote = notes?.trim() || "Cancelled / refund stub";
+    const refundNote = notes?.trim() || "Cancelled";
     const mergedNotes = [existing.notes, refundNote].filter(Boolean).join("\n");
 
-    const order = await this.prisma.order.update({
-      where: { id: orderId, organizationId: orgId },
-      data: {
-        status: "cancelled",
-        notes: mergedNotes,
-        timeline: {
-          create: {
-            event: "order.cancelled",
-            metadata: { notes: refundNote },
+    const order = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.order.updateMany({
+        where: { id: orderId, organizationId: orgId, status: existing.status },
+        data: { status: "cancelled", notes: mergedNotes },
+      });
+      if (claimed.count !== 1) {
+        throw new ConflictException("Order changed while cancelling — refresh and retry");
+      }
+      await reverseOrderIncentives(tx, orderId);
+      return tx.order.update({
+        where: { id: orderId },
+        data: {
+          timeline: {
+            create: {
+              event: "order.cancelled",
+              metadata: { notes: refundNote },
+            },
           },
         },
-      },
-      include: { items: true },
+        include: ORDER_CLIENT_INCLUDE,
+      });
     });
+    await this.closeOpenKots(order.id, order.outletId, "cancelled");
+    await this.releaseStock(orgId, order.id);
+    await this.releaseTableIfIdle(order);
     const mapped = mapOrderToClient(order);
     this.ws.emitToOutlet(order.outletId, "order.updated", mapped);
+    if (this.guestPush && order.customerId) {
+      void this.guestPush.notifyCustomerOrder(order.customerId, {
+        title: "Order cancelled",
+        body: `Order #${order.orderNumber}`,
+        data: { orderId: order.id, type: "order.status", status: "cancelled" },
+      });
+    }
     return mapped;
+  }
+
+  /** Free the table (and end its session) once the last open order on it closes. */
+  private async releaseTableIfIdle(order: { id: string; tableId: string | null; outletId: string }) {
+    if (!order.tableId) return;
+    const tableId = order.tableId;
+    const stillOpen = await this.prisma.order.count({
+      where: {
+        tableId,
+        id: { not: order.id },
+        status: { notIn: [...TERMINAL_STATUSES] as never },
+      },
+    });
+    if (stillOpen > 0) return;
+    const released = await this.prisma.$transaction(async (tx) => {
+      await tx.tableSession.updateMany({
+        where: { tableId, status: "active" },
+        data: { status: "closed", endedAt: new Date() },
+      });
+      await tx.table.updateMany({
+        where: { id: tableId, status: "occupied" },
+        data: { status: "available" },
+      });
+      return releaseMergedTables(tx, tableId, "available");
+    });
+    for (const id of [tableId, ...released]) {
+      this.ws.emitToOutlet(order.outletId, "table.updated", {
+        id,
+        outletId: order.outletId,
+        status: "AVAILABLE",
+      });
+    }
+  }
+
+  /** Return recipe stock already deducted for an order that will not be fulfilled. */
+  async releaseStock(orgId: string, orderId: string): Promise<boolean> {
+    if (!this.recipes) return false;
+    return this.recipes.restoreForOrder(orgId, orderId);
+  }
+
+  /** Move any still-open kitchen tickets for this order off the KDS (order is terminal). */
+  private async closeOpenKots(
+    orderId: string,
+    outletId: string,
+    target: "served" | "cancelled",
+  ) {
+    const open = await this.prisma.kOT.findMany({
+      where: { orderId, status: { in: ["pending", "preparing", "ready"] } },
+      select: { id: true },
+    });
+    if (open.length === 0) return;
+    const kotIds = open.map((k) => k.id);
+    await this.prisma.$transaction([
+      this.prisma.kOTItem.updateMany({
+        where: {
+          kotId: { in: kotIds },
+          status: { notIn: ["served", "cancelled"] },
+        },
+        data: { status: target },
+      }),
+      this.prisma.kOT.updateMany({
+        where: { id: { in: kotIds } },
+        data: { status: target },
+      }),
+    ]);
+    for (const kotId of kotIds) {
+      this.ws.emitToOutlet(outletId, "kot.updated", {
+        kotId,
+        orderId,
+        status: target === "served" ? "SERVED" : "CANCELLED",
+      });
+    }
   }
 
   async hold(orgId: string, orderId: string) {
     return this.updateStatus(orgId, orderId, "DRAFT");
+  }
+
+  private async completedPaymentsTotal(orderId: string): Promise<number> {
+    const paid = await this.prisma.payment.aggregate({
+      where: { orderId, status: "completed" },
+      _sum: { amount: true },
+    });
+    return Number(paid._sum.amount ?? 0);
   }
 
   async resume(orgId: string, orderId: string) {
@@ -766,61 +1119,87 @@ export class OrdersService {
     orderId: string,
     input: { discountAmount?: number; reason?: string; couponCode?: string },
   ) {
-    const order = await this.prisma.order.findFirst({
-      where: { id: orderId, organizationId: orgId },
-      include: { discounts: true },
-    });
-    if (!order) throw new NotFoundException("Order not found");
-    if (["completed", "cancelled", "voided"].includes(order.status)) {
-      throw new BadRequestException("Cannot discount a closed order");
-    }
-
-    let amount = Number(input.discountAmount ?? 0);
-    let couponId: string | null = null;
-    let type = "manual";
-    let value = amount;
-
-    if (input.couponCode?.trim()) {
-      const code = input.couponCode.trim().toUpperCase();
-      const coupon = await this.prisma.coupon.findFirst({
-        where: { organizationId: orgId, code, isActive: true },
-      });
-      if (!coupon) throw new NotFoundException("Coupon not found");
-      if (coupon.expiresAt && coupon.expiresAt < new Date()) {
-        throw new BadRequestException("Coupon expired");
-      }
-      if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
-        throw new BadRequestException("Coupon usage limit reached");
-      }
-      const base = Number(order.subtotal) + Number(order.taxTotal);
-      if (coupon.minOrder && base < Number(coupon.minOrder)) {
-        throw new BadRequestException(`Minimum order is ${coupon.minOrder}`);
-      }
-      amount =
-        coupon.type === "percent"
-          ? Math.round(base * (Number(coupon.value) / 100) * 100) / 100
-          : Number(coupon.value);
-      couponId = coupon.id;
-      type = "coupon";
-      value = Number(coupon.value);
-    }
-
-    if (!Number.isFinite(amount) || amount < 0) {
-      throw new BadRequestException("Invalid discount amount");
-    }
-
-    const discountTotal = Math.round((Number(order.discountTotal) + amount) * 100) / 100;
-    const meta = (order.metadata ?? {}) as Record<string, unknown>;
-    const deliveryFee = Number(meta.deliveryFee ?? 0);
-    const total = this.recalcOrderTotal(
-      Number(order.subtotal),
-      Number(order.taxTotal),
-      Number(order.tipAmount),
-      discountTotal,
-      deliveryFee,
-    );
-
     const updated = await this.prisma.$transaction(async (tx) => {
+      // Serialize discounts per order so concurrent requests can't double-apply or lose totals.
+      await tx.$queryRaw`SELECT id FROM orders WHERE id = ${orderId} AND organization_id = ${orgId} FOR UPDATE`;
+      const order = await tx.order.findFirst({
+        where: { id: orderId, organizationId: orgId },
+        include: { discounts: true },
+      });
+      if (!order) throw new NotFoundException("Order not found");
+      if (["completed", "cancelled", "voided"].includes(order.status)) {
+        throw new BadRequestException("Cannot discount a closed order");
+      }
+
+      let amount = Number(input.discountAmount ?? 0);
+      let couponId: string | null = null;
+      let type = "manual";
+      let value = amount;
+
+      if (input.couponCode?.trim()) {
+        const code = input.couponCode.trim().toUpperCase();
+        const coupon = await tx.coupon.findFirst({
+          where: { organizationId: orgId, code, isActive: true },
+        });
+        if (!coupon) throw new NotFoundException("Coupon not found");
+        const now = new Date();
+        if (coupon.startsAt && coupon.startsAt > now) {
+          throw new BadRequestException("Coupon not active yet");
+        }
+        if (coupon.expiresAt && coupon.expiresAt < now) {
+          throw new BadRequestException("Coupon expired");
+        }
+        if (order.discounts.some((d) => d.couponId === coupon.id)) {
+          throw new BadRequestException("Coupon already applied to this order");
+        }
+        const base = Number(order.subtotal) + Number(order.taxTotal);
+        if (coupon.minOrder && base < Number(coupon.minOrder)) {
+          throw new BadRequestException(`Minimum order is ${coupon.minOrder}`);
+        }
+        const claimed = await tx.coupon.updateMany({
+          where: {
+            id: coupon.id,
+            isActive: true,
+            ...(coupon.maxUses ? { usedCount: { lt: coupon.maxUses } } : {}),
+          },
+          data: { usedCount: { increment: 1 } },
+        });
+        if (claimed.count === 0) {
+          throw new BadRequestException("Coupon usage limit reached");
+        }
+        amount =
+          coupon.type === "percent"
+            ? Math.round(base * (Number(coupon.value) / 100) * 100) / 100
+            : Number(coupon.value);
+        couponId = coupon.id;
+        type = "coupon";
+        value = Number(coupon.value);
+      }
+
+      if (!Number.isFinite(amount) || amount < 0) {
+        throw new BadRequestException("Invalid discount amount");
+      }
+
+      const meta = (order.metadata ?? {}) as Record<string, unknown>;
+      const deliveryFee = Number(meta.deliveryFee ?? 0);
+      const billBeforeDiscounts =
+        Number(order.subtotal) + Number(order.taxTotal) + Number(order.tipAmount) + deliveryFee;
+      const headroom = Math.max(0, billBeforeDiscounts - Number(order.discountTotal));
+      if (type === "manual" && amount > headroom + 0.005) {
+        throw new BadRequestException("Discount cannot exceed the bill total");
+      }
+      amount = Math.round(Math.min(amount, headroom) * 100) / 100;
+      if (type === "manual") value = amount;
+
+      const discountTotal = Math.round((Number(order.discountTotal) + amount) * 100) / 100;
+      const total = this.recalcOrderTotal(
+        Number(order.subtotal),
+        Number(order.taxTotal),
+        Number(order.tipAmount),
+        discountTotal,
+        deliveryFee,
+      );
+
       await tx.orderDiscount.create({
         data: {
           orderId: order.id,
@@ -831,10 +1210,6 @@ export class OrdersService {
         },
       });
       if (couponId) {
-        await tx.coupon.update({
-          where: { id: couponId },
-          data: { usedCount: { increment: 1 } },
-        });
         await tx.couponUsage.create({
           data: {
             couponId,
@@ -858,12 +1233,12 @@ export class OrdersService {
             },
           },
         },
-        include: { items: true, discounts: true },
+        include: { ...ORDER_CLIENT_INCLUDE, discounts: true },
       });
     });
 
     const mapped = mapOrderToClient(updated);
-    this.ws.emitToOutlet(order.outletId, "order.updated", mapped);
+    this.ws.emitToOutlet(updated.outletId, "order.updated", mapped);
     return mapped;
   }
 
@@ -878,6 +1253,9 @@ export class OrdersService {
     if (!order) throw new NotFoundException("Order not found");
     if (["completed", "cancelled", "voided"].includes(order.status)) {
       throw new BadRequestException("Cannot split a closed order");
+    }
+    if ((await this.completedPaymentsTotal(order.id)) > 0) {
+      throw new BadRequestException("Cannot split an order that already has payments");
     }
 
     const moveItems = order.items.filter((i) => ids.includes(i.id));
@@ -901,67 +1279,71 @@ export class OrdersService {
     const parentTax = sumTax(remaining);
     const parentTotal = sumLine(remaining);
 
-    const count = await this.prisma.order.count({ where: { outletId: order.outletId } });
-    const orderNumber = String(count + 1).padStart(4, "0");
-    const pickupCode = await this.allocatePickupCode(order.outletId);
+    const childStockMetadata = splitStockMetadata(order.metadata, moveItems.map((i) => i.id));
 
-    const child = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.order.create({
-        data: {
-          organizationId: orgId,
-          outletId: order.outletId,
-          orderNumber,
-          pickupCode,
-          type: order.type,
-          source: order.source,
-          status: order.status,
-          tableId: order.tableId,
-          customerId: order.customerId,
-          createdById: userId ?? order.createdById,
-          customerName: order.customerName,
-          notes: `Split from ${order.orderNumber}`,
-          subtotal: childSub,
-          taxTotal: childTax,
-          tipAmount: 0,
-          discountTotal: 0,
-          total: childTotal,
-          timeline: {
-            create: { event: "order.split_from", metadata: { parentOrderId: order.id } },
-          },
-        },
-      });
-
-      for (const item of moveItems) {
-        await tx.orderItem.update({
-          where: { id: item.id },
-          data: { orderId: created.id },
-        });
-      }
-
-      await tx.order.update({
-        where: { id: order.id },
-        data: {
-          subtotal: parentSub,
-          taxTotal: parentTax,
-          total: parentTotal,
-          timeline: {
-            create: {
-              event: "order.split",
-              metadata: { childOrderId: created.id, itemIds: ids },
+    const child = await this.withOrderNumber(order.outletId, ({ orderNumber, pickupCode }) =>
+      this.prisma.$transaction(async (tx) => {
+        const created = await tx.order.create({
+          data: {
+            organizationId: orgId,
+            outletId: order.outletId,
+            orderNumber,
+            pickupCode,
+            type: order.type,
+            source: order.source,
+            status: order.status,
+            tableId: order.tableId,
+            customerId: order.customerId,
+            createdById: userId ?? order.createdById,
+            customerName: order.customerName,
+            notes: `Split from ${order.orderNumber}`,
+            subtotal: childSub,
+            taxTotal: childTax,
+            tipAmount: 0,
+            discountTotal: 0,
+            total: childTotal,
+            ...(childStockMetadata ? { metadata: childStockMetadata } : {}),
+            timeline: {
+              create: { event: "order.split_from", metadata: { parentOrderId: order.id } },
             },
           },
-        },
-      });
+        });
 
-      return tx.order.findFirstOrThrow({
-        where: { id: created.id },
-        include: { items: true },
-      });
-    });
+        for (const item of moveItems) {
+          await tx.orderItem.update({
+            where: { id: item.id },
+            data: { orderId: created.id },
+          });
+        }
 
-    const parent = await this.get(orgId, orderId);
-    const childMapped = mapOrderToClient(child);
-    this.ws.emitToOutlet(order.outletId, "order.updated", parent);
+        await tx.order.update({
+          where: { id: order.id },
+          data: {
+            subtotal: parentSub,
+            taxTotal: parentTax,
+            total: parentTotal,
+            timeline: {
+              create: {
+                event: "order.split",
+                metadata: { childOrderId: created.id, itemIds: ids },
+              },
+            },
+          },
+        });
+
+        return tx.order.findFirstOrThrow({
+          where: { id: created.id },
+          include: { items: true },
+        });
+      }),
+    );
+
+    const parent = await this.recomputeOrderFromItems(orgId, orderId, "order.totals_recomputed");
+    const childMapped = await this.recomputeOrderFromItems(
+      orgId,
+      child.id,
+      "order.totals_recomputed",
+    );
     this.ws.emitToOutlet(order.outletId, "order.created", childMapped);
     return { original: parent, split: childMapped };
   }
@@ -987,7 +1369,7 @@ export class OrdersService {
     const cutoff = new Date(Date.now() - READY_TTL_MS);
 
     // Auto-advance Ready orders that have been on the board longer than 10 minutes.
-    await this.prisma.order.updateMany({
+    const stale = await this.prisma.order.findMany({
       where: {
         organizationId: orgId,
         outletId,
@@ -997,8 +1379,24 @@ export class OrdersService {
           { readyAt: null, updatedAt: { lt: cutoff } },
         ],
       },
-      data: { status: "served" },
+      select: { id: true },
     });
+    if (stale.length) {
+      const staleIds = stale.map((o) => o.id);
+      await this.prisma.order.updateMany({
+        where: { id: { in: staleIds }, organizationId: orgId, status: "ready" },
+        data: { status: "served" },
+      });
+      if (this.recipes) {
+        for (const id of staleIds) {
+          try {
+            await this.recipes.deductForOrder(orgId, id);
+          } catch (err) {
+            this.logger.error(`Stock deduction failed for auto-served order ${id}`, err as Error);
+          }
+        }
+      }
+    }
 
     const orders = await this.prisma.order.findMany({
       where: {
@@ -1038,41 +1436,122 @@ export class OrdersService {
       return mapOrderToClient(order);
     }
 
-    const kot = await this.prisma.kOT.create({
-      data: {
-        orderId: order.id,
-        kotNumber: `K${order.orderNumber}-${order.kots.length + 1}`,
-        status: "pending",
-        items: {
-          create: newItems.map((item) => ({
-            orderItemId: item.id,
-            status: "pending",
-          })),
-        },
-      },
-      include: { items: true },
-    });
+    const kots = await this.createStationKots(
+      order,
+      newItems.map((i) => i.id),
+      `K${order.orderNumber}-${order.kots.length + 1}`,
+    );
 
     const mapped = mapOrderToClient(order);
-    this.ws.emitToOutlet(order.outletId, "kot.created", { order: mapped, kot });
+    for (const kot of kots) {
+      this.ws.emitToOutlet(order.outletId, "kot.created", { order: mapped, kot });
+    }
     return mapped;
   }
 
-  private async createKot(order: { id: string; orderNumber: string; items: { id: string }[] }) {
-    return this.prisma.kOT.create({
-      data: {
-        orderId: order.id,
-        kotNumber: `K${order.orderNumber}`,
-        status: "pending",
-        items: {
-          create: order.items.map((item) => ({
-            orderItemId: item.id,
-            status: "pending",
-          })),
+  /** KOT only the lines not already on a ticket, so hold → resume never re-sends to the kitchen. */
+  private async createKot(order: {
+    id: string;
+    orderNumber: string;
+    outletId: string;
+    items: { id: string }[];
+  }) {
+    const [sent, kotCount] = await Promise.all([
+      this.prisma.kOTItem.findMany({
+        where: { orderItemId: { in: order.items.map((i) => i.id) } },
+        select: { orderItemId: true },
+      }),
+      this.prisma.kOT.count({ where: { orderId: order.id } }),
+    ]);
+    const sentIds = new Set(sent.map((s) => s.orderItemId));
+    return this.createStationKots(
+      order,
+      order.items.map((i) => i.id).filter((id) => !sentIds.has(id)),
+      kotCount ? `K${order.orderNumber}-${kotCount + 1}` : `K${order.orderNumber}`,
+    );
+  }
+
+  /** One KOT per kitchen station (category `kitchenStationCode`, else BAR for alcohol); unrouted items share the default ticket. */
+  private async createStationKots(
+    order: { id: string; outletId: string },
+    orderItemIds: string[],
+    baseNumber: string,
+  ) {
+    if (orderItemIds.length === 0) return [];
+    const [rows, stations] = await Promise.all([
+      this.prisma.orderItem.findMany({
+        where: { id: { in: orderItemIds }, orderId: order.id },
+        select: {
+          id: true,
+          menuItem: {
+            select: {
+              productType: true,
+              category: { select: { kitchenStationCode: true } },
+            },
+          },
         },
-      },
-      include: { items: true },
-    });
+      }),
+      this.prisma.kitchenStation.findMany({
+        where: { outletId: order.outletId },
+        select: { id: true, code: true },
+      }),
+    ]);
+    const codeById = new Map(
+      rows.map((r) => [
+        r.id,
+        stationCodeFor(r.menuItem?.category?.kitchenStationCode, r.menuItem?.productType),
+      ]),
+    );
+    const groups = groupItemsByStation(
+      orderItemIds.map((id) => ({ id, stationCode: codeById.get(id) ?? null })),
+      stations,
+    );
+
+    const kots = [];
+    for (const group of groups) {
+      kots.push(
+        await this.prisma.kOT.create({
+          data: {
+            orderId: order.id,
+            kitchenStationId: group.stationId,
+            kotNumber: kotNumberFor(baseNumber, group),
+            status: "pending",
+            items: {
+              create: group.itemIds.map((orderItemId) => ({
+                orderItemId,
+                status: "pending",
+              })),
+            },
+          },
+          include: { items: true },
+        }),
+      );
+    }
+    return kots;
+  }
+
+  /** Runs `create` with a fresh order number / pickup code, retrying on unique collisions. */
+  private async withOrderNumber<T>(
+    outletId: string,
+    create: (numbers: { orderNumber: string; pickupCode: string }) => Promise<T>,
+  ): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      const [count, latest] = await Promise.all([
+        this.prisma.order.count({ where: { outletId } }),
+        this.prisma.order.findFirst({
+          where: { outletId },
+          orderBy: { createdAt: "desc" },
+          select: { orderNumber: true },
+        }),
+      ]);
+      const orderNumber = nextOrderNumberCandidate(count, latest?.orderNumber, attempt);
+      const pickupCode = await this.allocatePickupCode(outletId);
+      try {
+        return await create({ orderNumber, pickupCode });
+      } catch (err) {
+        if (attempt + 1 >= ORDER_NUMBER_MAX_ATTEMPTS || !isOrderNumberCollision(err)) throw err;
+      }
+    }
   }
 
   private async allocatePickupCode(outletId: string): Promise<string> {
@@ -1087,7 +1566,7 @@ export class OrdersService {
     throw new BadRequestException("Could not allocate pickup code");
   }
 
-  async sendEbill(orgId: string, orderId: string, channel: "email" | "sms") {
+  async sendEbill(orgId: string, orderId: string, channel: "email" | "sms" | "whatsapp") {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, organizationId: orgId },
       include: {
@@ -1123,30 +1602,101 @@ export class OrdersService {
       const to = order.customer?.email?.trim();
       if (!to) throw new BadRequestException("Order has no customer email");
       if (!this.mail) throw new BadRequestException("Mail service unavailable");
+      const tpl = buildReceiptEmail({
+        orderNumber: order.orderNumber,
+        bodyText: body,
+      });
       const sent = await this.mail.sendMail({
         to,
-        subject: `Your receipt · #${order.orderNumber}`,
-        text: body,
-        html: body
-          .split("\n")
-          .map((l) => (l.trim() ? `<p>${l}</p>` : "<br/>"))
-          .join(""),
+        subject: tpl.subject,
+        text: tpl.text,
+        html: tpl.html,
       });
       return { success: sent, channel: "email" as const };
+    }
+
+    if (channel === "whatsapp") {
+      const phone = order.customer?.phone?.trim();
+      if (!phone) throw new BadRequestException("Order has no customer phone");
+      if (!this.whatsapp) throw new BadRequestException("WhatsApp service unavailable");
+
+      const settingsRow = await this.prisma.organizationSettings.findUnique({
+        where: { organizationId: orgId },
+        select: { settings: true },
+      });
+      const orgSettings = (settingsRow?.settings ?? {}) as Record<string, unknown>;
+      if (orgSettings.whatsappReceiptsEnabled !== true) {
+        throw new BadRequestException(
+          "WhatsApp receipts are disabled. Enable them under Settings, and ensure your portal wallet has balance.",
+        );
+      }
+      if (!this.wallet) throw new BadRequestException("Wallet service unavailable");
+      if (!this.whatsapp.isReceiptTemplateConfigured()) {
+        throw new BadRequestException(
+          "WhatsApp e-bills need an approved template. Ask platform support to configure it.",
+        );
+      }
+      const wallet = this.wallet;
+      const whatsapp = this.whatsapp;
+      const reservation = await wallet.reserveCharge(orgId, "whatsapp", 1, {
+        referenceType: "ebill",
+        referenceId: order.id,
+        note: `WhatsApp e-bill order #${order.orderNumber}`,
+      });
+      let result: { sent: boolean; messageId?: string } = { sent: false };
+      let chargedPaise = reservation?.amountPaise ?? 0;
+      try {
+        result = await whatsapp.sendReceiptAndThankYou({
+          phone,
+          orderNumber: order.orderNumber,
+          total: Number(order.total),
+          outletName: order.outlet?.name,
+          feedbackUrl,
+        });
+      } finally {
+        chargedPaise = await wallet.settleReservation(orgId, reservation, 1, result.sent ? 1 : 0);
+      }
+      return {
+        success: result.sent,
+        channel: "whatsapp" as const,
+        messageId: result.messageId,
+        chargedPaise,
+      };
     }
 
     const phone = order.customer?.phone?.trim();
     if (!phone) throw new BadRequestException("Order has no customer phone");
     if (!this.sms) throw new BadRequestException("SMS service unavailable");
-    const result = await this.sms.sendCampaignSms(
-      [phone],
-      `Cullinos #${order.orderNumber} ₹${Number(order.total).toFixed(2)}${feedbackUrl ? ` Feedback: ${feedbackUrl}` : ""}`,
-    );
+    if (!this.wallet) throw new BadRequestException("Wallet service unavailable");
+    const message = smsEbill({
+      orderNumber: order.orderNumber,
+      total: Number(order.total),
+      feedbackUrl,
+    });
+    const units = smsSegments(message);
+    const reservation = await this.wallet.reserveCharge(orgId, "sms", units, {
+      referenceType: "ebill",
+      referenceId: order.id,
+      note: `SMS e-bill order #${order.orderNumber}`,
+    });
+    let result = { sent: 0, failed: 1 };
+    let chargedPaise = reservation?.amountPaise ?? 0;
+    try {
+      result = await this.sms.sendCampaignSms([phone], message);
+    } finally {
+      chargedPaise = await this.wallet.settleReservation(
+        orgId,
+        reservation,
+        units,
+        result.sent > 0 ? units : 0,
+      );
+    }
     return {
       success: result.sent > 0,
       channel: "sms" as const,
       sent: result.sent,
       failed: result.failed,
+      chargedPaise,
     };
   }
 
@@ -1174,4 +1724,41 @@ export class OrdersService {
     if (tableId) return "dine_in";
     return "takeaway";
   }
+}
+
+type AlcoholOrg =
+  | { businessType: BusinessType | null; settings?: { settings: unknown } | null }
+  | null
+  | undefined;
+
+/**
+ * Drinks need an org that serves alcohol (POS too). Customer orders must also be
+ * dine-in / table QR and carry an age confirmation. Returns whether any line is alcohol.
+ */
+function assertAlcoholRules(
+  items: Array<{ productType?: string | null }>,
+  org: AlcoholOrg,
+  opts: { customerOrder: boolean; orderType: string; ageConfirmed: boolean },
+): boolean {
+  if (!items.some((i) => isAlcoholProductType(i.productType))) return false;
+  if (!orgServesAlcohol(org?.businessType ?? null, org?.settings?.settings)) {
+    throw new BadRequestException("This restaurant does not serve alcohol");
+  }
+  if (opts.customerOrder) {
+    if (!(ALCOHOL_CUSTOMER_ORDER_TYPES as readonly string[]).includes(opts.orderType)) {
+      throw new BadRequestException("Drinks can only be ordered for dine-in");
+    }
+    if (!opts.ageConfirmed) {
+      throw new BadRequestException("Please confirm you are of legal drinking age to order drinks");
+    }
+  }
+  return true;
+}
+
+function parseDateFilter(value: string, field: string): Date {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new BadRequestException(`Invalid ${field} date`);
+  }
+  return date;
 }

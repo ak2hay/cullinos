@@ -6,6 +6,7 @@ metadata:
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: production-security-headers@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:
@@ -15,8 +16,10 @@ spec:
         - admin.cullinos.com
         - manage.cullinos.com
         - platform.cullinos.com
+        - app.cullinos.com
         - pos.cullinos.com
         - kds.cullinos.com
+        - kiosk.cullinos.com
         - guest.cullinos.com
         - waiter.cullinos.com
         - cullinos.com
@@ -62,6 +65,16 @@ spec:
                 name: spa-super-admin
                 port:
                   number: 80
+    - host: app.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-app-ops
+                port:
+                  number: 80
     - host: pos.cullinos.com
       http:
         paths:
@@ -80,6 +93,16 @@ spec:
             backend:
               service:
                 name: spa-kds
+                port:
+                  number: 80
+    - host: kiosk.cullinos.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spa-kiosk
                 port:
                   number: 80
     - host: guest.cullinos.com

@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main, develop]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -36,6 +39,7 @@ jobs:
       JWT_SECRET: test-jwt-secret-for-ci
       JWT_REFRESH_SECRET: test-jwt-refresh-secret-for-ci
       SUPER_ADMIN_JWT_SECRET: test-super-admin-secret-for-ci
+      VITE_API_URL: http://localhost:3001/api/v1
       NODE_ENV: test
 
     steps:
@@ -43,7 +47,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - run: npm ci
@@ -51,11 +55,25 @@ jobs:
       - name: Generate Prisma client
         run: npm run db:generate
 
-      - name: Push database schema
-        run: npm run db:push
+      - name: Apply migrations
+        run: npm run db:migrate:deploy
+
+      - name: Migrations match schema.prisma (drift check)
+        run: |
+          npx prisma migrate diff \
+            --from-url "$DATABASE_URL" \
+            --to-schema-datamodel packages/prisma/prisma/schema.prisma \
+            --exit-code \
+            || { echo "::error::schema.prisma has changes without a migration. Run: npx prisma migrate dev --schema packages/prisma/prisma/schema.prisma --name <change>"; exit 1; }
+
+      - name: Build packages the seed imports
+        run: npm run build -w @cullinos/shared
 
       - name: Seed database
         run: npm run db:seed
+
+      - name: Lint
+        run: npm run lint
 
       - name: Typecheck
         run: npm run typecheck
@@ -65,3 +83,31 @@ jobs:
 
       - name: Test
         run: npm run test
+
+  flutter:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [guest, waiter_mobile]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test
+
+  images:
+    if: github.event_name == 'push'
+    needs: [build, flutter]
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-images.yml
+    secrets: inherit

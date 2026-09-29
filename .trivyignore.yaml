@@ -1,0 +1,49 @@
+# Accepted Trivy findings. Every entry is path-scoped and states why it is accepted.
+# Revisit the KSV-0014 entries once staging can exercise read-only root filesystems.
+
+misconfigurations:
+  - id: KSV-0014
+    paths:
+      - "infrastructure/k8s/base/api.yaml"
+    statement: >-
+      NestJS API writes temp files (sharp image processing, multer uploads) outside the
+      uploads volume. Needs scratch volumes verified on staging before enabling a read-only root.
+  - id: KSV-0014
+    paths:
+      - "infrastructure/k8s/base/web.yaml"
+    statement: >-
+      Next.js writes its image and fetch cache under .next/cache at runtime. Needs a
+      cache volume verified on staging before enabling a read-only root.
+  - id: KSV-0014
+    paths:
+      - "infrastructure/k8s/base/postgres.yaml"
+    statement: >-
+      The postgres image writes its socket and lock files to /var/run/postgresql and
+      initialises through its entrypoint as root. Not changed without a staging test.
+  - id: KSV-0014
+    paths:
+      - "infrastructure/k8s/jobs/db-migrate.yaml"
+      - "infrastructure/k8s/overlays/production/backup-cronjob.yaml"
+    statement: >-
+      Short-lived migration and backup jobs run the Prisma CLI and pg_dump, which write
+      temp files. Not changed without a staging test.
+  - id: KSV-0014
+    paths:
+      - "infrastructure/k8s/overlays/staging/resources-patch.yaml"
+    statement: >-
+      Kustomize strategic-merge patch that only sets resources. Trivy scans it as a
+      standalone manifest; the rendered Deployments keep the base security contexts.
+  - id: KSV-0118
+    paths:
+      - "infrastructure/k8s/overlays/staging/resources-patch.yaml"
+    statement: >-
+      Kustomize strategic-merge patch that only sets resources. Trivy scans it as a
+      standalone manifest; the rendered Deployments keep the base pod security contexts.
+
+vulnerabilities:
+  - id: CVE-2026-41907
+    statement: >-
+      uuid < 11.1.1 bounds check in v3/v5/v6 when a caller passes a buffer. Remaining copies
+      are uuid 9 under the optional @google-cloud/storage (firebase-admin; the API never
+      imports firebase-admin/storage) and uuid 8 under the dev-only exceljs. Neither calls
+      v3/v5/v6 with a buffer.

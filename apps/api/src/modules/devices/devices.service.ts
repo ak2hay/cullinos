@@ -5,6 +5,8 @@ import {
 } from "@nestjs/common";
 import { randomBytes } from "crypto";
 import { PrismaService } from "../../prisma/prisma.service";
+import { assertPlanCapacity } from "../../common/plan-limits.util";
+import { RedisService } from "../../common/redis/redis.service";
 import {
   DEFAULT_KOT_PROFILE,
   DEFAULT_RECEIPT_PROFILE,
@@ -14,6 +16,7 @@ import {
 } from "./print-profile.types";
 
 const DEVICE_TYPES = ["pos", "kds", "printer", "gateway", "scanner", "other"] as const;
+const PRINT_JOB_STATUSES: readonly string[] = ["pending", "sent", "failed", "done"];
 
 type PairingSession = {
   orgId: string;
@@ -23,7 +26,30 @@ type PairingSession = {
   expiresAt: number;
 };
 
+const PAIRING_TTL_MS = 10 * 60_000;
+const PAIRING_KEY_PREFIX = "device-pairing:";
+/** Fallback when Redis is not configured (single-process dev/test). */
 const pairingSessions = new Map<string, PairingSession>();
+
+function normalizeProfile(
+  profile: PrintProfile,
+  kind: PrintProfileKind,
+  outletId: string,
+): PrintProfile {
+  const defaults =
+    kind === "receipt"
+      ? DEFAULT_RECEIPT_PROFILE(outletId)
+      : DEFAULT_KOT_PROFILE(outletId);
+  return {
+    ...defaults,
+    ...profile,
+    kind,
+    outletId,
+    copies: Math.min(3, Math.max(1, profile.copies ?? defaults.copies)),
+    enabled: profile.enabled ?? defaults.enabled,
+    logoUrl: profile.logoUrl ?? defaults.logoUrl ?? null,
+  };
+}
 
 function isSystemDeviceName(name: string): boolean {
   return (
@@ -34,7 +60,10 @@ function isSystemDeviceName(name: string): boolean {
 
 @Injectable()
 export class DevicesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private redis: RedisService,
+  ) {}
 
   list(orgId: string, opts?: { includeVirtual?: boolean }) {
     return this.prisma.device
@@ -106,6 +135,7 @@ export class DevicesService {
     }
 
     await this.assertUniqueName(orgId, name);
+    if (type === "pos") await assertPlanCapacity(this.prisma, orgId, "terminals");
 
     return this.prisma.device.create({
       data: {
@@ -153,6 +183,9 @@ export class DevicesService {
           `type must be one of: ${DEVICE_TYPES.join(", ")}`,
         );
       }
+      if (type === "pos" && device.type !== "pos") {
+        await assertPlanCapacity(this.prisma, orgId, "terminals");
+      }
     }
 
     if (data.outletId) {
@@ -191,8 +224,24 @@ export class DevicesService {
     return { ok: true };
   }
 
+  /** Single use: the code is removed as it is read. */
+  private async takePairingSession(code: string): Promise<PairingSession | null> {
+    if (this.redis.client) {
+      const raw = await this.redis.client.getdel(`${PAIRING_KEY_PREFIX}${code}`);
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw) as PairingSession;
+      } catch {
+        return null;
+      }
+    }
+    const session = pairingSessions.get(code) ?? null;
+    pairingSessions.delete(code);
+    return session;
+  }
+
   /** Create a short-lived pairing code for QR / manual claim. */
-  createPairingSession(
+  async createPairingSession(
     orgId: string,
     body: { type?: string; outletId?: string; nameHint?: string },
   ) {
@@ -203,13 +252,18 @@ export class DevicesService {
       );
     }
     const code = randomBytes(3).toString("hex").toUpperCase();
-    pairingSessions.set(code, {
+    const session: PairingSession = {
       orgId,
       type,
       outletId: body.outletId,
       nameHint: body.nameHint,
-      expiresAt: Date.now() + 10 * 60_000,
-    });
+      expiresAt: Date.now() + PAIRING_TTL_MS,
+    };
+    if (this.redis.client) {
+      await this.redis.setJson(`${PAIRING_KEY_PREFIX}${code}`, session, PAIRING_TTL_MS);
+    } else {
+      pairingSessions.set(code, session);
+    }
     return {
       code,
       expiresInSeconds: 600,
@@ -223,12 +277,10 @@ export class DevicesService {
   ) {
     const code = body.code?.trim().toUpperCase();
     if (!code) throw new BadRequestException("code is required");
-    const session = pairingSessions.get(code);
+    const session = await this.takePairingSession(code);
     if (!session || session.orgId !== orgId || session.expiresAt < Date.now()) {
-      pairingSessions.delete(code);
       throw new BadRequestException("Invalid or expired pairing code");
     }
-    pairingSessions.delete(code);
 
     const name =
       body.name?.trim() ||
@@ -266,6 +318,24 @@ export class DevicesService {
       payloadSummary?: string;
     },
   ) {
+    if (data.outletId) await this.requireOutlet(orgId, data.outletId);
+    if (data.deviceId) {
+      const device = await this.prisma.device.findFirst({
+        where: { id: data.deviceId, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!device) throw new NotFoundException("Device not found");
+    }
+    if (data.orderId) {
+      const order = await this.prisma.order.findFirst({
+        where: { id: data.orderId, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!order) throw new NotFoundException("Order not found");
+    }
+    if (data.status && !PRINT_JOB_STATUSES.includes(data.status)) {
+      throw new BadRequestException("Invalid print job status");
+    }
     return this.prisma.printJob.create({
       data: {
         organizationId: orgId,
@@ -304,6 +374,9 @@ export class DevicesService {
       where: { id, organizationId: orgId },
     });
     if (!job) throw new NotFoundException("Print job not found");
+    if (data.status && !PRINT_JOB_STATUSES.includes(data.status)) {
+      throw new BadRequestException("Invalid print job status");
+    }
     return this.prisma.printJob.update({
       where: { id },
       data: {
@@ -319,8 +392,16 @@ export class DevicesService {
     const metadata = (store.metadata ?? {}) as DeviceMetadata;
     return {
       outletId,
-      receipt: metadata.printProfiles?.receipt ?? DEFAULT_RECEIPT_PROFILE(outletId),
-      kot: metadata.printProfiles?.kot ?? DEFAULT_KOT_PROFILE(outletId),
+      receipt: normalizeProfile(
+        metadata.printProfiles?.receipt ?? DEFAULT_RECEIPT_PROFILE(outletId),
+        "receipt",
+        outletId,
+      ),
+      kot: normalizeProfile(
+        metadata.printProfiles?.kot ?? DEFAULT_KOT_PROFILE(outletId),
+        "kot",
+        outletId,
+      ),
     };
   }
 
@@ -352,9 +433,12 @@ export class DevicesService {
       paperWidthMm: patch.paperWidthMm ?? current.paperWidthMm,
       fontSize: patch.fontSize ?? current.fontSize,
       showLogo: patch.showLogo ?? current.showLogo,
+      logoUrl:
+        patch.logoUrl !== undefined ? patch.logoUrl : (current.logoUrl ?? null),
       showTaxBreakdown: patch.showTaxBreakdown ?? current.showTaxBreakdown,
-      copies: patch.copies ?? current.copies,
+      copies: Math.min(3, Math.max(1, patch.copies ?? current.copies ?? 1)),
       cutPaper: patch.cutPaper ?? current.cutPaper,
+      enabled: patch.enabled ?? current.enabled ?? kind === "receipt",
     };
 
     const printProfiles = {
@@ -380,6 +464,7 @@ export class DevicesService {
 
   /** Upsert a virtual display device row and stamp lastSeenAt. */
   async upsertDisplayHeartbeat(orgId: string, outletId: string, mode: string) {
+    await this.requireOutlet(orgId, outletId);
     const name = `__display:${mode}__`;
     const existing = await this.prisma.device.findFirst({
       where: { organizationId: orgId, outletId, name },

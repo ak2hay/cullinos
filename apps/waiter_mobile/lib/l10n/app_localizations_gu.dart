@@ -299,4 +299,77 @@ class AppLocalizationsGu extends AppLocalizations {
 
   @override
   String get allFloors => 'All floors';
+
+  @override
+  String get portalDisabledTitle => 'વેઇટર ઍપ બંધ છે';
+
+  @override
+  String get portalDisabledBody =>
+      'Cullinos એ વેઇટર ઍપ હંગામી ધોરણે બંધ કરી છે. કૃપા કરીને તમારા મેનેજરનો સંપર્ક કરો અથવા એડમિન પોર્ટલનો ઉપયોગ કરો.';
+
+  @override
+  String get portalMaintenanceLabel => 'MAINTENANCE';
+
+  @override
+  String get portalMaintenanceTitle => 'Waiter app is under maintenance';
+
+  @override
+  String get portalMaintenanceBody =>
+      'Cullinos is performing maintenance on the waiter app. Please try again shortly.';
+
+  @override
+  String get checkAgain => 'ફરી તપાસો';
+
+  @override
+  String get mergeStepPrimary => 'સ્ટેપ 1/2: મુખ્ય ટેબલ પસંદ કરો';
+
+  @override
+  String mergeStepSecondary(String table) {
+    return 'સ્ટેપ 2/2: $table માં મર્જ કરવાનું ટેબલ પસંદ કરો';
+  }
+
+  @override
+  String get transferStepSource => 'સ્ટેપ 1/2: ખસેડવાનું ટેબલ પસંદ કરો';
+
+  @override
+  String transferStepTarget(String table) {
+    return 'સ્ટેપ 2/2: $table માટે ખાલી ટેબલ પસંદ કરો';
+  }
+
+  @override
+  String mergedWith(String table) {
+    return '$table સાથે મર્જ';
+  }
+
+  @override
+  String get primaryTag => 'મુખ્ય';
+
+  @override
+  String get fromTag => 'થી';
+
+  @override
+  String confirmMerge(String secondary, String primary) {
+    return '$secondary ને $primary માં મર્જ કરવું?';
+  }
+
+  @override
+  String confirmTransfer(String from, String to) {
+    return '$from ને $to પર ખસેડવું?';
+  }
+
+  @override
+  String get confirm => 'કન્ફર્મ';
+
+  @override
+  String get unmerge => 'અનમર્જ';
+
+  @override
+  String openTable(String table) {
+    return '$table ખોલો';
+  }
+
+  @override
+  String mergedTableHint(String table) {
+    return 'આ ટેબલનો ઓર્ડર અને બિલ $table પર છે.';
+  }
 }

@@ -10,6 +10,7 @@ import {
   useToast,
 } from '@cullinos/ui';
 import { inventoryApi, purchasingApi, type PurchaseOrderRow } from '@/lib/api';
+import { formatPackDefinition, hasPack, packPurchaseLine } from '@/lib/inventory-packs';
 
 export function PurchasingPage() {
   const queryClient = useQueryClient();
@@ -20,6 +21,7 @@ export function PurchasingPage() {
   const [inventoryItemId, setInventoryItemId] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [unitPrice, setUnitPrice] = useState('0');
+  const [inPacks, setInPacks] = useState(false);
 
   const poQuery = useQuery({
     queryKey: ['purchasing'],
@@ -44,6 +46,7 @@ export function PurchasingPage() {
       setInventoryItemId('');
       setQuantity('1');
       setUnitPrice('0');
+      setInPacks(false);
       queryClient.invalidateQueries({ queryKey: ['purchasing'] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -80,6 +83,13 @@ export function PurchasingPage() {
 
   const suppliers = suppliersQuery.data ?? [];
   const inventoryItems = inventoryQuery.data ?? [];
+  const selectedItem = inventoryItems.find((item) => item.id === inventoryItemId);
+  const packItem = selectedItem && hasPack(selectedItem) ? selectedItem : null;
+  const ordersInPacks = Boolean(packItem && inPacks);
+  const packLabel = packItem?.packLabel || 'pack';
+  const packLine = packItem && inPacks
+    ? packPurchaseLine(packItem, Number(quantity), Number(unitPrice))
+    : null;
 
   return (
     <div className="space-y-6">
@@ -118,14 +128,20 @@ export function PurchasingPage() {
                 toast.error('Select supplier and enter item name.');
                 return;
               }
+              if (ordersInPacks && !packLine) {
+                toast.error(`Enter how many ${packLabel}s to order.`);
+                return;
+              }
               createMutation.mutate({
                 supplierId,
                 items: [
                   {
                     inventoryItemId: inventoryItemId || undefined,
-                    name: itemName.trim(),
-                    quantity: Number(quantity) || 1,
-                    unitPrice: Number(unitPrice) || 0,
+                    name: ordersInPacks
+                      ? `${itemName.trim()} (${quantity} ${packLabel})`
+                      : itemName.trim(),
+                    quantity: packLine ? packLine.quantity : Number(quantity) || 1,
+                    unitPrice: packLine ? packLine.unitPrice : Number(unitPrice) || 0,
                   },
                 ],
               });
@@ -157,10 +173,30 @@ export function PurchasingPage() {
                 })),
               ]}
               value={inventoryItemId}
-              onChange={(e) => setInventoryItemId(e.target.value)}
+              onChange={(e) => {
+                const next = inventoryItems.find((item) => item.id === e.target.value);
+                setInventoryItemId(e.target.value);
+                if (next && !itemName.trim()) setItemName(next.name);
+                setInPacks(Boolean(next && hasPack(next)));
+              }}
             />
+            {packItem ? (
+              <label className="flex items-center gap-2 text-sm sm:col-span-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-brand-primary"
+                  checked={inPacks}
+                  onChange={(e) => setInPacks(e.target.checked)}
+                />
+                Order in {packLabel}s ({formatPackDefinition(packItem)})
+              </label>
+            ) : null}
             <Input
-              label="Quantity"
+              label={
+                ordersInPacks
+                  ? `Quantity (${packLabel}s)`
+                  : `Quantity${selectedItem ? ` (${selectedItem.unit})` : ''}`
+              }
               type="number"
               min={0.001}
               step="any"
@@ -168,13 +204,23 @@ export function PurchasingPage() {
               onChange={(e) => setQuantity(e.target.value)}
             />
             <Input
-              label="Unit price (₹)"
+              label={
+                ordersInPacks
+                  ? `Price per ${packLabel} (₹)`
+                  : `Unit price (₹${selectedItem ? ` per ${selectedItem.unit}` : ''})`
+              }
               type="number"
               min={0}
               step="any"
               value={unitPrice}
               onChange={(e) => setUnitPrice(e.target.value)}
             />
+            {packLine && selectedItem ? (
+              <p className="text-xs text-text-muted sm:col-span-2">
+                Receives {packLine.quantity} {selectedItem.unit} into stock at ₹{packLine.unitPrice} per{' '}
+                {selectedItem.unit} (line total ₹{(packLine.quantity * packLine.unitPrice).toFixed(2)}).
+              </p>
+            ) : null}
             <div className="sm:col-span-2">
               <Button type="submit" loading={createMutation.isPending}>
                 Create draft PO

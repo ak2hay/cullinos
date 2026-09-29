@@ -10,6 +10,7 @@ import {
   useToast,
 } from '@cullinos/ui';
 import { inventoryApi, menuApi, recipesApi, type RecipeRow } from '@/lib/api';
+import { formatPackDefinition, formatServesPerPack } from '@/lib/inventory-packs';
 
 type IngredientLine = {
   kind: 'inventory' | 'subRecipe';
@@ -122,6 +123,7 @@ export function RecipesPage() {
   const recipes = recipesQuery.data ?? [];
   const menuItems = menuQuery.data ?? [];
   const inventoryItems = inventoryQuery.data ?? [];
+  const inventoryById = new Map(inventoryItems.map((item) => [item.id, item]));
   const canCreate = menuItems.length > 0 && (inventoryItems.length > 0 || recipes.length > 0);
   const subRecipeOptions = recipes.filter((r) => r.id !== editingId);
 
@@ -311,6 +313,20 @@ export function RecipesPage() {
                       Remove
                     </Button>
                   ) : null}
+                  {(() => {
+                    if (line.kind !== 'inventory') return null;
+                    const inv = inventoryById.get(line.inventoryItemId);
+                    if (!inv) return null;
+                    const perServe = (Number(line.quantity) || 0) / (Number(yieldQty) > 0 ? Number(yieldQty) : 1);
+                    const serves = formatServesPerPack(inv, perServe);
+                    const definition = formatPackDefinition(inv);
+                    if (!serves && !definition) return null;
+                    return (
+                      <p className="text-xs text-text-muted sm:col-span-4">
+                        {[definition, serves].filter(Boolean).join(' · ')}
+                      </p>
+                    );
+                  })()}
                 </div>
               ))}
               <Button
@@ -361,6 +377,12 @@ export function RecipesPage() {
                       : (ing.inventoryItem?.name ?? 'Item')}{' '}
                     — {Number(ing.quantity)}{' '}
                     {ing.inventoryItem?.unit ?? ''}
+                    {(() => {
+                      const inv = ing.inventoryItemId ? inventoryById.get(ing.inventoryItemId) : undefined;
+                      const recipeYield = Number(recipe.yield) > 0 ? Number(recipe.yield) : 1;
+                      const serves = inv ? formatServesPerPack(inv, Number(ing.quantity) / recipeYield) : null;
+                      return serves ? <span className="text-text-muted"> ({serves})</span> : null;
+                    })()}
                   </li>
                 ))}
               </ul>

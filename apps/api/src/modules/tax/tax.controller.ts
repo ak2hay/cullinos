@@ -8,13 +8,16 @@ import {
   Post,
 } from "@nestjs/common";
 import { OrgId } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { TaxService } from "./tax.service";
 
 @Controller("tax")
+@RequirePermissions("settings:update")
 export class TaxController {
   constructor(private service: TaxService) {}
 
   @Get()
+  @RequirePermissions("settings:read", "menu:read", "pos:access")
   list(@OrgId() orgId: string) {
     return this.service.list(orgId);
   }
