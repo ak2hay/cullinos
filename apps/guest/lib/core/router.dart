@@ -408,8 +408,6 @@ class _GuestShellScaffoldState extends ConsumerState<_GuestShellScaffold> {
   }
 
   void _handleBack() {
-    final loc = widget.matchedLocation;
-
     if (!_onShellRoot) {
       context.go('/');
       return;

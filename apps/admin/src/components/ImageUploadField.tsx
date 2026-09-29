@@ -23,11 +23,14 @@ export function useImageUploadMaxMb(): number {
 export function resolvePublicImageSrc(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) return trimmed;
-  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:')) return trimmed;
+  if (/^https?:\/\//i.test(trimmed) || /^data:image\//i.test(trimmed) || /^blob:/i.test(trimmed)) {
+    return trimmed;
+  }
   if (trimmed.startsWith('/')) {
     const origin = API_BASE.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
     return `${origin}${trimmed}`;
   }
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return '';
   return trimmed;
 }
 

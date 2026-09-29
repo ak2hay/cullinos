@@ -1004,7 +1004,7 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                       Row(
                         children: List.generate(5, (i) {
                           return Icon(
-                            i < (averageRating as num).round()
+                            i < averageRating.round()
                                 ? Icons.star_rounded
                                 : Icons.star_outline_rounded,
                             size: 20,

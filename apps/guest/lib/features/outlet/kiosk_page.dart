@@ -26,14 +26,12 @@ class _KioskLine {
     required this.menuItemId,
     required this.name,
     required this.unitPrice,
-    this.quantity = 1,
-    this.variantId,
   });
 
   final String menuItemId;
   final String name;
   final double unitPrice;
-  int quantity;
+  int quantity = 1;
   String? variantId;
 }
 

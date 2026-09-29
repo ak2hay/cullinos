@@ -373,9 +373,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         cart.clear();
         if (mounted) {
           final message = payLater
-              ? (sessionToken != null
-                  ? 'Your items were sent to the table. Pay at the table when ready.'
-                  : 'Pay at the counter when your order is ready.')
+              ? 'Your items were sent to the table. Pay at the table when ready.'
               : _payMethod == _PayMethod.payToWaiter
                   ? 'Order placed. Pay your waiter when ready.'
                   : 'Order placed. Pay at the counter when ready.';

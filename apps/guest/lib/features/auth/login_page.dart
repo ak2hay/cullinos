@@ -91,8 +91,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _password = TextEditingController();
 
   _AuthStep _step = _AuthStep.phone;
-  String? _verificationId; // Firebase only (unused for MSG91 phone)
-  int? _resendToken;
   String? _error;
   bool _loading = false;
   bool _exists = false;
@@ -281,26 +279,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
-  Future<void> _completeFirebaseCredential(AuthCredential credential) async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final cred =
-          await FirebaseAuth.instance.signInWithCredential(credential);
-      await _completeFirebaseUser(cred.user);
-    } catch (e) {
-      setState(() {
-        _error = e is DioException
-            ? friendlyAuthError(e)
-            : friendlyFirebaseAuthError(e);
-      });
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
-
   Future<void> _completeFirebaseUser(User? user) async {
     if (user == null) {
       throw StateError('Sign-in did not return a user. Please try again.');
@@ -480,7 +458,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         } else {
           setState(() {
             _step = _AuthStep.phone;
-            _verificationId = null;
             _otpSent = false;
             _msg91ReqId = null;
             _code.clear();

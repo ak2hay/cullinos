@@ -65,6 +65,9 @@ jobs:
             --exit-code \
             || { echo "::error::schema.prisma has changes without a migration. Run: npx prisma migrate dev --schema packages/prisma/prisma/schema.prisma --name <change>"; exit 1; }
 
+      - name: Build packages the seed imports
+        run: npm run build -w @cullinos/shared
+
       - name: Seed database
         run: npm run db:seed
 
