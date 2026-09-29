@@ -1447,6 +1447,7 @@ async function seedSampleOrders(
       update: { amount: doneTotal, status: "completed" },
       create: {
         id: "seed-payment-done",
+        organizationId: orgId,
         orderId: doneOrder.id,
         paymentMethodId: cashMethod.id,
         amount: doneTotal,
@@ -1462,6 +1463,7 @@ async function seedSampleOrders(
     update: { status: "paid", total: doneTotal },
     create: {
       id: "seed-invoice-done",
+      organizationId: orgId,
       orderId: doneOrder.id,
       invoiceNumber: "INV-1000",
       status: "paid",
@@ -1541,6 +1543,7 @@ async function seedSampleOrders(
       update: { amount: readyTotal, status: "completed" },
       create: {
         id: "seed-payment-ready",
+        organizationId: orgId,
         orderId: readyOrder.id,
         paymentMethodId: upiMethod.id,
         amount: readyTotal,
