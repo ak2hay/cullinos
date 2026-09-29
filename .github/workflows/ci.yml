@@ -39,6 +39,7 @@ jobs:
       JWT_SECRET: test-jwt-secret-for-ci
       JWT_REFRESH_SECRET: test-jwt-refresh-secret-for-ci
       SUPER_ADMIN_JWT_SECRET: test-super-admin-secret-for-ci
+      VITE_API_URL: http://localhost:3001/api/v1
       NODE_ENV: test
 
     steps:
