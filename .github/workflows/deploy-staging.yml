@@ -27,9 +27,13 @@ permissions:
 
 jobs:
   deploy:
+    # Set repo variable K8S_DEPLOY_ENABLED=true after the k3s cutover
+    # (infrastructure/k8s/scripts/cutover-checklist.md); until then prod runs on Compose.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+      vars.K8S_DEPLOY_ENABLED == 'true' && (
+        github.event_name == 'workflow_dispatch' ||
+        (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+      )
     runs-on: ubuntu-latest
     environment: staging
     steps:

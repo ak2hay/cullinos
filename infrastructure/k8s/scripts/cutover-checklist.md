@@ -7,6 +7,7 @@ Run during a maintenance window. Keep Cloudflare orange-cloud off or pause durin
 - [ ] R2 daily + hourly backup succeeded recently (`docs/BACKUP_ROLLBACK.md`)
 - [ ] `bash scripts/prod/snapshot-release.sh` on current Compose stack
 - [ ] GitHub secrets ready: `KUBE_CONFIG` (base64 kubeconfig with `server: https://95.135.254.46:6443`), `PRODUCTION_APP_SECRETS_ENV`, `STAGING_APP_SECRETS_ENV`, optional `GHCR_PULL_TOKEN`, `SENTRY_DSN`
+- [ ] Deploy Staging / Deploy Production stay skipped until the repo variable `K8S_DEPLOY_ENABLED` is `true`; set it (`gh variable set K8S_DEPLOY_ENABLED --body true`) only once the cluster and `KUBE_CONFIG` are in place
 - [ ] Staging DNS A records created: `staging-api`, `staging-admin`, `staging-manage`, `staging-platform`, `staging-pos`, `staging-kds`, `staging-guest`, `staging-waiter`, `staging` → VM IP
 - [ ] Firewall: TCP 80, 443, 6443 (restrict 6443 to GitHub Actions IP ranges if possible)
 
