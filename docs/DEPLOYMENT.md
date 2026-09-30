@@ -47,7 +47,7 @@ touch production.
 | `GHCR_PULL_TOKEN` | repo | PAT with `read:packages` if default `GITHUB_TOKEN` cannot pull |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN` | repo | Baked into the web build |
 | `VITE_TURNSTILE_SITE_KEY` | repo | Baked into SPA builds (forgot-password / login captcha) |
-| `ANDROID_ASSETLINKS_SHA256` | repo | Comma-separated SHA-256 cert fingerprints (Play app signing + upload key) for `guest-landing/.well-known/assetlinks.json`; the landing build fails without it |
+| `ANDROID_ASSETLINKS_SHA256` | repo | Comma-separated SHA-256 cert fingerprints (Play app signing + upload key) for `guest-landing/.well-known/assetlinks.json`; `main` (production) landing builds fail without it, staging builds keep the placeholder with a warning |
 | `SENTRY_DSN` | env | Optional; also include in `*_APP_SECRETS_ENV` |
 
 Workflows:

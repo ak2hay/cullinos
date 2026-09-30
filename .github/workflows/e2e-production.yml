@@ -11,19 +11,36 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      - name: Check E2E secrets
+        id: gate
+        env:
+          OWNER_EMAIL: ${{ secrets.E2E_OWNER_EMAIL }}
+        run: |
+          if [ -z "$OWNER_EMAIL" ] && [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "::notice::E2E secrets are not configured (E2E_OWNER_EMAIL empty); skipping scheduled production E2E"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
 
       - uses: actions/setup-node@v4
+        if: steps.gate.outputs.run == 'true'
         with:
           node-version: '20'
           cache: 'npm'
 
       - run: npm ci
+        if: steps.gate.outputs.run == 'true'
 
       - name: Install Playwright browsers
+        if: steps.gate.outputs.run == 'true'
         run: npx playwright install chromium --with-deps
 
       - name: Run production E2E
+        if: steps.gate.outputs.run == 'true'
         env:
           E2E_API_URL: ${{ secrets.E2E_API_URL }}
           E2E_WEB_URL: ${{ secrets.E2E_WEB_URL }}

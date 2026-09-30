@@ -47,14 +47,20 @@ COPY infrastructure/www ./infrastructure/www
 # Landings are static HTML — skip npm build
 # SPA builds must bake VITE_API_URL (Chrome blocks loopback → "Failed to fetch")
 ARG ANDROID_ASSETLINKS_SHA256=
+# Production (main) builds must set this to true; staging tolerates a placeholder assetlinks.json
+ARG REQUIRE_ASSETLINKS=false
 RUN if [ "$APP_NAME" = "guest-landing" ] || [ "$APP_NAME" = "waiter-landing" ]; then \
       mkdir -p /out && cp -r "infrastructure/www/${APP_NAME}/." /out/ \
       && if [ -f /out/.well-known/assetlinks.json ]; then \
            if [ -z "$ANDROID_ASSETLINKS_SHA256" ]; then \
-             echo "ERROR: ANDROID_ASSETLINKS_SHA256 is empty; App Links would never verify" >&2; exit 1; \
+             if [ "$REQUIRE_ASSETLINKS" = "true" ]; then \
+               echo "ERROR: ANDROID_ASSETLINKS_SHA256 is empty; App Links would never verify" >&2; exit 1; \
+             fi; \
+             echo "WARNING: ANDROID_ASSETLINKS_SHA256 is empty; leaving placeholder assetlinks.json" >&2; \
+           else \
+             FPS="$(echo "$ANDROID_ASSETLINKS_SHA256" | tr ',' '\n' | sed '/^$/d; s/.*/"&"/' | paste -sd, -)"; \
+             sed -i "s|\"REPLACE_WITH_PLAY_OR_UPLOAD_CERT_SHA256\"|${FPS}|" /out/.well-known/assetlinks.json; \
            fi; \
-           FPS="$(echo "$ANDROID_ASSETLINKS_SHA256" | tr ',' '\n' | sed '/^$/d; s/.*/"&"/' | paste -sd, -)"; \
-           sed -i "s|\"REPLACE_WITH_PLAY_OR_UPLOAD_CERT_SHA256\"|${FPS}|" /out/.well-known/assetlinks.json; \
          fi; \
     else \
       if [ -z "$VITE_API_URL" ]; then echo "ERROR: VITE_API_URL is empty" >&2; exit 1; fi \
