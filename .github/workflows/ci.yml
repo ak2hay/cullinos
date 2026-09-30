@@ -66,6 +66,14 @@ jobs:
             --exit-code \
             || { echo "::error::schema.prisma has changes without a migration. Run: npx prisma migrate dev --schema packages/prisma/prisma/schema.prisma --name <change>"; exit 1; }
 
+      - name: Frozen baseline schema reproduces 0_init
+        run: |
+          npx prisma migrate diff --from-empty \
+            --to-schema-datamodel packages/prisma/prisma/baseline/schema-0_init.prisma \
+            --script > /tmp/0_init.gen.sql
+          diff -B packages/prisma/prisma/migrations/0_init/migration.sql /tmp/0_init.gen.sql \
+            || { echo "::error::baseline/schema-0_init.prisma no longer matches migrations/0_init; it must stay frozen"; exit 1; }
+
       - name: Build packages the seed imports
         run: npm run build -w @cullinos/shared
 

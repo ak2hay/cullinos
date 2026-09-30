@@ -138,12 +138,15 @@ with confirmations. On k3s run them from a shell in an API pod.
 
 1. Back up (`infrastructure/k8s/scripts/backup-pg-k8s.sh`).
 2. Run `packages/prisma/prisma/baseline/precheck.sql`; every query must return no rows.
-3. Generate and review the catch-up SQL:
-   `npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel packages/prisma/prisma/schema.prisma --script > catchup.sql`
+3. Generate and review the catch-up SQL. Target the frozen `0_init` schema, not `schema.prisma`,
+   so the later migrations (and their data steps, e.g. `platform_role = 'owner'` for existing
+   super admins) still run in step 6:
+   `npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel packages/prisma/prisma/baseline/schema-0_init.prisma --script > catchup.sql`
 4. Apply it: `npx prisma db execute --url "$DATABASE_URL" --file catchup.sql`, then run the backfills
    at the bottom of `precheck.sql`.
 5. `npx prisma migrate resolve --applied 0_init --schema packages/prisma/prisma/schema.prisma`
-6. `npx prisma migrate status` must report the database is up to date.
+6. `node packages/prisma/scripts/migrate-deploy.mjs` applies the migrations after `0_init`;
+   `npx prisma migrate status` must then report the database is up to date.
 
 The migration Job refuses to run on a database that has tables but no `0_init` record.
 

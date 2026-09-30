@@ -1,0 +1,2988 @@
+// FROZEN: the schema state recorded by migrations/0_init. Never edit.
+// Target for the one-time baseline catch-up of a legacy `db push` database, so that the
+// migrations after 0_init (including their data steps) still run via `migrate deploy`.
+// Check: `prisma migrate diff --from-empty --to-schema-datamodel <this file> --script`
+// must reproduce migrations/0_init/migration.sql.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum OrgStatus {
+  active
+  trial
+  suspended
+  cancelled
+}
+
+enum OutletStatus {
+  active
+  inactive
+  maintenance
+}
+
+enum UserStatus {
+  active
+  inactive
+  invited
+}
+
+
+enum EmailOtpPurpose {
+  login_2fa
+  password_reset
+  labs_step_up
+}
+
+enum EmailCampaignScope {
+  org_customers
+  platform_owners
+}
+
+enum EmailCampaignStatus {
+  sending
+  sent
+  failed
+}
+
+enum SubscriptionStatus {
+  trial
+  active
+  past_due
+  suspended
+  cancelled
+}
+
+enum PlanVisibility {
+  public
+  private
+}
+
+enum OrderStatus {
+  draft
+  confirmed
+  preparing
+  ready
+  served
+  completed
+  cancelled
+  voided
+}
+
+enum OrderType {
+  dine_in
+  takeaway
+  delivery
+  qr
+  online
+  room_service
+  banquet
+}
+
+enum OrderSource {
+  pos
+  waiter
+  customer
+  delivery
+  api
+  gateway
+}
+
+enum KOTStatus {
+  pending
+  preparing
+  ready
+  served
+  cancelled
+}
+
+enum PaymentStatus {
+  pending
+  completed
+  failed
+  refunded
+  partial_refund
+}
+
+enum InvoiceStatus {
+  draft
+  issued
+  paid
+  partially_paid
+  voided
+  credit_note
+}
+
+enum ShiftStatus {
+  open
+  closed
+}
+
+enum StockMovementType {
+  purchase
+  sale
+  adjustment
+  wastage
+  transfer
+  return
+}
+
+enum POStatus {
+  draft
+  sent
+  partial
+  received
+  cancelled
+}
+
+enum GRNStatus {
+  draft
+  confirmed
+  cancelled
+}
+
+enum DeliveryStatus {
+  pending
+  assigned
+  picked_up
+  in_transit
+  delivered
+  failed
+  cancelled
+}
+
+enum RoomStatus {
+  available
+  occupied
+  maintenance
+  blocked
+}
+
+enum TableStatus {
+  available
+  occupied
+  reserved
+  cleaning
+  billing
+}
+
+enum TableSessionStatus {
+  active
+  closed
+}
+
+enum ReservationStatus {
+  pending
+  confirmed
+  seated
+  cancelled
+  no_show
+}
+
+enum ReservationInviteStatus {
+  sent
+  booked
+  expired
+  cancelled
+}
+
+enum ServiceRequestType {
+  waiter
+  bill
+  water
+  cutlery
+  napkins
+  other
+}
+
+enum ServiceRequestStatus {
+  open
+  acknowledged
+  resolved
+  cancelled
+}
+
+enum BanquetStatus {
+  inquiry
+  confirmed
+  in_progress
+  completed
+  cancelled
+}
+
+enum AttendanceStatus {
+  present
+  absent
+  late
+  half_day
+  leave
+}
+
+enum DeviceType {
+  pos
+  kds
+  printer
+  gateway
+  scanner
+  other
+}
+
+enum SyncEventStatus {
+  pending
+  synced
+  failed
+  conflict
+}
+
+enum NotificationChannel {
+  in_app
+  email
+  sms
+  push
+}
+
+enum MarketingContentStatus {
+  draft
+  published
+}
+
+enum BusinessType {
+  restaurant
+  cafe
+  food_truck
+  bakery
+  qsr
+  cloud_kitchen
+  catering
+  bar
+}
+
+enum RestaurantSize {
+  small
+  medium
+  large
+}
+
+enum OperatingMode {
+  full_service
+  counter
+  hybrid
+}
+
+enum PriceType {
+  retail
+  wholesale
+}
+
+enum ProductionBatchStatus {
+  planned
+  in_progress
+  completed
+  cancelled
+}
+
+enum CentralKitchenIndentStatus {
+  pending
+  approved
+  fulfilled
+  cancelled
+}
+
+// ─── Multi-tenant core ───────────────────────────────────────────────────────
+
+model Organization {
+  id              String          @id @default(cuid())
+  name            String
+  slug            String          @unique
+  rkyvesClientId  String?         @unique @map("rkyves_client_id")
+  businessType    BusinessType    @default(restaurant) @map("business_type")
+  restaurantSize  RestaurantSize? @map("restaurant_size")
+  status          OrgStatus       @default(trial)
+  gstin           String?
+  pan             String?
+  email           String?
+  phone           String?
+  address         String?
+  city            String?
+  state           String?
+  country         String    @default("IN")
+  timezone        String    @default("Asia/Kolkata")
+  currency        String    @default("INR")
+  logoUrl            String?   @map("logo_url")
+  razorpayCustomerId String?   @map("razorpay_customer_id")
+  /// 0 = Sandbox (QA/demo), 1 = Live (real customers). Default Live.
+  environmentClass   Int       @default(1) @map("environment_class")
+  /// Honored only when environmentClass = 0
+  sandboxSkipEmailOtp  Boolean @default(true) @map("sandbox_skip_email_otp")
+  sandboxSkipSmsOtp    Boolean @default(true) @map("sandbox_skip_sms_otp")
+  sandboxRelaxPassword Boolean @default(true) @map("sandbox_relax_password")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  /// Soft delete — financial records are kept; status is set to cancelled.
+  deletedAt          DateTime? @map("deleted_at")
+
+  brands              Brand[]
+  outlets             Outlet[]
+  users               User[]
+  roles               Role[]
+  auditLogs           AuditLog[]
+  subscriptions       Subscription[]
+  settings            OrganizationSettings?
+  menuCategories      MenuCategory[]
+  menuItems           MenuItem[]
+  orders              Order[]
+  customers             Customer[]
+  inventoryItems        InventoryItem[]
+  suppliers             Supplier[]
+  employees             Employee[]
+  notifications         Notification[]
+  integrations          Integration[]
+  menuSchedules         MenuSchedule[]
+  happyHourRules        HappyHourRule[]
+  outletEvents          OutletEvent[]
+  productionBatches     ProductionBatch[]
+  devices               Device[]
+  syncEvents            SyncEvent[]
+  taxGroups             TaxGroup[]
+  printJobs             PrintJob[]
+  deliveryZones         DeliveryZone[]
+  guests                Guest[]
+  franchiseAgreements   FranchiseAgreement[]
+  analyticsSnapshots    AnalyticsSnapshot[]
+  emailCampaigns        EmailCampaign[]
+  loyaltyRewards        LoyaltyReward[]
+  payments              Payment[]
+  consentRecords        ConsentRecord[]
+  impersonationHandoffs ImpersonationHandoff[]
+  serviceRequests       ServiceRequest[]
+  guestMemberships      GuestOrgMembership[]
+  guestBanners          GuestBanner[]
+  guestPushCampaigns    GuestPushCampaign[]
+  aggregatorSettlements AggregatorSettlement[]
+  reservations          Reservation[]
+  reservationInvites    ReservationInvite[]
+  smsCampaigns          SmsCampaign[]
+  feedbackResponses     FeedbackResponse[]
+  promoDisplaySlides    PromoDisplaySlide[]
+  wastageRecords        Wastage[]
+  centralKitchens       CentralKitchen[]
+  centralKitchenIndents CentralKitchenIndent[]
+  wallet                OrganizationWallet?
+  invoices              Invoice[]
+  creditNotes           CreditNote[]
+
+  @@index([deletedAt])
+  @@map("organizations")
+}
+
+model OrganizationSettings {
+  id             String  @id @default(cuid())
+  organizationId String  @unique @map("organization_id")
+  settings       Json    @default("{}")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_settings")
+}
+
+/// Prepaid Cullinos portal wallet (SMS campaigns, future metered addons).
+model OrganizationWallet {
+  organizationId String   @id @map("organization_id")
+  balancePaise   Int      @default(0) @map("balance_paise")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ledger       WalletLedgerEntry[]
+
+  @@map("organization_wallets")
+}
+
+enum WalletLedgerType {
+  topup
+  sms_charge
+  whatsapp_charge
+  manual_credit
+  manual_debit
+  refund
+}
+
+model WalletLedgerEntry {
+  id              String           @id @default(cuid())
+  organizationId  String           @map("organization_id")
+  type            WalletLedgerType
+  amountPaise     Int              @map("amount_paise")
+  balanceAfter    Int              @map("balance_after")
+  referenceType   String?          @map("reference_type")
+  referenceId     String?          @map("reference_id")
+  note            String?
+  createdByUserId String?          @map("created_by_user_id")
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  wallet OrganizationWallet @relation(fields: [organizationId], references: [organizationId], onDelete: Restrict)
+
+  @@index([organizationId, createdAt])
+  @@map("wallet_ledger_entries")
+}
+
+model Brand {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  slug           String
+  logoUrl        String?  @map("logo_url")
+  isDefault      Boolean  @default(false) @map("is_default")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlets      Outlet[]
+  settings     BrandSettings?
+
+  @@unique([organizationId, slug])
+  @@unique([id, organizationId])
+  @@map("brands")
+}
+
+model BrandSettings {
+  id      String @id @default(cuid())
+  brandId String @unique @map("brand_id")
+  settings Json  @default("{}")
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@map("brand_settings")
+}
+
+model Outlet {
+  id             String        @id @default(cuid())
+  organizationId String        @map("organization_id")
+  brandId        String        @map("brand_id")
+  name           String
+  slug           String
+  code           String?
+  status         OutletStatus  @default(active)
+  operatingMode  OperatingMode @default(full_service) @map("operating_mode")
+  address        String?
+  city           String?
+  zone           String?
+  state          String?
+  pincode        String?
+  phone          String?
+  email          String?
+  gstin          String?
+  isDefault      Boolean      @default(false) @map("is_default")
+  /// Cullinos Guest marketplace discovery
+  latitude            Decimal? @db.Decimal(10, 7)
+  longitude           Decimal? @db.Decimal(10, 7)
+  cuisineTags         String[] @default([]) @map("cuisine_tags")
+  coverImageUrl       String?  @map("cover_image_url")
+  marketplaceListed   Boolean  @default(false) @map("marketplace_listed")
+  marketplaceFeatured Boolean  @default(false) @map("marketplace_featured")
+  marketplaceFeaturedRank Int? @map("marketplace_featured_rank")
+  /// pending | approved | rejected
+  marketplaceModerationStatus String @default("approved") @map("marketplace_moderation_status")
+  /// When true, tenant cannot re-list until platform clears
+  marketplaceUnlistedByPlatform Boolean @default(false) @map("marketplace_unlisted_by_platform")
+  averagePrepMinutes  Int?     @map("average_prep_minutes")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  brand           Brand            @relation(fields: [brandId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  settings        OutletSettings?
+  floors          Floor[]
+  orders          Order[]
+  menuPrices      OutletMenuPrice[]
+  kitchenStations KitchenStation[]
+  happyHourRules  HappyHourRule[]
+  cashierShifts   CashierShift[]
+  inventoryItems  InventoryItem[]
+  employees       Employee[]
+  devices         Device[]
+  deliveryZones   DeliveryZone[]
+  rooms           Room[]
+  franchiseOutlets FranchiseOutlet[]
+  outletUsers      OutletUser[]
+  photos           OutletPhoto[]
+  events           OutletEvent[]
+  productionBatches ProductionBatch[]
+  aggregatorSettlements AggregatorSettlement[]
+  serviceRequests   ServiceRequest[]
+  guestFavorites    GuestFavoriteOutlet[]
+  guestReviews      GuestOutletReview[]
+  centralKitchen    CentralKitchen?
+  centralKitchenLinks CentralKitchenOutlet[]
+  centralKitchenIndents CentralKitchenIndent[] @relation("IndentRequestingOutlet")
+  wastageRecords        Wastage[]
+  reservations          Reservation[]
+  reservationInvites    ReservationInvite[]
+  feedbackResponses     FeedbackResponse[]
+  promoDisplaySlides    PromoDisplaySlide[]
+
+  @@unique([organizationId, slug])
+  @@unique([id, organizationId])
+  @@index([marketplaceListed, status])
+  @@index([city])
+  @@index([zone])
+  @@index([state])
+  @@map("outlets")
+}
+
+model OutletSettings {
+  id       String @id @default(cuid())
+  outletId String @unique @map("outlet_id")
+  settings Json   @default("{}")
+  outlet   Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@map("outlet_settings")
+}
+
+model User {
+  id             String     @id @default(cuid())
+  organizationId String     @map("organization_id")
+  email          String
+  passwordHash   String     @map("password_hash")
+  name           String
+  phone          String?
+  status             UserStatus @default(active)
+  isSuperAdmin       Boolean    @default(false) @map("is_super_admin")
+  mustChangePassword Boolean    @default(false) @map("must_change_password")
+  /// Bumped to revoke every access/refresh token issued before (logout-all, password change, deactivation).
+  lastLoginAt        DateTime?  @map("last_login_at")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userRoles    UserRole[]
+  outletUsers  OutletUser[]
+  sessions     Session[]
+  auditLogs    AuditLog[]
+  orders       Order[]      @relation("OrderCreatedBy")
+  cashierShifts CashierShift[]
+  acknowledgedServiceRequests ServiceRequest[] @relation("ServiceRequestAcknowledgedBy")
+
+  @@unique([organizationId, email])
+  @@map("users")
+}
+
+model Role {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  slug           String
+  description    String?
+  isSystem       Boolean  @default(false) @map("is_system")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@unique([organizationId, slug])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  module      String
+  action      String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+
+  @@unique([module, action])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  roleId String @map("role_id")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model OutletUser {
+  id        String  @id @default(cuid())
+  userId    String  @map("user_id")
+  outletId  String  @map("outlet_id")
+  isDefault Boolean @default(false) @map("is_default")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, outletId])
+  @@map("outlet_users")
+}
+
+/// Restaurant gallery photos shown on guest outlet / menu.
+model OutletPhoto {
+  id        String   @id @default(cuid())
+  outletId  String   @map("outlet_id")
+  url       String
+  caption   String?
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@index([outletId, sortOrder])
+  @@map("outlet_photos")
+}
+
+/// One row per issued staff refresh token (id = JWT jti). Rotation marks the old row
+/// revoked; presenting a revoked token again revokes the whole family (reuse detection).
+model Session {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  /// sha256 of the refresh JWT
+  token        String    @unique
+  expiresAt    DateTime  @map("expires_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model ApiKey {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  name           String
+  keyHash        String    @map("key_hash")
+  scopes         String[]
+  lastUsedAt     DateTime? @map("last_used_at")
+  expiresAt      DateTime? @map("expires_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@map("api_keys")
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  userId         String?  @map("user_id")
+  action         String
+  entityType     String   @map("entity_type")
+  entityId       String?  @map("entity_id")
+  metadata       Json?
+  ipAddress      String?  @map("ip_address")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@map("audit_logs")
+}
+
+// ─── Subscriptions ───────────────────────────────────────────────────────────
+
+model Plan {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  description  String?
+  priceMonthly Decimal  @default(0) @map("price_monthly") @db.Decimal(12, 2)
+  priceYearly  Decimal  @default(0) @map("price_yearly") @db.Decimal(12, 2)
+  maxOutlets   Int      @default(1) @map("max_outlets")
+  maxTerminals Int      @default(2) @map("max_terminals")
+  maxUsers              Int             @default(5) @map("max_users")
+  visibility            PlanVisibility  @default(public)
+  isActive              Boolean         @default(true) @map("is_active")
+  sortOrder             Int             @default(0) @map("sort_order")
+  razorpayPlanIdMonthly String?         @map("razorpay_plan_id_monthly")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+
+  features      PlanFeature[]
+  subscriptions Subscription[]
+
+  @@index([visibility, isActive])
+  @@map("plans")
+}
+
+model PlanFeature {
+  id        String  @id @default(cuid())
+  planId    String  @map("plan_id")
+  module    String
+  enabled   Boolean @default(true)
+  limits    Json?
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, module])
+  @@map("plan_features")
+}
+
+model Subscription {
+  id             String             @id @default(cuid())
+  organizationId String             @map("organization_id")
+  planId         String             @map("plan_id")
+  status         SubscriptionStatus @default(trial)
+  trialEndsAt    DateTime?          @map("trial_ends_at")
+  currentPeriodStart DateTime?      @map("current_period_start")
+  currentPeriodEnd   DateTime?      @map("current_period_end")
+  graceUntil     DateTime?          @map("grace_until")
+  razorpaySubId           String?            @map("razorpay_sub_id")
+  razorpayShortUrl        String?            @map("razorpay_short_url")
+  lastRazorpayPaymentId   String?            @map("last_razorpay_payment_id")
+  /// Plan change on a paid subscription: the old plan stays live until this gateway sub's first charge.
+  pendingPlanId           String?            @map("pending_plan_id")
+  pendingRazorpaySubId    String?            @map("pending_razorpay_sub_id")
+  cancelledAt             DateTime?          @map("cancelled_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  organization  Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan          Plan                      @relation(fields: [planId], references: [id])
+  entitlements  SubscriptionEntitlement[]
+  usageRecords  UsageRecord[]
+
+  @@map("subscriptions")
+}
+
+model SubscriptionEntitlement {
+  id             String  @id @default(cuid())
+  subscriptionId String  @map("subscription_id")
+  module         String
+  enabled        Boolean @default(true)
+  limits         Json?
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, module])
+  @@map("subscription_entitlements")
+}
+
+model UsageRecord {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  subscriptionId String?  @map("subscription_id")
+  metric         String
+  value          Decimal  @db.Decimal(12, 2)
+  periodStart    DateTime @map("period_start")
+  periodEnd      DateTime @map("period_end")
+  recordedAt     DateTime @default(now()) @map("recorded_at")
+
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([organizationId, metric, periodStart])
+  @@map("usage_records")
+}
+
+model FeatureFlag {
+  id        String  @id @default(cuid())
+  key       String  @unique
+  enabled   Boolean @default(false)
+  metadata  Json?
+
+  @@map("feature_flags")
+}
+
+/// Platform-wide secrets/config (super-admin). DB value overrides env when set.
+model PlatformSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  valueEnc  String?  @map("value_enc")
+  value     String?
+  isSecret  Boolean  @default(false) @map("is_secret")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by")
+
+  @@map("platform_settings")
+}
+
+// ─── Menu engine ─────────────────────────────────────────────────────────────
+
+model MenuCategory {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  slug           String
+  description    String?
+  imageUrl       String?  @map("image_url")
+  sortOrder      Int      @default(0) @map("sort_order")
+  isActive       Boolean  @default(true) @map("is_active")
+  parentId       String?  @map("parent_id")
+  /// Routes this category's items to the outlet KitchenStation with this code (e.g. BAR).
+  kitchenStationCode String? @map("kitchen_station_code")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       MenuCategory? @relation("CategoryTree", fields: [parentId], references: [id])
+  children     MenuCategory[] @relation("CategoryTree")
+  menuItems    MenuItem[]
+
+  @@unique([organizationId, slug])
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  categoryId     String   @map("category_id")
+  name           String
+  slug           String
+  description    String?
+  imageUrl       String?  @map("image_url")
+  basePrice      Decimal  @default(0) @map("base_price") @db.Decimal(12, 2)
+  taxGroupId     String?  @map("tax_group_id")
+  isActive       Boolean  @default(true) @map("is_active")
+  isVeg          Boolean  @default(false) @map("is_veg")
+  isSpecial      Boolean  @default(false) @map("is_special")
+  productType    String?  @map("product_type")
+  allergens      String[] @default([])
+  sortOrder      Int      @default(0) @map("sort_order")
+  sku            String?
+  hsnCode        String?  @map("hsn_code")
+  packagingCharge Decimal @default(0) @map("packaging_charge") @db.Decimal(12, 2)
+  onlineAvailable Boolean @default(true) @map("online_available")
+  stockBasedAvailability Boolean @default(false) @map("stock_based_availability")
+  /// Universal menu catalog id this item was imported from (idempotent re-import).
+  catalogItemId  String?  @map("catalog_item_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category       MenuCategory            @relation(fields: [categoryId], references: [id])
+  taxGroup       TaxGroup?               @relation(fields: [taxGroupId], references: [id])
+  variants       MenuItemVariant[]
+  modifierGroups MenuItemModifierGroup[]
+  comboItems     ComboItem[]
+  outletPrices   OutletMenuPrice[]
+  orderItems     OrderItem[]
+  recipe         Recipe?
+  loyaltyRewards LoyaltyReward[]
+  guestFavorites GuestFavoriteItem[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, catalogItemId])
+  @@map("menu_items")
+}
+
+model MenuItemVariant {
+  id         String  @id @default(cuid())
+  menuItemId String  @map("menu_item_id")
+  name       String
+  price      Decimal @db.Decimal(12, 2)
+  sku        String?
+  isDefault  Boolean @default(false) @map("is_default")
+  sortOrder  Int     @default(0) @map("sort_order")
+  /// Recipe quantities are multiplied by this for the variant (Half = 0.5, 60 mL peg = 2 when recipe is 30 mL).
+  stockMultiplier Decimal @default(1) @map("stock_multiplier") @db.Decimal(8, 3)
+
+  menuItem   MenuItem    @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@map("menu_item_variants")
+}
+
+model ModifierGroup {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  name           String
+  minSelect      Int     @default(0) @map("min_select")
+  maxSelect      Int     @default(1) @map("max_select")
+  isRequired     Boolean @default(false) @map("is_required")
+
+  modifiers    Modifier[]
+  menuItems    MenuItemModifierGroup[]
+
+  @@map("modifier_groups")
+}
+
+model Modifier {
+  id              String  @id @default(cuid())
+  modifierGroupId String  @map("modifier_group_id")
+  name            String
+  price           Decimal @default(0) @db.Decimal(12, 2)
+  isDefault       Boolean @default(false) @map("is_default")
+  sortOrder       Int     @default(0) @map("sort_order")
+
+  modifierGroup ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@map("modifiers")
+}
+
+model MenuItemModifierGroup {
+  id              String @id @default(cuid())
+  menuItemId      String @map("menu_item_id")
+  modifierGroupId String @map("modifier_group_id")
+
+  menuItem      MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  modifierGroup ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, modifierGroupId])
+  @@map("menu_item_modifier_groups")
+}
+
+model Combo {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  name           String
+  price          Decimal @db.Decimal(12, 2)
+  isActive       Boolean @default(true) @map("is_active")
+
+  items ComboItem[]
+
+  @@map("combos")
+}
+
+model ComboItem {
+  id         String @id @default(cuid())
+  comboId    String @map("combo_id")
+  menuItemId String @map("menu_item_id")
+  quantity   Int    @default(1)
+
+  combo    Combo    @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@map("combo_items")
+}
+
+model MenuSchedule {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  daysOfWeek     Int[]    @map("days_of_week")
+  startTime      String   @map("start_time")
+  endTime        String   @map("end_time")
+  categoryIds    String[] @map("category_ids")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("menu_schedules")
+}
+
+/// Time-window price discount (happy hour). Evaluated in the organization timezone.
+/// endTime <= startTime means the window runs past midnight.
+model HappyHourRule {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  /// Null = all outlets
+  outletId       String?  @map("outlet_id")
+  name           String
+  daysOfWeek     Int[]    @map("days_of_week")
+  startTime      String   @map("start_time")
+  endTime        String   @map("end_time")
+  /// percent | amount (amount in rupees off per unit)
+  discountType   String   @default("percent") @map("discount_type")
+  discountValue  Decimal  @map("discount_value") @db.Decimal(12, 2)
+  /// Both empty = every menu item
+  categoryIds    String[] @map("category_ids")
+  menuItemIds    String[] @map("menu_item_ids")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet?      @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, isActive])
+  @@map("happy_hour_rules")
+}
+
+model OutletMenuPrice {
+  id          String    @id @default(cuid())
+  outletId    String    @map("outlet_id")
+  menuItemId  String    @map("menu_item_id")
+  price       Decimal   @db.Decimal(12, 2)
+  priceType   PriceType @default(retail) @map("price_type")
+  isAvailable Boolean   @default(true) @map("is_available")
+
+  outlet   Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([outletId, menuItemId, priceType])
+  @@map("outlet_menu_prices")
+}
+
+model KitchenStation {
+  id       String @id @default(cuid())
+  outletId String @map("outlet_id")
+  name     String
+  code     String
+  sortOrder Int   @default(0) @map("sort_order")
+
+  outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  kots   KOT[]
+
+  @@unique([outletId, code])
+  @@map("kitchen_stations")
+}
+
+// ─── Floor plan ──────────────────────────────────────────────────────────────
+
+model Floor {
+  id       String @id @default(cuid())
+  outletId String @map("outlet_id")
+  name     String
+  sortOrder Int   @default(0) @map("sort_order")
+
+  outlet   Outlet    @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  sections Section[]
+
+  @@map("floors")
+}
+
+model Section {
+  id      String @id @default(cuid())
+  floorId String @map("floor_id")
+  name    String
+  sortOrder Int  @default(0) @map("sort_order")
+
+  floor  Floor   @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  tables Table[]
+
+  @@map("sections")
+}
+
+model Table {
+  id        String      @id @default(cuid())
+  sectionId String      @map("section_id")
+  name      String
+  capacity  Int         @default(4)
+  sortOrder Int         @default(0) @map("sort_order")
+  qrCode    String?     @unique @map("qr_code")
+  status    TableStatus @default(available)
+  mergedIntoTableId String? @map("merged_into_table_id")
+
+  section         Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  mergedInto      Table?           @relation("TableMerge", fields: [mergedIntoTableId], references: [id], onDelete: SetNull)
+  mergedTables    Table[]          @relation("TableMerge")
+  tableSessions   TableSession[]
+  orders          Order[]
+  serviceRequests ServiceRequest[]
+  reservations    Reservation[]
+
+  @@index([mergedIntoTableId])
+  @@map("tables")
+}
+
+model TableSession {
+  id           String             @id @default(cuid())
+  tableId      String             @map("table_id")
+  sessionToken String             @unique @map("session_token")
+  status       TableSessionStatus @default(active)
+  startedAt    DateTime           @default(now()) @map("started_at")
+  endedAt      DateTime?          @map("ended_at")
+  guestCount   Int?               @map("guest_count")
+
+  table           Table            @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  order           Order?
+  serviceRequests ServiceRequest[]
+
+  @@index([tableId, status])
+  @@map("table_sessions")
+}
+
+model ServiceRequest {
+  id             String               @id @default(cuid())
+  organizationId String               @map("organization_id")
+  outletId       String               @map("outlet_id")
+  tableId        String               @map("table_id")
+  tableSessionId String?              @map("table_session_id")
+  type           ServiceRequestType   @default(waiter)
+  status         ServiceRequestStatus @default(open)
+  note           String?
+  acknowledgedById String?            @map("acknowledged_by_id")
+  acknowledgedAt DateTime?            @map("acknowledged_at")
+  resolvedAt     DateTime?            @map("resolved_at")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet         Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  table          Table        @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  tableSession   TableSession? @relation(fields: [tableSessionId], references: [id], onDelete: SetNull)
+  acknowledgedBy User?        @relation("ServiceRequestAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+
+  @@index([outletId, status])
+  @@index([tableId, status])
+  @@map("service_requests")
+}
+
+// ─── Order engine ────────────────────────────────────────────────────────────
+
+model Order {
+  id             String      @id @default(cuid())
+  organizationId String      @map("organization_id")
+  outletId       String      @map("outlet_id")
+  orderNumber    String      @map("order_number")
+  /// Customer-facing 6-char pickup / receipt code (QR ticket). Null on legacy rows.
+  pickupCode     String?     @map("pickup_code")
+  type           OrderType   @default(dine_in)
+  source         OrderSource @default(pos)
+  status         OrderStatus @default(draft)
+  tableId        String?     @map("table_id")
+  tableSessionId String?     @unique @map("table_session_id")
+  customerId     String?     @map("customer_id")
+  createdById    String?     @map("created_by_id")
+  guestCount     Int?        @map("guest_count")
+  notes          String?
+  subtotal       Decimal     @default(0) @db.Decimal(12, 2)
+  taxTotal       Decimal     @default(0) @map("tax_total") @db.Decimal(12, 2)
+  discountTotal  Decimal     @default(0) @map("discount_total") @db.Decimal(12, 2)
+  tipAmount      Decimal     @default(0) @map("tip_amount") @db.Decimal(12, 2)
+  total          Decimal     @default(0) @db.Decimal(12, 2)
+  customerName   String?     @map("customer_name")
+  scheduledPickupAt DateTime? @map("scheduled_pickup_at")
+  idempotencyKey String?     @unique @map("idempotency_key")
+  metadata       Json?
+  readyAt        DateTime?   @map("ready_at")
+  completedAt    DateTime?   @map("completed_at")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet          @relation(fields: [outletId, organizationId], references: [id, organizationId])
+  table        Table?          @relation(fields: [tableId], references: [id])
+  tableSession TableSession?   @relation(fields: [tableSessionId], references: [id])
+  customer     Customer?       @relation(fields: [customerId], references: [id])
+  createdBy    User?           @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  items        OrderItem[]
+  timeline     OrderTimeline[]
+  discounts    OrderDiscount[]
+  taxLines     OrderTaxLine[]
+  kots         KOT[]
+  payments     Payment[]
+  invoices     Invoice[]
+  deliveryOrder DeliveryOrder?
+  guestReview          GuestOutletReview?
+  feedbackResponse     FeedbackResponse?
+  aggregatorSettlements  AggregatorSettlement[]
+
+  @@unique([outletId, orderNumber])
+  @@unique([outletId, pickupCode])
+  @@index([organizationId, status, createdAt])
+  @@index([outletId, status, createdAt])
+  @@index([customerId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String  @map("order_id")
+  menuItemId String? @map("menu_item_id")
+  variantId String? @map("variant_id")
+  name      String
+  quantity  Int     @default(1)
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  total     Decimal @db.Decimal(12, 2)
+  notes     String?
+  modifiers Json?
+  status    String  @default("pending")
+
+  order    Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem?        @relation(fields: [menuItemId], references: [id])
+  variant  MenuItemVariant? @relation(fields: [variantId], references: [id])
+  kotItems KOTItem[]
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model OrderTimeline {
+  id        String   @id @default(cuid())
+  orderId   String   @map("order_id")
+  event     String
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_timeline")
+}
+
+model OrderIdempotencyKey {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  orderId   String?  @map("order_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("order_idempotency_keys")
+}
+
+model OrderDiscount {
+  id       String  @id @default(cuid())
+  orderId  String  @map("order_id")
+  type     String
+  value    Decimal @db.Decimal(12, 2)
+  amount   Decimal @db.Decimal(12, 2)
+  couponId String? @map("coupon_id")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_discounts")
+}
+
+model OrderTaxLine {
+  id      String  @id @default(cuid())
+  orderId String  @map("order_id")
+  taxName String  @map("tax_name")
+  rate    Decimal @db.Decimal(5, 2)
+  amount  Decimal @db.Decimal(12, 2)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_tax_lines")
+}
+
+model KOT {
+  id               String    @id @default(cuid())
+  orderId          String    @map("order_id")
+  kitchenStationId String?   @map("kitchen_station_id")
+  kotNumber        String    @map("kot_number")
+  status           KOTStatus @default(pending)
+  printedAt        DateTime? @map("printed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kitchenStation KitchenStation? @relation(fields: [kitchenStationId], references: [id])
+  items          KOTItem[]
+
+  @@index([orderId])
+  @@index([kitchenStationId, status])
+  @@map("kots")
+}
+
+model KOTItem {
+  id          String @id @default(cuid())
+  kotId       String @map("kot_id")
+  orderItemId String @map("order_item_id")
+  status      String @default("pending")
+
+  kot       KOT       @relation(fields: [kotId], references: [id], onDelete: Cascade)
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([kotId])
+  @@index([orderItemId])
+  @@map("kot_items")
+}
+
+// ─── Money ───────────────────────────────────────────────────────────────────
+
+model PaymentMethod {
+  id   String @id @default(cuid())
+  name String
+  code String @unique
+  isActive Boolean @default(true) @map("is_active")
+
+  payments Payment[]
+
+  @@map("payment_methods")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  organizationId  String        @map("organization_id")
+  orderId         String        @map("order_id")
+  paymentMethodId String?       @map("payment_method_id")
+  amount          Decimal       @db.Decimal(12, 2)
+  status          PaymentStatus @default(pending)
+  reference       String?
+  metadata        Json?
+  processedAt     DateTime?     @map("processed_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order         Order          @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+
+  @@unique([organizationId, reference])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
+  @@index([orderId])
+  @@index([reference])
+  @@map("payments")
+}
+
+model PaymentWebhookEvent {
+  id          String   @id @default(cuid())
+  provider    String
+  eventId     String   @map("event_id")
+  eventType   String   @map("event_type")
+  payload     Json?
+  processedAt DateTime @default(now()) @map("processed_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([provider, eventId])
+  @@index([provider, eventType])
+  @@map("payment_webhook_events")
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  organizationId String?       @map("organization_id")
+  orderId        String?       @map("order_id")
+  invoiceNumber String        @map("invoice_number")
+  status        InvoiceStatus @default(draft)
+  subtotal      Decimal       @default(0) @db.Decimal(12, 2)
+  taxTotal      Decimal       @default(0) @map("tax_total") @db.Decimal(12, 2)
+  total         Decimal       @default(0) @db.Decimal(12, 2)
+  issuedAt      DateTime?     @map("issued_at")
+  dueAt         DateTime?     @map("due_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order      Order?           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  items      InvoiceItem[]
+  taxLines   InvoiceTaxLine[]
+  creditNotes CreditNote[]
+
+  @@unique([organizationId, invoiceNumber])
+  @@index([orderId])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id       String  @id @default(cuid())
+  invoiceId String @map("invoice_id")
+  name     String
+  quantity Int     @default(1)
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  total    Decimal @db.Decimal(12, 2)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_items")
+}
+
+model InvoiceTaxLine {
+  id       String  @id @default(cuid())
+  invoiceId String @map("invoice_id")
+  taxName  String  @map("tax_name")
+  rate     Decimal @db.Decimal(5, 2)
+  amount   Decimal @db.Decimal(12, 2)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_tax_lines")
+}
+
+model CreditNote {
+  id             String   @id @default(cuid())
+  organizationId String?  @map("organization_id")
+  invoiceId      String   @map("invoice_id")
+  amount         Decimal  @db.Decimal(12, 2)
+  reason         String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invoice      Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt])
+  @@index([invoiceId])
+  @@map("credit_notes")
+}
+
+model CashierShift {
+  id          String      @id @default(cuid())
+  outletId    String      @map("outlet_id")
+  userId      String      @map("user_id")
+  status      ShiftStatus @default(open)
+  openingCash Decimal     @default(0) @map("opening_cash") @db.Decimal(12, 2)
+  closingCash Decimal?    @map("closing_cash") @db.Decimal(12, 2)
+  openedAt    DateTime    @default(now()) @map("opened_at")
+  closedAt    DateTime?   @map("closed_at")
+
+  outlet        Outlet         @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  cashMovements CashMovement[]
+
+  @@index([outletId, status])
+  @@index([userId])
+  @@map("cashier_shifts")
+}
+
+model CashMovement {
+  id       String  @id @default(cuid())
+  shiftId  String  @map("shift_id")
+  type     String
+  amount   Decimal @db.Decimal(12, 2)
+  reason   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  shift CashierShift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  @@map("cash_movements")
+}
+
+// ─── Tax ─────────────────────────────────────────────────────────────────────
+
+model TaxGroup {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+  isInclusive    Boolean @default(false) @map("is_inclusive")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rates        TaxRate[]
+  menuItems    MenuItem[]
+
+  @@map("tax_groups")
+}
+
+model TaxRate {
+  id         String  @id @default(cuid())
+  taxGroupId String  @map("tax_group_id")
+  name       String
+  rate       Decimal @db.Decimal(5, 2)
+  type       String  @default("percentage")
+
+  taxGroup TaxGroup @relation(fields: [taxGroupId], references: [id], onDelete: Cascade)
+
+  @@map("tax_rates")
+}
+
+// ─── Inventory & supply chain ──────────────────────────────────────────────
+
+model InventoryCategory {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+
+  items InventoryItem[]
+
+  @@map("inventory_categories")
+}
+
+model InventoryItem {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  outletId       String? @map("outlet_id")
+  categoryId     String? @map("category_id")
+  name           String
+  sku            String?
+  unit           String  @default("kg")
+  currentStock   Decimal @default(0) @map("current_stock") @db.Decimal(12, 3)
+  reorderLevel   Decimal   @default(0) @map("reorder_level") @db.Decimal(12, 3)
+  costPerUnit    Decimal   @default(0) @map("cost_per_unit") @db.Decimal(12, 2)
+  batchNumber    String?   @map("batch_number")
+  expiryDate     DateTime? @map("expiry_date")
+  /// Purchase pack name, e.g. "packet", "bucket", "bottle". Stock stays in `unit`.
+  packLabel      String?   @map("pack_label")
+  /// How many `unit` one pack contains (e.g. 50 pcs per packet, 2500 g per bucket).
+  packSize       Decimal?  @map("pack_size") @db.Decimal(12, 3)
+  /// Stable key from the universal menu catalog stock templates (e.g. "burger_bun").
+  catalogKey     String?   @map("catalog_key")
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet?            @relation(fields: [outletId], references: [id])
+  category     InventoryCategory? @relation(fields: [categoryId], references: [id])
+  stockMovements StockMovement[]
+  lots           InventoryLot[]
+  recipeIngredients RecipeIngredient[]
+  wastageRecords    Wastage[]
+  centralKitchenIndentItems CentralKitchenIndentItem[]
+
+  @@unique([organizationId, outletId, catalogKey])
+  @@map("inventory_items")
+}
+
+model InventoryLot {
+  id              String    @id @default(cuid())
+  inventoryItemId String    @map("inventory_item_id")
+  qtyRemaining    Decimal   @map("qty_remaining") @db.Decimal(12, 3)
+  unitCost        Decimal   @map("unit_cost") @db.Decimal(12, 2)
+  receivedAt      DateTime  @map("received_at")
+  expiryDate      DateTime? @map("expiry_date")
+  grnItemId       String?   @map("grn_item_id")
+
+  inventoryItem InventoryItem  @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  grnItem       GRNItem?       @relation(fields: [grnItemId], references: [id], onDelete: SetNull)
+  stockMovements StockMovement[]
+
+  @@index([inventoryItemId, receivedAt])
+  @@map("inventory_lots")
+}
+
+model StockLocation {
+  id       String @id @default(cuid())
+  outletId String @map("outlet_id")
+  name     String
+
+  @@map("stock_locations")
+}
+
+model StockMovement {
+  id              String            @id @default(cuid())
+  inventoryItemId String            @map("inventory_item_id")
+  lotId           String?           @map("lot_id")
+  type            StockMovementType
+  quantity        Decimal           @db.Decimal(12, 3)
+  reference       String?
+  notes           String?
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  lot           InventoryLot? @relation(fields: [lotId], references: [id], onDelete: SetNull)
+
+  @@map("stock_movements")
+}
+
+model Recipe {
+  id             String  @id @default(cuid())
+  menuItemId     String  @unique @map("menu_item_id")
+  parentRecipeId String? @map("parent_recipe_id")
+  yield          Decimal @default(1) @db.Decimal(12, 2)
+
+  menuItem       MenuItem           @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  parentRecipe   Recipe?            @relation("RecipeHierarchy", fields: [parentRecipeId], references: [id], onDelete: SetNull)
+  childRecipes   Recipe[]           @relation("RecipeHierarchy")
+  ingredients    RecipeIngredient[]
+  usedAsSubRecipe RecipeIngredient[] @relation("SubRecipeIngredients")
+  batches        ProductionBatch[]
+
+  @@map("recipes")
+}
+
+model RecipeIngredient {
+  id              String  @id @default(cuid())
+  recipeId        String  @map("recipe_id")
+  inventoryItemId String? @map("inventory_item_id")
+  subRecipeId     String? @map("sub_recipe_id")
+  quantity        Decimal @db.Decimal(12, 3)
+
+  recipe        Recipe         @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+  subRecipe     Recipe?        @relation("SubRecipeIngredients", fields: [subRecipeId], references: [id])
+
+  @@map("recipe_ingredients")
+}
+
+model Wastage {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  outletId        String?  @map("outlet_id")
+  inventoryItemId String   @map("inventory_item_id")
+  quantity        Decimal  @db.Decimal(12, 3)
+  reason          String?
+  recordedAt      DateTime @default(now()) @map("recorded_at")
+
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet        Outlet?       @relation(fields: [outletId], references: [id], onDelete: SetNull)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, recordedAt])
+  @@map("wastage")
+}
+
+model Supplier {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+  email          String?
+  phone          String?
+  address        String?
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id        String   @id @default(cuid())
+  supplierId String  @map("supplier_id")
+  poNumber  String   @map("po_number")
+  status    POStatus @default(draft)
+  total     Decimal  @default(0) @db.Decimal(12, 2)
+  orderedAt DateTime? @map("ordered_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  supplier Supplier            @relation(fields: [supplierId], references: [id])
+  items    PurchaseOrderItem[]
+  grns     GRN[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String  @id @default(cuid())
+  purchaseOrderId String  @map("purchase_order_id")
+  inventoryItemId String? @map("inventory_item_id")
+  name            String
+  quantity        Decimal @db.Decimal(12, 3)
+  unitPrice       Decimal @map("unit_price") @db.Decimal(12, 2)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@map("purchase_order_items")
+}
+
+model GRN {
+  id              String    @id @default(cuid())
+  purchaseOrderId String?   @map("purchase_order_id")
+  grnNumber       String    @map("grn_number")
+  status          GRNStatus @default(draft)
+  receivedAt      DateTime? @map("received_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  items         GRNItem[]
+
+  @@map("grns")
+}
+
+model GRNItem {
+  id              String  @id @default(cuid())
+  grnId           String  @map("grn_id")
+  inventoryItemId String? @map("inventory_item_id")
+  quantity        Decimal @db.Decimal(12, 3)
+  unitPrice       Decimal @map("unit_price") @db.Decimal(12, 2)
+
+  grn  GRN           @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  lots InventoryLot[]
+
+  @@map("grn_items")
+}
+
+model CentralKitchen {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  outletId       String   @unique @map("outlet_id")
+  name           String
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization  Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet        Outlet                 @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  linkedOutlets CentralKitchenOutlet[]
+  indents       CentralKitchenIndent[]
+
+  @@index([organizationId])
+  @@map("central_kitchens")
+}
+
+model CentralKitchenOutlet {
+  id               String @id @default(cuid())
+  centralKitchenId String @map("central_kitchen_id")
+  outletId         String @map("outlet_id")
+
+  centralKitchen CentralKitchen @relation(fields: [centralKitchenId], references: [id], onDelete: Cascade)
+  outlet         Outlet         @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@unique([centralKitchenId, outletId])
+  @@map("central_kitchen_outlets")
+}
+
+model CentralKitchenIndent {
+  id                   String                     @id @default(cuid())
+  organizationId       String                     @map("organization_id")
+  centralKitchenId     String                     @map("central_kitchen_id")
+  requestingOutletId   String                     @map("requesting_outlet_id")
+  status               CentralKitchenIndentStatus @default(pending)
+  notes                String?
+  routeCode            String?                    @map("route_code")
+  sequence             Int?
+  fulfilledAt          DateTime?                  @map("fulfilled_at")
+  createdAt            DateTime                   @default(now()) @map("created_at")
+  updatedAt            DateTime                   @updatedAt @map("updated_at")
+
+  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  centralKitchen     CentralKitchen           @relation(fields: [centralKitchenId], references: [id], onDelete: Cascade)
+  requestingOutlet   Outlet                   @relation("IndentRequestingOutlet", fields: [requestingOutletId], references: [id], onDelete: Cascade)
+  items              CentralKitchenIndentItem[]
+
+  @@index([centralKitchenId, status])
+  @@index([requestingOutletId, status])
+  @@map("central_kitchen_indents")
+}
+
+model CentralKitchenIndentItem {
+  id              String  @id @default(cuid())
+  indentId        String  @map("indent_id")
+  inventoryItemId String  @map("inventory_item_id")
+  quantity        Decimal @db.Decimal(12, 3)
+
+  indent        CentralKitchenIndent @relation(fields: [indentId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem        @relation(fields: [inventoryItemId], references: [id])
+
+  @@map("central_kitchen_indent_items")
+}
+
+// ─── CRM & growth ────────────────────────────────────────────────────────────
+
+model Customer {
+  id                   String    @id @default(cuid())
+  organizationId       String    @map("organization_id")
+  name                 String
+  email                String?
+  phone                String?
+  loyaltyTierId        String?   @map("loyalty_tier_id")
+  loyaltyPoints        Int       @default(0) @map("loyalty_points")
+  stampCount           Int       @default(0) @map("stamp_count")
+  metadata             Json?
+  marketingEmailOptIn  Boolean   @default(false) @map("marketing_email_opt_in")
+  marketingSmsOptIn    Boolean   @default(false) @map("marketing_sms_opt_in")
+  marketingOptInAt     DateTime? @map("marketing_opt_in_at")
+  marketingOptOutAt    DateTime? @map("marketing_opt_out_at")
+  unsubscribeToken     String?   @unique @map("unsubscribe_token")
+  anonymizedAt         DateTime? @map("anonymized_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  loyaltyTier         LoyaltyTier?         @relation(fields: [loyaltyTierId], references: [id])
+  orders              Order[]
+  loyaltyTransactions LoyaltyTransaction[]
+  couponUsages        CouponUsage[]
+  guestMembership     GuestOrgMembership?
+
+  @@unique([organizationId, phone])
+  @@index([organizationId, marketingEmailOptIn])
+  @@index([anonymizedAt])
+  @@map("customers")
+}
+
+/// Platform identity for the Cullinos Guest mobile app (cross-tenant).
+model GuestUser {
+  id                  String    @id @default(cuid())
+  firebaseUid         String?   @unique @map("firebase_uid")
+  phone               String?   @unique
+  name                String?
+  email               String?
+  pinHash             String?   @map("pin_hash")
+  pinUpdatedAt        DateTime? @map("pin_updated_at")
+  pinFailedAttempts   Int       @default(0) @map("pin_failed_attempts")
+  pinLockedUntil      DateTime? @map("pin_locked_until")
+  cullinosCoins       Int       @default(0) @map("cullinos_coins")
+  marketingEmailOptIn Boolean   @default(false) @map("marketing_email_opt_in")
+  marketingSmsOptIn   Boolean   @default(false) @map("marketing_sms_opt_in")
+  anonymizedAt        DateTime? @map("anonymized_at")
+  suspendedAt         DateTime? @map("suspended_at")
+  suspendReason       String?   @map("suspend_reason")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  devices                 GuestDevice[]
+  addresses               GuestAddress[]
+  memberships             GuestOrgMembership[]
+  favoriteOutlets         GuestFavoriteOutlet[]
+  favoriteItems           GuestFavoriteItem[]
+  reviews                 GuestOutletReview[]
+  notifications           GuestNotification[]
+  notificationPreference  GuestNotificationPreference?
+  coinLedger              GuestCoinLedger[]
+
+  @@map("guest_users")
+}
+
+model GuestCoinLedger {
+  id          String   @id @default(cuid())
+  guestUserId String   @map("guest_user_id")
+  delta       Int
+  reason      String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+
+  @@index([guestUserId, createdAt])
+  @@map("guest_coin_ledger")
+}
+
+model GuestOrgMembership {
+  id             String   @id @default(cuid())
+  guestUserId    String   @map("guest_user_id")
+  organizationId String   @map("organization_id")
+  customerId     String   @unique @map("customer_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  guestUser    GuestUser    @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([guestUserId, organizationId])
+  @@index([organizationId])
+  @@map("guest_org_memberships")
+}
+
+model GuestDevice {
+  id          String    @id @default(cuid())
+  guestUserId String    @map("guest_user_id")
+  fcmToken    String    @unique @map("fcm_token")
+  platform    String?
+  lastSeenAt  DateTime? @map("last_seen_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+
+  @@index([guestUserId])
+  @@map("guest_devices")
+}
+
+model GuestAddress {
+  id          String   @id @default(cuid())
+  guestUserId String   @map("guest_user_id")
+  label       String?
+  line1       String
+  line2       String?
+  city        String?
+  state       String?
+  pincode     String?
+  latitude    Decimal? @db.Decimal(10, 7)
+  longitude   Decimal? @db.Decimal(10, 7)
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+
+  @@index([guestUserId])
+  @@map("guest_addresses")
+}
+
+model GuestPhoneOtp {
+  id             String    @id @default(cuid())
+  phone          String
+  codeHash       String    @map("code_hash")
+  challengeToken String    @unique @map("challenge_token")
+  attempts       Int       @default(0)
+  expiresAt      DateTime  @map("expires_at")
+  consumedAt     DateTime? @map("consumed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([phone])
+  @@index([challengeToken])
+  @@map("guest_phone_otps")
+}
+
+model GuestFavoriteOutlet {
+  id          String   @id @default(cuid())
+  guestUserId String   @map("guest_user_id")
+  outletId    String   @map("outlet_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+  outlet    Outlet    @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@unique([guestUserId, outletId])
+  @@index([outletId])
+  @@map("guest_favorite_outlets")
+}
+
+model GuestFavoriteItem {
+  id          String   @id @default(cuid())
+  guestUserId String   @map("guest_user_id")
+  organizationId String @map("organization_id")
+  menuItemId  String   @map("menu_item_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([guestUserId, menuItemId])
+  @@index([organizationId])
+  @@map("guest_favorite_items")
+}
+
+model GuestOutletReview {
+  id          String   @id @default(cuid())
+  guestUserId String   @map("guest_user_id")
+  outletId    String   @map("outlet_id")
+  orderId     String?  @unique @map("order_id")
+  rating      Int
+  comment     String?
+  /// visible | hidden | removed
+  status      String   @default("visible")
+  moderatedAt DateTime? @map("moderated_at")
+  moderatedByUserId String? @map("moderated_by_user_id")
+  moderationNote String? @map("moderation_note")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+  outlet    Outlet    @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  order     Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([outletId, createdAt])
+  @@index([guestUserId])
+  @@index([status, createdAt])
+  @@map("guest_outlet_reviews")
+}
+
+model GuestNotification {
+  id          String    @id @default(cuid())
+  guestUserId String    @map("guest_user_id")
+  title       String
+  body        String
+  type        String    @default("general")
+  data        Json      @default("{}")
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+
+  @@index([guestUserId, createdAt])
+  @@map("guest_notifications")
+}
+
+model GuestNotificationPreference {
+  id                   String   @id @default(cuid())
+  guestUserId          String   @unique @map("guest_user_id")
+  transactionalEnabled Boolean  @default(true) @map("transactional_enabled")
+  marketingEnabled     Boolean  @default(true) @map("marketing_enabled")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  guestUser GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+
+  @@map("guest_notification_preferences")
+}
+
+model GuestBanner {
+  id             String    @id @default(cuid())
+  scope          String    @default("organization") // platform | organization
+  organizationId String?   @map("organization_id")
+  title          String
+  subtitle       String?
+  imageUrl       String?   @map("image_url")
+  linkType       String    @default("none") // outlet | url | none
+  linkPayload    Json      @default("{}") @map("link_payload")
+  sortOrder      Int       @default(0) @map("sort_order")
+  startsAt       DateTime? @map("starts_at")
+  endsAt         DateTime? @map("ends_at")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([scope, isActive, sortOrder])
+  @@index([organizationId, isActive])
+  @@map("guest_banners")
+}
+
+model GuestPushCampaign {
+  id             String    @id @default(cuid())
+  scope          String    @default("organization") // platform | organization
+  organizationId String?   @map("organization_id")
+  title          String
+  body           String
+  data           Json      @default("{}")
+  imageUrl       String?   @map("image_url")
+  /// offer | alert | promo | custom
+  stylePreset    String?   @map("style_preset")
+  /// { titleColor, bodyColor, bgColor, accentColor, fontFamily, ctaLabel, headlineSize? }
+  creative       Json      @default("{}")
+  /// all | org_members | city | org | marketing_opt_in
+  audience       String    @default("org_members")
+  audienceFilter Json      @default("{}") @map("audience_filter")
+  deepLink       String?   @map("deep_link")
+  /// draft | scheduled | sending | sent | cancelled
+  status         String    @default("draft")
+  scheduledAt    DateTime? @map("scheduled_at")
+  sentCount      Int       @default(0) @map("sent_count")
+  failedCount    Int       @default(0) @map("failed_count")
+  sentAt         DateTime? @map("sent_at")
+  createdByUserId String?  @map("created_by_user_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([scope, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([status, scheduledAt])
+  @@map("guest_push_campaigns")
+}
+
+/// Curated Discover home rows for Cullinos Guest app
+model GuestDiscoverSection {
+  id        String    @id @default(cuid())
+  title     String
+  subtitle  String?
+  /// outlets | cuisine | manual_outlets | offers
+  type      String
+  payload   Json      @default("{}")
+  sortOrder Int       @default(0) @map("sort_order")
+  startsAt  DateTime? @map("starts_at")
+  endsAt    DateTime? @map("ends_at")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([isActive, sortOrder])
+  @@map("guest_discover_sections")
+}
+
+model LoyaltyTier {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+  minPoints      Int    @default(0) @map("min_points")
+  multiplier     Decimal @default(1) @db.Decimal(5, 2)
+
+  customers Customer[]
+
+  @@map("loyalty_tiers")
+}
+
+model LoyaltyTransaction {
+  id         String @id @default(cuid())
+  customerId String @map("customer_id")
+  points     Int
+  type       String
+  reference  String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, createdAt])
+  @@index([reference])
+  @@map("loyalty_transactions")
+}
+
+/** Catalog reward — e.g. free cold drink for 100 points. */
+model LoyaltyReward {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  pointsCost     Int      @map("points_cost")
+  menuItemId     String?  @map("menu_item_id")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  menuItem     MenuItem?    @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, isActive])
+  @@map("loyalty_rewards")
+}
+
+model Coupon {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  code           String
+  title          String?
+  description    String?
+  imageUrl       String?  @map("image_url")
+  type           String
+  value          Decimal  @db.Decimal(12, 2)
+  minOrder       Decimal? @map("min_order") @db.Decimal(12, 2)
+  maxUses        Int?     @map("max_uses")
+  usedCount      Int      @default(0) @map("used_count")
+  startsAt       DateTime? @map("starts_at")
+  expiresAt      DateTime? @map("expires_at")
+  isActive       Boolean  @default(true) @map("is_active")
+  marketplaceFeatured Boolean @default(false) @map("marketplace_featured")
+
+  usages CouponUsage[]
+
+  @@unique([organizationId, code])
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id         String @id @default(cuid())
+  couponId   String @map("coupon_id")
+  customerId String? @map("customer_id")
+  orderId    String? @map("order_id")
+  usedAt     DateTime @default(now()) @map("used_at")
+
+  coupon   Coupon    @relation(fields: [couponId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@unique([couponId, orderId])
+  @@index([customerId])
+  @@map("coupon_usages")
+}
+
+model DeliveryZone {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  outletId       String @map("outlet_id")
+  name           String
+  polygon        Json?
+  deliveryFee    Decimal @default(0) @map("delivery_fee") @db.Decimal(12, 2)
+  minOrder       Decimal @default(0) @map("min_order") @db.Decimal(12, 2)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id])
+
+  @@map("delivery_zones")
+}
+
+model DeliveryOrder {
+  id              String         @id @default(cuid())
+  orderId         String         @unique @map("order_id")
+  status          DeliveryStatus @default(pending)
+  address         String?
+  pincode         String?
+  zoneId          String?        @map("zone_id")
+  latitude        Decimal?       @db.Decimal(10, 7)
+  longitude       Decimal?       @db.Decimal(10, 7)
+  deliveryFee     Decimal        @default(0) @map("delivery_fee") @db.Decimal(12, 2)
+  driverName      String?        @map("driver_name")
+  driverPhone     String?        @map("driver_phone")
+  estimatedAt     DateTime?      @map("estimated_at")
+  deliveredAt     DateTime?      @map("delivered_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("delivery_orders")
+}
+
+// ─── Hospitality ─────────────────────────────────────────────────────────────
+
+model Guest {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  name           String
+  email          String?
+  phone          String?
+  documentType   String?   @map("document_type")
+  documentNumber String?   @map("document_number")
+  anonymizedAt   DateTime? @map("anonymized_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  roomPostings    RoomPosting[]
+  banquetBookings BanquetBooking[]
+
+  @@index([organizationId, anonymizedAt])
+  @@map("guests")
+}
+
+model RoomType {
+  id       String  @id @default(cuid())
+  name     String
+  baseRate Decimal @default(0) @map("base_rate") @db.Decimal(12, 2)
+  capacity Int     @default(2)
+
+  rooms Room[]
+
+  @@map("room_types")
+}
+
+model Room {
+  id         String     @id @default(cuid())
+  outletId   String     @map("outlet_id")
+  roomTypeId String     @map("room_type_id")
+  number     String
+  floor      Int?
+  status     RoomStatus @default(available)
+
+  outlet       Outlet        @relation(fields: [outletId], references: [id])
+  roomType     RoomType      @relation(fields: [roomTypeId], references: [id])
+  roomPostings RoomPosting[]
+
+  @@unique([outletId, number])
+  @@map("rooms")
+}
+
+model RoomPosting {
+  id       String    @id @default(cuid())
+  roomId   String    @map("room_id")
+  guestId  String    @map("guest_id")
+  checkIn  DateTime  @map("check_in")
+  checkOut DateTime? @map("check_out")
+  amount   Decimal   @default(0) @db.Decimal(12, 2)
+
+  room  Room  @relation(fields: [roomId], references: [id])
+  guest Guest @relation(fields: [guestId], references: [id])
+
+  @@map("room_postings")
+}
+
+model Banquet {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+  capacity       Int
+  baseRate       Decimal @default(0) @map("base_rate") @db.Decimal(12, 2)
+
+  bookings BanquetBooking[]
+
+  @@map("banquets")
+}
+
+model BanquetBooking {
+  id        String        @id @default(cuid())
+  banquetId String        @map("banquet_id")
+  guestId   String        @map("guest_id")
+  eventDate DateTime      @map("event_date")
+  status    BanquetStatus @default(inquiry)
+  guestCount Int          @map("guest_count")
+  total     Decimal       @default(0) @db.Decimal(12, 2)
+
+  banquet Banquet @relation(fields: [banquetId], references: [id])
+  guest   Guest   @relation(fields: [guestId], references: [id])
+
+  @@map("banquet_bookings")
+}
+
+// ─── Enterprise ──────────────────────────────────────────────────────────────
+
+model FranchiseAgreement {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  franchiseeName String   @map("franchisee_name")
+  startDate      DateTime @map("start_date")
+  endDate        DateTime? @map("end_date")
+  terms          Json?
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlets      FranchiseOutlet[]
+
+  @@map("franchise_agreements")
+}
+
+model FranchiseOutlet {
+  id                   String @id @default(cuid())
+  franchiseAgreementId String @map("franchise_agreement_id")
+  outletId             String @map("outlet_id")
+
+  franchiseAgreement FranchiseAgreement @relation(fields: [franchiseAgreementId], references: [id], onDelete: Cascade)
+  outlet             Outlet             @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@unique([franchiseAgreementId, outletId])
+  @@map("franchise_outlets")
+}
+
+model Employee {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  outletId       String? @map("outlet_id")
+  name           String
+  email          String?
+  phone          String?
+  role           String?
+  isActive       Boolean @default(true) @map("is_active")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet?      @relation(fields: [outletId], references: [id])
+  attendance   AttendanceRecord[]
+
+  @@map("employees")
+}
+
+model AttendanceShift {
+  id        String @id @default(cuid())
+  name      String
+  startTime String @map("start_time")
+  endTime   String @map("end_time")
+
+  records AttendanceRecord[]
+
+  @@map("attendance_shifts")
+}
+
+model AttendanceRecord {
+  id         String           @id @default(cuid())
+  employeeId String           @map("employee_id")
+  shiftId    String?          @map("shift_id")
+  date       DateTime         @db.Date
+  status     AttendanceStatus @default(present)
+  checkIn    DateTime?        @map("check_in")
+  checkOut   DateTime?        @map("check_out")
+
+  employee Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift    AttendanceShift?  @relation(fields: [shiftId], references: [id])
+
+  @@unique([employeeId, date])
+  @@map("attendance_records")
+}
+
+// ─── Platform ────────────────────────────────────────────────────────────────
+
+model Notification {
+  id             String              @id @default(cuid())
+  organizationId String              @map("organization_id")
+  userId         String?             @map("user_id")
+  channel        NotificationChannel @default(in_app)
+  title          String
+  body           String?
+  read           Boolean             @default(false)
+  metadata       Json?
+  createdAt      DateTime            @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Integration {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  provider       String
+  config         Json
+  isActive       Boolean @default(true) @map("is_active")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider])
+  @@map("integrations")
+}
+
+model AggregatorSettlement {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  outletId        String?  @map("outlet_id")
+  provider        String
+  externalOrderId String   @map("external_order_id")
+  orderId         String?  @map("order_id")
+  orderDate       DateTime @map("order_date")
+  grossAmount     Decimal  @map("gross_amount") @db.Decimal(12, 2)
+  commission      Decimal  @default(0) @db.Decimal(12, 2)
+  taxOnCommission Decimal  @default(0) @map("tax_on_commission") @db.Decimal(12, 2)
+  payout          Decimal  @db.Decimal(12, 2)
+  status          String   @default("imported")
+  rawPayload      Json?    @map("raw_payload")
+  batchId         String?  @map("batch_id")
+  importedAt      DateTime @default(now()) @map("imported_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet?      @relation(fields: [outletId], references: [id])
+  order        Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, provider, externalOrderId])
+  @@index([organizationId, orderDate])
+  @@map("aggregator_settlements")
+}
+
+model Webhook {
+  id        String @id @default(cuid())
+  url       String
+  events    String[]
+  secret    String?
+  isActive  Boolean @default(true) @map("is_active")
+
+  deliveries WebhookDelivery[]
+
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id         String   @id @default(cuid())
+  webhookId  String   @map("webhook_id")
+  event      String
+  payload    Json
+  status     String
+  response   String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_deliveries")
+}
+
+model Device {
+  id             String     @id @default(cuid())
+  organizationId String     @map("organization_id")
+  outletId       String?    @map("outlet_id")
+  name           String
+  type           DeviceType
+  identifier     String?
+  lastSeenAt     DateTime?  @map("last_seen_at")
+  metadata       Json?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet?      @relation(fields: [outletId], references: [id])
+  registrations DeviceRegistration[]
+  printJobs     PrintJob[]
+
+  @@map("devices")
+}
+
+model DeviceRegistration {
+  id       String @id @default(cuid())
+  deviceId String @map("device_id")
+  token    String @unique
+  platform String?
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("device_registrations")
+}
+
+enum PrintJobStatus {
+  pending
+  sent
+  failed
+  done
+}
+
+model PrintJob {
+  id             String         @id @default(cuid())
+  organizationId String         @map("organization_id")
+  outletId       String?        @map("outlet_id")
+  deviceId       String?        @map("device_id")
+  orderId        String?        @map("order_id")
+  kind           String         @default("receipt")
+  status         PrintJobStatus @default(pending)
+  error          String?
+  payloadSummary String?        @map("payload_summary")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  device       Device?      @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@map("print_jobs")
+}
+
+model SyncEvent {
+  id             String          @id @default(cuid())
+  organizationId String          @map("organization_id")
+  deviceId       String?         @map("device_id")
+  eventType      String          @map("event_type")
+  payload        Json
+  idempotencyKey String          @unique @map("idempotency_key")
+  status         SyncEventStatus @default(pending)
+  syncedAt       DateTime?       @map("synced_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@map("sync_events")
+}
+
+model SyncQueue {
+  id        String   @id @default(cuid())
+  deviceId  String   @map("device_id")
+  payload   Json
+  status    String   @default("pending")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("sync_queue")
+}
+
+model AnalyticsSnapshot {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  date           DateTime @db.Date
+  metrics        Json
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, date])
+  @@map("analytics_snapshots")
+}
+
+model InsightsSnapshot {
+  id        String   @id @default(cuid())
+  outletId  String   @map("outlet_id")
+  date      DateTime @db.Date
+  insights  Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([outletId, date])
+  @@map("insights_snapshots")
+}
+
+// ─── Marketing CMS (platform) ───────────────────────────────────────────────
+
+model MarketingSite {
+  id              String   @id @default("default")
+  siteName        String   @map("site_name")
+  tagline         String
+  siteDescription String?  @map("site_description")
+  registerUrl     String?  @map("register_url")
+  adminUrl        String?  @map("admin_url")
+  contactEmail    String?  @map("contact_email")
+  seoTitle        String?  @map("seo_title")
+  seoDescription  String?  @map("seo_description")
+  lastPublishedAt DateTime? @map("last_published_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("marketing_sites")
+}
+
+model MarketingTheme {
+  id        String                 @id @default(cuid())
+  name      String                 @default("Default")
+  status    MarketingContentStatus @default(draft)
+  tokens    Json
+  publishedAt DateTime?            @map("published_at")
+  createdAt DateTime               @default(now()) @map("created_at")
+  updatedAt DateTime               @updatedAt @map("updated_at")
+
+  @@map("marketing_themes")
+}
+
+
+model MarketingAsset {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String   @map("original_name")
+  mimeType     String   @map("mime_type")
+  sizeBytes    Int      @map("size_bytes")
+  url          String
+  alt          String?
+  slotKey      String?  @map("slot_key")
+  tags         String[] @default([])
+  uploadedById String?  @map("uploaded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  heroSlides   MarketingHeroSlide[]
+  blogPosts    MarketingBlogPost[]
+
+  @@index([slotKey])
+  @@map("marketing_assets")
+}
+
+model MarketingHeroSlide {
+  id           String                 @id @default(cuid())
+  headline     String
+  headlineAccent String               @map("headline_accent")
+  subline      String
+  imageAssetId String?                @map("image_asset_id")
+  imageKey     String?                @map("image_key")
+  sortOrder    Int                    @default(0) @map("sort_order")
+  status       MarketingContentStatus @default(draft)
+  publishedAt  DateTime?              @map("published_at")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+
+  imageAsset MarketingAsset? @relation(fields: [imageAssetId], references: [id], onDelete: SetNull)
+
+  @@map("marketing_hero_slides")
+}
+
+model MarketingPage {
+  id             String                 @id @default(cuid())
+  slug           String                 @unique
+  title          String
+  seoTitle       String?                @map("seo_title")
+  seoDescription String?                @map("seo_description")
+  status         MarketingContentStatus @default(draft)
+  publishedAt    DateTime?              @map("published_at")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  blocks MarketingBlock[]
+
+  @@map("marketing_pages")
+}
+
+model MarketingBlock {
+  id        String                 @id @default(cuid())
+  pageId    String                 @map("page_id")
+  blockKey  String                 @map("block_key")
+  content   Json
+  sortOrder Int                    @default(0) @map("sort_order")
+  status    MarketingContentStatus @default(draft)
+  publishedAt DateTime?            @map("published_at")
+  createdAt DateTime               @default(now()) @map("created_at")
+  updatedAt DateTime               @updatedAt @map("updated_at")
+
+  page MarketingPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, blockKey, status])
+  @@map("marketing_blocks")
+}
+
+model MarketingNavItem {
+  id        String                 @id @default(cuid())
+  label     String
+  href      String
+  groupKey  String                 @default("main") @map("group_key")
+  sortOrder Int                    @default(0) @map("sort_order")
+  status    MarketingContentStatus @default(draft)
+  publishedAt DateTime?            @map("published_at")
+  createdAt DateTime               @default(now()) @map("created_at")
+  updatedAt DateTime               @updatedAt @map("updated_at")
+
+  @@map("marketing_nav_items")
+}
+
+model MarketingPricingCard {
+  id           String                 @id @default(cuid())
+  planKey      String                 @map("plan_key")
+  name         String
+  description  String
+  priceMonthly Int                    @map("price_monthly")
+  priceYearly  Int                    @map("price_yearly")
+  maxOutlets   Int                    @default(1) @map("max_outlets")
+  maxUsers     Int                    @default(5) @map("max_users")
+  maxTerminals Int                    @default(2) @map("max_terminals")
+  features     String[]               @default([])
+  cta          String                 @default("register")
+  highlighted  Boolean                @default(false)
+  sortOrder    Int                    @default(0) @map("sort_order")
+  status       MarketingContentStatus @default(draft)
+  publishedAt  DateTime?              @map("published_at")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+
+  @@map("marketing_pricing_cards")
+}
+
+model MarketingTestimonial {
+  id        String                 @id @default(cuid())
+  quote     String
+  author    String
+  role      String
+  sortOrder Int                    @default(0) @map("sort_order")
+  status    MarketingContentStatus @default(draft)
+  publishedAt DateTime?            @map("published_at")
+  createdAt DateTime               @default(now()) @map("created_at")
+  updatedAt DateTime               @updatedAt @map("updated_at")
+
+  @@map("marketing_testimonials")
+}
+
+model MarketingBlogPost {
+  id           String                 @id @default(cuid())
+  slug         String                 @unique
+  title        String
+  excerpt      String?
+  body         String
+  coverAssetId String?                @map("cover_asset_id")
+  status       MarketingContentStatus @default(draft)
+  publishedAt  DateTime?              @map("published_at")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+
+  coverAsset MarketingAsset? @relation(fields: [coverAssetId], references: [id], onDelete: SetNull)
+
+  @@map("marketing_blog_posts")
+}
+
+model MarketingInquiry {
+  id            String   @id @default(cuid())
+  name          String
+  business      String
+  email         String
+  phone         String?
+  city          String?
+  outlets       String?
+  planInterest  String?  @map("plan_interest")
+  message       String
+  status        String   @default("new") // new | read | archived
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("marketing_inquiries")
+}
+
+model MarketingDesignPreset {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  themeTokens Json     @map("theme_tokens")
+  layoutHints Json     @map("layout_hints")
+  copyTone    String   @map("copy_tone")
+  imagePrompts Json    @map("image_prompts")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("marketing_design_presets")
+}
+
+// ─── Food business verticals ───────────────────────────────────────────────────
+
+model OutletEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  outletId       String   @map("outlet_id")
+  name           String
+  location       String?
+  address        String?
+  latitude       Decimal? @db.Decimal(10, 7)
+  longitude      Decimal? @db.Decimal(10, 7)
+  eventDate      DateTime @map("event_date")
+  startTime      String   @map("start_time")
+  endTime        String   @map("end_time")
+  preOrderOpensAt DateTime? @map("pre_order_opens_at")
+  preOrderClosesAt DateTime? @map("pre_order_closes_at")
+  maxPreOrders   Int?     @map("max_pre_orders")
+  notes          String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@index([outletId, eventDate])
+  @@map("outlet_events")
+}
+
+model ProductionBatch {
+  id             String                @id @default(cuid())
+  organizationId String                @map("organization_id")
+  outletId       String                @map("outlet_id")
+  recipeId       String?               @map("recipe_id")
+  name           String
+  plannedQty     Decimal               @map("planned_qty") @db.Decimal(12, 2)
+  actualQty      Decimal?              @map("actual_qty") @db.Decimal(12, 2)
+  scaleFactor    Decimal               @default(1) @map("scale_factor") @db.Decimal(8, 2)
+  status         ProductionBatchStatus @default(planned)
+  batchNumber    String?               @map("batch_number")
+  scheduledFor   DateTime              @map("scheduled_for")
+  completedAt    DateTime?             @map("completed_at")
+  notes          String?
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  recipe       Recipe?      @relation(fields: [recipeId], references: [id])
+
+  @@index([outletId, scheduledFor])
+  @@map("production_batches")
+}
+
+model EmailOtp {
+  id             String          @id @default(cuid())
+  email          String
+  userId         String?         @map("user_id")
+  purpose        EmailOtpPurpose
+  codeHash       String          @map("code_hash")
+  challengeToken String          @unique @map("challenge_token")
+  attempts       Int             @default(0)
+  expiresAt      DateTime        @map("expires_at")
+  consumedAt     DateTime?       @map("consumed_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  @@index([email, purpose])
+  @@index([challengeToken])
+  @@map("email_otps")
+}
+
+model PhoneOtp {
+  id             String   @id @default(cuid())
+  phone          String
+  organizationId String   @map("organization_id")
+  codeHash       String   @map("code_hash")
+  challengeToken String   @unique @map("challenge_token")
+  /// customer_login | staff_login | staff_widget_binding
+  purpose        String   @default("customer_login")
+  attempts       Int      @default(0)
+  expiresAt      DateTime @map("expires_at")
+  consumedAt     DateTime? @map("consumed_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([phone, organizationId])
+  @@index([organizationId, createdAt])
+  @@index([challengeToken])
+  @@map("phone_otps")
+}
+
+model EmailCampaign {
+  id               String              @id @default(cuid())
+  scope            EmailCampaignScope
+  organizationId   String?             @map("organization_id")
+  createdByUserId  String              @map("created_by_user_id")
+  subject          String
+  body             String
+  recipientCount   Int                 @default(0) @map("recipient_count")
+  sentCount        Int                 @default(0) @map("sent_count")
+  failedCount      Int                 @default(0) @map("failed_count")
+  status           EmailCampaignStatus @default(sending)
+  createdAt        DateTime            @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@map("email_campaigns")
+}
+
+/// DPDP consent / notice acknowledgment registry (purpose-tagged, withdrawable).
+model ConsentRecord {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  subjectType    String    @map("subject_type")
+  subjectId      String    @map("subject_id")
+  purpose        String
+  noticeVersion  String    @map("notice_version")
+  granted        Boolean
+  source         String
+  ipAddress      String?   @map("ip_address")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  withdrawnAt    DateTime? @map("withdrawn_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, subjectType, subjectId])
+  @@index([purpose, granted])
+  @@map("consent_records")
+}
+
+/// Opaque short-lived handoff so impersonation JWTs are not placed in URLs.
+model ImpersonationHandoff {
+  id               String    @id @default(cuid())
+  organizationId   String    @map("organization_id")
+  createdByUserId  String    @map("created_by_user_id")
+  targetUserId     String    @map("target_user_id")
+  codeHash         String    @unique @map("code_hash")
+  accessToken      String    @map("access_token")
+  reason           String
+  expiresAt        DateTime  @map("expires_at")
+  consumedAt       DateTime? @map("consumed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("impersonation_handoffs")
+}
+
+// ─── Phase 5 Growth ──────────────────────────────────────────────────────────
+
+model Reservation {
+  id             String            @id @default(cuid())
+  organizationId String            @map("organization_id")
+  outletId       String            @map("outlet_id")
+  customerName   String            @map("customer_name")
+  customerPhone  String            @map("customer_phone")
+  customerEmail  String?           @map("customer_email")
+  partySize      Int               @map("party_size")
+  reservedAt     DateTime          @map("reserved_at")
+  tableId        String?           @map("table_id")
+  status         ReservationStatus @default(pending)
+  notes          String?
+  bookingToken   String            @unique @map("booking_token")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  table        Table?       @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  invite       ReservationInvite?
+
+  @@index([outletId, reservedAt])
+  @@index([organizationId, status])
+  @@map("reservations")
+}
+
+model ReservationInvite {
+  id             String                  @id @default(cuid())
+  organizationId String                  @map("organization_id")
+  outletId       String                  @map("outlet_id")
+  customerName   String                  @map("customer_name")
+  customerPhone  String                  @map("customer_phone")
+  customerEmail  String?                 @map("customer_email")
+  token          String                  @unique
+  status         ReservationInviteStatus @default(sent)
+  expiresAt      DateTime                @map("expires_at")
+  reservationId  String?                 @unique @map("reservation_id")
+  createdAt      DateTime                @default(now()) @map("created_at")
+  updatedAt      DateTime                @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  reservation  Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+
+  @@index([outletId, status])
+  @@index([organizationId, createdAt])
+  @@map("reservation_invites")
+}
+
+model SmsCampaign {
+  id              String              @id @default(cuid())
+  organizationId  String              @map("organization_id")
+  createdByUserId String              @map("created_by_user_id")
+  body            String
+  recipientCount  Int                 @default(0) @map("recipient_count")
+  sentCount       Int                 @default(0) @map("sent_count")
+  failedCount     Int                 @default(0) @map("failed_count")
+  chargedPaise    Int                 @default(0) @map("charged_paise")
+  status          EmailCampaignStatus @default(sending)
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("sms_campaigns")
+}
+
+model FeedbackResponse {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  outletId       String   @map("outlet_id")
+  orderId        String   @unique @map("order_id")
+  rating         Int?
+  comment        String?
+  surveyToken    String   @unique @map("survey_token")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([outletId, createdAt])
+  @@map("feedback_responses")
+}
+
+model PromoDisplaySlide {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  outletId        String   @map("outlet_id")
+  title           String?
+  subtitle        String?
+  imageUrl        String?  @map("image_url")
+  slideType       String   @default("offer") @map("slide_type")
+  sortOrder       Int      @default(0) @map("sort_order")
+  durationSeconds Int      @default(10) @map("duration_seconds")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@index([outletId, isActive, sortOrder])
+  @@map("promo_display_slides")
+}
+
+/// Audit log for Super Admin restricted SQL console (SELECT-only).
+model SuperAdminSqlAudit {
+  id         String   @id @default(cuid())
+  actorEmail String   @map("actor_email")
+  sqlPreview String   @map("sql_preview")
+  rowCount   Int?     @map("row_count")
+  durationMs Int?     @map("duration_ms")
+  success    Boolean
+  error      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("super_admin_sql_audits")
+}

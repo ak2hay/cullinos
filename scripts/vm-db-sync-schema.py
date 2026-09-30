@@ -3,7 +3,8 @@
 
 Baselining (one time per database, see docs/DEPLOYMENT.md "Database migrations"):
   1. run packages/prisma/prisma/baseline/precheck.sql and stop if any duplicates are reported
-  2. apply the catch-up diff (live DB -> schema.prisma) after showing it and asking for confirmation
+  2. apply the catch-up diff (live DB -> baseline/schema-0_init.prisma) after showing it and asking
+     for confirmation; later migrations then run normally, including their data steps
   3. `migrate resolve --applied 0_init`
 Afterwards (or on an already-baselined DB) runs `migrate deploy`. Never uses --accept-data-loss.
 
@@ -25,6 +26,7 @@ USER = os.environ.get("DEPLOY_USER", "root")
 PASSWORD = os.environ.get("DEPLOY_PASSWORD", "")
 APP_DIR = "/opt/cullinos"
 SCHEMA = "packages/prisma/prisma/schema.prisma"
+BASELINE_SCHEMA = "packages/prisma/prisma/baseline/schema-0_init.prisma"
 # Keep in sync with packages/prisma/prisma/baseline/precheck.sql
 PRECHECK_QUERIES = 3
 BACKFILL_SQL = (
@@ -137,13 +139,13 @@ def main() -> int:
             ssh,
             api_run(
                 "sh -c 'npx prisma migrate diff --from-url \"$DATABASE_URL\" "
-                f"--to-schema-datamodel {SCHEMA} --script'"
+                f"--to-schema-datamodel {BASELINE_SCHEMA} --script'"
             ),
             timeout=300,
         )
         if code != 0:
             return code
-        print("\n=== Catch-up SQL (live DB -> schema.prisma) ===\n" + diff_sql)
+        print("\n=== Catch-up SQL (live DB -> 0_init schema) ===\n" + diff_sql)
         if "DROP " in diff_sql.upper() and not confirm("The catch-up SQL contains DROP statements."):
             print("Aborted.", file=sys.stderr)
             return 1
