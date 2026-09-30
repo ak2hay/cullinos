@@ -174,8 +174,8 @@ async function provisionTenant(
 ): Promise<RuntimeEnv | null> {
   if (process.env.E2E_AUTO_PROVISION !== 'true') return null;
 
-  const ownerEmail = process.env.E2E_OWNER_EMAIL ?? 'e2e-owner@cullinos.com';
-  const ownerPassword = process.env.E2E_OWNER_PASSWORD ?? 'E2eTestOwner123!';
+  const ownerEmail = process.env.E2E_OWNER_EMAIL || 'e2e-owner@cullinos.com';
+  const ownerPassword = process.env.E2E_OWNER_PASSWORD || 'E2eTestOwner123!';
 
   const result = await requestJson<{
     organizationSlug?: string;
@@ -284,9 +284,9 @@ async function detectTables(
 }
 
 export default async function globalSetup() {
-  const apiBase = process.env.E2E_API_URL ?? 'https://api.cullinos.com';
-  const ownerEmail = process.env.E2E_OWNER_EMAIL ?? 'e2e-owner@cullinos.com';
-  const ownerPassword = process.env.E2E_OWNER_PASSWORD ?? 'E2eTestOwner123!';
+  const apiBase = process.env.E2E_API_URL || 'https://api.cullinos.com';
+  const ownerEmail = process.env.E2E_OWNER_EMAIL || 'e2e-owner@cullinos.com';
+  const ownerPassword = process.env.E2E_OWNER_PASSWORD || 'E2eTestOwner123!';
 
   if (!process.env.E2E_SUPER_ADMIN_EMAIL) {
     console.warn('[e2e] E2E_SUPER_ADMIN_EMAIL missing — copy e2e/.env.example to e2e/.env.local');
@@ -297,7 +297,7 @@ export default async function globalSetup() {
   const ownerSession = await ownerLogin(apiBase, ownerEmail, ownerPassword);
   if (ownerSession) {
     const orgSlug = process.env.E2E_ORG_SLUG ?? '';
-    const outletSlug = process.env.E2E_OUTLET_SLUG ?? 'main-outlet';
+    const outletSlug = process.env.E2E_OUTLET_SLUG || 'main-outlet';
     if (orgSlug) {
       runtime = await probeStorefront(apiBase, orgSlug, outletSlug);
     }

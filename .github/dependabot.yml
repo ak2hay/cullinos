@@ -1,12 +1,31 @@
 # Dependabot — keep npm and GitHub Actions dependencies current
+# PRs target develop (feature -> develop -> main); merging to main deploys production.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: "/"
+    target-branch: develop
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    groups:
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
+    # Majors need a deliberate migration (Prisma 7, zod 4, NestJS 12 are breaking)
+    ignore:
+      - dependency-name: "prisma"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/client"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "zod"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@nestjs/*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
+    target-branch: develop
     schedule:
       interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
