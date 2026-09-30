@@ -121,7 +121,7 @@ export function ItemOptionsDialog({ item, onClose, onConfirm, formatMoney }: Ite
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-white/10 px-4 py-2 text-sm"
+            className="rounded-xl border border-line px-4 py-2 text-sm"
           >
             Cancel
           </button>
@@ -129,7 +129,7 @@ export function ItemOptionsDialog({ item, onClose, onConfirm, formatMoney }: Ite
             type="button"
             disabled={Boolean(unmet) || missingVariant}
             onClick={confirm}
-            className="rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-bg-primary disabled:opacity-40"
+            className="rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-on-brand disabled:opacity-40"
           >
             Add · {formatMoney(unitPrice)}
           </button>
@@ -150,7 +150,7 @@ export function ItemOptionsDialog({ item, onClose, onConfirm, formatMoney }: Ite
                     'rounded-xl border px-3 py-2 text-sm',
                     v.id === variantId
                       ? 'border-brand-primary bg-brand-primary/15 text-brand-primary'
-                      : 'border-white/10',
+                      : 'border-line',
                   )}
                 >
                   {v.name} · {formatMoney(v.price)}
@@ -180,7 +180,7 @@ export function ItemOptionsDialog({ item, onClose, onConfirm, formatMoney }: Ite
                       'rounded-xl border px-3 py-2 text-sm',
                       selected.includes(m.id)
                         ? 'border-brand-primary bg-brand-primary/15 text-brand-primary'
-                        : 'border-white/10',
+                        : 'border-line',
                     )}
                   >
                     {m.name}

@@ -28,10 +28,10 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   return (
     <section
-      className={cn('overflow-hidden rounded-xl border border-white/5 bg-bg-card', className)}
+      className={cn('overflow-hidden rounded-xl border border-line-subtle bg-bg-card', className)}
     >
       <table className="w-full text-left text-sm">
-        <thead className="border-b border-white/5 bg-bg-elevated text-text-secondary">
+        <thead className="border-b border-line-subtle bg-bg-elevated text-text-secondary">
           <tr>
             {columns.map((col) => (
               <th key={col.key} className={cn('px-4 py-3 font-medium', col.className)}>
@@ -55,7 +55,7 @@ export function DataTable<T>({
             </tr>
           ) : (
             rows.map((row) => (
-              <tr key={getRowKey(row)} className="border-b border-white/5 last:border-0">
+              <tr key={getRowKey(row)} className="border-b border-line-subtle last:border-0">
                 {columns.map((col) => (
                   <td key={col.key} className={cn('px-4 py-3', col.className)}>
                     {col.cell(row)}
