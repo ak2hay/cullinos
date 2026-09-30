@@ -236,7 +236,7 @@ export class MenuService {
     const name = data.name?.trim();
     if (!name) throw new BadRequestException("Station name is required");
     const code = normalizeStationCode(
-      data.code?.trim() || name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 20),
+      data.code?.trim() || name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 20),
     );
     if (!code) throw new BadRequestException("Station code is required");
 
