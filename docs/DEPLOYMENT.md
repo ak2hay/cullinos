@@ -59,6 +59,10 @@ Workflows:
 | `Build Images` | called by `CI` after every job passes | Push `ghcr.io/ak2hay/cullinos-*:<short-sha>` (+ `staging`/`latest`) |
 | `Deploy Staging` | `CI` success on push to `develop` | `scripts/k8s-deploy.sh`: infra, migration Job, roll out `<short-sha>`, smoke `/health/db`, auto-rollback |
 | `Deploy Production` | `CI` success on push to `main` (production approval) | Same, for production |
+
+Both deploy workflows are skipped unless the repo variable `K8S_DEPLOY_ENABLED` is `true`. Until the
+k3s cutover (`infrastructure/k8s/scripts/cutover-checklist.md`) production runs on Docker Compose and is
+deployed with `scripts/vm-selective-redeploy.py` (baseline/migrations: `scripts/vm-db-sync-schema.py`).
 | `Uptime Check` | every 15m | Curl health URLs |
 | `E2E Production` | nightly | Playwright against prod |
 
