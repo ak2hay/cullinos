@@ -500,7 +500,7 @@ export function TablesPage() {
               return (
                 <li
                   key={f.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-bg-elevated px-3 py-2"
                 >
                   {isEditing ? (
                     <form
@@ -517,7 +517,7 @@ export function TablesPage() {
                       <input
                         autoFocus
                         aria-label={`Rename floor ${f.name}`}
-                        className="h-9 min-w-[10rem] flex-1 rounded-lg border border-white/10 bg-bg-card px-3 text-sm text-text-primary outline-none focus:border-brand-primary"
+                        className="h-9 min-w-[10rem] flex-1 rounded-lg border border-line bg-bg-card px-3 text-sm text-text-primary outline-none focus:border-brand-primary"
                         value={editingFloorName}
                         maxLength={80}
                         onChange={(e) => setEditingFloorName(e.target.value)}
@@ -634,8 +634,8 @@ export function TablesPage() {
             onClick={() => setFloorFilter('all')}
             className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
               floorFilter === 'all'
-                ? 'bg-brand-primary text-white'
-                : 'bg-bg-elevated text-text-secondary hover:bg-white/10'
+                ? 'bg-brand-primary text-on-brand'
+                : 'bg-bg-elevated text-text-secondary hover:bg-hover-strong'
             }`}
           >
             All
@@ -647,8 +647,8 @@ export function TablesPage() {
               onClick={() => setFloorFilter(f.id)}
               className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                 floorFilter === f.id
-                  ? 'bg-brand-primary text-white'
-                  : 'bg-bg-elevated text-text-secondary hover:bg-white/10'
+                  ? 'bg-brand-primary text-on-brand'
+                  : 'bg-bg-elevated text-text-secondary hover:bg-hover-strong'
               }`}
             >
               {f.name}
@@ -660,8 +660,8 @@ export function TablesPage() {
               onClick={() => setFloorFilter('unassigned')}
               className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                 floorFilter === 'unassigned'
-                  ? 'bg-brand-primary text-white'
-                  : 'bg-bg-elevated text-text-secondary hover:bg-white/10'
+                  ? 'bg-brand-primary text-on-brand'
+                  : 'bg-bg-elevated text-text-secondary hover:bg-hover-strong'
               }`}
             >
               Unassigned
@@ -706,7 +706,7 @@ export function TablesPage() {
                   } ${invite ? 'ring-2 ring-brand-primary/70' : ''}`}
                 >
                   {isPicked ? (
-                    <span className="absolute left-2 top-2 rounded-full bg-brand-primary px-2 py-0.5 text-[10px] font-semibold uppercase text-white">
+                    <span className="absolute left-2 top-2 rounded-full bg-brand-primary px-2 py-0.5 text-[10px] font-semibold uppercase text-on-brand">
                       {actionMode?.mode === 'merge' ? 'Primary' : 'From'}
                     </span>
                   ) : null}
@@ -759,7 +759,7 @@ export function TablesPage() {
                   Opens the phone storefront for <strong>{outlet?.name ?? 'this outlet'}</strong> without any table
                   pre-selected. Guests can choose dine-in, takeaway, or delivery themselves.
                 </p>
-                <code className="block break-all rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-xs text-brand-primary">
+                <code className="block break-all rounded-lg border border-line bg-bg-elevated px-3 py-2 text-xs text-brand-primary">
                   {takeawayUrl}
                 </code>
                 <div className="flex flex-wrap gap-2">
@@ -834,7 +834,7 @@ export function TablesPage() {
           <label className="block text-sm">
             <span className="mb-1 block text-text-secondary">Floor</span>
             <select
-              className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+              className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
               value={floorId}
               onChange={(e) => {
                 const next = e.target.value;
@@ -855,7 +855,7 @@ export function TablesPage() {
             <label className="block text-sm">
               <span className="mb-1 block text-text-secondary">Section</span>
               <select
-                className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                 value={sectionId}
                 onChange={(e) => setSectionId(e.target.value)}
               >
@@ -917,7 +917,7 @@ export function TablesPage() {
                 <label className="block text-sm">
                   <span className="mb-1 block text-text-secondary">Floor</span>
                   <select
-                    className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                    className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                     value={editFloorId}
                     onChange={(e) => {
                       const next = e.target.value;
@@ -938,7 +938,7 @@ export function TablesPage() {
                   <label className="block text-sm">
                     <span className="mb-1 block text-text-secondary">Section</span>
                     <select
-                      className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                      className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                       value={editSectionId}
                       onChange={(e) => setEditSectionId(e.target.value)}
                     >
@@ -999,7 +999,7 @@ export function TablesPage() {
                 onChange={(e) =>
                   statusMutation.mutate({ tableId: detailTable.id, status: e.target.value })
                 }
-                className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm capitalize outline-none focus:border-brand-primary"
+                className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm capitalize outline-none focus:border-brand-primary"
               >
                 {TABLE_STATUSES.map((status) => (
                   <option key={status} value={status}>
@@ -1027,7 +1027,7 @@ export function TablesPage() {
                   </div>
                 </div>
                 {detailTable.qrUrl ? (
-                  <code className="block break-all rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-xs text-brand-primary">
+                  <code className="block break-all rounded-lg border border-line bg-bg-elevated px-3 py-2 text-xs text-brand-primary">
                     {detailTable.qrUrl}
                   </code>
                 ) : null}

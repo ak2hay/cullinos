@@ -22,7 +22,7 @@ const statusStyles: Record<string, { border: string; badge: string; label: strin
   },
   SERVED: {
     border: 'border-text-muted',
-    badge: 'bg-white/10 text-text-muted',
+    badge: 'bg-hover-strong text-text-muted',
     label: 'SERVED',
   },
 };

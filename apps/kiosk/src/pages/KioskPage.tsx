@@ -197,7 +197,7 @@ export function KioskPage() {
           <button
             type="button"
             onClick={() => void storefront.refetch()}
-            className="h-14 rounded-2xl bg-brand-primary px-8 text-lg font-bold text-bg-primary"
+            className="h-14 rounded-2xl bg-brand-primary px-8 text-lg font-bold text-on-brand"
           >
             Try again
           </button>
@@ -220,7 +220,7 @@ export function KioskPage() {
             className="absolute inset-0 h-full w-full object-cover opacity-40"
           />
         ) : null}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(15,15,26,0.55)_0%,_#0f0f1a_75%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_color-mix(in_oklab,var(--color-bg-primary)_55%,transparent)_0%,_var(--color-bg-primary)_75%)]" />
         <div className="relative flex flex-col items-center gap-6 p-8">
           {data.logoUrl ? (
             <img src={data.logoUrl} alt="" className="h-28 w-28 rounded-3xl object-cover shadow-2xl" />
@@ -234,7 +234,7 @@ export function KioskPage() {
             {data.outletName}
           </h1>
           <p className="text-xl text-text-secondary">Order here, pay at the counter</p>
-          <span className="mt-6 inline-flex h-20 items-center rounded-3xl bg-brand-primary px-12 text-2xl font-bold text-bg-primary shadow-lg animate-pulse">
+          <span className="mt-6 inline-flex h-20 items-center rounded-3xl bg-brand-primary px-12 text-2xl font-bold text-on-brand shadow-lg animate-pulse">
             Tap to start ordering
           </span>
         </div>
@@ -273,14 +273,14 @@ export function KioskPage() {
             <button
               type="button"
               onClick={() => window.print()}
-              className="h-14 rounded-2xl border border-white/15 text-lg font-semibold"
+              className="h-14 rounded-2xl border border-line-strong text-lg font-semibold"
             >
               Print ticket
             </button>
             <button
               type="button"
               onClick={resetAll}
-              className="h-16 rounded-2xl bg-brand-primary text-lg font-bold text-bg-primary"
+              className="h-16 rounded-2xl bg-brand-primary text-lg font-bold text-on-brand"
             >
               Done · next guest ({doneCountdown}s)
             </button>
@@ -302,7 +302,7 @@ export function KioskPage() {
   if (step === 'cart') {
     return (
       <div className="flex h-screen flex-col bg-bg-primary">
-        <header className="flex items-center justify-between border-b border-white/5 px-6 py-4">
+        <header className="flex items-center justify-between border-b border-line-subtle px-6 py-4">
           <button
             type="button"
             onClick={() => setStep('menu')}
@@ -320,7 +320,7 @@ export function KioskPage() {
           {lines.map((line) => (
             <div
               key={line.key}
-              className="flex items-center justify-between gap-4 rounded-3xl border border-white/5 bg-bg-card p-4"
+              className="flex items-center justify-between gap-4 rounded-3xl border border-line-subtle bg-bg-card p-4"
             >
               <div className="min-w-0">
                 <p className="text-lg font-semibold">
@@ -363,7 +363,7 @@ export function KioskPage() {
             value={guestName}
             maxLength={60}
             onChange={(e) => setGuestName(e.target.value)}
-            className="w-full select-text rounded-2xl border border-white/10 bg-bg-elevated px-5 py-5 text-lg outline-none focus:border-brand-primary"
+            className="w-full select-text rounded-2xl border border-line bg-bg-elevated px-5 py-5 text-lg outline-none focus:border-brand-primary"
           />
           <div className="grid grid-cols-2 gap-3">
             {(['takeaway', 'dine_in'] as const).map((type) => (
@@ -373,8 +373,8 @@ export function KioskPage() {
                 onClick={() => setOrderType(type)}
                 className={`rounded-2xl border py-5 text-lg font-semibold ${
                   orderType === type
-                    ? 'border-brand-primary bg-brand-primary text-bg-primary'
-                    : 'border-white/10 bg-bg-card'
+                    ? 'border-brand-primary bg-brand-primary text-on-brand'
+                    : 'border-line bg-bg-card'
                 }`}
               >
                 {type === 'takeaway' ? 'Takeaway' : 'Eat in'}
@@ -385,7 +385,7 @@ export function KioskPage() {
             <p className="rounded-2xl bg-status-error/10 px-4 py-3 text-status-error">{error}</p>
           ) : null}
         </div>
-        <div className="border-t border-white/5 p-6">
+        <div className="border-t border-line-subtle p-6">
           <div className="mb-4 flex justify-between text-xl">
             <span>Total</span>
             <span className="font-mono font-bold text-brand-primary">{formatPrice(total)}</span>
@@ -394,7 +394,7 @@ export function KioskPage() {
             type="button"
             disabled={lines.length === 0 || placeMutation.isPending}
             onClick={() => placeMutation.mutate()}
-            className="h-16 w-full rounded-2xl bg-brand-primary text-xl font-bold text-bg-primary disabled:opacity-40"
+            className="h-16 w-full rounded-2xl bg-brand-primary text-xl font-bold text-on-brand disabled:opacity-40"
           >
             {placeMutation.isPending ? 'Placing order…' : 'Place order · Pay at counter'}
           </button>
@@ -404,8 +404,8 @@ export function KioskPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-[radial-gradient(ellipse_at_top,_#1a1a2e_0%,_#0f0f1a_55%)]">
-      <header className="flex items-center justify-between gap-4 border-b border-white/5 px-6 py-4">
+    <div className="flex h-screen flex-col bg-[radial-gradient(ellipse_at_top,_var(--color-bg-secondary)_0%,_var(--color-bg-primary)_55%)]">
+      <header className="flex items-center justify-between gap-4 border-b border-line-subtle px-6 py-4">
         <div className="flex min-w-0 items-center gap-3">
           {data.logoUrl ? (
             <img src={data.logoUrl} alt="" className="h-12 w-12 rounded-xl object-cover" />
@@ -422,7 +422,7 @@ export function KioskPage() {
         <button
           type="button"
           onClick={resetAll}
-          className="h-12 shrink-0 rounded-2xl border border-white/10 px-4 text-sm font-semibold text-text-secondary"
+          className="h-12 shrink-0 rounded-2xl border border-line px-4 text-sm font-semibold text-text-secondary"
         >
           Start over
         </button>
@@ -454,7 +454,7 @@ export function KioskPage() {
                   key={item.id}
                   type="button"
                   onClick={() => handleItemTap(item)}
-                  className="relative flex min-h-[200px] flex-col overflow-hidden rounded-3xl border border-white/10 bg-bg-card text-left transition active:scale-[0.97]"
+                  className="relative flex min-h-[200px] flex-col overflow-hidden rounded-3xl border border-line bg-bg-card text-left transition active:scale-[0.97]"
                 >
                   <div className="h-32 w-full bg-bg-elevated">
                     {item.imageUrl ? (
@@ -466,7 +466,7 @@ export function KioskPage() {
                     )}
                   </div>
                   {inCart > 0 ? (
-                    <span className="absolute right-3 top-3 flex h-9 min-w-9 items-center justify-center rounded-full bg-brand-primary px-2 font-mono text-base font-bold text-bg-primary">
+                    <span className="absolute right-3 top-3 flex h-9 min-w-9 items-center justify-center rounded-full bg-brand-primary px-2 font-mono text-base font-bold text-on-brand">
                       {inCart}
                     </span>
                   ) : null}
@@ -494,11 +494,11 @@ export function KioskPage() {
       </main>
 
       {itemCount > 0 ? (
-        <div className="fixed inset-x-0 bottom-0 border-t border-white/10 bg-bg-secondary/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 border-t border-line bg-bg-secondary/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
           <button
             type="button"
             onClick={() => setStep('cart')}
-            className="flex h-16 w-full items-center justify-between rounded-2xl bg-brand-primary px-6 text-lg font-bold text-bg-primary"
+            className="flex h-16 w-full items-center justify-between rounded-2xl bg-brand-primary px-6 text-lg font-bold text-on-brand"
           >
             <span>
               View order · {itemCount} {itemCount === 1 ? 'item' : 'items'}
@@ -536,7 +536,7 @@ function CategoryChip({ label, active, onClick }: { label: string; active: boole
       type="button"
       onClick={onClick}
       className={`h-14 shrink-0 rounded-full px-7 text-base font-semibold ${
-        active ? 'bg-brand-primary text-bg-primary' : 'border border-white/10 bg-bg-card text-text-secondary'
+        active ? 'bg-brand-primary text-on-brand' : 'border border-line bg-bg-card text-text-secondary'
       }`}
     >
       {label}

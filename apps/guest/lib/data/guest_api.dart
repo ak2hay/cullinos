@@ -270,11 +270,13 @@ class GuestApi {
     String? customerName,
     String? notes,
     bool? ageConfirmed,
+    String? customerId,
   }) async {
     final res = await _dio.post(
       '/public/sessions/$sessionToken/items',
       data: {
         'items': items,
+        if (customerId != null) 'customerId': customerId,
         if (customerName != null) 'customerName': customerName,
         if (notes != null) 'notes': notes,
         if (ageConfirmed != null) 'ageConfirmed': ageConfirmed,

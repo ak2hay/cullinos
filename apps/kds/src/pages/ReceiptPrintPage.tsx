@@ -131,7 +131,7 @@ export function ReceiptPrintPage({ outletId }: { outletId: string }) {
         {slip ? (
           <button
             type="button"
-            className="rounded-xl bg-brand-primary px-4 py-3 font-semibold text-bg-primary"
+            className="rounded-xl bg-brand-primary px-4 py-3 font-semibold text-on-brand"
             onClick={() => window.print()}
           >
             Reprint last

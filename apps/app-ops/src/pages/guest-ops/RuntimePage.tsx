@@ -138,7 +138,7 @@ export function GuestOpsRuntimePage() {
         <p className="text-sm text-text-muted">Loading runtime config…</p>
       ) : (
         <>
-          <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+          <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
             <h2 className="text-lg font-medium">Guest theme defaults</h2>
             <p className="mt-1 text-sm text-text-secondary">
               Platform default when an outlet has no guestThemeKey. Marketplace home/explore/offers
@@ -148,7 +148,7 @@ export function GuestOpsRuntimePage() {
               <label className="block text-sm">
                 <span className="mb-1 block text-text-secondary">Default restaurant theme</span>
                 <select
-                  className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
+                  className="w-full rounded-lg border border-line bg-bg-primary px-3 py-2"
                   value={form.PLATFORM_DEFAULT_GUEST_THEME_KEY}
                   onChange={(e) =>
                     setForm((f) =>
@@ -171,17 +171,17 @@ export function GuestOpsRuntimePage() {
               </label>
               <div className="flex items-end gap-3 pb-1">
                 <span
-                  className="inline-block h-8 w-8 rounded-full border border-white/10"
+                  className="inline-block h-8 w-8 rounded-full border border-line"
                   style={{ backgroundColor: selectedPreset.primary }}
                   title="Primary"
                 />
                 <span
-                  className="inline-block h-8 w-8 rounded-full border border-white/10"
+                  className="inline-block h-8 w-8 rounded-full border border-line"
                   style={{ backgroundColor: selectedPreset.soft }}
                   title="Soft"
                 />
                 <span
-                  className="inline-block h-8 w-8 rounded-full border border-white/10"
+                  className="inline-block h-8 w-8 rounded-full border border-line"
                   style={{ backgroundColor: selectedPreset.deep }}
                   title="Deep"
                 />
@@ -201,7 +201,7 @@ export function GuestOpsRuntimePage() {
                   className={`rounded-lg border p-3 text-left text-sm transition ${
                     form.PLATFORM_DEFAULT_GUEST_THEME_KEY === p.key
                       ? 'border-brand-primary bg-brand-primary/10'
-                      : 'border-white/10 bg-bg-primary hover:border-white/20'
+                      : 'border-line bg-bg-primary hover:border-line-strong'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -217,14 +217,14 @@ export function GuestOpsRuntimePage() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+          <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
             <h2 className="text-lg font-medium">Live preview</h2>
             <pre className="mt-3 overflow-x-auto rounded-lg bg-bg-primary p-3 text-xs text-text-secondary">
               {JSON.stringify(runtime, null, 2)}
             </pre>
           </section>
 
-          <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+          <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
             <h2 className="text-lg font-medium">Edit settings</h2>
             <form
               className="mt-4 grid gap-3 sm:grid-cols-2"
@@ -243,7 +243,7 @@ export function GuestOpsRuntimePage() {
               <label className="block text-sm">
                 <span className="mb-1 block text-text-secondary">Force update</span>
                 <select
-                  className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
+                  className="w-full rounded-lg border border-line bg-bg-primary px-3 py-2"
                   value={form.GUEST_APP_FORCE_UPDATE}
                   onChange={(e) =>
                     setForm((f) => f && { ...f, GUEST_APP_FORCE_UPDATE: e.target.value })
@@ -258,7 +258,7 @@ export function GuestOpsRuntimePage() {
                   Phone menu / takeaway QR
                 </span>
                 <select
-                  className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
+                  className="w-full rounded-lg border border-line bg-bg-primary px-3 py-2"
                   value={form.GUEST_APP_PHONE_MENU_QR_ENABLED}
                   onChange={(e) =>
                     setForm((f) =>
@@ -319,7 +319,7 @@ export function GuestOpsRuntimePage() {
               <label className="block text-sm sm:col-span-2">
                 <span className="mb-1 block text-text-secondary">Feature flags (JSON)</span>
                 <textarea
-                  className="min-h-32 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2 font-mono text-xs"
+                  className="min-h-32 w-full rounded-lg border border-line bg-bg-primary px-3 py-2 font-mono text-xs"
                   value={form.GUEST_APP_FEATURE_FLAGS}
                   onChange={(e) =>
                     setForm((f) => f && { ...f, GUEST_APP_FEATURE_FLAGS: e.target.value })

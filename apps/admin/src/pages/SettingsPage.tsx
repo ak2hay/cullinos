@@ -300,7 +300,7 @@ export function SettingsPage() {
         </div>
       ) : null}
 
-      <div className="space-y-4 rounded-xl border border-white/5 bg-bg-card p-5">
+      <div className="space-y-4 rounded-xl border border-line-subtle bg-bg-card p-5">
         <div>
           <h2 className="font-semibold">{t('settings.restaurantDetails')}</h2>
           <p className="mt-1 text-sm text-text-secondary">{t('settings.restaurantDetailsHint')}</p>
@@ -340,7 +340,7 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <div className="space-y-3 rounded-xl border border-white/5 bg-bg-card p-5">
+      <div className="space-y-3 rounded-xl border border-line-subtle bg-bg-card p-5">
         <div>
           <h2 className="font-semibold">{t('settings.languageTitle')}</h2>
           <p className="mt-1 text-sm text-text-secondary">{t('settings.languageHint')}</p>
@@ -352,7 +352,7 @@ export function SettingsPage() {
             if (isLanguageCode(e.target.value)) languageMutation.mutate(e.target.value);
           }}
           aria-label={t('settings.languageTitle')}
-          className="h-11 w-full max-w-xs rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary disabled:opacity-60"
+          className="h-11 w-full max-w-xs rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary disabled:opacity-60"
         >
           {SUPPORTED_LANGUAGES.map((lang) => (
             <option key={lang.code} value={lang.code}>
@@ -372,7 +372,7 @@ export function SettingsPage() {
         ) : null}
       </div>
 
-      <div className="space-y-3 rounded-xl border border-white/5 bg-bg-card p-5">
+      <div className="space-y-3 rounded-xl border border-line-subtle bg-bg-card p-5">
         <div>
           <h2 className="font-semibold">{t('settings.howCustomersOrder')}</h2>
           <p className="mt-1 text-sm text-text-secondary">{t('settings.howCustomersOrderHint')}</p>
@@ -381,7 +381,7 @@ export function SettingsPage() {
           {visibleOrderOptions.map((option) => (
             <label
               key={option.id}
-              className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/5 bg-bg-elevated px-3 py-3"
+              className="flex cursor-pointer items-start gap-3 rounded-lg border border-line-subtle bg-bg-elevated px-3 py-3"
             >
               <input
                 type="checkbox"
@@ -401,7 +401,7 @@ export function SettingsPage() {
       </div>
 
       {businessRules.alcoholToggle || businessRules.alcoholAlwaysOn ? (
-        <div className="space-y-3 rounded-xl border border-white/5 bg-bg-card p-5">
+        <div className="space-y-3 rounded-xl border border-line-subtle bg-bg-card p-5">
           <div>
             <h2 className="font-semibold">Alcohol & bar menu</h2>
             <p className="mt-1 text-sm text-text-secondary">
@@ -425,11 +425,11 @@ export function SettingsPage() {
             </ul>
           </div>
           {businessRules.alcoholAlwaysOn ? (
-            <p className="rounded-lg border border-white/5 bg-bg-elevated px-3 py-3 text-sm text-text-secondary">
+            <p className="rounded-lg border border-line-subtle bg-bg-elevated px-3 py-3 text-sm text-text-secondary">
               Always on for bars and pubs.
             </p>
           ) : (
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/5 bg-bg-elevated px-3 py-3">
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line-subtle bg-bg-elevated px-3 py-3">
               <input
                 type="checkbox"
                 className="mt-1 h-4 w-4 accent-brand-primary"
@@ -448,13 +448,13 @@ export function SettingsPage() {
         </div>
       ) : null}
 
-      <div className="space-y-3 rounded-xl border border-white/5 bg-bg-card p-5">
+      <div className="space-y-3 rounded-xl border border-line-subtle bg-bg-card p-5">
         <div>
           <h2 className="font-semibold">{t('settings.guestPaymentOptions')}</h2>
           <p className="mt-1 text-sm text-text-secondary">{t('settings.guestPaymentOptionsHint')}</p>
         </div>
         <div className="space-y-2">
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/5 bg-bg-elevated px-3 py-3">
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line-subtle bg-bg-elevated px-3 py-3">
             <input
               type="checkbox"
               className="mt-1 h-4 w-4 accent-brand-primary"
@@ -468,7 +468,7 @@ export function SettingsPage() {
               </span>
             </span>
           </label>
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/5 bg-bg-elevated px-3 py-3">
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line-subtle bg-bg-elevated px-3 py-3">
             <input
               type="checkbox"
               className="mt-1 h-4 w-4 accent-brand-primary"
@@ -485,12 +485,12 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <div className="space-y-3 rounded-xl border border-white/5 bg-bg-card p-5">
+      <div className="space-y-3 rounded-xl border border-line-subtle bg-bg-card p-5">
         <div>
           <h2 className="font-semibold">{t('settings.whatsappReceipts')}</h2>
           <p className="mt-1 text-sm text-text-secondary">{t('settings.whatsappReceiptsHint')}</p>
         </div>
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/5 bg-bg-elevated px-3 py-3">
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line-subtle bg-bg-elevated px-3 py-3">
           <input
             type="checkbox"
             className="mt-1 h-4 w-4 accent-brand-primary"
@@ -507,14 +507,14 @@ export function SettingsPage() {
       </div>
 
       {showPreOrders ? (
-        <div className="space-y-3 rounded-xl border border-white/5 bg-bg-card p-5">
+        <div className="space-y-3 rounded-xl border border-line-subtle bg-bg-card p-5">
           <div>
             <h2 className="font-semibold">{t('settings.preOrders')}</h2>
             <p className="mt-1 text-sm text-text-secondary">
               Allow customers and staff to schedule a pickup time when placing orders.
             </p>
           </div>
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/5 bg-bg-elevated px-3 py-3">
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line-subtle bg-bg-elevated px-3 py-3">
             <input
               type="checkbox"
               className="mt-1 h-4 w-4 accent-brand-primary"
@@ -531,7 +531,7 @@ export function SettingsPage() {
         </div>
       ) : null}
 
-      <div className="space-y-2 rounded-xl border border-white/5 bg-bg-card p-5">
+      <div className="space-y-2 rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="font-semibold">{t('settings.businessCategory')}</h2>
         <p className="text-sm text-text-secondary">
           {businessType && parent ? (
@@ -548,18 +548,18 @@ export function SettingsPage() {
         </p>
         <Link
           to="/onboarding"
-          className="inline-flex h-11 items-center rounded-lg bg-bg-elevated px-4 text-sm font-medium text-text-primary hover:bg-white/5"
+          className="inline-flex h-11 items-center rounded-lg bg-bg-elevated px-4 text-sm font-medium text-text-primary hover:bg-hover"
         >
           {t('settings.openSetup')}
         </Link>
       </div>
 
-      <div className="space-y-4 rounded-xl border border-white/5 bg-bg-card p-5">
+      <div className="space-y-4 rounded-xl border border-line-subtle bg-bg-card p-5">
         <div>
           <h2 className="font-semibold">{t('settings.locations')}</h2>
           <p className="mt-1 text-sm text-text-secondary">{t('settings.locationsHint')}</p>
         </div>
-        <ul className="divide-y divide-white/5">
+        <ul className="divide-y divide-line-subtle">
           {(outletsQuery.data ?? []).map((outlet) => {
             const own = outletDetailParts(outlet);
             const inherited = own.length === 0 ? outletDetailParts(orgQuery.data ?? {}) : [];
@@ -597,7 +597,7 @@ export function SettingsPage() {
                   </div>
                 </div>
                 {editing ? (
-                  <div className="space-y-3 rounded-lg border border-white/5 bg-bg-elevated p-3">
+                  <div className="space-y-3 rounded-lg border border-line-subtle bg-bg-elevated p-3">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Input
                         label={t('settings.locationName')}

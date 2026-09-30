@@ -138,7 +138,7 @@ export function TaxGroupsSettingsPanel() {
   });
 
   return (
-    <div className="space-y-4 rounded-xl border border-white/5 bg-bg-card p-5">
+    <div className="space-y-4 rounded-xl border border-line-subtle bg-bg-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold">Tax groups</h2>
@@ -157,14 +157,14 @@ export function TaxGroupsSettingsPanel() {
         </Button>
       </div>
       {groups.length > 0 ? (
-        <div className="space-y-2 rounded-lg border border-white/5 bg-bg-elevated/50 p-3">
+        <div className="space-y-2 rounded-lg border border-line-subtle bg-bg-elevated/50 p-3">
           <label className="block space-y-1 text-sm">
             <span className="text-text-secondary">Default tax group</span>
             <select
               value={configuredDefault}
               disabled={defaultGroupMutation.isPending}
               onChange={(e) => defaultGroupMutation.mutate(e.target.value)}
-              className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+              className="block h-11 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
             >
               <option value="">
                 {groups.length === 1 ? `Use ${groups[0].name} (only group)` : 'None ? untaxed'}
@@ -189,7 +189,7 @@ export function TaxGroupsSettingsPanel() {
           ) : null}
         </div>
       ) : null}
-      <ul className="divide-y divide-white/5">
+      <ul className="divide-y divide-line-subtle">
         {(taxQuery.data ?? []).map((group: TaxGroupRow) => (
           <li key={group.id} className="flex items-start justify-between gap-3 py-3">
             <div>
@@ -237,7 +237,7 @@ export function TaxGroupsSettingsPanel() {
           <select
             value={mode}
             onChange={(e) => setMode(e.target.value as 'gst' | 'excise')}
-            className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+            className="block h-11 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
           >
             <option value="gst">GST (CGST + SGST)</option>
             <option value="excise">State Excise</option>
@@ -501,7 +501,7 @@ export function DevicesSettingsPanel() {
   }
 
   return (
-    <div className="space-y-4 rounded-xl border border-white/5 bg-bg-card p-5">
+    <div className="space-y-4 rounded-xl border border-line-subtle bg-bg-card p-5">
       <div>
         <h2 className="font-semibold">Devices</h2>
         <p className="mt-1 text-sm text-text-secondary">
@@ -525,7 +525,7 @@ export function DevicesSettingsPanel() {
                   return (
                     <li
                       key={device.id}
-                      className="flex flex-wrap items-center gap-3 rounded-lg border border-white/5 bg-bg-elevated/40 px-3 py-3"
+                      className="flex flex-wrap items-center gap-3 rounded-lg border border-line-subtle bg-bg-elevated/40 px-3 py-3"
                     >
                       <DeviceTypeIcon type={device.type} />
                       <div className="min-w-0 flex-1">
@@ -652,7 +652,7 @@ export function DevicesSettingsPanel() {
                 type: e.target.value as DeviceFormState['type'],
               }))
             }
-            className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+            className="block h-11 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
           >
             <option value="printer">Printer</option>
             <option value="kds">KDS</option>
@@ -664,7 +664,7 @@ export function DevicesSettingsPanel() {
           <select
             value={form.outletId}
             onChange={(e) => setForm((f) => ({ ...f, outletId: e.target.value }))}
-            className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+            className="block h-11 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
           >
             <option value="">Any / unset</option>
             {(outletsQuery.data ?? []).map((o) => (
@@ -692,7 +692,7 @@ export function DevicesSettingsPanel() {
                     connectionType: e.target.value as DeviceFormState['connectionType'],
                   }))
                 }
-                className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+                className="block h-11 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
               >
                 <option value="wifi">WiFi</option>
                 <option value="bluetooth">Bluetooth</option>
@@ -768,14 +768,14 @@ function ProfileEditor({
 
   if (!profile || !merged) {
     return (
-      <div className="rounded-lg border border-white/5 p-4 text-sm text-text-muted">
+      <div className="rounded-lg border border-line-subtle p-4 text-sm text-text-muted">
         Loading {title}...
       </div>
     );
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-white/5 bg-bg-elevated/40 p-4">
+    <div className="space-y-3 rounded-lg border border-line-subtle bg-bg-elevated/40 p-4">
       <div>
         <h3 className="font-medium">{title}</h3>
         <p className="text-xs text-text-muted">{description}</p>
@@ -815,7 +815,7 @@ function ProfileEditor({
         <label className="space-y-1 text-sm">
           <span className="text-text-secondary">Paper (mm)</span>
           <select
-            className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm"
+            className="block h-11 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm"
             value={merged.paperWidthMm ?? 80}
             onChange={(e) =>
               setDraft((d) => ({ ...d, paperWidthMm: Number(e.target.value) || 80 }))
@@ -828,7 +828,7 @@ function ProfileEditor({
         <label className="space-y-1 text-sm">
           <span className="text-text-secondary">Font</span>
           <select
-            className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm"
+            className="block h-11 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm"
             value={merged.fontSize ?? 'normal'}
             onChange={(e) =>
               setDraft((d) => ({
@@ -940,7 +940,7 @@ export function PrintProfilesSettingsPanel() {
         </p>
       </div>
 
-      <div className="space-y-3 rounded-lg border border-white/5 bg-bg-elevated/40 p-4">
+      <div className="space-y-3 rounded-lg border border-line-subtle bg-bg-elevated/40 p-4">
         <h3 className="font-medium">Brand logo</h3>
         <p className="text-xs text-text-muted">
           Shown on bills when ?Show logo on bill? is enabled. Square PNG/JPG/WebP, crop to 512?512.

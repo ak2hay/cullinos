@@ -216,7 +216,10 @@ export interface DailyDashboard {
     averageOrderValue: number;
     openOrders: number;
     cancelledOrders: number;
+    /** Absent on API builds that predate the dashboard upgrade. */
+    completedOrders?: number;
   };
+  statusBreakdown?: { completed: number; open: number; preparing: number; cancelled: number };
   hourlyBreakdown: Array<{ hour: number; orders: number; revenue: number }>;
   paymentBreakdown: Array<{ method: string; count: number; amount: number }>;
 }
@@ -234,6 +237,16 @@ export interface MenuCategory {
 export interface KitchenStationOption {
   code: string;
   name: string;
+}
+
+export interface OutletKitchenStation {
+  id: string;
+  outletId: string;
+  outletName: string;
+  name: string;
+  code: string;
+  sortOrder: number;
+  isActive: boolean;
 }
 
 export interface CatalogStockComponent {
@@ -340,6 +353,8 @@ export interface MenuItem {
   productType?: string | null;
   taxGroupId?: string | null;
   hsnCode?: string | null;
+  isTaxExempt?: boolean;
+  kitchenStationCode?: string | null;
   sortOrder: number;
   variants?: MenuItemVariant[];
   modifierGroups?: MenuModifierGroup[];
@@ -771,6 +786,41 @@ export const organizationsApi = {
   },
 };
 
+export type UserProfile = {
+  id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  avatarUrl: string | null;
+  isSuperAdmin: boolean;
+  platformRole: string | null;
+  roles: string[];
+  organizationId: string;
+  organizationName: string;
+  organizationSlug: string;
+  lastLoginAt: string | null;
+  createdAt: string;
+};
+
+export const profileApi = {
+  get: () => apiRequest<UserProfile>('/auth/me'),
+  update: (data: { name?: string; phone?: string | null }) =>
+    apiRequest<UserProfile>('/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
+  uploadAvatar: async (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await authorizedFetch(`${API_BASE}/auth/me/avatar`, {
+      method: 'POST',
+      headers: new Headers(),
+      body: form,
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json() as Promise<UserProfile>;
+  },
+  removeAvatar: () => apiRequest<UserProfile>('/auth/me/avatar', { method: 'DELETE' }),
+};
+
 export const analyticsApi = {
   daily: (params?: { date?: string; outletId?: string }) => {
     const search = new URLSearchParams();
@@ -809,6 +859,25 @@ export const analyticsApi = {
 export const menuApi = {
   listCategories: () => apiRequest<MenuCategory[]>('/menu/categories'),
   listKitchenStations: () => apiRequest<KitchenStationOption[]>('/menu/kitchen-stations'),
+  listOutletStations: () =>
+    apiRequest<OutletKitchenStation[]>('/menu/kitchen-stations/outlets'),
+  createStation: (payload: { name: string; code?: string; outletIds?: string[] }) =>
+    apiRequest<OutletKitchenStation[]>('/menu/kitchen-stations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateStation: (id: string, payload: { name?: string; sortOrder?: number; isActive?: boolean }) =>
+    apiRequest<OutletKitchenStation[]>(`/menu/kitchen-stations/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  deleteStation: (id: string) =>
+    apiRequest<OutletKitchenStation[]>(`/menu/kitchen-stations/${id}`, { method: 'DELETE' }),
+  bulkUpdateTax: (payload: { itemIds: string[]; isTaxExempt?: boolean; taxGroupId?: string | null }) =>
+    apiRequest<{ updated: number }>('/menu/items/bulk-tax', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   createCategory: (payload: {
     name: string;
     description?: string;
@@ -851,6 +920,8 @@ export const menuApi = {
     productType?: string | null;
     taxGroupId?: string | null;
     hsnCode?: string | null;
+    isTaxExempt?: boolean;
+    kitchenStationCode?: string | null;
     variants?: MenuItemVariant[];
     modifierGroups?: MenuModifierGroup[];
   }) =>
@@ -873,6 +944,8 @@ export const menuApi = {
       productType: string | null;
       taxGroupId: string | null;
       hsnCode: string | null;
+      isTaxExempt: boolean;
+      kitchenStationCode: string | null;
       variants: MenuItemVariant[];
       modifierGroups: MenuModifierGroup[];
     }>,
@@ -1418,6 +1491,26 @@ export interface InventoryItemRow {
   catalogKey?: string | null;
 }
 
+export interface OutletStockCell {
+  itemId: string;
+  stock: number;
+  reorderLevel: number;
+  low: boolean;
+}
+
+export interface OutletStockMatrix {
+  outlets: Array<{ id: string; name: string }>;
+  rows: Array<{
+    key: string;
+    name: string;
+    sku: string | null;
+    unit: string;
+    shared: OutletStockCell | null;
+    byOutlet: Record<string, OutletStockCell>;
+    total: number;
+  }>;
+}
+
 export interface InventoryLotRow {
   id: string;
   qtyRemaining: number;
@@ -1451,8 +1544,15 @@ export const inventoryApi = {
       `/inventory/stock-register?${search.toString()}`,
     );
   },
-  listItems: () => apiRequest<InventoryItemRow[]>('/inventory/items'),
-  listLowStock: () => apiRequest<InventoryItemRow[]>('/inventory/low-stock'),
+  listItems: (outletId?: string | null) =>
+    apiRequest<InventoryItemRow[]>(
+      `/inventory/items${outletId ? `?outletId=${encodeURIComponent(outletId)}` : ''}`,
+    ),
+  listLowStock: (outletId?: string | null) =>
+    apiRequest<InventoryItemRow[]>(
+      `/inventory/low-stock${outletId ? `?outletId=${encodeURIComponent(outletId)}` : ''}`,
+    ),
+  outletStock: () => apiRequest<OutletStockMatrix>('/inventory/outlet-stock'),
   listLots: (itemId: string) =>
     apiRequest<InventoryLotRow[]>(`/inventory/items/${itemId}/lots`),
   createItem: (payload: {

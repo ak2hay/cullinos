@@ -69,7 +69,7 @@ export function SuppliersPage() {
       ) : null}
 
       {showForm ? (
-        <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
           <h2 className="font-medium">New supplier</h2>
           <form
             className="mt-4 grid gap-4 sm:grid-cols-2"

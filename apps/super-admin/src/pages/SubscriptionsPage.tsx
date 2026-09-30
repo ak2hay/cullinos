@@ -86,7 +86,7 @@ export function SubscriptionsPage() {
       </div>
 
       {message ? (
-        <div className="rounded-xl border border-white/10 bg-bg-card px-4 py-3 text-sm text-text-secondary">
+        <div className="rounded-xl border border-line bg-bg-card px-4 py-3 text-sm text-text-secondary">
           {message}
           <button type="button" className="ml-3 text-xs underline" onClick={() => setMessage(null)}>
             Dismiss
@@ -95,15 +95,15 @@ export function SubscriptionsPage() {
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
           <h2 className="font-medium">Select tenant</h2>
           <input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search name, slug, email…"
-            className="mt-3 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
+            className="mt-3 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
           />
-          <ul className="mt-4 max-h-96 divide-y divide-white/5 overflow-y-auto">
+          <ul className="mt-4 max-h-96 divide-y divide-line-subtle overflow-y-auto">
             {isLoading ? (
               <li className="py-4 text-sm text-text-muted">Loading…</li>
             ) : (data?.data ?? []).length === 0 ? (
@@ -118,8 +118,8 @@ export function SubscriptionsPage() {
                       setPlanSlug(tenant.plan ?? 'enterprise');
                       setStatus(tenant.subscriptionStatus?.toUpperCase() ?? 'ACTIVE');
                     }}
-                    className={`w-full px-2 py-3 text-left text-sm transition hover:bg-white/5 ${
-                      selectedOrgId === tenant.id ? 'bg-white/5' : ''
+                    className={`w-full px-2 py-3 text-left text-sm transition hover:bg-hover ${
+                      selectedOrgId === tenant.id ? 'bg-hover' : ''
                     }`}
                   >
                     <p className="font-medium">{tenant.name}</p>
@@ -136,7 +136,7 @@ export function SubscriptionsPage() {
           </ul>
         </section>
 
-        <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
           <h2 className="font-medium">Tenant detail</h2>
           {selected ? (
             <div className="mt-4 space-y-4">
@@ -185,7 +185,7 @@ export function SubscriptionsPage() {
                 <select
                   value={planSlug}
                   onChange={(e) => setPlanSlug(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
                 >
                   {plans.map((p) => (
                     <option key={p.id} value={p.slug}>
@@ -202,7 +202,7 @@ export function SubscriptionsPage() {
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
                 >
                   {['TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'CANCELLED'].map((s) => (
                     <option key={s} value={s}>
@@ -223,7 +223,7 @@ export function SubscriptionsPage() {
                       status,
                     })
                   }
-                  className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary disabled:opacity-60"
+                  className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand disabled:opacity-60"
                 >
                   {updateMutation.isPending ? 'Saving…' : 'Update subscription'}
                 </button>
@@ -231,7 +231,7 @@ export function SubscriptionsPage() {
                   type="button"
                   disabled={collectMutation.isPending}
                   onClick={() => collectMutation.mutate(selected.id)}
-                  className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
+                  className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
                 >
                   {collectMutation.isPending ? 'Creating…' : 'Collect payment'}
                 </button>

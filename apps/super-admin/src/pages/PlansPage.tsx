@@ -76,7 +76,7 @@ function ModuleChecklist({
       {catalog.map((mod) => (
         <label
           key={mod}
-          className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-bg-elevated px-2 py-1.5 text-xs"
+          className="flex cursor-pointer items-center gap-2 rounded-lg border border-line bg-bg-elevated px-2 py-1.5 text-xs"
         >
           <input type="checkbox" checked={selected.includes(mod)} onChange={() => toggle(mod)} />
           <span className="font-mono">{mod}</span>
@@ -211,32 +211,32 @@ export function PlansPage() {
           </p>
         </div>
         {canManage ? (
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={syncMutation.isPending}
-            onClick={() => {
-              setSyncMessage(null);
-              setSaveError(null);
-              syncMutation.mutate();
-            }}
-            className="rounded-lg border border-white/10 bg-bg-elevated px-4 py-2 text-sm font-medium text-text-primary disabled:opacity-50"
-          >
-            {syncMutation.isPending ? 'Syncing…' : 'Sync to Razorpay'}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowCreate(true);
-              setCreateDraft(emptyCreate);
-              setSaveError(null);
-              setSyncMessage(null);
-            }}
-            className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary"
-          >
-            Create plan
-          </button>
-        </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={syncMutation.isPending}
+              onClick={() => {
+                setSyncMessage(null);
+                setSaveError(null);
+                syncMutation.mutate();
+              }}
+              className="rounded-lg border border-line bg-bg-elevated px-4 py-2 text-sm font-medium text-text-primary disabled:opacity-50"
+            >
+              {syncMutation.isPending ? 'Syncing…' : 'Sync to Razorpay'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowCreate(true);
+                setCreateDraft(emptyCreate);
+                setSaveError(null);
+                setSyncMessage(null);
+              }}
+              className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand"
+            >
+              Create plan
+            </button>
+          </div>
         ) : null}
       </div>
 
@@ -248,8 +248,8 @@ export function PlansPage() {
             onClick={() => setFilter(tab.id)}
             className={`rounded-lg px-3 py-1.5 text-sm ${
               filter === tab.id
-                ? 'bg-brand-primary text-bg-primary'
-                : 'border border-white/10 text-text-secondary hover:bg-white/5'
+                ? 'bg-brand-primary text-on-brand'
+                : 'border border-line text-text-secondary hover:bg-hover'
             }`}
           >
             {tab.label}
@@ -286,13 +286,13 @@ export function PlansPage() {
             const isEditing = editingId === plan.id;
             const isPrivate = (plan.visibility ?? 'public') === 'private';
             return (
-              <div key={plan.id} className="rounded-xl border border-white/5 bg-bg-card p-5">
+              <div key={plan.id} className="rounded-xl border border-line-subtle bg-bg-card p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-medium">
                       {plan.name}
                       {isPrivate ? (
-                        <span className="ml-2 rounded bg-white/10 px-1.5 py-0.5 text-xs font-normal text-text-secondary">
+                        <span className="ml-2 rounded bg-hover-strong px-1.5 py-0.5 text-xs font-normal text-text-secondary">
                           private
                         </span>
                       ) : null}
@@ -310,7 +310,7 @@ export function PlansPage() {
                       <button
                         type="button"
                         onClick={() => startEdit(plan)}
-                        className="rounded-lg border border-white/10 px-3 py-1.5 text-sm hover:bg-white/5"
+                        className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-hover"
                       >
                         Edit
                       </button>
@@ -323,7 +323,7 @@ export function PlansPage() {
                             deactivateMutation.mutate(plan.id);
                           }
                         }}
-                        className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-status-warning hover:bg-white/5"
+                        className="rounded-lg border border-line px-3 py-1.5 text-sm text-status-warning hover:bg-hover"
                       >
                         Deactivate
                       </button>
@@ -338,7 +338,7 @@ export function PlansPage() {
                       <input
                         value={draft.name}
                         onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
+                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
                       />
                     </label>
                     <label className="block text-sm">
@@ -346,7 +346,7 @@ export function PlansPage() {
                       <input
                         value={draft.description}
                         onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
+                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
                       />
                     </label>
                     <label className="block text-sm">
@@ -355,7 +355,7 @@ export function PlansPage() {
                         type="number"
                         value={draft.priceMonthly}
                         onChange={(e) => setDraft({ ...draft, priceMonthly: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
+                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
                       />
                     </label>
                     <label className="block text-sm">
@@ -364,7 +364,7 @@ export function PlansPage() {
                         type="number"
                         value={draft.priceYearly}
                         onChange={(e) => setDraft({ ...draft, priceYearly: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
+                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
                       />
                     </label>
                     <label className="block text-sm">
@@ -373,7 +373,7 @@ export function PlansPage() {
                         type="number"
                         value={draft.maxOutlets}
                         onChange={(e) => setDraft({ ...draft, maxOutlets: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
+                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
                       />
                     </label>
                     <label className="block text-sm">
@@ -382,7 +382,7 @@ export function PlansPage() {
                         type="number"
                         value={draft.maxTerminals}
                         onChange={(e) => setDraft({ ...draft, maxTerminals: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
+                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
                       />
                     </label>
                     <label className="block text-sm">
@@ -391,7 +391,7 @@ export function PlansPage() {
                         type="number"
                         value={draft.maxUsers}
                         onChange={(e) => setDraft({ ...draft, maxUsers: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
+                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
                       />
                     </label>
                     <label className="block text-sm">
@@ -404,7 +404,7 @@ export function PlansPage() {
                             visibility: e.target.value === 'private' ? 'private' : 'public',
                           })
                         }
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
+                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
                       >
                         <option value="public">Public (catalog)</option>
                         <option value="private">Private (custom quote)</option>
@@ -433,7 +433,7 @@ export function PlansPage() {
                           setEditingId(null);
                           setDraft(null);
                         }}
-                        className="rounded-lg px-4 py-2 text-sm hover:bg-white/5"
+                        className="rounded-lg px-4 py-2 text-sm hover:bg-hover"
                       >
                         Cancel
                       </button>
@@ -441,7 +441,7 @@ export function PlansPage() {
                         type="button"
                         disabled={updateMutation.isPending}
                         onClick={() => updateMutation.mutate({ id: plan.id, next: draft })}
-                        className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary disabled:opacity-60"
+                        className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand disabled:opacity-60"
                       >
                         {updateMutation.isPending ? 'Saving…' : 'Save'}
                       </button>
@@ -452,7 +452,7 @@ export function PlansPage() {
                     {modules.map((m) => (
                       <span
                         key={m}
-                        className="rounded-full bg-white/5 px-2 py-0.5 text-xs text-text-secondary"
+                        className="rounded-full bg-hover px-2 py-0.5 text-xs text-text-secondary"
                       >
                         {m}
                       </span>
@@ -469,8 +469,8 @@ export function PlansPage() {
       )}
 
       {showCreate ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-white/10 bg-bg-secondary p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-line bg-bg-secondary p-6">
             <h2 className="text-lg font-medium">Create plan</h2>
             <p className="mt-1 text-sm text-text-muted">
               Defaults to private so custom quotes stay off the public catalog.
@@ -481,7 +481,7 @@ export function PlansPage() {
                 <input
                   value={createDraft.name}
                   onChange={(e) => setCreateDraft({ ...createDraft, name: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
                 />
               </label>
               <label className="block text-sm sm:col-span-2">
@@ -489,7 +489,7 @@ export function PlansPage() {
                 <input
                   value={createDraft.slug}
                   onChange={(e) => setCreateDraft({ ...createDraft, slug: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 font-mono"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 font-mono"
                 />
               </label>
               <label className="block text-sm sm:col-span-2">
@@ -499,7 +499,7 @@ export function PlansPage() {
                   onChange={(e) =>
                     setCreateDraft({ ...createDraft, description: e.target.value })
                   }
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
                 />
               </label>
               <label className="block text-sm">
@@ -510,7 +510,7 @@ export function PlansPage() {
                   onChange={(e) =>
                     setCreateDraft({ ...createDraft, priceMonthly: e.target.value })
                   }
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
                 />
               </label>
               <label className="block text-sm">
@@ -521,7 +521,7 @@ export function PlansPage() {
                   onChange={(e) =>
                     setCreateDraft({ ...createDraft, priceYearly: e.target.value })
                   }
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
                 />
               </label>
               <label className="block text-sm">
@@ -532,7 +532,7 @@ export function PlansPage() {
                   onChange={(e) =>
                     setCreateDraft({ ...createDraft, maxOutlets: e.target.value })
                   }
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
                 />
               </label>
               <label className="block text-sm">
@@ -543,7 +543,7 @@ export function PlansPage() {
                   onChange={(e) =>
                     setCreateDraft({ ...createDraft, maxTerminals: e.target.value })
                   }
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
                 />
               </label>
               <label className="block text-sm">
@@ -554,7 +554,7 @@ export function PlansPage() {
                   onChange={(e) =>
                     setCreateDraft({ ...createDraft, maxUsers: e.target.value })
                   }
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
                 />
               </label>
               <label className="block text-sm">
@@ -567,7 +567,7 @@ export function PlansPage() {
                       visibility: e.target.value === 'private' ? 'private' : 'public',
                     })
                   }
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
                 >
                   <option value="private">Private (custom quote)</option>
                   <option value="public">Public (catalog)</option>
@@ -586,7 +586,7 @@ export function PlansPage() {
               <button
                 type="button"
                 onClick={() => setShowCreate(false)}
-                className="rounded-lg px-4 py-2 text-sm hover:bg-white/5"
+                className="rounded-lg px-4 py-2 text-sm hover:bg-hover"
               >
                 Cancel
               </button>
@@ -598,7 +598,7 @@ export function PlansPage() {
                   createMutation.isPending
                 }
                 onClick={() => createMutation.mutate()}
-                className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary disabled:opacity-60"
+                className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand disabled:opacity-60"
               >
                 {createMutation.isPending ? 'Creating…' : 'Create'}
               </button>

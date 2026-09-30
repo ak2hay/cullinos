@@ -9,6 +9,7 @@ import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { HealthPage } from '@/pages/HealthPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { PlansPage } from '@/pages/PlansPage';
+import { ProfilePage } from '@/pages/ProfilePage';
 import { PromoEmailPage } from '@/pages/PromoEmailPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { SubscriptionsPage } from '@/pages/SubscriptionsPage';
@@ -92,6 +93,7 @@ export default function App() {
         }
       >
         <Route index element={gated('dashboard.read', <DashboardPage />)} />
+        <Route path="profile" element={<ProfilePage />} />
         <Route path="tenants" element={gated('tenants.read', <TenantsPage />)} />
         <Route path="tenants/:id" element={gated('tenants.read', <TenantDetailPage />)} />
         <Route path="labs" element={gated('labs.sql', <LabsPage />)} />

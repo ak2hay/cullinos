@@ -12,8 +12,8 @@ export function CategoryTabs({ categories, selectedId, onSelect }: CategoryTabsP
         onClick={() => onSelect(null)}
         className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold tracking-wide transition active:scale-95 ${
           selectedId === null
-            ? 'bg-brand-primary text-bg-primary shadow-md shadow-brand-primary/25'
-            : 'border border-white/10 bg-bg-elevated/80 text-text-secondary hover:border-white/20 hover:text-text-primary'
+            ? 'bg-brand-primary text-on-brand shadow-md shadow-brand-primary/25'
+            : 'border border-line bg-bg-elevated/80 text-text-secondary hover:border-line-strong hover:text-text-primary'
         }`}
       >
         All
@@ -25,8 +25,8 @@ export function CategoryTabs({ categories, selectedId, onSelect }: CategoryTabsP
           onClick={() => onSelect(category.id)}
           className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold tracking-wide transition active:scale-95 ${
             selectedId === category.id
-              ? 'bg-brand-primary text-bg-primary shadow-md shadow-brand-primary/25'
-              : 'border border-white/10 bg-bg-elevated/80 text-text-secondary hover:border-white/20 hover:text-text-primary'
+              ? 'bg-brand-primary text-on-brand shadow-md shadow-brand-primary/25'
+              : 'border border-line bg-bg-elevated/80 text-text-secondary hover:border-line-strong hover:text-text-primary'
           }`}
         >
           {category.name}

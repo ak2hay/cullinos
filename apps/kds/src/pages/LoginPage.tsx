@@ -141,7 +141,7 @@ export function LoginPage() {
             </div>
           ) : null}
           {resendMessage ? (
-            <div className="rounded-lg border border-white/10 bg-bg-card px-4 py-3 text-sm text-text-secondary">
+            <div className="rounded-lg border border-line bg-bg-card px-4 py-3 text-sm text-text-secondary">
               {resendMessage}
             </div>
           ) : null}

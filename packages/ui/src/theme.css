@@ -1,9 +1,13 @@
 /* Product theme tokens — import after @import 'tailwindcss' */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+@custom-variant light (&:where([data-theme='light'], [data-theme='light'] *));
+
 @theme {
   --color-brand-primary: #d4a017;
   --color-brand-primary-dark: #b8860b;
   --color-brand-secondary: #1a1a2e;
   --color-brand-accent: #f5a623;
+  --color-on-brand: #0f0f1a;
   --color-bg-primary: #0f0f1a;
   --color-bg-secondary: #1a1a2e;
   --color-bg-card: #16213e;
@@ -13,6 +17,12 @@
   --color-text-secondary: #9ca3af;
   --color-text-muted: #6b7280;
   --color-border: #2a2a3e;
+  --color-line-subtle: rgba(255, 255, 255, 0.05);
+  --color-line: rgba(255, 255, 255, 0.1);
+  --color-line-strong: rgba(255, 255, 255, 0.18);
+  --color-hover: rgba(255, 255, 255, 0.05);
+  --color-hover-strong: rgba(255, 255, 255, 0.1);
+  --color-scrim: rgba(0, 0, 0, 0.65);
   --color-status-success: #10b981;
   --color-status-warning: #f59e0b;
   --color-status-error: #ef4444;
@@ -35,6 +45,224 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --duration-fast: 150ms;
   --duration-normal: 220ms;
+  --animate-fade-in: ui-fade-in var(--duration-normal) var(--ease-out) both;
+  --animate-scale-in: ui-scale-in var(--duration-normal) var(--ease-out) both;
+  --animate-slide-up: ui-slide-up 320ms var(--ease-out) both;
+  --animate-slide-in-right: ui-slide-in-right 280ms var(--ease-out) both;
+  --animate-slide-in-left: ui-slide-in-left 280ms var(--ease-out) both;
+  --animate-shimmer: ui-shimmer 1.4s linear infinite;
   --surface-gradient: radial-gradient(1200px 600px at 10% -10%, rgba(212, 160, 23, 0.08), transparent 55%),
     radial-gradient(900px 500px at 90% 0%, rgba(22, 33, 62, 0.9), transparent 50%);
+}
+
+:root {
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --color-brand-primary: #b8860b;
+  --color-brand-primary-dark: #9a7209;
+  --color-brand-accent: #d4a017;
+  --color-bg-primary: #f6f7fb;
+  --color-bg-secondary: #ffffff;
+  --color-bg-card: #ffffff;
+  --color-bg-elevated: #f1f3f8;
+  --color-bg-overlay: rgba(15, 23, 42, 0.45);
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #6b7280;
+  --color-border: #e5e7eb;
+  --color-line-subtle: rgba(15, 23, 42, 0.07);
+  --color-line: rgba(15, 23, 42, 0.12);
+  --color-line-strong: rgba(15, 23, 42, 0.2);
+  --color-hover: rgba(15, 23, 42, 0.04);
+  --color-hover-strong: rgba(15, 23, 42, 0.08);
+  --color-scrim: rgba(15, 23, 42, 0.45);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.04);
+  --shadow-md: 0 8px 24px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 16px 48px rgba(16, 24, 40, 0.14);
+  --surface-gradient: radial-gradient(1200px 600px at 10% -10%, rgba(212, 160, 23, 0.07), transparent 55%),
+    radial-gradient(900px 500px at 90% 0%, rgba(226, 232, 240, 0.7), transparent 50%);
+}
+
+/* Set briefly by theme-mode.ts while switching so every surface cross-fades. */
+:root.theme-transition,
+:root.theme-transition *,
+:root.theme-transition *::before,
+:root.theme-transition *::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow !important;
+  transition-duration: 240ms !important;
+  transition-timing-function: ease !important;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 280ms;
+  animation-timing-function: ease;
+}
+
+@keyframes ui-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ui-scale-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ui-scale-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+@keyframes ui-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ui-slide-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes ui-slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ui-slide-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes ui-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ui-toast-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes ui-shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes ui-draw {
+  from {
+    stroke-dashoffset: var(--ui-draw-length, 1000);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.ui-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-elevated) 25%,
+    var(--color-hover-strong) 50%,
+    var(--color-bg-elevated) 75%
+  );
+  background-size: 200% 100%;
+  animation: ui-shimmer 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
 }

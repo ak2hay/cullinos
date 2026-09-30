@@ -87,9 +87,9 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-primary px-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-bg-secondary p-8">
+      <div className="w-full max-w-md rounded-2xl border border-line bg-bg-secondary p-8">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-primary font-mono text-lg font-bold text-bg-primary">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-primary font-mono text-lg font-bold text-on-brand">
             C
           </div>
           <h1 className="text-2xl font-semibold">{RKYVES_BRAND.product} App Ops</h1>
@@ -118,7 +118,7 @@ export function LoginPage() {
               </p>
             ) : null}
             {resendMessage ? (
-              <p className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm text-text-secondary">
+              <p className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm text-text-secondary">
                 {resendMessage}
               </p>
             ) : null}

@@ -31,7 +31,7 @@ export function InquiriesPage() {
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+          className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
         >
           <option value="">All</option>
           <option value="new">New</option>
@@ -49,7 +49,7 @@ export function InquiriesPage() {
           {inquiries.map((row) => (
             <li
               key={String(row.id)}
-              className="rounded-xl border border-white/10 bg-bg-card p-5 space-y-2"
+              className="rounded-xl border border-line bg-bg-card p-5 space-y-2"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -64,7 +64,7 @@ export function InquiriesPage() {
                     {row.city ? ` · ${String(row.city)}` : ''}
                   </p>
                 </div>
-                <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs uppercase tracking-wide text-text-muted">
+                <span className="rounded-full bg-hover px-2 py-0.5 text-xs uppercase tracking-wide text-text-muted">
                   {String(row.status)}
                 </span>
               </div>
@@ -78,7 +78,7 @@ export function InquiriesPage() {
                 {row.status !== 'read' ? (
                   <button
                     type="button"
-                    className="rounded-lg border border-white/10 px-3 py-1.5 text-xs hover:bg-white/5"
+                    className="rounded-lg border border-line px-3 py-1.5 text-xs hover:bg-hover"
                     onClick={() =>
                       updateMutation.mutate({ id: String(row.id), status: 'read' })
                     }
@@ -89,7 +89,7 @@ export function InquiriesPage() {
                 {row.status !== 'archived' ? (
                   <button
                     type="button"
-                    className="rounded-lg border border-white/10 px-3 py-1.5 text-xs hover:bg-white/5"
+                    className="rounded-lg border border-line px-3 py-1.5 text-xs hover:bg-hover"
                     onClick={() =>
                       updateMutation.mutate({ id: String(row.id), status: 'archived' })
                     }
@@ -100,7 +100,7 @@ export function InquiriesPage() {
                 {row.status === 'archived' ? (
                   <button
                     type="button"
-                    className="rounded-lg border border-white/10 px-3 py-1.5 text-xs hover:bg-white/5"
+                    className="rounded-lg border border-line px-3 py-1.5 text-xs hover:bg-hover"
                     onClick={() =>
                       updateMutation.mutate({ id: String(row.id), status: 'new' })
                     }

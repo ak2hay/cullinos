@@ -16,6 +16,7 @@ import 'package:cullinos_waiter/features/settings/settings_page.dart';
 import 'package:cullinos_waiter/features/splash/splash_page.dart';
 import 'package:cullinos_waiter/l10n/app_localizations.dart';
 import 'package:cullinos_waiter/widgets/waiter_floating_nav.dart';
+import 'package:cullinos_waiter/widgets/waiter_motion.dart';
 
 final waiterRootKey = GlobalKey<NavigatorState>();
 
@@ -100,36 +101,47 @@ class _WaiterShell extends ConsumerWidget {
 
     Widget content = Column(
       children: [
-        if (!online)
-          Material(
-            color: WaiterColors.coralDeep,
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    const Icon(Icons.wifi_off, color: Colors.white, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        l10n.offline,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: online
+              ? const SizedBox(width: double.infinity)
+              : Material(
+                  color: WaiterColors.coralDeep,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.wifi_off,
+                              color: Colors.white, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.offline,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ),
+        ),
         Expanded(
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1200),
-              child: navigationShell,
+              child: WaiterFadeThrough(
+                trigger: navigationShell.currentIndex,
+                child: navigationShell,
+              ),
             ),
           ),
         ),

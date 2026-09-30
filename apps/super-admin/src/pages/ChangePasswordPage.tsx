@@ -32,6 +32,7 @@ export function ChangePasswordPage() {
           id: res.user.id,
           email: res.user.email,
           name: res.user.name,
+          avatarUrl: admin?.avatarUrl ?? null,
           platformRole: res.user.platformRole as PlatformRole | undefined,
           platformPermissions: res.user.platformPermissions ?? admin?.platformPermissions ?? [],
           mustChangePassword: false,
@@ -47,7 +48,7 @@ export function ChangePasswordPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-primary px-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-bg-secondary p-8">
+      <div className="w-full max-w-md rounded-2xl border border-line bg-bg-secondary p-8">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-semibold">{RKYVES_BRAND.name} Platform Admin</h1>
           <p className="mt-1 text-sm text-text-secondary">

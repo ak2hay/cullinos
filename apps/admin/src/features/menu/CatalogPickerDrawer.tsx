@@ -264,7 +264,7 @@ export function CatalogPickerDrawer({ open, onClose, onImported }: CatalogPicker
               <VegDot isVeg={draft ? draft.isVeg : item.isVeg} />
               <span className="font-medium">{draft?.name || item.name}</span>
               {item.imported ? (
-                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] uppercase text-text-muted">
+                <span className="rounded bg-hover-strong px-1.5 py-0.5 text-[10px] uppercase text-text-muted">
                   On menu
                 </span>
               ) : null}
@@ -291,7 +291,7 @@ export function CatalogPickerDrawer({ open, onClose, onImported }: CatalogPicker
         </div>
 
         {isEditing && draft ? (
-          <div className="mt-2 space-y-3 rounded-lg border border-white/10 p-3">
+          <div className="mt-2 space-y-3 rounded-lg border border-line p-3">
             <div className="grid gap-2 sm:grid-cols-[1fr_120px]">
               <Input
                 label="Name"
@@ -387,7 +387,7 @@ export function CatalogPickerDrawer({ open, onClose, onImported }: CatalogPicker
     const selectable = section.subCategories.flatMap((s) => s.items).filter((i) => !i.imported && passesVeg(i));
     const selectedCount = selectable.filter((i) => drafts.has(i.id)).length;
     return (
-      <div key={section.id} className="rounded-lg border border-white/5">
+      <div key={section.id} className="rounded-lg border border-line-subtle">
         <div className="flex items-center justify-between gap-2 px-3 py-2">
           <button
             type="button"
@@ -412,14 +412,14 @@ export function CatalogPickerDrawer({ open, onClose, onImported }: CatalogPicker
           ) : null}
         </div>
         {isOpen ? (
-          <div className="space-y-3 border-t border-white/5 px-3 py-2">
+          <div className="space-y-3 border-t border-line-subtle px-3 py-2">
             {section.subCategories.map((sub) => {
               const items = sub.items.filter(passesVeg);
               if (!items.length) return null;
               return (
                 <div key={sub.id}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">{sub.label}</p>
-                  <ul className="divide-y divide-white/5">{items.map((item) => renderItem(item))}</ul>
+                  <ul className="divide-y divide-line-subtle">{items.map((item) => renderItem(item))}</ul>
                 </div>
               );
             })}
@@ -514,7 +514,7 @@ export function CatalogPickerDrawer({ open, onClose, onImported }: CatalogPicker
                   ? `Showing ${SEARCH_LIMIT} of ${searchResults.length} matches`
                   : `${searchResults.length} match(es)`}
               </p>
-              <ul className="divide-y divide-white/5">
+              <ul className="divide-y divide-line-subtle">
                 {searchResults
                   .slice(0, SEARCH_LIMIT)
                   .map(({ item, section, subLabel }) => renderItem(item, `${section.label} · ${subLabel}`))}

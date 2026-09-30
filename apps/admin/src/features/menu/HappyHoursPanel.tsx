@@ -101,7 +101,7 @@ export function HappyHoursPanel({ categories }: { categories: MenuCategory[] }) 
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <div className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <div className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="font-semibold">{editing ? 'Edit happy hour' : 'New happy hour'}</h2>
         <p className="mt-1 text-sm text-text-muted">
           Discounted prices apply automatically on POS, waiter and guest orders during the window,
@@ -160,7 +160,7 @@ export function HappyHoursPanel({ categories }: { categories: MenuCategory[] }) 
               {DAY_LABELS.map((label, day) => (
                 <label
                   key={day}
-                  className="flex items-center gap-1 rounded border border-white/10 px-2 py-1 text-sm"
+                  className="flex items-center gap-1 rounded border border-line px-2 py-1 text-sm"
                 >
                   <input
                     type="checkbox"
@@ -247,14 +247,14 @@ export function HappyHoursPanel({ categories }: { categories: MenuCategory[] }) 
         </form>
       </div>
 
-      <div className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <div className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="font-semibold">Happy hours</h2>
         {rulesQuery.isLoading ? (
           <p className="mt-4 text-sm text-text-muted">Loading…</p>
         ) : rules.length === 0 ? (
           <p className="mt-4 text-sm text-text-muted">No happy hours yet.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-white/5">
+          <ul className="mt-4 divide-y divide-line-subtle">
             {rules.map((rule) => (
               <li key={rule.id} className="flex items-start justify-between gap-3 py-3">
                 <div>

@@ -189,13 +189,13 @@ export function OnboardingWizard() {
           {steps.map((s, i) => (
             <div
               key={s}
-              className={`h-1.5 flex-1 rounded-full ${i <= stepIndex ? 'bg-brand-primary' : 'bg-white/10'}`}
+              className={`h-1.5 flex-1 rounded-full ${i <= stepIndex ? 'bg-brand-primary' : 'bg-hover-strong'}`}
             />
           ))}
         </div>
       </div>
 
-      <div className="space-y-4 rounded-xl border border-white/5 bg-bg-card p-5 sm:p-8">
+      <div className="space-y-4 rounded-xl border border-line-subtle bg-bg-card p-5 sm:p-8">
         {currentStep === 'business_info' ? (
           <>
             <label className="block">
@@ -203,7 +203,7 @@ export function OnboardingWizard() {
               <select
                 value={parentType}
                 onChange={(e) => handleParentChange(e.target.value as BusinessTypeParent)}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                className="mt-1 w-full rounded-lg border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
               >
                 {BUSINESS_TYPE_PARENTS.map((parent) => (
                   <option key={parent} value={parent}>
@@ -219,7 +219,7 @@ export function OnboardingWizard() {
                 <select
                   value={restaurantSize}
                   onChange={(e) => setRestaurantSize(e.target.value as RestaurantSize)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                 >
                   {RESTAURANT_SIZES.map((size) => (
                     <option key={size} value={size}>
@@ -236,7 +236,7 @@ export function OnboardingWizard() {
                 <select
                   value={qsrSubtype}
                   onChange={(e) => setQsrSubtype(e.target.value as QsrSubtype)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                 >
                   {QSR_SUBTYPES.map((sub) => (
                     <option key={sub} value={sub}>
@@ -248,7 +248,7 @@ export function OnboardingWizard() {
             ) : null}
 
             {businessRules.alcoholToggle ? (
-              <label className="flex items-start gap-3 rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5">
+              <label className="flex items-start gap-3 rounded-lg border border-line bg-bg-primary px-3 py-2.5">
                 <input
                   type="checkbox"
                   className="mt-1"
@@ -271,7 +271,7 @@ export function OnboardingWizard() {
                 placeholder="Business name"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                className="mt-1 w-full rounded-lg border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
               />
             </label>
 
@@ -288,7 +288,7 @@ export function OnboardingWizard() {
                 placeholder="GSTIN"
                 value={gstin}
                 onChange={(e) => setGstin(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                className="mt-1 w-full rounded-lg border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
               />
             </label>
 
@@ -298,7 +298,7 @@ export function OnboardingWizard() {
                 <select
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                 >
                   {TIMEZONES.map((tz) => (
                     <option key={tz} value={tz}>
@@ -312,7 +312,7 @@ export function OnboardingWizard() {
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                 >
                   {CURRENCIES.map((code) => (
                     <option key={code} value={code}>
@@ -336,7 +336,7 @@ export function OnboardingWizard() {
               {profile.features.map((f) => (
                 <li
                   key={f}
-                  className="rounded-lg border border-white/10 bg-bg-primary px-3 py-1.5 text-xs text-text-secondary"
+                  className="rounded-lg border border-line bg-bg-primary px-3 py-1.5 text-xs text-text-secondary"
                 >
                   {FEATURE_LABELS[f] ?? f}
                 </li>
@@ -357,7 +357,7 @@ export function OnboardingWizard() {
               <button
                 type="button"
                 onClick={() => setCatalogOpen(true)}
-                className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-bg-primary"
+                className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-on-brand"
               >
                 Pick from catalog
               </button>
@@ -430,7 +430,7 @@ export function OnboardingWizard() {
             type="button"
             onClick={goBack}
             disabled={stepIndex === 0 || saving}
-            className="rounded-lg border border-white/10 px-4 py-2.5 text-sm disabled:opacity-40"
+            className="rounded-lg border border-line px-4 py-2.5 text-sm disabled:opacity-40"
           >
             Back
           </button>
@@ -438,7 +438,7 @@ export function OnboardingWizard() {
             type="button"
             onClick={goNext}
             disabled={saving}
-            className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-bg-primary disabled:opacity-50"
+            className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-on-brand disabled:opacity-50"
           >
             {saving ? 'Saving…' : isLast ? 'Complete setup' : 'Continue'}
           </button>

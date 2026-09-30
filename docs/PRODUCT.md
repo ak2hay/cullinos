@@ -181,6 +181,7 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | **Marketing CMS** | Hero, pages, pricing, blog, media, theme |
 | **Cullinos App Ops** | Full Cullinos App portal under `/guest-ops`: marketplace moderation & featuring, Discover CMS, banners (all scopes), segmented/scheduled push, offers featuring, review moderation, GuestUser support/privacy, analytics, app runtime (force/soft update, maintenance, remote legal URLs) |
 | **Health & audit** | Platform health, audit trails |
+| **Platform team & roles** | Owners invite Rkyves employees with a fixed role (Owner, Support, Sales, Marketing, Finance, Viewer); permissions gate every Super Admin route and App Ops (`guest_ops.manage`). Role change, deactivate, and password reset revoke sessions; last active Owner is protected; all actions audited. See [`docs/rkyves-team/PLATFORM_STAFF.md`](rkyves-team/PLATFORM_STAFF.md) |
 
 ---
 
@@ -205,15 +206,17 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 
 ## 5. Plans (India, INR)
 
-List prices; custom enterprise quotes available.
+List prices; Enterprise and Hospitality are quoted per customer ("Contact us").
 
-| Plan | From | Best for | Highlights |
-|------|------|----------|------------|
-| **Starter** | ₹2,999/mo | Single outlet launch | POS, KDS, tables, QR + online ordering, reports |
-| **QSR / Food SMB** | ₹4,999/mo | Cafes, trucks, counters | + counter mode, pickup queue, loyalty, production |
-| **Professional** | ₹7,999/mo | Growing restaurants | + inventory, CRM, delivery, up to 3 outlets |
-| **Enterprise** | ₹19,999/mo | Chains & franchise | + multi-outlet, multi-brand, franchise, analytics, API |
-| **Hospitality** | ₹29,999/mo | Hotels & resorts | + room service, room posting, banquet, PMS-ready |
+| Plan | Monthly | Yearly | Best for | Highlights |
+|------|---------|--------|----------|------------|
+| **Starter** | ₹1,499/mo | ₹14,999/yr (save ₹2,989) | Single outlet launch | POS, KDS, tables, QR + online ordering, reports |
+| **QSR / Food SMB** | ₹2,499/mo | ₹24,999/yr (save ₹4,989) | Cafes, trucks, counters | + counter mode, pickup queue, loyalty, production |
+| **Professional** | ₹4,999/mo | ₹49,999/yr (save ₹9,989) | Growing restaurants | + inventory, CRM, delivery, up to 3 outlets |
+| **Enterprise** | Contact us | Contact us | Chains & franchise | + multi-outlet, multi-brand, franchise, analytics, API. Custom pricing based on outlets, POS terminals, users, integrations and requirements. |
+| **Hospitality** | Contact us | Contact us | Hotels & resorts | + room service, room posting, banquet, PMS-ready. Custom pricing based on rooms, outlets, terminals and integrations. |
+
+Enterprise and Hospitality cannot be self-activated from Admin Billing; existing subscribers on those plans keep their stored price. The public catalog stores them at `0` with `contactSales: true`.
 
 Entitlement keys live in `packages/shared` (`FEATURES` / `PLAN_FEATURES` / `PUBLIC_PLAN_CATALOG`).
 

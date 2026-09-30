@@ -1,6 +1,6 @@
 /**
  * Generates stylish client-facing Cullinos PDFs:
- * Brochure, Product Overview, User Manual.
+ * Brochure, Product Overview, User Manual, Plans Brochure, per-plan sheets.
  * Run: node scripts/generate-client-pdfs.mjs
  */
 import { spawnSync } from 'child_process';
@@ -164,6 +164,73 @@ table.pretty tr:nth-child(even) td { background: var(--card); }
 .plan .price span { font-size: 9pt; color: var(--muted); font-family: 'DM Sans', sans-serif; }
 .plan ul { margin: 8px 0 0; padding-left: 16px; font-size: 9pt; color: var(--muted); }
 
+.plan-kicker {
+  font-size: 8pt; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--gold-dim);
+}
+.tag {
+  display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px;
+  background: var(--gold); color: var(--ink);
+  font-family: 'DM Sans', sans-serif; font-size: 7pt; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; vertical-align: middle;
+}
+
+.plan-hero {
+  background:
+    radial-gradient(ellipse 70% 80% at 100% 0%, rgba(212,160,23,0.25), transparent 60%),
+    linear-gradient(160deg, #0F0F1A 0%, #1a1a28 60%, #12121c 100%);
+  color: #f5f2ea; border-radius: 16px; padding: 20px 24px;
+  page-break-inside: avoid;
+}
+.plan-hero-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.mark.mark-sm { width: 34px; height: 34px; border-radius: 9px; font-size: 17pt; }
+.plan-hero-body { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
+.plan-hero h1 { color: #f5f2ea; font-size: 26pt; margin: 0 0 6px; }
+.plan-hero .tagline { font-size: 10.5pt; max-width: 400px; }
+.price-block { text-align: right; flex-shrink: 0; }
+.price-main { font-family: 'Fraunces', Georgia, serif; font-size: 26pt; color: var(--gold-bright); line-height: 1.1; }
+.price-main span { font-family: 'DM Sans', sans-serif; font-size: 10pt; color: rgba(245,242,234,0.7); }
+.price-alt { font-size: 9.5pt; color: #f5f2ea; margin-top: 4px; }
+.price-note { font-size: 8pt; color: rgba(245,242,234,0.55); margin-top: 2px; }
+
+.limits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+.limits > div {
+  border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+  padding: 10px 14px; display: flex; align-items: baseline; gap: 8px;
+}
+.limits strong { font-family: 'Fraunces', Georgia, serif; font-size: 18pt; font-weight: 600; color: var(--ink); }
+.limits span { font-size: 9pt; color: var(--muted); }
+
+.feature-grid { margin-top: 10px; }
+.feature-card { padding: 12px 14px; }
+ul.check { list-style: none; padding: 0; margin: 0; font-size: 9pt; color: var(--ink-soft); }
+ul.check li { position: relative; padding-left: 16px; margin-bottom: 3px; line-height: 1.35; }
+ul.check li::before { content: '✓'; position: absolute; left: 0; color: var(--gold-dim); font-weight: 700; }
+.upgrade {
+  border-left: 3px solid var(--gold); background: var(--card);
+  padding: 8px 12px; border-radius: 0 8px 8px 0; color: var(--ink-soft);
+}
+
+table.matrix {
+  width: 100%; border-collapse: collapse; margin: 10px 0 12px;
+  font-size: 8.5pt; page-break-inside: avoid;
+}
+table.matrix th {
+  background: var(--ink); color: var(--gold); padding: 7px 6px;
+  font-weight: 600; text-align: center; font-size: 8.5pt;
+}
+table.matrix th:first-child, table.matrix td:first-child { text-align: left; padding-left: 10px; }
+table.matrix th.featured { background: var(--gold); color: var(--ink); }
+table.matrix td { padding: 3px 6px; border-bottom: 1px solid var(--line); text-align: center; }
+table.matrix td.featured { background: #fffaeb; }
+table.matrix tr.group td {
+  background: var(--cream); font-weight: 700; font-size: 7.5pt;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--gold-dim);
+}
+table.matrix .yes { color: var(--gold-dim); font-weight: 700; }
+table.matrix .no { color: #c4c0b6; }
+table.matrix tr.key td { font-weight: 600; }
+
 .footer-bar {
   margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line);
   font-size: 8.5pt; color: var(--muted);
@@ -181,14 +248,14 @@ table.pretty tr:nth-child(even) td { background: var(--card); }
 }
 `;
 
-function shell(title, body) {
+function shell(title, body, extraCss = '') {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${title}</title>
-  <style>${SHARED_CSS}</style>
+  <style>${SHARED_CSS}${extraCss}</style>
 </head>
 <body>
 ${body}
@@ -215,6 +282,392 @@ function cover({ eyebrow, title, subtitle, meta }) {
 
 function footer(left = 'cullinos.com') {
   return `<div class="footer-bar"><span>${left}</span><span>Powered by Rkyves · hello@rkyves.com</span></div>`;
+}
+
+const PRICE_NOTE = 'Prices in INR. Taxes as applicable.';
+
+/** @param {number} n */
+function formatInr(n) {
+  return `₹${n.toLocaleString('en-IN')}`;
+}
+
+/** Client-facing labels for FeatureKeys in packages/shared/src/features.ts (plus the Waiter app). */
+const FEATURE_GROUPS = [
+  {
+    title: 'Sell',
+    features: [
+      ['pos', 'Point of Sale (POS)'],
+      ['billing', 'GST-ready bills &amp; receipts'],
+      ['counter_mode', 'Counter / quick-service mode'],
+      ['tables', 'Table management'],
+      ['waiter', 'Waiter app (Android)'],
+    ],
+  },
+  {
+    title: 'Kitchen',
+    features: [
+      ['kot', 'Kitchen order tickets (KOT)'],
+      ['kds', 'Kitchen Display System'],
+      ['pickup_queue', 'Pickup queue &amp; Order Display'],
+    ],
+  },
+  {
+    title: 'Guests &amp; channels',
+    features: [
+      ['qr_ordering', 'QR dine-in ordering'],
+      ['online_ordering', 'Online ordering storefront'],
+      ['delivery', 'Delivery management'],
+    ],
+  },
+  {
+    title: 'Back office',
+    features: [
+      ['basic_reports', 'Sales &amp; item reports'],
+      ['inventory', 'Inventory &amp; stock'],
+      ['recipes', 'Recipes &amp; costing'],
+      ['purchasing', 'Purchasing &amp; suppliers'],
+      ['production', 'Production batches'],
+      ['events', 'Events &amp; pop-ups'],
+    ],
+  },
+  {
+    title: 'Growth',
+    features: [
+      ['loyalty', 'Loyalty programs'],
+      ['crm', 'Customer CRM'],
+    ],
+  },
+  {
+    title: 'Scale',
+    features: [
+      ['multi_outlet', 'Multi-outlet management'],
+      ['multi_brand', 'Multi-brand menus'],
+      ['franchise', 'Franchise tools'],
+      ['advanced_analytics', 'Advanced analytics'],
+      ['api_access', 'API access'],
+    ],
+  },
+  {
+    title: 'Hospitality',
+    features: [
+      ['room_service', 'Room service'],
+      ['room_posting', 'Post bills to guest room'],
+      ['banquet', 'Banquets'],
+      ['hospitality_integrations', 'PMS-ready integrations'],
+    ],
+  },
+];
+
+const STARTER_FEATURES = ['pos', 'billing', 'kot', 'basic_reports', 'tables', 'kds', 'qr_ordering', 'online_ordering'];
+const PRO_FEATURES = [
+  ...STARTER_FEATURES,
+  'inventory', 'recipes', 'purchasing', 'crm', 'loyalty', 'delivery', 'pickup_queue', 'production', 'events',
+  'waiter',
+];
+const ENTERPRISE_FEATURES = [
+  ...PRO_FEATURES,
+  'multi_outlet', 'multi_brand', 'franchise', 'advanced_analytics', 'api_access',
+];
+
+/** Must stay aligned with PUBLIC_PLAN_CATALOG / PLAN_FEATURES / PLANS_WITH_WAITER in packages/shared/src/features.ts. */
+const PLANS = [
+  {
+    slug: 'starter',
+    name: 'Starter',
+    priceMonthly: 1499,
+    priceYearly: 14999,
+    maxOutlets: 1,
+    maxTerminals: 2,
+    maxUsers: 5,
+    bestFor: 'Single outlet launch',
+    audience: ['Dine-in restaurants', 'New outlets', 'Family restaurants'],
+    tagline: 'Everything a single outlet needs on day one — billing, kitchen, tables, and QR &amp; online orders.',
+    summary: 'POS, KDS, tables, QR &amp; online ordering, reports',
+    delta: 'POS, KDS, tables, QR + online ordering, reports',
+    upgradeHint: 'Need loyalty, stock or a pickup counter? See <strong>QSR</strong>. Need CRM, delivery or the Waiter app? See <strong>Professional</strong>.',
+    features: STARTER_FEATURES,
+  },
+  {
+    slug: 'qsr',
+    name: 'QSR / Food SMB',
+    fileName: 'QSR',
+    priceMonthly: 2499,
+    priceYearly: 24999,
+    maxOutlets: 1,
+    maxTerminals: 3,
+    maxUsers: 8,
+    bestFor: 'Cafes, trucks, counters',
+    audience: ['Cafes', 'QSR', 'Food trucks', 'Bakeries', 'Kiosks'],
+    tagline: 'Built for fast counter service — quick billing, a pickup queue, loyalty, and stock control.',
+    summary: 'Counter mode, pickup queue, loyalty, inventory, production',
+    delta: '+ counter mode, pickup queue, loyalty, inventory, production',
+    upgradeHint: 'Need CRM, delivery, purchasing, the Waiter app or up to 3 outlets? See <strong>Professional</strong>.',
+    features: [
+      ...STARTER_FEATURES,
+      'counter_mode', 'pickup_queue', 'loyalty', 'inventory', 'recipes', 'events', 'production',
+    ],
+  },
+  {
+    slug: 'professional',
+    name: 'Professional',
+    featured: true,
+    priceMonthly: 4999,
+    priceYearly: 49999,
+    maxOutlets: 3,
+    maxTerminals: 10,
+    maxUsers: 20,
+    bestFor: 'Growing restaurants',
+    audience: ['Full-service restaurants', 'Growing brands', 'Up to 3 outlets'],
+    tagline: 'Full restaurant operations — waiters, back office, CRM, and delivery across up to 3 outlets.',
+    summary: 'Full ops — inventory, CRM, delivery, Waiter app, up to 3 outlets',
+    delta: '+ inventory, purchasing, CRM, delivery, Waiter app, up to 3 outlets',
+    upgradeHint: 'Running a chain, franchise or multiple brands? See <strong>Enterprise</strong>.',
+    features: PRO_FEATURES,
+  },
+  {
+    slug: 'enterprise',
+    name: 'Enterprise',
+    contactSales: true,
+    pricingBasis: 'Custom pricing based on outlets, POS terminals, users, integrations and requirements.',
+    maxOutlets: 50,
+    maxTerminals: 100,
+    maxUsers: 200,
+    bestFor: 'Chains &amp; franchise',
+    audience: ['Restaurant chains', 'Franchise networks', 'Cloud kitchens', 'Multi-brand groups'],
+    tagline: 'One platform for your whole network — multi-outlet, multi-brand, franchise, analytics, and API.',
+    summary: 'Multi-outlet, multi-brand, franchise, analytics, API',
+    delta: '+ multi-outlet, multi-brand, franchise, analytics, API',
+    upgradeHint: 'Running hotels, resorts or banquet venues? See <strong>Hospitality</strong>.',
+    features: ENTERPRISE_FEATURES,
+  },
+  {
+    slug: 'hospitality',
+    name: 'Hospitality',
+    contactSales: true,
+    pricingBasis: 'Custom pricing based on rooms, outlets, terminals and integrations.',
+    maxOutlets: 100,
+    maxTerminals: 200,
+    maxUsers: 500,
+    bestFor: 'Hotels &amp; resorts',
+    audience: ['Hotels', 'Resorts', 'Banquet venues', 'Hotel F&amp;B groups'],
+    tagline: 'Restaurants, room service, and banquets for hotels and resorts — on the same platform.',
+    summary: 'Room service, room posting, banquets, PMS-ready',
+    delta: '+ room service, room posting, banquet, PMS-ready',
+    upgradeHint: null,
+    features: [
+      ...ENTERPRISE_FEATURES.filter((f) => !['pickup_queue', 'production', 'events'].includes(f)),
+      'room_service', 'room_posting', 'banquet', 'hospitality_integrations',
+    ],
+  },
+];
+
+/** @param {(typeof PLANS)[number]} plan */
+function planFileName(plan) {
+  return plan.fileName ?? plan.name;
+}
+
+/** @param {(typeof PLANS)[number]} plan */
+function yearlySaving(plan) {
+  if (plan.contactSales) return 0;
+  return plan.priceMonthly * 12 - plan.priceYearly;
+}
+
+const CONTACT_PRICE = 'Contact us';
+
+/** @param {(typeof PLANS)[number]} plan */
+function monthlyPriceHtml(plan) {
+  return plan.contactSales ? CONTACT_PRICE : `${formatInr(plan.priceMonthly)} <span>/ month</span>`;
+}
+
+function planCardsHtml(gridClass = 'grid-3') {
+  const cards = PLANS.map(
+    (p) => `<div class="plan${p.featured ? ' featured' : ''}"><div class="plan-kicker">${p.name}${p.featured ? ' <span class="tag">Most popular</span>' : ''}</div><div class="price">${monthlyPriceHtml(p)}</div><p class="small muted">${p.contactSales ? p.pricingBasis : p.summary}</p></div>`,
+  ).join('\n    ');
+  return `<div class="${gridClass}">
+    ${cards}
+  </div>
+  <p class="small muted">${PRICE_NOTE} Yearly billing available. Custom quotes for special requirements.</p>`;
+}
+
+/** @param {(typeof PLANS)[number]} plan */
+function planDetailHtml(plan) {
+  const included = new Set(plan.features);
+  const groups = FEATURE_GROUPS.map((g) => {
+    const items = g.features.filter(([key]) => included.has(key));
+    if (items.length === 0) return '';
+    return `<div class="card feature-card"><div class="kicker">${g.title}</div><ul class="check">${items
+      .map(([, label]) => `<li>${label}</li>`)
+      .join('')}</ul></div>`;
+  }).join('\n    ');
+  const saving = yearlySaving(plan);
+
+  return `
+<div class="plan-hero">
+  <div class="plan-hero-top">
+    <div class="mark mark-sm">C</div>
+    <span class="eyebrow" style="margin:0">Cullinos plan</span>
+    ${plan.featured ? '<span class="tag">Most popular</span>' : ''}
+  </div>
+  <div class="plan-hero-body">
+    <div>
+      <h1 class="display">${plan.name}</h1>
+      <p class="tagline">${plan.tagline}</p>
+    </div>
+    <div class="price-block">
+      <div class="price-main">${monthlyPriceHtml(plan)}</div>
+      ${
+        plan.contactSales
+          ? `<div class="price-alt">Contact us for pricing</div>
+      <div class="price-note">${plan.pricingBasis}</div>`
+          : `<div class="price-alt">or ${formatInr(plan.priceYearly)} / year${saving > 0 ? ` · save ${formatInr(saving)}` : ''}</div>
+      <div class="price-note">${PRICE_NOTE}</div>`
+      }
+    </div>
+  </div>
+</div>
+
+<div class="limits">
+  <div><strong>${plan.maxOutlets}</strong><span>${plan.maxOutlets === 1 ? 'Outlet' : 'Outlets'}</span></div>
+  <div><strong>${plan.maxTerminals}</strong><span>POS terminals</span></div>
+  <div><strong>${plan.maxUsers}</strong><span>Staff users</span></div>
+</div>
+
+<p class="eyebrow" style="margin:0 0 6px">Best for</p>
+<div class="pill-row">${plan.audience.map((a, i) => `<span class="pill${i === 0 ? ' gold' : ''}">${a}</span>`).join('')}</div>
+
+<h2>What’s included</h2>
+<div class="grid-3 feature-grid">
+    ${groups}
+</div>
+<p class="small muted">Always included: Admin console, menu management, tax &amp; outlet settings.</p>
+${plan.upgradeHint ? `<p class="small upgrade">${plan.upgradeHint}</p>` : ''}`;
+}
+
+const PLAN_CTA = `
+<div class="banner">
+  <h3>Ready to get started?</h3>
+  <p>Book a walkthrough and we’ll help you pick the right plan for your outlets.</p>
+  <div class="cta">cullinos.com/contact · hello@rkyves.com</div>
+</div>`;
+
+const PLAN_DOC_CSS = `
+@page { size: A4; margin: 10mm; }
+h2 { margin-top: 18px; }
+.limits { margin: 10px 0 12px; }
+.pill-row { margin: 6px 0 10px; }
+.banner { margin: 12px 0; padding: 14px 18px; }
+.footer-bar { margin-top: 14px; padding-top: 10px; }
+table.matrix { line-height: 1.3; }
+table.matrix td { padding: 2px 6px; }
+@media print {
+  .page { padding: 4px 2px; }
+}
+`;
+
+function comparisonMatrixHtml() {
+  const head = PLANS.map((p) => `<th${p.featured ? ' class="featured"' : ''}>${p.name}</th>`).join('');
+  const cell = (p, html) => `<td${p.featured ? ' class="featured"' : ''}>${html}</td>`;
+  const row = (label, render, cls = '') =>
+    `<tr${cls ? ` class="${cls}"` : ''}><td>${label}</td>${PLANS.map((p) => cell(p, render(p))).join('')}</tr>`;
+  const groupRow = (title) => `<tr class="group"><td colspan="${PLANS.length + 1}">${title}</td></tr>`;
+
+  const rows = [
+    groupRow('Pricing &amp; limits'),
+    row('Monthly', (p) => (p.contactSales ? CONTACT_PRICE : formatInr(p.priceMonthly)), 'key'),
+    row('Yearly', (p) => (p.contactSales ? CONTACT_PRICE : formatInr(p.priceYearly))),
+    row('Outlets', (p) => String(p.maxOutlets)),
+    row('POS terminals', (p) => String(p.maxTerminals)),
+    row('Staff users', (p) => String(p.maxUsers)),
+  ];
+  for (const g of FEATURE_GROUPS) {
+    rows.push(groupRow(g.title));
+    for (const [key, label] of g.features) {
+      rows.push(
+        row(label, (p) => (p.features.includes(key) ? '<span class="yes">✓</span>' : '<span class="no">—</span>')),
+      );
+    }
+  }
+
+  return `<table class="matrix">
+    <thead><tr><th>Feature</th>${head}</tr></thead>
+    <tbody>
+      ${rows.join('\n      ')}
+    </tbody>
+  </table>`;
+}
+
+function plansBrochureHtml() {
+  const planPages = PLANS.map(
+    (p) => `
+<section class="page section-break">
+  ${planDetailHtml(p)}
+  ${footer(`Cullinos Plans · ${p.name}`)}
+</section>`,
+  ).join('\n');
+
+  const body = `
+${cover({
+  eyebrow: 'Plans &amp; pricing',
+  title: 'Plans built for<br/>every kitchen.',
+  subtitle: 'From a single cafe counter to hotel and franchise networks — pick the Cullinos plan that fits your business today, and upgrade as you grow.',
+  meta: 'cullinos.com · Mumbai, India · 2026',
+})}
+
+<section class="page">
+  <p class="eyebrow">Choose your plan</p>
+  <h2 style="border:none;margin-top:0">Which plan fits you?</h2>
+  <p class="lead">Every plan runs on the same Cullinos platform — GST-ready billing, cloud Admin, and live kitchen tickets. Plans differ in the tools and scale you need.</p>
+
+  <table class="pretty">
+    <thead><tr><th>Your business</th><th>Recommended plan</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Single dine-in restaurant, just starting out</td><td><strong>Starter</strong></td><td>POS, kitchen display, tables, and QR &amp; online ordering on day one</td></tr>
+      <tr><td>Cafe, bakery, food truck, or kiosk</td><td><strong>QSR / Food SMB</strong></td><td>Counter mode, pickup queue, loyalty, and stock control for fast service</td></tr>
+      <tr><td>Growing restaurant with waiters and delivery (up to 3 outlets)</td><td><strong>Professional</strong></td><td>Full back office, CRM, delivery, purchasing, and the Waiter app</td></tr>
+      <tr><td>Chain, franchise, or multi-brand cloud kitchen</td><td><strong>Enterprise</strong></td><td>Multi-outlet control, multi-brand menus, franchise tools, analytics, API</td></tr>
+      <tr><td>Hotel, resort, or banquet venue</td><td><strong>Hospitality</strong></td><td>Room service, post bills to guest rooms, banquets, PMS-ready</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Plans at a glance</h2>
+  ${planCardsHtml()}
+  ${footer('Cullinos Plans &amp; Pricing')}
+</section>
+${planPages}
+
+<section class="page section-break">
+  <p class="eyebrow">Side by side</p>
+  <h2 style="border:none;margin-top:0">Compare plans</h2>
+  ${comparisonMatrixHtml()}
+  <p class="small muted">${PRICE_NOTE} Admin console, menu management, and tax &amp; outlet settings are included in every plan.</p>
+</section>
+
+<section class="page section-break">
+  <p class="eyebrow">Custom plans</p>
+  <h2 style="border:none;margin-top:0">Need something different?</h2>
+  <p class="lead">Larger networks, unusual outlet counts, or a specific mix of modules? We build private plans for your business — with the modules, limits, and pricing you need. Custom plans are assigned directly to your account.</p>
+
+  <h2>How to get started</h2>
+  <div class="step"><div class="step-num">1</div><div><h3>Book a walkthrough</h3><p>See Cullinos running for a business like yours.</p></div></div>
+  <div class="step"><div class="step-num">2</div><div><h3>Pick your plan</h3><p>Monthly or yearly billing — or ask for a custom quote.</p></div></div>
+  <div class="step"><div class="step-num">3</div><div><h3>Set up your outlet</h3><p>Guided setup for your business type, GSTIN, menu, and staff.</p></div></div>
+  <div class="step"><div class="step-num">4</div><div><h3>Go live</h3><p>Start billing, sending tickets to the kitchen, and taking QR &amp; online orders.</p></div></div>
+
+  ${PLAN_CTA}
+  ${footer('Cullinos Plans &amp; Pricing')}
+</section>`;
+  return shell('Cullinos Plans &amp; Pricing', body, PLAN_DOC_CSS);
+}
+
+/** @param {(typeof PLANS)[number]} plan */
+function planSheetHtml(plan) {
+  const body = `
+<section class="page">
+  ${planDetailHtml(plan)}
+  ${PLAN_CTA}
+  ${footer(`Cullinos · ${plan.name} plan`)}
+</section>`;
+  return shell(`Cullinos ${plan.name} Plan`, body, PLAN_DOC_CSS);
 }
 
 function brochureHtml() {
@@ -262,12 +715,7 @@ ${cover({
   </div>
 
   <h2>Plans at a glance</h2>
-  <div class="grid-2">
-    <div class="plan"><div class="kicker" style="font-size:8pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim)">Starter</div><div class="price">₹999 <span>/ month</span></div><p class="small muted">POS, KDS, tables, QR &amp; online ordering</p></div>
-    <div class="plan"><div class="kicker" style="font-size:8pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim)">QSR / Food SMB</div><div class="price">₹1,499 <span>/ month</span></div><p class="small muted">Counter mode, pickup queue, loyalty, production</p></div>
-    <div class="plan featured"><div class="kicker" style="font-size:8pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim)">Professional</div><div class="price">₹2,999 <span>/ month</span></div><p class="small muted">Full ops — inventory, CRM, delivery, up to 3 outlets</p></div>
-    <div class="plan"><div class="kicker" style="font-size:8pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim)">Enterprise / Hospitality</div><div class="price">From ₹9,999 <span>/ month</span></div><p class="small muted">Chains, franchise, analytics, room service &amp; banquets</p></div>
-  </div>
+  ${planCardsHtml()}
 
   <div class="banner">
     <h3>Ready to see Cullinos in your outlet?</h3>
@@ -407,15 +855,14 @@ ${cover({
   </table>
 
   <h2>Plans &amp; offerings</h2>
-  <p class="muted small">List prices for India (INR). Custom enterprise quotes available.</p>
+  <p class="muted small">List prices for India (INR). Taxes as applicable. Custom enterprise quotes available.</p>
   <table class="pretty">
     <thead><tr><th>Plan</th><th>From</th><th>Best for</th><th>Highlights</th></tr></thead>
     <tbody>
-      <tr><td><strong>Starter</strong></td><td>₹999/mo</td><td>Single outlet launch</td><td>POS, KDS, tables, QR + online ordering, reports</td></tr>
-      <tr><td><strong>QSR / Food SMB</strong></td><td>₹1,499/mo</td><td>Cafes, trucks, counters</td><td>+ counter mode, pickup queue, loyalty, production</td></tr>
-      <tr><td><strong>Professional</strong></td><td>₹2,999/mo</td><td>Growing restaurants</td><td>+ inventory, CRM, delivery, up to 3 outlets</td></tr>
-      <tr><td><strong>Enterprise</strong></td><td>₹9,999/mo</td><td>Chains &amp; franchise</td><td>+ multi-outlet, multi-brand, franchise, analytics, API</td></tr>
-      <tr><td><strong>Hospitality</strong></td><td>₹14,999/mo</td><td>Hotels &amp; resorts</td><td>+ room service, room posting, banquet, PMS-ready</td></tr>
+      ${PLANS.map(
+        (p) =>
+          `<tr><td><strong>${p.name}</strong></td><td>${p.contactSales ? CONTACT_PRICE : `${formatInr(p.priceMonthly)}/mo`}</td><td>${p.bestFor}</td><td>${p.delta}</td></tr>`,
+      ).join('\n      ')}
     </tbody>
   </table>
 
@@ -589,11 +1036,18 @@ const DOCS = [
   { id: 'brochure', dest: 'Cullinos_Brochure.pdf', html: 'Cullinos_Brochure.html', build: brochureHtml },
   { id: 'product', dest: 'Cullinos_Product_Overview.pdf', html: 'Cullinos_Product_Overview.html', build: productHtml },
   { id: 'manual', dest: 'Cullinos_User_Manual.pdf', html: 'Cullinos_User_Manual.html', build: manualHtml },
+  { id: 'plans', dest: 'Cullinos_Plans_Brochure.pdf', html: 'Cullinos_Plans_Brochure.html', build: plansBrochureHtml },
+  ...PLANS.map((plan) => ({
+    id: `plan-${plan.slug}`,
+    dest: join('plans', `Cullinos_Plan_${planFileName(plan)}.pdf`),
+    html: join('plans', `Cullinos_Plan_${planFileName(plan)}.html`),
+    build: () => planSheetHtml(plan),
+  })),
 ];
 
 async function main() {
-  mkdirSync(OUT_PDF, { recursive: true });
-  mkdirSync(OUT_HTML, { recursive: true });
+  mkdirSync(join(OUT_PDF, 'plans'), { recursive: true });
+  mkdirSync(join(OUT_HTML, 'plans'), { recursive: true });
 
   const browserPath = findBrowserExecutable();
   if (browserPath) console.log(`Using browser: ${browserPath}`);

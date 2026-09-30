@@ -78,8 +78,8 @@ class _PhoneFieldState extends State<PhoneField> {
     widget.onComposedChanged?.call(PhoneField.composedDigits(dial, national));
   }
 
-  DialCode get _current =>
-      kDialCodes.firstWhere((c) => c.dial == _dial, orElse: () => kDialCodes.first);
+  DialCode get _current => kDialCodes.firstWhere((c) => c.dial == _dial,
+      orElse: () => kDialCodes.first);
 
   Future<void> _pickDial() async {
     final picked = await showModalBottomSheet<String>(
@@ -94,7 +94,8 @@ class _PhoneFieldState extends State<PhoneField> {
                 leading: Text(c.flag, style: const TextStyle(fontSize: 22)),
                 title: Text(c.label),
                 trailing: c.dial == _dial
-                    ? const Icon(Icons.check_rounded, color: WaiterColors.primary)
+                    ? Icon(Icons.check_rounded,
+                        color: WaiterColors.primaryOf(context))
                     : null,
                 onTap: () => Navigator.of(ctx).pop(c.dial),
               ),
@@ -117,10 +118,10 @@ class _PhoneFieldState extends State<PhoneField> {
         if (widget.labelText.isNotEmpty) ...[
           Text(
             widget.labelText,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: WaiterColors.ink,
+              color: WaiterColors.inkOf(context),
             ),
           ),
           const SizedBox(height: 8),
@@ -128,10 +129,10 @@ class _PhoneFieldState extends State<PhoneField> {
         Row(
           children: [
             Material(
-              color: Colors.white,
+              color: WaiterColors.surfaceOf(context),
               shape: RoundedRectangleBorder(
                 borderRadius: radius,
-                side: const BorderSide(color: WaiterColors.border),
+                side: BorderSide(color: WaiterColors.borderOf(context)),
               ),
               child: InkWell(
                 borderRadius: radius,
@@ -146,13 +147,13 @@ class _PhoneFieldState extends State<PhoneField> {
                       const SizedBox(width: 6),
                       Text(
                         '+${_current.dial}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: WaiterColors.ink,
+                          color: WaiterColors.inkOf(context),
                         ),
                       ),
-                      const Icon(Icons.keyboard_arrow_down_rounded,
-                          size: 20, color: WaiterColors.muted),
+                      Icon(Icons.keyboard_arrow_down_rounded,
+                          size: 20, color: WaiterColors.mutedOf(context)),
                     ],
                   ),
                 ),
@@ -173,17 +174,20 @@ class _PhoneFieldState extends State<PhoneField> {
                   ],
                   decoration: InputDecoration(
                     hintText: widget.hintText,
-                    hintStyle: const TextStyle(color: WaiterColors.muted, fontSize: 14),
-                    prefixIcon: const Icon(Icons.phone_outlined,
-                        color: WaiterColors.primary, size: 20),
+                    hintStyle: TextStyle(
+                        color: WaiterColors.mutedOf(context), fontSize: 14),
+                    prefixIcon: Icon(Icons.phone_outlined,
+                        color: WaiterColors.primaryOf(context), size: 20),
                     contentPadding: const EdgeInsets.symmetric(vertical: 16),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: radius,
-                      borderSide: const BorderSide(color: WaiterColors.primary, width: 1.2),
+                      borderSide: BorderSide(
+                          color: WaiterColors.primaryOf(context), width: 1.2),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: radius,
-                      borderSide: const BorderSide(color: WaiterColors.primary, width: 1.8),
+                      borderSide: BorderSide(
+                          color: WaiterColors.primaryOf(context), width: 1.8),
                     ),
                     border: OutlineInputBorder(borderRadius: radius),
                   ),

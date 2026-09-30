@@ -70,13 +70,13 @@ export function GuestOpsMarketplacePage() {
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Input label="Search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, city, org…" />
           <label className="block text-sm">
             <span className="mb-1 block text-text-secondary">Listed</span>
             <select
-              className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
+              className="w-full rounded-lg border border-line bg-bg-primary px-3 py-2"
               value={listed}
               onChange={(e) => setListed(e.target.value)}
             >
@@ -88,7 +88,7 @@ export function GuestOpsMarketplacePage() {
           <label className="block text-sm">
             <span className="mb-1 block text-text-secondary">Featured</span>
             <select
-              className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
+              className="w-full rounded-lg border border-line bg-bg-primary px-3 py-2"
               value={featured}
               onChange={(e) => setFeatured(e.target.value)}
             >
@@ -100,7 +100,7 @@ export function GuestOpsMarketplacePage() {
           <label className="block text-sm">
             <span className="mb-1 block text-text-secondary">Moderation</span>
             <select
-              className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
+              className="w-full rounded-lg border border-line bg-bg-primary px-3 py-2"
               value={moderationStatus}
               onChange={(e) => setModerationStatus(e.target.value)}
             >
@@ -113,7 +113,7 @@ export function GuestOpsMarketplacePage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-medium">Outlets</h2>
           {data ? (
@@ -130,7 +130,7 @@ export function GuestOpsMarketplacePage() {
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead>
-                <tr className="border-b border-white/10 text-text-secondary">
+                <tr className="border-b border-line text-text-secondary">
                   <th className="pb-2 pr-3 font-medium">Outlet</th>
                   <th className="pb-2 pr-3 font-medium">Listed</th>
                   <th className="pb-2 pr-3 font-medium">Featured</th>
@@ -141,7 +141,7 @@ export function GuestOpsMarketplacePage() {
               </thead>
               <tbody>
                 {data.items.map((o) => (
-                  <tr key={o.id} className="border-b border-white/5 align-top">
+                  <tr key={o.id} className="border-b border-line-subtle align-top">
                     <td className="py-3 pr-3">
                       <p className="font-medium">{o.name}</p>
                       <p className="text-xs text-text-muted">
@@ -177,7 +177,7 @@ export function GuestOpsMarketplacePage() {
                       <div className="flex items-center gap-1">
                         <input
                           type="number"
-                          className="w-16 rounded border border-white/10 bg-bg-primary px-2 py-1"
+                          className="w-16 rounded border border-line bg-bg-primary px-2 py-1"
                           value={rankEdits[o.id] ?? String(o.marketplaceFeaturedRank ?? '')}
                           onChange={(e) =>
                             setRankEdits((m) => ({ ...m, [o.id]: e.target.value }))

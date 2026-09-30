@@ -4,6 +4,7 @@ import 'package:cullinos_guest/core/config.dart';
 import 'package:cullinos_guest/core/deep_links.dart';
 import 'package:cullinos_guest/core/router.dart';
 import 'package:cullinos_guest/core/theme.dart';
+import 'package:cullinos_guest/core/theme_mode_controller.dart';
 
 class CullinosGuestApp extends ConsumerStatefulWidget {
   const CullinosGuestApp({super.key});
@@ -31,9 +32,14 @@ class _CullinosGuestAppState extends ConsumerState<CullinosGuestApp> {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeModeProvider).mode;
     return MaterialApp.router(
       title: AppConfig.current.appName,
-      theme: buildGuestTheme(),
+      theme: buildGuestTheme(Brightness.light),
+      darkTheme: buildGuestTheme(Brightness.dark),
+      themeMode: themeMode,
+      themeAnimationDuration: const Duration(milliseconds: 350),
+      themeAnimationCurve: Curves.easeOutCubic,
       routerConfig: router,
       debugShowCheckedModeBanner: AppConfig.current.flavor != 'prod',
     );

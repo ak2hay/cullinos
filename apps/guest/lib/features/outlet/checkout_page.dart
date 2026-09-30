@@ -301,6 +301,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         await ref.read(guestApiProvider).sessionAddItems(
               sessionToken,
               items: mappedItems,
+              customerId: customerId,
               customerName: auth.name ?? auth.phone,
               notes: orderNotes,
               ageConfirmed: cart.hasAlcohol ? cart.ageConfirmed : null,
@@ -533,10 +534,10 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
           decoration: BoxDecoration(
-            color: selected ? GuestColors.primarySoftOf(context) : GuestColors.surface,
+            color: selected ? GuestColors.primarySoftOf(context) : GuestColors.surfaceOf(context),
             borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
             border: Border.all(
-              color: selected ? GuestColors.primaryOf(context) : GuestColors.border,
+              color: selected ? GuestColors.primaryOf(context) : GuestColors.borderOf(context),
               width: selected ? 2 : 1,
             ),
             boxShadow: selected
@@ -547,7 +548,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon,
-                  color: selected ? GuestColors.primaryOf(context) : GuestColors.muted,
+                  color: selected ? GuestColors.primaryOf(context) : GuestColors.mutedOf(context),
                   size: 24),
               const SizedBox(height: 6),
               Text(
@@ -555,15 +556,15 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
-                  color: selected ? GuestColors.primaryOf(context) : GuestColors.ink,
+                  color: selected ? GuestColors.primaryOf(context) : GuestColors.inkOf(context),
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 hint,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
-                  color: GuestColors.muted,
+                  color: GuestColors.mutedOf(context),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -592,12 +593,12 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         decoration: BoxDecoration(
           color: selected
               ? GuestColors.primarySoftOf(context)
-              : GuestColors.surface,
+              : GuestColors.surfaceOf(context),
           borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
           border: Border.all(
             color: selected
                 ? GuestColors.primaryOf(context)
-                : GuestColors.border,
+                : GuestColors.borderOf(context),
             width: selected ? 2 : 1,
           ),
         ),
@@ -607,7 +608,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
             Icon(icon,
                 color: selected
                     ? GuestColors.primaryOf(context)
-                    : GuestColors.muted,
+                    : GuestColors.mutedOf(context),
                 size: 22),
             const SizedBox(height: 5),
             Text(
@@ -618,13 +619,13 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 fontSize: 12,
                 color: selected
                     ? GuestColors.primaryOf(context)
-                    : GuestColors.ink,
+                    : GuestColors.inkOf(context),
               ),
             ),
             Text(
               hint,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 10, color: GuestColors.muted),
+              style: TextStyle(fontSize: 10, color: GuestColors.mutedOf(context)),
             ),
           ],
         ),
@@ -643,7 +644,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
             child: Text(
               label,
               style: TextStyle(
-                color: bold ? GuestColors.ink : GuestColors.muted,
+                color: bold ? GuestColors.inkOf(context) : GuestColors.mutedOf(context),
                 fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
               ),
             ),
@@ -652,7 +653,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
             amount,
             style: TextStyle(
               fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
-              color: bold ? GuestColors.ink : GuestColors.muted,
+              color: bold ? GuestColors.inkOf(context) : GuestColors.mutedOf(context),
             ),
           ),
         ],
@@ -675,10 +676,10 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     final total = cart.subtotal + deliveryFee + tip - _couponDiscount;
 
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       appBar: AppBar(
-        backgroundColor: GuestColors.scaffold,
-        foregroundColor: GuestColors.ink,
+        backgroundColor: GuestColors.scaffoldOf(context),
+        foregroundColor: GuestColors.inkOf(context),
         elevation: 0,
         leading: GuestBackButton(
           fallbackPath: '/o/${widget.orgSlug}/${widget.outletSlug}/cart',
@@ -694,7 +695,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               'Almost there!',
               style: TextStyle(
                 fontSize: 12,
-                color: GuestColors.muted,
+                color: GuestColors.mutedOf(context),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -794,9 +795,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                         ),
                         Text(
                           '₹${(l.unitPrice * l.quantity).toStringAsFixed(0)}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w700,
-                            color: GuestColors.ink,
+                            color: GuestColors.inkOf(context),
                           ),
                         ),
                       ],
@@ -826,7 +827,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                         decoration: BoxDecoration(
                           color: isDefault
                               ? GuestColors.primarySoftOf(context)
-                              : GuestColors.borderLight,
+                              : GuestColors.borderLightOf(context),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -834,7 +835,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                           size: 18,
                           color: isDefault
                               ? GuestColors.primaryOf(context)
-                              : GuestColors.muted,
+                              : GuestColors.mutedOf(context),
                         ),
                       ),
                       title: Text(
@@ -846,7 +847,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                             .where((e) => e != null && e.toString().isNotEmpty)
                             .join(' · '),
                         style:
-                            const TextStyle(color: GuestColors.muted),
+                            TextStyle(color: GuestColors.mutedOf(context)),
                       ),
                       trailing: isDefault
                           ? Container(
@@ -865,8 +866,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                                 ),
                               ),
                             )
-                          : const Icon(Icons.chevron_right,
-                              color: GuestColors.muted),
+                          : Icon(Icons.chevron_right,
+                              color: GuestColors.mutedOf(context)),
                       onTap: () {
                         setState(() {
                           _address.text = a['line1']?.toString() ?? '';
@@ -949,7 +950,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                         decoration: BoxDecoration(
                           color: _quote!['inZone'] == true
                               ? GuestColors.primarySoftOf(context)
-                              : GuestColors.coralSoft,
+                              : GuestColors.coralSoftOf(context),
                           borderRadius:
                               BorderRadius.circular(GuestSpacing.radiusSm),
                         ),
@@ -1275,9 +1276,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                       '₹${deliveryFee.toStringAsFixed(0)}'),
                 if (tip > 0)
                   _billRow('Tip', '₹${tip.toStringAsFixed(0)}'),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Divider(color: GuestColors.border),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Divider(color: GuestColors.borderOf(context)),
                 ),
                 _billRow(
                   'Grand total',
@@ -1287,13 +1288,13 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.lock_outline,
-                        size: 13, color: GuestColors.muted),
+                    Icon(Icons.lock_outline,
+                        size: 13, color: GuestColors.mutedOf(context)),
                     const SizedBox(width: 4),
                     Text(
                       'Secure & encrypted payment',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: GuestColors.muted,
+                            color: GuestColors.mutedOf(context),
                           ),
                     ),
                   ],
@@ -1373,7 +1374,7 @@ class _DeliveryTimeOption extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: selected ? GuestColors.primarySoftOf(context) : GuestColors.borderLight,
+          color: selected ? GuestColors.primarySoftOf(context) : GuestColors.borderLightOf(context),
           borderRadius: BorderRadius.circular(GuestSpacing.radiusSm),
           border: Border.all(
             color: selected ? GuestColors.primaryOf(context) : Colors.transparent,
@@ -1383,7 +1384,7 @@ class _DeliveryTimeOption extends StatelessWidget {
         child: Row(
           children: [
             Icon(icon,
-                color: selected ? GuestColors.primaryOf(context) : GuestColors.muted,
+                color: selected ? GuestColors.primaryOf(context) : GuestColors.mutedOf(context),
                 size: 20),
             const SizedBox(width: 12),
             Expanded(
@@ -1395,13 +1396,13 @@ class _DeliveryTimeOption extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       color:
-                          selected ? GuestColors.primaryOf(context) : GuestColors.ink,
+                          selected ? GuestColors.primaryOf(context) : GuestColors.inkOf(context),
                     ),
                   ),
                   Text(
                     hint,
-                    style: const TextStyle(
-                        fontSize: 12, color: GuestColors.muted),
+                    style: TextStyle(
+                        fontSize: 12, color: GuestColors.mutedOf(context)),
                   ),
                 ],
               ),

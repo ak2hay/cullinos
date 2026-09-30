@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { BUSINESS_TYPES } from "@cullinos/shared";
 import { ensureBarStationsIfServingAlcohol } from "../../common/kitchen-stations.util";
+import { stockDeductionTrigger } from "../../common/stock-deduction.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
 
@@ -105,6 +106,9 @@ export class OrganizationsService {
     });
     const settings = { ...this.settingsJson(existing?.settings), ...incoming };
     if ("servesAlcohol" in incoming) settings.servesAlcohol = incoming.servesAlcohol === true;
+    if ("stockDeductionTrigger" in incoming) {
+      settings.stockDeductionTrigger = stockDeductionTrigger(incoming);
+    }
     const saved = await this.prisma.organizationSettings.upsert({
       where: { organizationId: orgId },
       update: { settings: settings as never },

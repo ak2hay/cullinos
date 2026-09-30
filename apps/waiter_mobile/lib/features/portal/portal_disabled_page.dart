@@ -24,7 +24,7 @@ class PortalDisabledPage extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.block, size: 56, color: WaiterColors.primary),
+                  Icon(Icons.block, size: 56, color: WaiterColors.primaryOf(context)),
                   const SizedBox(height: 16),
                   Text(
                     l10n.portalDisabledTitle,

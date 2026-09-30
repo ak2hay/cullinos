@@ -118,7 +118,7 @@ export function AggregatorsPage() {
         ))}
       </div>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-4 space-y-4 opacity-70">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-4 space-y-4 opacity-70">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold">{PROVIDER_LABELS[activeProvider]} connection</h2>
@@ -172,12 +172,12 @@ export function AggregatorsPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-4 opacity-70">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-4 opacity-70">
         <h2 className="font-semibold">Per-outlet settings</h2>
         <p className="mt-1 text-sm text-text-secondary">
           Enable connection and online menu sync for each outlet.
         </p>
-        <ul className="mt-4 divide-y divide-white/5">
+        <ul className="mt-4 divide-y divide-line-subtle">
           {outlets.map((outlet) => {
             const cfg = outletConfigs[outlet.id] ?? {
               connected: false,

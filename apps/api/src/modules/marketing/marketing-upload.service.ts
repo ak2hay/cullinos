@@ -49,7 +49,8 @@ export type ImageSlot =
   | "outletCover"
   | "outletGallery"
   | "notification"
-  | "orgLogo";
+  | "orgLogo"
+  | "avatar";
 
 export type ImageSlotSpec = {
   slot: ImageSlot;
@@ -126,6 +127,14 @@ export const IMAGE_SLOT_SPECS: Record<ImageSlot, ImageSlotSpec> = {
     targetHeight: 512,
     maxBytes: MAX_BYTES,
   },
+  avatar: {
+    slot: "avatar",
+    label: "Profile photo",
+    ratio: 1,
+    targetWidth: 512,
+    targetHeight: 512,
+    maxBytes: MAX_BYTES,
+  },
 };
 
 /** Path context for hierarchical R2 / local keys under `marketing/`. */
@@ -142,7 +151,7 @@ export type UploadPathContext = {
    */
   leafName?: string;
   /** Platform area: CMS website assets vs guest-ops banners/push. */
-  platformArea?: "cms" | "guest-ops";
+  platformArea?: "cms" | "guest-ops" | "avatars";
   imageSlot?: ImageSlot;
 };
 
@@ -213,6 +222,7 @@ export function buildStorageKey(ctx: UploadPathContext, ext: string): string {
         ctx.imageSlot === "notification" ? "push" : "banners";
       return `${MARKETING_PREFIX}/platform/guest-ops/${folder}/${leaf}`;
     }
+    if (area === "avatars") return `${MARKETING_PREFIX}/platform/avatars/${leaf}`;
     return `${MARKETING_PREFIX}/platform/cms/${leaf}`;
   }
 
@@ -249,6 +259,8 @@ export function buildStorageKey(ctx: UploadPathContext, ext: string): string {
       return `${MARKETING_PREFIX}/orgs/${orgId}/push/${leaf}`;
     case "orgLogo":
       return `${MARKETING_PREFIX}/orgs/${orgId}/logo/${leaf}`;
+    case "avatar":
+      return `${MARKETING_PREFIX}/orgs/${orgId}/avatars/${leaf}`;
     default:
       return `${MARKETING_PREFIX}/orgs/${orgId}/misc/${leaf}`;
   }

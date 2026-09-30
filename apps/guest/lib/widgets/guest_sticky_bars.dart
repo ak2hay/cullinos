@@ -32,7 +32,7 @@ class GuestCartStickyBar extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: GuestColors.surface,
+            color: GuestColors.surfaceOf(context),
             borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
             boxShadow: GuestSpacing.navShadow,
           ),
@@ -47,7 +47,7 @@ class GuestCartStickyBar extends StatelessWidget {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: GuestColors.coralSoft,
+                          color: GuestColors.coralSoftOf(context),
                           borderRadius:
                               BorderRadius.circular(GuestSpacing.radiusSm),
                         ),
@@ -89,9 +89,9 @@ class GuestCartStickyBar extends StatelessWidget {
                     orderModeLabel!,
                     maxLines: 2,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      color: GuestColors.muted,
+                      color: GuestColors.mutedOf(context),
                     ),
                   ),
                 ),
@@ -160,7 +160,7 @@ class GuestAddToCartBar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         decoration: BoxDecoration(
-          color: GuestColors.surface,
+          color: GuestColors.surfaceOf(context),
           boxShadow: GuestSpacing.navShadow,
         ),
         child: Row(
@@ -169,7 +169,7 @@ class GuestAddToCartBar extends StatelessWidget {
               height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 6),
               decoration: BoxDecoration(
-                color: GuestColors.borderLight,
+                color: GuestColors.borderLightOf(context),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Row(
@@ -259,7 +259,7 @@ class GuestCheckoutStepper extends StatelessWidget {
                   height: 2,
                   color: i <= currentStep
                       ? GuestColors.primaryOf(context)
-                      : GuestColors.border,
+                      : GuestColors.borderOf(context),
                 ),
               ),
             _StepDot(
@@ -290,7 +290,7 @@ class _StepDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = done || active ? GuestColors.primaryOf(context) : GuestColors.muted;
+    final color = done || active ? GuestColors.primaryOf(context) : GuestColors.mutedOf(context);
     return Column(
       children: [
         Container(
@@ -298,7 +298,7 @@ class _StepDot extends StatelessWidget {
           height: 28,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: done || active ? GuestColors.primaryOf(context) : GuestColors.surface,
+            color: done || active ? GuestColors.primaryOf(context) : GuestColors.surfaceOf(context),
             border: Border.all(color: color, width: 1.5),
           ),
           child: Center(
@@ -309,7 +309,7 @@ class _StepDot extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: active ? Colors.white : GuestColors.muted,
+                      color: active ? Colors.white : GuestColors.mutedOf(context),
                     ),
                   ),
           ),

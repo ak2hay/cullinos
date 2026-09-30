@@ -28,7 +28,7 @@ export function BrandSelector() {
       <select
         value="all"
         disabled
-        className="h-9 rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm text-text-muted"
+        className="h-9 rounded-lg border border-line bg-bg-elevated px-3 text-sm text-text-muted"
       >
         <option value="all">All brands</option>
       </select>
@@ -39,7 +39,7 @@ export function BrandSelector() {
     <select
       value={selectedBrandId ?? ''}
       onChange={(e) => setSelectedBrand(e.target.value || null)}
-      className="h-9 rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm text-text-primary outline-none focus:border-brand-primary"
+      className="h-9 rounded-lg border border-line bg-bg-elevated px-3 text-sm text-text-primary outline-none focus:border-brand-primary"
     >
       {brands.map((brand) => (
         <option key={brand.id} value={brand.id}>

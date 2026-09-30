@@ -14,6 +14,9 @@ import { MailModule } from "../mail/mail.module";
 import { AuditModule } from "../audit/audit.module";
 import { SmsModule } from "../sms/sms.module";
 import { OrganizationsModule } from "../organizations/organizations.module";
+import { MarketingModule } from "../marketing/marketing.module";
+import { ProfileController } from "./profile.controller";
+import { ProfileService } from "./profile.service";
 import { getJwtSecret } from "../../common/jwt-secret.util";
 
 const jwtModule = JwtModule.register({
@@ -23,10 +26,11 @@ const jwtModule = JwtModule.register({
 }) as DynamicModule;
 
 @Module({
-  imports: [jwtModule, MailModule, AuditModule, SmsModule, OrganizationsModule],
-  controllers: [AuthController],
+  imports: [jwtModule, MailModule, AuditModule, SmsModule, OrganizationsModule, MarketingModule],
+  controllers: [AuthController, ProfileController],
   providers: [
     AuthService,
+    ProfileService,
     SessionTokensService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: AccountStatusGuard },

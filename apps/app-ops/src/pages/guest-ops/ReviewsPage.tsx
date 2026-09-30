@@ -60,7 +60,7 @@ export function GuestOpsReviewsPage() {
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <div className="grid gap-3 sm:grid-cols-2">
           <Input
             label="Search"
@@ -71,7 +71,7 @@ export function GuestOpsReviewsPage() {
           <label className="block text-sm">
             <span className="mb-1 block text-text-secondary">Status</span>
             <select
-              className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
+              className="w-full rounded-lg border border-line bg-bg-primary px-3 py-2"
               value={status}
               onChange={(e) => setStatus(e.target.value)}
             >
@@ -84,14 +84,14 @@ export function GuestOpsReviewsPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="text-lg font-medium">Reviews</h2>
         {isLoading ? (
           <p className="mt-3 text-sm text-text-muted">Loading…</p>
         ) : reviews.length === 0 ? (
           <p className="mt-3 text-sm text-text-muted">No reviews match filters.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-white/5">
+          <ul className="mt-4 divide-y divide-line-subtle">
             {reviews.map((r) => (
               <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
                 <div>

@@ -13,6 +13,7 @@ import 'package:cullinos_waiter/features/floor/table_action_mode.dart';
 import 'package:cullinos_waiter/features/order/table_detail_page.dart';
 import 'package:cullinos_waiter/features/orders/orders_hub_page.dart';
 import 'package:cullinos_waiter/l10n/app_localizations.dart';
+import 'package:cullinos_waiter/widgets/waiter_motion.dart';
 import 'package:cullinos_waiter/widgets/waiter_soft_card.dart';
 
 final tablesProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
@@ -105,7 +106,7 @@ class _FloorPageState extends ConsumerState<FloorPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(label),
-        backgroundColor: WaiterColors.primary,
+        backgroundColor: WaiterColors.primaryOf(context),
       ),
     );
     Future.delayed(const Duration(seconds: 10), () {
@@ -272,7 +273,7 @@ class _FloorPageState extends ConsumerState<FloorPage> {
         children: [
           Icon(
             merge ? Icons.call_merge_rounded : Icons.swap_horiz_rounded,
-            color: WaiterColors.ink,
+            color: WaiterColors.inkOf(context),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -336,8 +337,13 @@ class _FloorPageState extends ConsumerState<FloorPage> {
     }
 
     Widget grid = tablesAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text(friendlyDioError(e))),
+      loading: () => const WaiterSkeletonGrid(),
+      error: (e, _) => WaiterEmptyState(
+        icon: Icons.cloud_off_rounded,
+        message: friendlyDioError(e),
+        actionLabel: l10n.retry,
+        onAction: () => ref.invalidate(tablesProvider),
+      ),
       data: (tables) {
         final floors = _floorsFrom(tables);
         final filtered = _floorFilter == 'all'
@@ -345,7 +351,12 @@ class _FloorPageState extends ConsumerState<FloorPage> {
             : tables.where((t) => _floorIdOf(t) == _floorFilter).toList();
 
         if (tables.isEmpty) {
-          return Center(child: Text(l10n.emptyFloor));
+          return WaiterEmptyState(
+            icon: Icons.table_restaurant_outlined,
+            message: l10n.emptyFloor,
+            actionLabel: l10n.retry,
+            onAction: () => ref.invalidate(tablesProvider),
+          );
         }
 
         return Column(
@@ -403,7 +414,7 @@ class _FloorPageState extends ConsumerState<FloorPage> {
                         final id = t['id']?.toString() ?? '';
                         final status = t['status']?.toString() ?? 'AVAILABLE';
                         final call = callMap[id];
-                        final color = WaiterColors.statusColor(status);
+                        final color = WaiterColors.statusColorOf(context, status);
                         final section = (t['section'] is Map)
                             ? (t['section'] as Map)['name']?.toString()
                             : null;
@@ -425,7 +436,8 @@ class _FloorPageState extends ConsumerState<FloorPage> {
                             ? l10n.mergedWith(
                                 t['mergedIntoTableName']?.toString() ?? '')
                             : _statusLabel(l10n, status);
-                        return Opacity(
+                        return AnimatedOpacity(
+                          duration: const Duration(milliseconds: 200),
                           opacity: isPicked ? 0.35 : (dimmed ? 0.4 : 1),
                           child: WaiterSoftCard(
                           onTap: () => _onTileTap(t, wide: wide),
@@ -433,7 +445,7 @@ class _FloorPageState extends ConsumerState<FloorPage> {
                             decoration: selected
                                 ? BoxDecoration(
                                     border: Border.all(
-                                        color: WaiterColors.primary, width: 2),
+                                        color: WaiterColors.primaryOf(context), width: 2),
                                     borderRadius: BorderRadius.circular(12),
                                   )
                                 : const BoxDecoration(),
@@ -520,8 +532,8 @@ class _FloorPageState extends ConsumerState<FloorPage> {
                                         if (floorName != null) floorName,
                                         if (section != null) section,
                                       ].join(' · '),
-                                      style: const TextStyle(
-                                          color: WaiterColors.muted),
+                                      style: TextStyle(
+                                          color: WaiterColors.mutedOf(context)),
                                     ),
                                   ],
                                   const Spacer(),
@@ -530,7 +542,7 @@ class _FloorPageState extends ConsumerState<FloorPage> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: WaiterColors.primary,
+                                        color: WaiterColors.primaryOf(context),
                                         borderRadius: BorderRadius.circular(999),
                                       ),
                                       child: Text(
@@ -584,7 +596,7 @@ class _FloorPageState extends ConsumerState<FloorPage> {
           Material(
             color: _banner == 'call'
                 ? WaiterColors.coral
-                : WaiterColors.primary,
+                : WaiterColors.primaryOf(context),
             child: ListTile(
               title: Text(
                 _banner == 'call' ? l10n.newTableCall : _banner!,
@@ -647,14 +659,14 @@ class _FloorPageState extends ConsumerState<FloorPage> {
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: WaiterColors.statusColor(s.$1),
+                        color: WaiterColors.statusColorOf(context, s.$1),
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 4),
                     Text(s.$2,
-                        style: const TextStyle(
-                            fontSize: 11, color: WaiterColors.muted)),
+                        style: TextStyle(
+                            fontSize: 11, color: WaiterColors.mutedOf(context))),
                   ],
                 ),
             ],
@@ -669,7 +681,7 @@ class _FloorPageState extends ConsumerState<FloorPage> {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: WaiterColors.scaffoldOf(context),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -680,9 +692,9 @@ class _FloorPageState extends ConsumerState<FloorPage> {
                 style: const TextStyle(fontWeight: FontWeight.w800)),
             Text(
               l10n.tables,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: WaiterColors.muted,
+                color: WaiterColors.mutedOf(context),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -741,8 +753,8 @@ class _FloorPageState extends ConsumerState<FloorPage> {
                             child: Text(
                               l10n.selectTableHint,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: WaiterColors.muted,
+                              style: TextStyle(
+                                color: WaiterColors.mutedOf(context),
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -772,14 +784,14 @@ class _StatTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: WaiterColors.surfaceOf(context),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: const TextStyle(fontSize: 11, color: WaiterColors.muted)),
+              style: TextStyle(fontSize: 11, color: WaiterColors.mutedOf(context))),
           Text(value,
               style:
                   const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
@@ -803,7 +815,7 @@ class _FloorChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? WaiterColors.primary : WaiterColors.surface,
+      color: selected ? WaiterColors.primaryOf(context) : WaiterColors.surfaceOf(context),
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         onTap: onTap,
@@ -813,7 +825,9 @@ class _FloorChip extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: selected ? Colors.white : WaiterColors.ink,
+              color: selected
+                  ? Theme.of(context).colorScheme.onPrimary
+                  : WaiterColors.inkOf(context),
               fontWeight: FontWeight.w700,
               fontSize: 13,
             ),

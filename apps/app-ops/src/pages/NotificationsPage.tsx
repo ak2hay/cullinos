@@ -122,9 +122,9 @@ function PhonePreview({ form }: { form: FormState }) {
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
           System tray
         </p>
-        <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1c1c1e] text-white shadow-lg">
+        <div className="overflow-hidden rounded-xl border border-line bg-[#1c1c1e] text-white shadow-lg">
           <div className="flex gap-3 p-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary text-xs font-bold text-bg-primary">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary text-xs font-bold text-on-brand">
               C
             </div>
             <div className="min-w-0 flex-1">
@@ -144,7 +144,7 @@ function PhonePreview({ form }: { form: FormState }) {
               className="h-36 w-full object-cover"
             />
           ) : (
-            <div className="flex h-24 items-center justify-center bg-white/5 text-xs text-white/40">
+            <div className="flex h-24 items-center justify-center bg-hover text-xs text-white/40">
               No image
             </div>
           )}
@@ -156,7 +156,7 @@ function PhonePreview({ form }: { form: FormState }) {
           In-app card
         </p>
         <div
-          className="overflow-hidden rounded-2xl border border-white/10 shadow-lg"
+          className="overflow-hidden rounded-2xl border border-line shadow-lg"
           style={{
             backgroundColor: creative.bgColor || '#fff',
             fontFamily: `"${font}", system-ui, sans-serif`,
@@ -350,7 +350,7 @@ export function NotificationsPage() {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
-        <section className="space-y-5 rounded-xl border border-white/5 bg-bg-card p-5">
+        <section className="space-y-5 rounded-xl border border-line-subtle bg-bg-card p-5">
           <div className="flex flex-wrap gap-2">
             {(['offer', 'alert', 'promo', 'custom'] as StylePreset[]).map((p) => (
               <button
@@ -359,8 +359,8 @@ export function NotificationsPage() {
                 onClick={() => applyPreset(p)}
                 className={`rounded-full px-3 py-1.5 text-xs font-medium capitalize transition ${
                   form.stylePreset === p
-                    ? 'bg-brand-primary text-bg-primary'
-                    : 'border border-white/10 text-text-secondary hover:bg-white/5'
+                    ? 'bg-brand-primary text-on-brand'
+                    : 'border border-line text-text-secondary hover:bg-hover'
                 }`}
               >
                 {p}
@@ -380,7 +380,7 @@ export function NotificationsPage() {
               value={form.body}
               onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
               rows={3}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+              className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
               placeholder="Valid today only at participating outlets."
             />
           </label>
@@ -445,7 +445,7 @@ export function NotificationsPage() {
           </div>
 
           {(form.stylePreset === 'custom' || true) && (
-            <div className="grid gap-3 rounded-lg border border-white/5 bg-bg-elevated/50 p-4 sm:grid-cols-2">
+            <div className="grid gap-3 rounded-lg border border-line-subtle bg-bg-elevated/50 p-4 sm:grid-cols-2">
               <p className="sm:col-span-2 text-sm font-medium">Creative styling</p>
               <label className="block text-sm">
                 <span className="text-text-secondary">Font</span>
@@ -458,7 +458,7 @@ export function NotificationsPage() {
                       creative: { ...f.creative, fontFamily: e.target.value },
                     }))
                   }
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
                 >
                   {NOTIFICATION_FONT_ALLOWLIST.map((f) => (
                     <option key={f} value={f}>
@@ -488,7 +488,7 @@ export function NotificationsPage() {
                           creative: { ...f.creative, [key]: e.target.value },
                         }))
                       }
-                      className="h-10 w-12 cursor-pointer rounded border border-white/10 bg-transparent"
+                      className="h-10 w-12 cursor-pointer rounded border border-line bg-transparent"
                     />
                     <input
                       type="text"
@@ -500,7 +500,7 @@ export function NotificationsPage() {
                           creative: { ...f.creative, [key]: e.target.value },
                         }))
                       }
-                      className="flex-1 rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+                      className="flex-1 rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
                     />
                   </div>
                 </label>
@@ -519,7 +519,7 @@ export function NotificationsPage() {
                     audience: e.target.value as FormState['audience'],
                   }))
                 }
-                className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
               >
                 <option value="all">All guests</option>
                 <option value="marketing_opt_in">Marketing opt-in</option>
@@ -568,19 +568,19 @@ export function NotificationsPage() {
           </div>
         </section>
 
-        <aside className="rounded-xl border border-white/5 bg-bg-card p-5">
+        <aside className="rounded-xl border border-line-subtle bg-bg-card p-5">
           <h2 className="mb-4 text-lg font-medium">Live preview</h2>
           <PhonePreview form={form} />
         </aside>
       </div>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-medium">Campaigns</h2>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-1.5 text-sm"
+            className="rounded-lg border border-line bg-bg-elevated px-3 py-1.5 text-sm"
           >
             <option value="">All statuses</option>
             <option value="draft">Draft</option>
@@ -594,13 +594,13 @@ export function NotificationsPage() {
         ) : campaigns.length === 0 ? (
           <p className="mt-3 text-sm text-text-muted">No campaigns yet.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-white/5">
+          <ul className="mt-4 divide-y divide-line-subtle">
             {campaigns.map((c) => (
               <li key={c.id} className="flex flex-wrap items-start justify-between gap-3 py-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium">{c.title}</p>
-                    <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs capitalize text-text-muted">
+                    <span className="rounded-full bg-hover px-2 py-0.5 text-xs capitalize text-text-muted">
                       {c.status}
                     </span>
                     {c.stylePreset ? (

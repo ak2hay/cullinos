@@ -144,13 +144,13 @@ export function CartSidebar({
   const duePaise = Math.max(0, subtotal + tipPaise - discountPaise);
 
   return (
-    <aside className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden border-t border-white/5 bg-bg-secondary lg:w-[26rem] lg:flex-none lg:border-l lg:border-t-0">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/5 px-4 py-3 lg:px-5 lg:py-4">
+    <aside className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden border-t border-line-subtle bg-bg-secondary lg:w-[26rem] lg:flex-none lg:border-l lg:border-t-0">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line-subtle px-4 py-3 lg:px-5 lg:py-4">
         {onBack ? (
           <button
             type="button"
             onClick={onBack}
-            className="flex h-10 shrink-0 items-center gap-1 rounded-lg border border-white/10 px-3 text-sm font-medium text-text-secondary active:scale-95 lg:hidden"
+            className="flex h-10 shrink-0 items-center gap-1 rounded-lg border border-line px-3 text-sm font-medium text-text-secondary active:scale-95 lg:hidden"
             aria-label="Back to menu"
           >
             <span aria-hidden="true">←</span> Menu
@@ -171,7 +171,7 @@ export function CartSidebar({
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {lines.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/10 bg-bg-primary/40 px-4 py-8 text-center">
+          <div className="flex flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-line bg-bg-primary/40 px-4 py-8 text-center">
             <p className="text-sm font-medium text-text-secondary">{t('pos.cartEmpty')}</p>
             <p className="text-xs text-text-muted">{t('pos.cartEmptyHint')}</p>
           </div>
@@ -180,7 +180,7 @@ export function CartSidebar({
             {lines.map((line) => (
               <li
                 key={line.lineId}
-                className="rounded-xl border border-white/5 bg-bg-card/90 p-3 shadow-sm"
+                className="rounded-xl border border-line-subtle bg-bg-card/90 p-3 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -240,7 +240,7 @@ export function CartSidebar({
                 type="button"
                 disabled={customerLookupLoading || !customerPhone.trim()}
                 onClick={onLookupCustomer}
-                className="w-full shrink-0 rounded-xl border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm font-medium disabled:opacity-40"
+                className="w-full shrink-0 rounded-xl border border-line bg-bg-elevated px-3 py-2.5 text-sm font-medium disabled:opacity-40"
               >
                 {customerLookupLoading ? '…' : 'Find'}
               </button>
@@ -264,7 +264,7 @@ export function CartSidebar({
                 </div>
 
                 {/* Loyalty redeem — always visible when a customer is linked */}
-                <div className="rounded-xl border border-white/10 bg-bg-primary/60 px-3 py-2.5 space-y-1.5">
+                <div className="rounded-xl border border-line bg-bg-primary/60 px-3 py-2.5 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold text-text-secondary">Redeem loyalty points</p>
                     {loyaltySettings ? (
@@ -284,7 +284,7 @@ export function CartSidebar({
                           onRedeemPointsChange?.(Math.max(0, Math.floor(Number(e.target.value) || 0)))
                         }
                         placeholder={`0 – ${linkedCustomer.loyaltyPoints} pts available`}
-                        className="w-full rounded-xl border border-white/10 bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-primary"
+                        className="w-full rounded-xl border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-primary"
                       />
                       {redeemPoints > 0 && loyaltySettings ? (
                         <p className="text-xs text-text-muted">
@@ -309,7 +309,7 @@ export function CartSidebar({
                         type="button"
                         disabled={!reward.affordable || redeemRewardLoading}
                         onClick={() => onRedeemReward?.(reward.id)}
-                        className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-left text-xs disabled:opacity-40"
+                        className="flex w-full items-center justify-between rounded-lg border border-line bg-bg-elevated px-3 py-2 text-left text-xs disabled:opacity-40"
                       >
                         <span>{reward.name}</span>
                         <span className="font-mono text-brand-primary">{reward.pointsCost} pts</span>
@@ -326,7 +326,7 @@ export function CartSidebar({
               placeholder="Name on order"
               value={customerName}
               onChange={(e) => onCustomerNameChange?.(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+              className="w-full rounded-xl border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
             />
             {orderTypeOptions.length > 1 ? (
               <div
@@ -340,8 +340,8 @@ export function CartSidebar({
                     onClick={() => onOrderTypeChange?.(type)}
                     className={`rounded-xl border px-2 py-3 text-sm font-semibold transition active:scale-[0.98] ${
                       orderType === type
-                        ? 'border-brand-primary bg-brand-primary text-bg-primary shadow-md shadow-brand-primary/20'
-                        : 'border-white/10 bg-bg-elevated text-text-secondary'
+                        ? 'border-brand-primary bg-brand-primary text-on-brand shadow-md shadow-brand-primary/20'
+                        : 'border-line bg-bg-elevated text-text-secondary'
                     }`}
                   >
                     {ORDER_TYPE_LABELS[type]}
@@ -356,7 +356,7 @@ export function CartSidebar({
                   placeholder="Delivery address"
                   value={deliveryAddress}
                   onChange={(e) => onDeliveryAddressChange?.(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                  className="w-full rounded-xl border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                 />
                 <input
                   inputMode="numeric"
@@ -364,7 +364,7 @@ export function CartSidebar({
                   placeholder="Pincode"
                   value={deliveryPincode}
                   onChange={(e) => onDeliveryPincodeChange?.(e.target.value.replace(/\D/g, ''))}
-                  className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                  className="w-full rounded-xl border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                 />
               </div>
             ) : null}
@@ -375,7 +375,7 @@ export function CartSidebar({
                 min={0}
                 value={tipAmount || ''}
                 onChange={(e) => onTipChange?.(Number(e.target.value) || 0)}
-                className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
+                className="w-full rounded-xl border border-line bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -384,7 +384,7 @@ export function CartSidebar({
                 value={couponCode}
                 onChange={(e) => onCouponCodeChange?.(e.target.value)}
                 placeholder="CODE"
-                className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
+                className="w-full rounded-xl border border-line bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -394,7 +394,7 @@ export function CartSidebar({
                 min={0}
                 value={manualDiscount || ''}
                 onChange={(e) => onManualDiscountChange?.(Number(e.target.value) || 0)}
-                className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
+                className="w-full rounded-xl border border-line bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -408,7 +408,7 @@ export function CartSidebar({
                   onPartialCashAmountChange?.(v === '' ? undefined : Number(v) || 0);
                 }}
                 placeholder="Full"
-                className="w-full rounded-xl border border-white/10 bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
+                className="w-full rounded-xl border border-line bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
               />
             </div>
           </div>
@@ -428,7 +428,7 @@ export function CartSidebar({
                 type="button"
                 disabled={checkoutLoading || cashDisabled}
                 onClick={onRetryUnpaidCash}
-                className="rounded-lg bg-brand-primary px-2 py-2 text-xs font-semibold text-bg-primary disabled:opacity-40"
+                className="rounded-lg bg-brand-primary px-2 py-2 text-xs font-semibold text-on-brand disabled:opacity-40"
               >
                 Cash remainder
               </button>
@@ -437,13 +437,13 @@ export function CartSidebar({
                 disabled={checkoutLoading || Boolean(onlineDisabledReason)}
                 title={onlineDisabledReason ?? undefined}
                 onClick={onRetryUnpaidOnline}
-                className="rounded-lg border border-white/10 px-2 py-2 text-xs font-semibold disabled:opacity-40"
+                className="rounded-lg border border-line px-2 py-2 text-xs font-semibold disabled:opacity-40"
               >
                 UPI remainder
               </button>
             </div>
             {splitItems.length > 1 ? (
-              <div className="mt-3 space-y-2 border-t border-white/10 pt-2">
+              <div className="mt-3 space-y-2 border-t border-line pt-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
                   Split bill
                 </p>
@@ -463,7 +463,7 @@ export function CartSidebar({
                   type="button"
                   disabled={splitLoading || splitSelectedIds.length === 0}
                   onClick={onSplit}
-                  className="w-full rounded-lg border border-white/10 px-2 py-2 text-xs font-semibold disabled:opacity-40"
+                  className="w-full rounded-lg border border-line px-2 py-2 text-xs font-semibold disabled:opacity-40"
                 >
                   {splitLoading ? 'Splitting…' : 'Split selected items'}
                 </button>
@@ -473,7 +473,7 @@ export function CartSidebar({
         ) : null}
       </div>
 
-      <div className="shrink-0 space-y-3 border-t border-white/5 bg-bg-secondary p-4">
+      <div className="shrink-0 space-y-3 border-t border-line-subtle bg-bg-secondary p-4">
         {discountPaise > 0 ? (
           <div className="flex items-center justify-between text-sm text-text-muted">
             <span>{t('pos.loyaltyDiscount')}</span>
@@ -495,7 +495,7 @@ export function CartSidebar({
           type="button"
           disabled={!canCharge && !unpaidOrder}
           onClick={() => setTenderOpen(true)}
-          className="h-14 w-full rounded-2xl bg-brand-primary text-lg font-bold text-bg-primary shadow-lg shadow-brand-primary/20 transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+          className="h-14 w-full rounded-2xl bg-brand-primary text-lg font-bold text-on-brand shadow-lg shadow-brand-primary/20 transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
         >
           {checkoutLoading
             ? t('pos.processing')
@@ -527,7 +527,7 @@ export function CartSidebar({
                 setTenderOpen(false);
                 onOnline();
               }}
-              className="h-12 rounded-xl border border-white/10 font-medium disabled:opacity-40"
+              className="h-12 rounded-xl border border-line font-medium disabled:opacity-40"
             >
               {t('pos.upiCard')}
             </button>
@@ -542,7 +542,7 @@ export function CartSidebar({
             type="button"
             disabled={lines.length === 0 || holdLoading}
             onClick={onHold}
-            className="h-12 rounded-xl border border-white/10 bg-bg-elevated font-medium transition active:scale-[0.98] disabled:opacity-40"
+            className="h-12 rounded-xl border border-line bg-bg-elevated font-medium transition active:scale-[0.98] disabled:opacity-40"
           >
             {holdLoading ? t('pos.holding') : t('pos.hold')}
           </button>
@@ -550,7 +550,7 @@ export function CartSidebar({
             type="button"
             disabled={lines.length === 0}
             onClick={onClear}
-            className="h-12 rounded-xl border border-white/10 bg-bg-elevated font-medium text-status-error transition active:scale-[0.98] disabled:opacity-40"
+            className="h-12 rounded-xl border border-line bg-bg-elevated font-medium text-status-error transition active:scale-[0.98] disabled:opacity-40"
           >
             Clear (Esc)
           </button>

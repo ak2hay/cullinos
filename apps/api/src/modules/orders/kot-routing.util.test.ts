@@ -46,6 +46,12 @@ describe("stationCodeFor", () => {
     expect(stationCodeFor("GRILL", "alcohol")).toBe("GRILL");
   });
 
+  it("lets an item's own station override its category and the bar fallback", () => {
+    expect(stationCodeFor("MAIN", "main_course", "TANDOOR")).toBe("TANDOOR");
+    expect(stationCodeFor(null, "alcohol", "DESSERT")).toBe("DESSERT");
+    expect(stationCodeFor("MAIN", "main_course", "  ")).toBe("MAIN");
+  });
+
   it("leaves non-alcohol items on the default ticket", () => {
     expect(stationCodeFor(null, "main_course")).toBeNull();
     expect(stationCodeFor(null, null)).toBeNull();

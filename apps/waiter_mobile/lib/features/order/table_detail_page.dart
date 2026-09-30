@@ -14,6 +14,7 @@ import 'package:cullinos_waiter/features/floor/selected_table.dart';
 import 'package:cullinos_waiter/features/floor/table_action_mode.dart';
 import 'package:cullinos_waiter/features/order/collect_payment_sheet.dart';
 import 'package:cullinos_waiter/l10n/app_localizations.dart';
+import 'package:cullinos_waiter/widgets/waiter_motion.dart';
 import 'package:cullinos_waiter/widgets/waiter_section_header.dart';
 import 'package:cullinos_waiter/widgets/waiter_soft_card.dart';
 
@@ -408,7 +409,7 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
               children: [
                 Text(
                   'Let the customer scan to view the menu and place an order',
-                  style: const TextStyle(fontSize: 13, color: WaiterColors.muted),
+                  style: TextStyle(fontSize: 13, color: WaiterColors.mutedOf(context)),
                 ),
                 const SizedBox(height: 12),
                 if (url.isNotEmpty)
@@ -518,7 +519,7 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
           const SizedBox(height: 4),
           Text(
             l10n.mergedTableHint(primaryName),
-            style: const TextStyle(color: WaiterColors.muted),
+            style: TextStyle(color: WaiterColors.mutedOf(context)),
           ),
           const SizedBox(height: 10),
           Row(
@@ -547,12 +548,20 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        appBar: AppBar(),
+        body: const WaiterSkeletonList(rows: 4),
+      );
     }
     if (_error != null) {
       return Scaffold(
         appBar: AppBar(),
-        body: Center(child: Text(_error!)),
+        body: WaiterEmptyState(
+          icon: Icons.cloud_off_rounded,
+          message: _error!,
+          actionLabel: l10n.retry,
+          onAction: _reload,
+        ),
       );
     }
     final status = _table?['status']?.toString() ?? 'AVAILABLE';
@@ -750,8 +759,8 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
                   if (!unpaid && _balance != null)
                     Text(
                       l10n.paidInFull,
-                      style: const TextStyle(
-                        color: WaiterColors.primary,
+                      style: TextStyle(
+                        color: WaiterColors.primaryOf(context),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -876,7 +885,7 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
               subtitle: Text(formatInr(item['price'] as num?)),
               trailing: IconButton(
                 icon: const Icon(Icons.add_circle),
-                color: WaiterColors.primary,
+                color: WaiterColors.primaryOf(context),
                 onPressed: () {
                   if (hasOpts) {
                     _customizeAndAdd(item);

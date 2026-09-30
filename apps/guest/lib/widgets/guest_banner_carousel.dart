@@ -91,7 +91,7 @@ class _GuestBannerCarouselState extends State<GuestBannerCarousel> {
                           BorderRadius.circular(GuestSpacing.radiusLg),
                       gradient: GuestColors.heroTeal,
                       boxShadow:
-                          GuestSpacing.softShadow(color: GuestColors.teal),
+                          GuestSpacing.softShadow(color: GuestColors.primaryOf(context)),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: Stack(
@@ -171,8 +171,8 @@ class _GuestBannerCarouselState extends State<GuestBannerCarousel> {
                 height: 6,
                 decoration: BoxDecoration(
                   color: active
-                      ? GuestColors.teal
-                      : GuestColors.teal.withValues(alpha: 0.25),
+                      ? GuestColors.primaryOf(context)
+                      : GuestColors.primaryOf(context).withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(999),
                 ),
               );

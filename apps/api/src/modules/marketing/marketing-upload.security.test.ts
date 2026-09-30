@@ -208,6 +208,18 @@ describe("buildStorageKey", () => {
       ),
     ).toBe("marketing/platform/guest-ops/push/push1.jpg");
   });
+
+  it("keeps staff avatars inside the tenant folder and super-admin avatars on the platform", () => {
+    expect(
+      buildStorageKey({ scope: "org", orgId: "org1", leafName: "u1-abc", imageSlot: "avatar" }, ".jpg"),
+    ).toBe("marketing/orgs/org1/avatars/u1-abc.jpg");
+    expect(
+      buildStorageKey(
+        { scope: "platform", platformArea: "avatars", leafName: "u2-abc", imageSlot: "avatar" },
+        ".png",
+      ),
+    ).toBe("marketing/platform/avatars/u2-abc.png");
+  });
 });
 
 describe("IMAGE_SLOT_SPECS limits", () => {

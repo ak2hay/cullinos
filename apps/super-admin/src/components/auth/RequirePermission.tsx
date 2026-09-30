@@ -15,7 +15,7 @@ export function RequirePermission({
   if (can(permission)) return children;
 
   return (
-    <div className="mx-auto max-w-lg rounded-xl border border-white/10 bg-bg-secondary p-6">
+    <div className="mx-auto max-w-lg rounded-xl border border-line bg-bg-secondary p-6">
       <h1 className="text-lg font-semibold">No access</h1>
       <p className="mt-2 text-sm text-text-secondary">
         Your platform role{role ? ` (${PLATFORM_ROLE_LABELS[role]})` : ''} does not include this

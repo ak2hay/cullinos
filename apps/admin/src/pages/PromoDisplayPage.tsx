@@ -75,13 +75,13 @@ export function PromoDisplayPage() {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-4 rounded-xl border border-white/5 bg-bg-card p-4">
+      <div className="flex flex-wrap gap-4 rounded-xl border border-line-subtle bg-bg-card p-4">
         <label className="space-y-1 text-sm">
           <span className="text-text-secondary">Outlet</span>
           <select
             value={outletId}
             onChange={(e) => setOutletId(e.target.value)}
-            className="block h-11 min-w-[200px] rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+            className="block h-11 min-w-[200px] rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
           >
             <option value="">Select outlet</option>
             {(outletsQuery.data ?? []).map((o) => (
@@ -100,7 +100,7 @@ export function PromoDisplayPage() {
               href={playlistUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-11 items-center rounded-lg border border-white/10 px-4 text-sm hover:bg-white/5"
+              className="inline-flex h-11 items-center rounded-lg border border-line px-4 text-sm hover:bg-hover"
             >
               Open preview
             </a>
@@ -110,7 +110,7 @@ export function PromoDisplayPage() {
 
       <form
         onSubmit={handleCreate}
-        className="grid gap-4 rounded-xl border border-white/5 bg-bg-card p-6 md:grid-cols-2"
+        className="grid gap-4 rounded-xl border border-line-subtle bg-bg-card p-6 md:grid-cols-2"
       >
         <h2 className="font-medium md:col-span-2">Add slide</h2>
         <Input
@@ -133,7 +133,7 @@ export function PromoDisplayPage() {
           <select
             value={form.slideType}
             onChange={(e) => setForm((f) => ({ ...f, slideType: e.target.value }))}
-            className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+            className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
           >
             <option value="offer">Offer</option>
             <option value="menu">Menu highlight</option>
@@ -154,12 +154,12 @@ export function PromoDisplayPage() {
         </div>
       </form>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
         <h2 className="mb-4 font-medium">Slides</h2>
         {(slidesQuery.data ?? []).length === 0 ? (
           <p className="text-sm text-text-secondary">No slides yet.</p>
         ) : (
-          <ul className="divide-y divide-white/5">
+          <ul className="divide-y divide-line-subtle">
             {(slidesQuery.data ?? []).map((slide) => (
               <li key={slide.id} className="flex items-center justify-between gap-4 py-3 text-sm">
                 <div>

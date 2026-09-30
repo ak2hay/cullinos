@@ -63,8 +63,8 @@ export const MARKETING_PLANS: MarketingPlan[] = [
     key: 'STARTER',
     name: 'Starter',
     description: 'POS, Billing, KOT, Basic reports',
-    priceMonthly: 299900,
-    priceYearly: 2999900,
+    priceMonthly: 149900,
+    priceYearly: 1499900,
     maxOutlets: 1,
     maxUsers: 5,
     maxTerminals: 2,
@@ -75,8 +75,8 @@ export const MARKETING_PLANS: MarketingPlan[] = [
     key: 'QSR',
     name: 'QSR / Food SMB',
     description: 'Cafes, food trucks, counter-service — POS, QR, pickup queue, loyalty',
-    priceMonthly: 499900,
-    priceYearly: 4999900,
+    priceMonthly: 249900,
+    priceYearly: 2499900,
     maxOutlets: 1,
     maxUsers: 8,
     maxTerminals: 3,
@@ -87,8 +87,8 @@ export const MARKETING_PLANS: MarketingPlan[] = [
     key: 'PROFESSIONAL',
     name: 'Professional',
     description: 'Full restaurant operations',
-    priceMonthly: 799900,
-    priceYearly: 7999900,
+    priceMonthly: 499900,
+    priceYearly: 4999900,
     maxOutlets: 3,
     maxUsers: 20,
     maxTerminals: 10,
@@ -99,9 +99,10 @@ export const MARKETING_PLANS: MarketingPlan[] = [
   {
     key: 'ENTERPRISE',
     name: 'Enterprise',
-    description: 'Multi-outlet and franchise',
-    priceMonthly: 1999900,
-    priceYearly: 19999000,
+    description:
+      'Custom pricing based on outlets, POS terminals, users, integrations and requirements.',
+    priceMonthly: 0,
+    priceYearly: 0,
     maxOutlets: 50,
     maxUsers: 200,
     maxTerminals: 100,
@@ -111,9 +112,9 @@ export const MARKETING_PLANS: MarketingPlan[] = [
   {
     key: 'HOSPITALITY',
     name: 'Hospitality',
-    description: 'Hotel and resort restaurants',
-    priceMonthly: 2999900,
-    priceYearly: 29999000,
+    description: 'Custom pricing based on rooms, outlets, terminals and integrations.',
+    priceMonthly: 0,
+    priceYearly: 0,
     maxOutlets: 100,
     maxUsers: 500,
     maxTerminals: 200,
@@ -128,6 +129,16 @@ export function formatInr(paise: number): string {
     currency: 'INR',
     maximumFractionDigits: 0,
   }).format(paise / 100);
+}
+
+/** Contact-sales plans never show a numeric price, even if a stale CMS row still carries one. */
+export function isContactPricing(plan: { cta: string; priceMonthly: number }): boolean {
+  return plan.cta === 'contact' || plan.priceMonthly <= 0;
+}
+
+/** Yearly saving vs paying monthly for 12 months, in paise (0 when there is no saving). */
+export function yearlySavings(plan: { priceMonthly: number; priceYearly: number }): number {
+  return Math.max(0, plan.priceMonthly * 12 - plan.priceYearly);
 }
 
 export const NAV_LINKS = [

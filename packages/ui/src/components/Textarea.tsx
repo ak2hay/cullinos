@@ -14,7 +14,7 @@ export function Textarea({ label, error, id, className = '', ...props }: Textare
       <textarea
         id={textareaId}
         className={cn(
-          'min-h-24 w-full rounded-lg border border-white/10 bg-bg-card px-3 py-2 text-sm text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
+          'min-h-24 w-full rounded-lg border border-line bg-bg-card px-3 py-2 text-sm text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
           error && 'border-status-error',
           className,
         )}

@@ -18,10 +18,10 @@ class WaiterSectionHeader extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              color: WaiterColors.ink,
+              color: WaiterColors.inkOf(context),
             ),
           ),
         ),

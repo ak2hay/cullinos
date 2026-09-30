@@ -118,10 +118,10 @@ class _PhoneFieldState extends State<PhoneField> {
         if (widget.labelText.isNotEmpty) ...[
           Text(
             widget.labelText,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: GuestColors.ink,
+              color: GuestColors.inkOf(context),
             ),
           ),
           const SizedBox(height: 8),
@@ -129,10 +129,10 @@ class _PhoneFieldState extends State<PhoneField> {
         Row(
           children: [
             Material(
-              color: Colors.white,
+              color: GuestColors.surfaceOf(context),
               shape: RoundedRectangleBorder(
                 borderRadius: radius,
-                side: const BorderSide(color: GuestColors.border),
+                side: BorderSide(color: GuestColors.borderOf(context)),
               ),
               child: InkWell(
                 borderRadius: radius,
@@ -147,14 +147,14 @@ class _PhoneFieldState extends State<PhoneField> {
                       const SizedBox(width: 4),
                       Text(
                         '+${_current.dial}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
-                          color: GuestColors.ink,
+                          color: GuestColors.inkOf(context),
                         ),
                       ),
-                      const Icon(Icons.keyboard_arrow_down_rounded,
-                          size: 18, color: GuestColors.muted),
+                      Icon(Icons.keyboard_arrow_down_rounded,
+                          size: 18, color: GuestColors.mutedOf(context)),
                     ],
                   ),
                 ),
@@ -176,15 +176,15 @@ class _PhoneFieldState extends State<PhoneField> {
                   ],
                   decoration: InputDecoration(
                     hintText: widget.hintText,
-                    hintStyle: const TextStyle(color: GuestColors.muted, fontSize: 14),
-                    prefixIcon: const Icon(Icons.phone_outlined,
-                        color: GuestColors.muted, size: 20),
+                    hintStyle: TextStyle(color: GuestColors.mutedOf(context), fontSize: 14),
+                    prefixIcon: Icon(Icons.phone_outlined,
+                        color: GuestColors.mutedOf(context), size: 20),
                     contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: GuestColors.surfaceOf(context),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: radius,
-                      borderSide: const BorderSide(color: GuestColors.border),
+                      borderSide: BorderSide(color: GuestColors.borderOf(context)),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: radius,

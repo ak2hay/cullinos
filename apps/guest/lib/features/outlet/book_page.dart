@@ -192,7 +192,7 @@ class _BookPageState extends ConsumerState<BookPage> {
     if (_done != null) {
       final when = DateTime.tryParse((_done!['reservedAt'] ?? '').toString());
       return Scaffold(
-        backgroundColor: GuestColors.scaffold,
+        backgroundColor: GuestColors.scaffoldOf(context),
         appBar: AppBar(title: const Text('Booked')),
         body: Padding(
           padding: const EdgeInsets.all(GuestSpacing.page),
@@ -210,7 +210,7 @@ class _BookPageState extends ConsumerState<BookPage> {
     if ((_orgSlug == null || _outletSlug == null) &&
         (widget.inviteToken == null || widget.inviteToken!.isEmpty)) {
       return Scaffold(
-        backgroundColor: GuestColors.scaffold,
+        backgroundColor: GuestColors.scaffoldOf(context),
         appBar: AppBar(title: const Text('Reserve')),
         body: const Padding(
           padding: EdgeInsets.all(GuestSpacing.page),
@@ -223,7 +223,7 @@ class _BookPageState extends ConsumerState<BookPage> {
     final primary = GuestColors.primaryOf(context);
 
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       appBar: AppBar(
         title: Text(
             _outletName.isEmpty ? 'Reserve a table' : 'Reserve · $_outletName'),
@@ -282,8 +282,8 @@ class _BookPageState extends ConsumerState<BookPage> {
                       ),
                     ),
                   ),
-                  const Icon(Icons.edit_calendar_outlined,
-                      color: GuestColors.muted, size: 20),
+                  Icon(Icons.edit_calendar_outlined,
+                      color: GuestColors.mutedOf(context), size: 20),
                 ],
               ),
             ),
@@ -338,17 +338,17 @@ class _BookPageState extends ConsumerState<BookPage> {
           ),
           const SizedBox(height: 10),
           if (_slotsLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
               child: Center(
-                child: CircularProgressIndicator(color: GuestColors.primary),
+                child: CircularProgressIndicator(color: GuestColors.primaryOf(context)),
               ),
             )
           else if (_slots.isEmpty)
-            const GuestSoftCard(
+            GuestSoftCard(
               child: Text(
                 'No slots for this date. Try another day.',
-                style: TextStyle(color: GuestColors.muted),
+                style: TextStyle(color: GuestColors.mutedOf(context)),
               ),
             )
           else
@@ -372,13 +372,19 @@ class _BookPageState extends ConsumerState<BookPage> {
                   border = primary;
                   fg = Colors.white;
                 } else if (available) {
-                  bg = const Color(0xFFDCFCE7);
+                  bg = GuestColors.softOf(context, const Color(0xFFDCFCE7),
+                      const Color(0xFF16A34A));
                   border = const Color(0xFF86EFAC);
-                  fg = const Color(0xFF166534);
+                  fg = GuestColors.isDark(context)
+                      ? const Color(0xFF86EFAC)
+                      : const Color(0xFF166534);
                 } else {
-                  bg = const Color(0xFFFEF3C7);
+                  bg = GuestColors.softOf(context, const Color(0xFFFEF3C7),
+                      const Color(0xFFD97706));
                   border = const Color(0xFFFCD34D);
-                  fg = const Color(0xFF92400E);
+                  fg = GuestColors.isDark(context)
+                      ? const Color(0xFFFCD34D)
+                      : const Color(0xFF92400E);
                 }
 
                 return GestureDetector(

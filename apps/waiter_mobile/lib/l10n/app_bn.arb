@@ -115,5 +115,10 @@
   "confirm": "Confirm",
   "unmerge": "Unmerge",
   "openTable": "Open {table}",
-  "mergedTableHint": "Orders and bill for this table are on {table}."
+  "mergedTableHint": "Orders and bill for this table are on {table}.",
+  "appearance": "চেহারা",
+  "themeLight": "লাইট",
+  "themeDark": "ডার্ক",
+  "themeSystem": "সিস্টেম",
+  "retry": "আবার চেষ্টা করুন"
 }

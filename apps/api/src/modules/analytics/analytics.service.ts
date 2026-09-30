@@ -43,6 +43,7 @@ export class AnalyticsService {
       ["draft", "confirmed", "preparing", "ready", "served"].includes(o.status),
     ).length;
     const cancelledOrders = orders.filter((o) => o.status === "cancelled").length;
+    const preparingOrders = orders.filter((o) => o.status === "preparing").length;
     const totalRevenue = completed.reduce((sum, o) => sum + Number(o.total), 0);
     const totalOrders = orders.length;
     const averageOrderValue = completed.length > 0 ? totalRevenue / completed.length : 0;
@@ -81,6 +82,13 @@ export class AnalyticsService {
         averageOrderValue: toPaise(averageOrderValue),
         openOrders,
         cancelledOrders,
+        completedOrders: completed.length,
+      },
+      statusBreakdown: {
+        completed: completed.length,
+        open: openOrders - preparingOrders,
+        preparing: preparingOrders,
+        cancelled: cancelledOrders,
       },
       hourlyBreakdown: [...hourlyMap.entries()]
         .sort(([a], [b]) => a - b)

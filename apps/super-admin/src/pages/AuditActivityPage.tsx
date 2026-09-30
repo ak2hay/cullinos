@@ -83,7 +83,7 @@ export function AuditActivityPage() {
         </Button>
       </div>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <form
           className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"
           onSubmit={(e) => {
@@ -136,10 +136,10 @@ export function AuditActivityPage() {
         </form>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-white/5 bg-bg-card">
+      <section className="overflow-hidden rounded-xl border border-line-subtle bg-bg-card">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-white/5 bg-bg-secondary text-text-muted">
+            <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
               <th className="px-4 py-3 font-medium">When</th>
               <th className="px-4 py-3 font-medium">Action</th>
               <th className="px-4 py-3 font-medium">Org</th>
@@ -162,7 +162,7 @@ export function AuditActivityPage() {
               </tr>
             ) : (
               rows.map((r) => (
-                <tr key={r.id} className="border-b border-white/5">
+                <tr key={r.id} className="border-b border-line-subtle">
                   <td className="px-4 py-3 whitespace-nowrap text-text-secondary">
                     {new Date(r.createdAt).toLocaleString()}
                   </td>
@@ -185,7 +185,7 @@ export function AuditActivityPage() {
             )}
           </tbody>
         </table>
-        <div className="flex items-center justify-between border-t border-white/5 px-4 py-3 text-sm">
+        <div className="flex items-center justify-between border-t border-line-subtle px-4 py-3 text-sm">
           <span className="text-text-muted">
             {meta ? `${meta.total} total · page ${meta.page}` : ''}
           </span>

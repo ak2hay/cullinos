@@ -51,7 +51,7 @@ export function BlogEditorPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-            className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+            className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
           >
             <option value="all">All posts</option>
             <option value="draft">Drafts</option>
@@ -69,7 +69,7 @@ export function BlogEditorPage() {
 
       {editing === 'new' ? (
         <form
-          className="space-y-3 rounded-xl border border-white/10 bg-bg-card p-5"
+          className="space-y-3 rounded-xl border border-line bg-bg-card p-5"
           onSubmit={(e) => {
             e.preventDefault();
             const fd = new FormData(e.currentTarget);
@@ -85,25 +85,25 @@ export function BlogEditorPage() {
             name="slug"
             placeholder="slug"
             required
-            className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
           />
           <input
             name="title"
             placeholder="Title"
             required
-            className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
           />
           <input
             name="excerpt"
             placeholder="Excerpt"
-            className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
           />
           <textarea
             name="body"
             placeholder="Markdown body"
             rows={8}
             required
-            className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm font-mono"
+            className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm font-mono"
           />
           <div className="flex gap-2">
             <button type="submit" className="rounded-lg bg-brand-primary px-4 py-2 text-sm">
@@ -111,7 +111,7 @@ export function BlogEditorPage() {
             </button>
             <button
               type="button"
-              className="rounded-lg border border-white/10 px-4 py-2 text-sm"
+              className="rounded-lg border border-line px-4 py-2 text-sm"
               onClick={() => setEditing(null)}
             >
               Cancel
@@ -129,7 +129,7 @@ export function BlogEditorPage() {
           {posts.map((post) => (
             <form
               key={String(post.id)}
-              className="space-y-3 rounded-xl border border-white/10 bg-bg-card p-5"
+              className="space-y-3 rounded-xl border border-line bg-bg-card p-5"
               onSubmit={(e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
@@ -145,7 +145,7 @@ export function BlogEditorPage() {
               }}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs uppercase text-text-muted">
+                <span className="rounded-full bg-hover px-2 py-0.5 text-xs uppercase text-text-muted">
                   {String(post.status)}
                 </span>
                 <div className="flex flex-wrap gap-2">
@@ -160,7 +160,7 @@ export function BlogEditorPage() {
                   ) : (
                     <button
                       type="button"
-                      className="rounded-lg border border-white/10 px-3 py-1.5 text-xs"
+                      className="rounded-lg border border-line px-3 py-1.5 text-xs"
                       onClick={() => unpublishMutation.mutate(String(post.id))}
                     >
                       Unpublish
@@ -182,25 +182,25 @@ export function BlogEditorPage() {
               <input
                 name="slug"
                 defaultValue={String(post.slug ?? '')}
-                className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
               />
               <input
                 name="title"
                 defaultValue={String(post.title ?? '')}
-                className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
               />
               <input
                 name="excerpt"
                 defaultValue={String(post.excerpt ?? '')}
-                className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
               />
               <textarea
                 name="body"
                 defaultValue={String(post.body ?? '')}
                 rows={6}
-                className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm font-mono"
+                className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm font-mono"
               />
-              <button type="submit" className="rounded-lg border border-white/10 px-4 py-2 text-sm">
+              <button type="submit" className="rounded-lg border border-line px-4 py-2 text-sm">
                 Save changes
               </button>
             </form>

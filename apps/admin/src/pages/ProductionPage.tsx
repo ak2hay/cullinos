@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button, Input, PageHeader, useToast } from '@cullinos/ui';
 import { outletsApi, productionApi } from '@/lib/api';
+import { useAuthStore } from '@/stores/auth';
 
 export function ProductionPage() {
   const queryClient = useQueryClient();
@@ -19,7 +20,8 @@ export function ProductionPage() {
   }
 
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
-  const outletId = outletsQuery.data?.[0]?.id;
+  const selectedOutletId = useAuthStore((s) => s.selectedOutletId);
+  const outletId = selectedOutletId ?? outletsQuery.data?.[0]?.id;
 
   const batchesQuery = useQuery({
     queryKey: ['production', outletId],
@@ -64,7 +66,7 @@ export function ProductionPage() {
         description="Daily bake sheets, batch planning, and stock deduction."
       />
 
-      <div className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <div className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="mb-4 font-semibold">Schedule new batch</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <Input label="Batch name" placeholder="Morning sourdough" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -94,7 +96,7 @@ export function ProductionPage() {
           <p className="text-sm text-text-muted">No batches scheduled yet.</p>
         ) : (
           (batchesQuery.data ?? []).map((batch) => (
-            <div key={String(batch.id)} className="flex items-center justify-between rounded-lg border border-white/5 bg-bg-card p-4">
+            <div key={String(batch.id)} className="flex items-center justify-between rounded-lg border border-line-subtle bg-bg-card p-4">
               <div>
                 <p className="font-medium">{String(batch.name)}</p>
                 <p className="text-sm text-text-muted">

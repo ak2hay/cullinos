@@ -73,7 +73,7 @@ export function PromoEmailPage() {
       </div>
 
       {message ? (
-        <div className="rounded-lg border border-white/10 bg-bg-card px-4 py-3 text-sm text-text-secondary">
+        <div className="rounded-lg border border-line bg-bg-card px-4 py-3 text-sm text-text-secondary">
           {message}
         </div>
       ) : null}
@@ -84,7 +84,7 @@ export function PromoEmailPage() {
       ) : null}
 
       <form onSubmit={handleSend} className="grid gap-8 lg:grid-cols-2">
-        <section className="space-y-4 rounded-xl border border-white/5 bg-bg-card p-6">
+        <section className="space-y-4 rounded-xl border border-line-subtle bg-bg-card p-6">
           <h2 className="font-medium">Compose</h2>
           <label className="block">
             <span className="mb-1.5 block text-sm text-text-secondary">Subject</span>
@@ -92,7 +92,7 @@ export function PromoEmailPage() {
               required
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+              className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
             />
           </label>
           <label className="block">
@@ -102,7 +102,7 @@ export function PromoEmailPage() {
               rows={10}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+              className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
             />
           </label>
           <button
@@ -114,7 +114,7 @@ export function PromoEmailPage() {
           </button>
         </section>
 
-        <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
           <div className="flex items-center justify-between gap-4">
             <h2 className="font-medium">Owners ({recipients.length})</h2>
             <label className="flex items-center gap-2 text-sm text-text-secondary">
@@ -138,7 +138,7 @@ export function PromoEmailPage() {
             <ul className="mt-4 max-h-96 space-y-2 overflow-y-auto">
               {recipients.map((r) => (
                 <li key={r.id}>
-                  <label className="flex items-start gap-3 rounded-lg px-2 py-2 hover:bg-white/5">
+                  <label className="flex items-start gap-3 rounded-lg px-2 py-2 hover:bg-hover">
                     <input
                       type="checkbox"
                       disabled={selectAll}
@@ -159,13 +159,13 @@ export function PromoEmailPage() {
         </section>
       </form>
 
-      <section className="overflow-hidden rounded-xl border border-white/5 bg-bg-card">
-        <div className="border-b border-white/5 px-4 py-3">
+      <section className="overflow-hidden rounded-xl border border-line-subtle bg-bg-card">
+        <div className="border-b border-line-subtle px-4 py-3">
           <h2 className="font-medium">Recent campaigns</h2>
         </div>
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-white/5 bg-bg-secondary text-text-muted">
+            <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
               <th className="px-4 py-3 font-medium">Subject</th>
               <th className="px-4 py-3 font-medium">Sent</th>
               <th className="px-4 py-3 font-medium">Status</th>
@@ -187,7 +187,7 @@ export function PromoEmailPage() {
               </tr>
             ) : (
               (campaignsQuery.data ?? []).map((c) => (
-                <tr key={c.id} className="border-b border-white/5">
+                <tr key={c.id} className="border-b border-line-subtle">
                   <td className="px-4 py-3">{c.subject}</td>
                   <td className="px-4 py-3">
                     {c.sentCount}/{c.recipientCount}

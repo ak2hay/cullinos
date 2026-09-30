@@ -185,7 +185,7 @@ export function GuestCouponsPage() {
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="text-lg font-medium">{editingId ? 'Edit coupon' : 'New coupon'}</h2>
         <form
           className="mt-4 grid gap-3 sm:grid-cols-2"
@@ -197,7 +197,7 @@ export function GuestCouponsPage() {
           <label className="block text-sm sm:col-span-2">
             <span className="mb-1 block text-text-secondary">Tenant</span>
             <select
-              className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
+              className="w-full rounded-lg border border-line bg-bg-primary px-3 py-2"
               value={form.organizationId}
               disabled={!!editingId}
               onChange={(e) => setForm((f) => ({ ...f, organizationId: e.target.value }))}
@@ -227,7 +227,7 @@ export function GuestCouponsPage() {
           <label className="block text-sm">
             <span className="mb-1 block text-text-secondary">Type</span>
             <select
-              className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
+              className="w-full rounded-lg border border-line bg-bg-primary px-3 py-2"
               value={form.type}
               onChange={(e) =>
                 setForm((f) => ({
@@ -317,13 +317,13 @@ export function GuestCouponsPage() {
         </form>
       </section>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-medium">All coupons</h2>
           <label className="block text-sm">
             <span className="sr-only">Filter by tenant</span>
             <select
-              className="rounded-lg border border-white/10 bg-bg-primary px-3 py-2 text-sm"
+              className="rounded-lg border border-line bg-bg-primary px-3 py-2 text-sm"
               value={orgFilter}
               onChange={(e) => setOrgFilter(e.target.value)}
             >
@@ -341,7 +341,7 @@ export function GuestCouponsPage() {
         ) : filteredCoupons.length === 0 ? (
           <p className="mt-3 text-sm text-text-muted">No coupons found.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-white/5">
+          <ul className="mt-4 divide-y divide-line-subtle">
             {filteredCoupons.map((c) => (
               <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div>

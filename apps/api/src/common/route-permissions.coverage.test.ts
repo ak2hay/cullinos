@@ -10,6 +10,11 @@ import { PERMISSIONS_KEY } from "./decorators/permissions.decorator";
 const SELF_SERVICE_ROUTES = new Set<string>([
   "AuthController.changePassword",
   "AuthController.logoutAll",
+  // Own profile only: every handler acts on the JWT subject.
+  "ProfileController.get",
+  "ProfileController.update",
+  "ProfileController.uploadAvatar",
+  "ProfileController.removeAvatar",
   // Branding/business type + POS/KDS operational settings for every signed-in staff role.
   "OrganizationsController.current",
   "OrganizationsController.list",

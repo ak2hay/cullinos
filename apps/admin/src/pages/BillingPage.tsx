@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { isContactSalesPlanSlug, MARKETING_URLS } from '@cullinos/shared';
 import { Button } from '@cullinos/ui';
 import { openRazorpaySubscriptionCheckout } from '@/features/billing/razorpaySubscriptionCheckout';
 import { openRazorpayCheckout } from '@/features/pos/razorpayCheckout';
@@ -8,6 +9,14 @@ import { subscriptionsApi, walletApi } from '@/lib/api';
 function formatDate(value: string | null) {
   if (!value) return '—';
   return new Date(value).toLocaleDateString();
+}
+
+function isContactPricedPlan(plan: { slug: string; priceMonthly: number | string }) {
+  return isContactSalesPlanSlug(plan.slug) || Number(plan.priceMonthly) <= 0;
+}
+
+function contactPricingUrl(slug: string) {
+  return `${MARKETING_URLS.site}/contact?plan=${encodeURIComponent(slug)}`;
 }
 
 const TOP_UP_PRESETS = [500, 1000, 2500, 5000];
@@ -42,6 +51,10 @@ export function BillingPage() {
   });
 
   const current = data[0];
+  const planOptions = plansQuery.data ?? [];
+  const defaultPlanSlug = planOptions.find((p) => !isContactPricedPlan(p))?.slug ?? '';
+  const activePlanSlug = selectedPlanSlug || defaultPlanSlug;
+  const currentPlanCustomPriced = current ? Number(current.plan.priceMonthly) <= 0 : false;
   const trialExpired =
     current?.status === 'trial' &&
     current.trialEndsAt &&
@@ -134,7 +147,7 @@ export function BillingPage() {
       ) : !current ? (
         <p className="text-sm text-text-muted">No subscription found. Contact support.</p>
       ) : (
-        <section className="space-y-4 rounded-xl border border-white/5 bg-bg-card p-6">
+        <section className="space-y-4 rounded-xl border border-line-subtle bg-bg-card p-6">
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <dt className="text-text-muted">Plan</dt>
@@ -159,7 +172,11 @@ export function BillingPage() {
             </div>
             <div>
               <dt className="text-text-muted">Monthly</dt>
-              <dd>₹{Number(current.plan.priceMonthly).toLocaleString('en-IN')}</dd>
+              <dd>
+                {currentPlanCustomPriced
+                  ? 'Custom pricing'
+                  : `₹${Number(current.plan.priceMonthly).toLocaleString('en-IN')}`}
+              </dd>
             </div>
             {current.plan.maxOutlets != null ? (
               <div>
@@ -211,8 +228,29 @@ export function BillingPage() {
                 </p>
               ) : null}
               <div className="grid gap-3 sm:grid-cols-2">
-                {(plansQuery.data ?? []).map((p) => {
-                  const selected = (selectedPlanSlug || plansQuery.data?.[0]?.slug) === p.slug;
+                {planOptions.map((p) => {
+                  if (isContactPricedPlan(p)) {
+                    return (
+                      <a
+                        key={p.slug}
+                        href={contactPricingUrl(p.slug)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg border border-line bg-bg-elevated p-3 text-left text-sm transition hover:border-line-strong"
+                      >
+                        <p className="font-medium">{p.name}</p>
+                        <p className="mt-0.5 text-text-secondary">Contact us</p>
+                        <p className="mt-1 text-xs text-text-muted">
+                          {p.maxOutlets} outlets
+                          {p.maxTerminals != null ? ` · ${p.maxTerminals} terminals` : ''}
+                        </p>
+                        <p className="mt-1 text-xs font-medium text-brand-primary">
+                          Contact us for pricing →
+                        </p>
+                      </a>
+                    );
+                  }
+                  const selected = activePlanSlug === p.slug;
                   return (
                     <button
                       key={p.slug}
@@ -221,7 +259,7 @@ export function BillingPage() {
                       className={`rounded-lg border p-3 text-left text-sm transition ${
                         selected
                           ? 'border-brand-primary bg-brand-primary/10'
-                          : 'border-white/10 bg-bg-elevated hover:border-white/20'
+                          : 'border-line bg-bg-elevated hover:border-line-strong'
                       }`}
                     >
                       <p className="font-medium">{p.name}</p>
@@ -239,18 +277,14 @@ export function BillingPage() {
                   );
                 })}
               </div>
-              {(plansQuery.data ?? []).length === 0 ? (
+              {planOptions.length === 0 ? (
                 <p className="text-sm text-text-muted">No public plans available.</p>
               ) : (
                 <Button
                   type="button"
                   loading={activateMutation.isPending}
-                  disabled={!(selectedPlanSlug || plansQuery.data?.[0]?.slug)}
-                  onClick={() =>
-                    activateMutation.mutate(
-                      selectedPlanSlug || plansQuery.data?.[0]?.slug || '',
-                    )
-                  }
+                  disabled={!activePlanSlug}
+                  onClick={() => activateMutation.mutate(activePlanSlug)}
                 >
                   Pay &amp; activate selected plan
                 </Button>
@@ -266,19 +300,30 @@ export function BillingPage() {
           ) : null}
 
           <div className="flex flex-wrap gap-3">
-            <Button
-              type="button"
-              disabled={checkoutMutation.isPending || current.status === 'cancelled'}
-              onClick={() => checkoutMutation.mutate()}
-            >
-              {checkoutMutation.isPending ? 'Opening Razorpay…' : 'Pay / activate current plan'}
-            </Button>
+            {currentPlanCustomPriced ? (
+              <a
+                href={contactPricingUrl(current.plan.slug)}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover"
+              >
+                Contact us for pricing
+              </a>
+            ) : (
+              <Button
+                type="button"
+                disabled={checkoutMutation.isPending || current.status === 'cancelled'}
+                onClick={() => checkoutMutation.mutate()}
+              >
+                {checkoutMutation.isPending ? 'Opening Razorpay…' : 'Pay / activate current plan'}
+              </Button>
+            )}
             {current.razorpayShortUrl ? (
               <a
                 href={current.razorpayShortUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
+                className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover"
               >
                 Open payment page
               </a>
@@ -287,7 +332,7 @@ export function BillingPage() {
         </section>
       )}
 
-      <section className="space-y-4 rounded-xl border border-white/5 bg-bg-card p-6">
+      <section className="space-y-4 rounded-xl border border-line-subtle bg-bg-card p-6">
         <div>
           <h2 className="font-medium">Portal wallet</h2>
           <p className="text-sm text-text-muted">
@@ -354,7 +399,7 @@ export function BillingPage() {
                   placeholder={`${TOP_UP_MIN}–${TOP_UP_MAX}`}
                   value={customTopUp}
                   onChange={(e) => setCustomTopUp(e.target.value)}
-                  className="h-10 rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+                  className="h-10 rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
                 />
               </label>
               <Button

@@ -70,10 +70,10 @@ function CopyOpenRow({
   onCopy: (id: string, url: string) => void;
 }) {
   return (
-    <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+    <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
       <h3 className="font-semibold">{title}</h3>
       <p className="mt-1 text-sm text-text-secondary">{description}</p>
-      <code className="mt-3 block break-all rounded-lg border border-white/10 bg-bg-elevated p-3 text-sm text-brand-primary">
+      <code className="mt-3 block break-all rounded-lg border border-line bg-bg-elevated p-3 text-sm text-brand-primary">
         {url}
       </code>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -294,15 +294,15 @@ export function DisplaysPage() {
         {devicesQuery.isLoading ? (
           <p className="text-sm text-text-secondary">Loading devices…</p>
         ) : displayDevices.length === 0 ? (
-          <div className="rounded-xl border border-white/5 bg-bg-card px-6 py-8 text-center text-sm text-text-secondary">
+          <div className="rounded-xl border border-line-subtle bg-bg-card px-6 py-8 text-center text-sm text-text-secondary">
             No display heartbeats received yet.{' '}
             Open a display URL — it will appear here within 60 seconds.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-white/5 bg-bg-card">
+          <div className="overflow-x-auto rounded-xl border border-line-subtle bg-bg-card">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/5 text-left text-text-muted">
+                <tr className="border-b border-line-subtle text-left text-text-muted">
                   <th className="px-4 py-3 font-medium">Screen</th>
                   <th className="px-4 py-3 font-medium">Outlet</th>
                   <th className="px-4 py-3 font-medium">Last seen</th>
@@ -313,7 +313,7 @@ export function DisplaysPage() {
                 {displayDevices.map((d) => {
                   const online = isOnline(d.lastSeenAt);
                   return (
-                    <tr key={d.id} className="border-b border-white/5 last:border-0">
+                    <tr key={d.id} className="border-b border-line-subtle last:border-0">
                       <td className="px-4 py-3 font-medium">{modeLabel(d.name)}</td>
                       <td className="px-4 py-3 text-text-secondary">
                         {d.outletId ? (outletMap[d.outletId] ?? d.outletId.slice(-8)) : '—'}
@@ -326,11 +326,11 @@ export function DisplaysPage() {
                           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
                             online
                               ? 'bg-emerald-500/15 text-emerald-400'
-                              : 'bg-white/5 text-text-muted'
+                              : 'bg-hover text-text-muted'
                           }`}
                         >
                           <span
-                            className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-emerald-400' : 'bg-white/30'}`}
+                            className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-emerald-400' : 'bg-text-muted/50'}`}
                           />
                           {online ? 'Online' : 'Offline'}
                         </span>
@@ -358,13 +358,13 @@ export function DisplaysPage() {
         </div>
 
         {/* Outlet picker for slides (may differ from top-bar outlet) */}
-        <div className="flex flex-wrap gap-4 rounded-xl border border-white/5 bg-bg-card p-4">
+        <div className="flex flex-wrap gap-4 rounded-xl border border-line-subtle bg-bg-card p-4">
           <label className="space-y-1 text-sm">
             <span className="text-text-secondary">Outlet</span>
             <select
               value={promoOutletId}
               onChange={(e) => setPromoOutletId(e.target.value)}
-              className="block h-11 min-w-[200px] rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+              className="block h-11 min-w-[200px] rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
             >
               <option value="">Select outlet</option>
               {(outletsQuery.data ?? []).map((o) => (
@@ -379,7 +379,7 @@ export function DisplaysPage() {
         {/* Add slide form */}
         <form
           onSubmit={handleSlideCreate}
-          className="grid gap-4 rounded-xl border border-white/5 bg-bg-card p-6 md:grid-cols-2"
+          className="grid gap-4 rounded-xl border border-line-subtle bg-bg-card p-6 md:grid-cols-2"
         >
           <h3 className="font-medium md:col-span-2">Add slide</h3>
           <Input
@@ -408,7 +408,7 @@ export function DisplaysPage() {
             <select
               value={slideForm.slideType}
               onChange={(e) => setSlideForm((f) => ({ ...f, slideType: e.target.value }))}
-              className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+              className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
             >
               <option value="offer">Offer</option>
               <option value="menu">Menu highlight</option>
@@ -430,14 +430,14 @@ export function DisplaysPage() {
         </form>
 
         {/* Slide list */}
-        <div className="rounded-xl border border-white/5 bg-bg-card p-6">
+        <div className="rounded-xl border border-line-subtle bg-bg-card p-6">
           <h3 className="mb-4 font-medium">Slides</h3>
           {!promoOutletId ? (
             <p className="text-sm text-text-secondary">Select an outlet to see slides.</p>
           ) : (slidesQuery.data ?? []).length === 0 ? (
             <p className="text-sm text-text-secondary">No slides yet.</p>
           ) : (
-            <ul className="divide-y divide-white/5">
+            <ul className="divide-y divide-line-subtle">
               {(slidesQuery.data ?? []).map((slide) => (
                 <li
                   key={slide.id}

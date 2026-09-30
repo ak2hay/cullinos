@@ -62,7 +62,7 @@ export function PagesEditorPage() {
             className={`rounded-lg border px-4 py-2 text-sm ${
               selectedSlug === p.slug
                 ? 'border-brand-primary bg-brand-primary/10'
-                : 'border-white/10 hover:bg-white/5'
+                : 'border-line hover:bg-hover'
             }`}
           >
             {p.title || p.slug}
@@ -71,7 +71,7 @@ export function PagesEditorPage() {
         <button
           type="button"
           onClick={() => setSelectedSlug('home')}
-          className="rounded-lg border border-dashed border-white/20 px-4 py-2 text-sm text-text-muted"
+          className="rounded-lg border border-dashed border-line-strong px-4 py-2 text-sm text-text-muted"
         >
           + home (on save)
         </button>
@@ -86,7 +86,7 @@ export function PagesEditorPage() {
               type="button"
               onClick={() => loadBlock(key)}
               className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
-                blockKey === key ? 'bg-white/10' : 'hover:bg-white/5'
+                blockKey === key ? 'bg-hover-strong' : 'hover:bg-hover'
               }`}
             >
               {key}
@@ -100,7 +100,7 @@ export function PagesEditorPage() {
         </div>
 
         <form
-          className="space-y-3 rounded-xl border border-white/10 bg-bg-card p-5"
+          className="space-y-3 rounded-xl border border-line bg-bg-card p-5"
           onSubmit={(e) => {
             e.preventDefault();
             saveMutation.mutate();
@@ -114,7 +114,7 @@ export function PagesEditorPage() {
             value={json}
             onChange={(e) => setJson(e.target.value)}
             rows={16}
-            className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 font-mono text-xs"
+            className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 font-mono text-xs"
           />
           <button
             type="submit"

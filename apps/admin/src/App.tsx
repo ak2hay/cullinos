@@ -16,6 +16,8 @@ import { MarketplaceListingPage } from '@/pages/MarketplaceListingPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { GuestsPage } from '@/pages/GuestsPage';
 import { DisplaysPage } from '@/pages/DisplaysPage';
+import { StationsPage } from '@/pages/StationsPage';
+import { ProfilePage } from '@/pages/ProfilePage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { LoyaltyPage } from '@/pages/LoyaltyPage';
@@ -267,6 +269,15 @@ export default function App() {
               <BusinessTypeRoute>
                 <DisplaysPage />
               </BusinessTypeRoute>
+            </ErpPage>
+          }
+        />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route
+          path="stations"
+          element={
+            <ErpPage>
+              <StationsPage />
             </ErpPage>
           }
         />

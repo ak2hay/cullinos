@@ -119,47 +119,52 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
     ref.watch(guestLocationProvider);
 
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       body: SafeArea(
-        child: _loading
-            ? const GuestLoading()
-            : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_error!, textAlign: TextAlign.center),
-                        TextButton(onPressed: _load, child: const Text('Retry')),
-                      ],
-                    ),
-                  )
-                : RefreshIndicator(
-                    color: GuestColors.primary,
-                    onRefresh: _load,
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(
-                        GuestSpacing.page,
-                        12,
-                        GuestSpacing.page,
-                        110,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          switchInCurve: Curves.easeOutCubic,
+          child: _loading
+              ? const GuestLoading()
+              : _error != null
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_error!, textAlign: TextAlign.center),
+                          TextButton(
+                              onPressed: _load, child: const Text('Retry')),
+                        ],
                       ),
-                      children: [
-                        _buildHeader(auth.isAuthenticated),
-                        const SizedBox(height: 16),
-                        _buildLocationRow(),
-                        const SizedBox(height: 16),
-                        _buildHero(),
-                        const SizedBox(height: 18),
-                        _buildServiceGrid(),
-                        const SizedBox(height: 22),
-                        _buildLoyalty(),
-                        const SizedBox(height: 16),
-                        _buildCoinsCard(auth.isAuthenticated),
-                        const SizedBox(height: 22),
-                        _buildAllPlaces(),
-                      ],
+                    )
+                  : RefreshIndicator(
+                      color: GuestColors.primaryOf(context),
+                      onRefresh: _load,
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(
+                          GuestSpacing.page,
+                          12,
+                          GuestSpacing.page,
+                          110,
+                        ),
+                        children: [
+                          _buildHeader(auth.isAuthenticated),
+                          const SizedBox(height: 16),
+                          _buildLocationRow(),
+                          const SizedBox(height: 16),
+                          _buildHero(),
+                          const SizedBox(height: 18),
+                          _buildServiceGrid(),
+                          const SizedBox(height: 22),
+                          _buildLoyalty(),
+                          const SizedBox(height: 16),
+                          _buildCoinsCard(auth.isAuthenticated),
+                          const SizedBox(height: 22),
+                          _buildAllPlaces(),
+                        ],
+                      ),
                     ),
-                  ),
+        ),
       ),
     );
   }
@@ -188,17 +193,17 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GuestBrandWordmark(compact: true),
-              SizedBox(height: 2),
+              const GuestBrandWordmark(compact: true),
+              const SizedBox(height: 2),
               Text(
                 'Good Food. Great People.',
                 style: TextStyle(
                   fontSize: 12,
-                  color: GuestColors.muted,
+                  color: GuestColors.mutedOf(context),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -267,9 +272,10 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: GuestColors.primaryDeep,
+        color: GuestColors.primaryDeepOf(context),
         borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
-        boxShadow: GuestSpacing.softShadow(color: GuestColors.primary),
+        boxShadow:
+            GuestSpacing.softShadow(color: GuestColors.primaryOf(context)),
       ),
       child: Stack(
         children: [
@@ -305,26 +311,26 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
               GestureDetector(
                 onTap: () => context.go('/explore'),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'Explore Restaurants',
                         style: TextStyle(
-                          color: GuestColors.primaryDeep,
+                          color: GuestColors.primaryDeepOf(context),
                           fontWeight: FontWeight.w800,
                           fontSize: 13,
                         ),
                       ),
-                      SizedBox(width: 4),
+                      const SizedBox(width: 4),
                       Icon(Icons.arrow_forward_rounded,
-                          size: 16, color: GuestColors.primaryDeep),
+                          size: 16, color: GuestColors.primaryDeepOf(context)),
                     ],
                   ),
                 ),
@@ -342,7 +348,8 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
         label: 'Dine In',
         subtitle: 'Find a table.',
         icon: Icons.restaurant_rounded,
-        bg: const Color(0xFFFFF1E8),
+        bg: GuestColors.softOf(
+            context, const Color(0xFFFFF1E8), const Color(0xFFE85D04)),
         fg: const Color(0xFFE85D04),
         onTap: () => context.go('/explore?mode=dine_in'),
       ),
@@ -350,15 +357,16 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
         label: 'Takeaway',
         subtitle: 'Order & pick up.',
         icon: Icons.shopping_bag_outlined,
-        bg: GuestColors.primarySoft,
-        fg: GuestColors.primary,
+        bg: GuestColors.primarySoftOf(context),
+        fg: GuestColors.primaryOf(context),
         onTap: () => context.go('/explore?mode=takeaway'),
       ),
       _ServiceItem(
         label: 'Delivery',
         subtitle: 'Food at your door.',
         icon: Icons.delivery_dining_rounded,
-        bg: const Color(0xFFF3E8FF),
+        bg: GuestColors.softOf(
+            context, const Color(0xFFF3E8FF), const Color(0xFF7C3AED)),
         fg: const Color(0xFF7C3AED),
         onTap: () => context.go('/explore?mode=delivery'),
       ),
@@ -366,7 +374,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
         label: 'Offers',
         subtitle: _offers.isEmpty ? 'Best deals.' : '${_offers.length} deals.',
         icon: Icons.star_rounded,
-        bg: GuestColors.coralSoft,
+        bg: GuestColors.coralSoftOf(context),
         fg: GuestColors.coralDeep,
         onTap: () => context.go('/explore?mode=offers'),
       ),
@@ -402,14 +410,14 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
               onPressed: () {
                 final auth = ref.read(authControllerProvider);
                 if (!auth.isAuthenticated) {
-                  context.push(
-                      '/login?next=${Uri.encodeComponent('/wallets')}');
+                  context
+                      .push('/login?next=${Uri.encodeComponent('/wallets')}');
                   return;
                 }
                 context.push('/wallets');
               },
               style: TextButton.styleFrom(
-                foregroundColor: GuestColors.primary,
+                foregroundColor: GuestColors.primaryOf(context),
                 padding: EdgeInsets.zero,
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -424,7 +432,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
         const SizedBox(height: 10),
         if (!hasWallet)
           GuestSoftCard(
-            color: GuestColors.coralSoft,
+            color: GuestColors.coralSoftOf(context),
             onTap: () {
               final auth = ref.read(authControllerProvider);
               if (!auth.isAuthenticated) {
@@ -433,27 +441,27 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
               }
               context.push('/wallets');
             },
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.card_giftcard_rounded, color: Color(0xFFD97706)),
-                SizedBox(width: 12),
+                const Icon(Icons.card_giftcard_rounded, color: const Color(0xFFD97706)),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Earn rewards on every order',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 14,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
                         'Dine more. Get more.',
                         style: TextStyle(
                           fontSize: 12,
-                          color: GuestColors.muted,
+                          color: GuestColors.mutedOf(context),
                         ),
                       ),
                     ],
@@ -468,16 +476,14 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
             child: Column(
               children: [
-                for (var i = 0;
-                    i < _memberships.take(3).length;
-                    i++) ...[
+                for (var i = 0; i < _memberships.take(3).length; i++) ...[
                   if (i > 0)
-                    const Divider(height: 12, color: GuestColors.borderLight),
+                    Divider(
+                        height: 12, color: GuestColors.borderLightOf(context)),
                   Builder(builder: (_) {
-                    final r = Map<String, dynamic>.from(
-                        _memberships[i] as Map);
-                    final org = Map<String, dynamic>.from(
-                        r['organization'] as Map);
+                    final r = Map<String, dynamic>.from(_memberships[i] as Map);
+                    final org =
+                        Map<String, dynamic>.from(r['organization'] as Map);
                     final pts = r['loyaltyPoints'] ?? 0;
                     return Row(
                       children: [
@@ -494,10 +500,10 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
                         ),
                         Text(
                           '$pts pts',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 12,
-                            color: GuestColors.primaryDeep,
+                            color: GuestColors.primaryDeepOf(context),
                           ),
                         ),
                       ],
@@ -508,10 +514,10 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
                   const SizedBox(height: 8),
                   Text(
                     'View all ${_memberships.length} restaurants →',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 12,
-                      color: GuestColors.primary,
+                      color: GuestColors.primaryOf(context),
                     ),
                   ),
                 ],
@@ -591,7 +597,8 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
             ),
             if (authed)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(999),
@@ -632,7 +639,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
             TextButton(
               onPressed: () => context.go('/explore'),
               style: TextButton.styleFrom(
-                foregroundColor: GuestColors.primary,
+                foregroundColor: GuestColors.primaryOf(context),
                 padding: EdgeInsets.zero,
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -654,7 +661,8 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
                 meta: restaurantCount > 0
                     ? '$restaurantCount+ places'
                     : 'Discover nearby',
-                bg: const Color(0xFFFFE8DC),
+                bg: GuestColors.softOf(
+                    context, const Color(0xFFFFE8DC), const Color(0xFFE85D04)),
                 icon: Icons.restaurant_rounded,
                 iconColor: const Color(0xFFE85D04),
                 onTap: () => context.go('/explore?cuisine=Restaurant'),
@@ -666,7 +674,8 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
                 title: 'Cafes',
                 subtitle: 'Coffee, Desserts, Hangout',
                 meta: 'Browse cafes',
-                bg: const Color(0xFFE8F4FF),
+                bg: GuestColors.softOf(
+                    context, const Color(0xFFE8F4FF), const Color(0xFF0284C7)),
                 icon: Icons.local_cafe_rounded,
                 iconColor: const Color(0xFF0284C7),
                 onTap: () => context.go('/explore?cuisine=Cafe'),
@@ -688,7 +697,7 @@ class _CircleIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: GuestColors.surface,
+      color: GuestColors.surfaceOf(context),
       shape: const CircleBorder(),
       elevation: 0,
       child: InkWell(
@@ -699,9 +708,9 @@ class _CircleIcon extends StatelessWidget {
           height: 42,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: GuestColors.border),
+            border: Border.all(color: GuestColors.borderOf(context)),
           ),
-          child: Icon(icon, size: 20, color: GuestColors.ink),
+          child: Icon(icon, size: 20, color: GuestColors.inkOf(context)),
         ),
       ),
     );
@@ -732,7 +741,7 @@ class _ServiceItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(6, 10, 6, 10),
         decoration: BoxDecoration(
-          color: GuestColors.surface,
+          color: GuestColors.surfaceOf(context),
           borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
           boxShadow: GuestSpacing.cardShadow,
         ),
@@ -765,9 +774,9 @@ class _ServiceItem extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 9,
-                color: GuestColors.muted,
+                color: GuestColors.mutedOf(context),
                 height: 1.2,
               ),
             ),
@@ -814,15 +823,14 @@ class _PlaceCategoryCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               title,
-              style:
-                  const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
             ),
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: GuestColors.muted,
+                color: GuestColors.mutedOf(context),
                 height: 1.3,
               ),
             ),

@@ -71,7 +71,7 @@ export function ForgotPasswordPage() {
       >
         <form onSubmit={handleReset} className="space-y-5">
           {message ? (
-            <div className="rounded-lg border border-white/10 bg-bg-card px-4 py-3 text-sm text-text-secondary">
+            <div className="rounded-lg border border-line bg-bg-card px-4 py-3 text-sm text-text-secondary">
               {message}
             </div>
           ) : null}

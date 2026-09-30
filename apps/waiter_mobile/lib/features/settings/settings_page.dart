@@ -87,7 +87,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         _pendingLocale != null && _pendingLocale != currentCode;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: WaiterColors.scaffoldOf(context),
       appBar: AppBar(
         title: Text(l10n.settings),
         backgroundColor: Colors.transparent,
@@ -102,13 +102,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: WaiterColors.primary.withValues(alpha: 0.15),
+                  backgroundColor: WaiterColors.primaryOf(context).withValues(alpha: 0.15),
                   child: Text(
                     (auth.name ?? '?').trim().isEmpty
                         ? '?'
                         : auth.name!.trim()[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: WaiterColors.primary,
+                    style: TextStyle(
+                      color: WaiterColors.primaryOf(context),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -121,7 +121,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       Text(auth.name ?? '—',
                           style: const TextStyle(fontWeight: FontWeight.w800)),
                       Text(auth.email ?? '',
-                          style: const TextStyle(color: Colors.grey)),
+                          style: TextStyle(color: WaiterColors.mutedOf(context))),
                     ],
                   ),
                 ),
@@ -229,6 +229,54 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ),
                 ],
               ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          WaiterSectionHeader(title: l10n.appearance),
+          const SizedBox(height: 10),
+          WaiterSoftCard(
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<ThemeMode>(
+                showSelectedIcon: false,
+                segments: [
+                  ButtonSegment(
+                    value: ThemeMode.light,
+                    icon: const Icon(Icons.light_mode_outlined, size: 18),
+                    label: Text(l10n.themeLight),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.dark,
+                    icon: const Icon(Icons.dark_mode_outlined, size: 18),
+                    label: Text(l10n.themeDark),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.system,
+                    icon: const Icon(Icons.brightness_auto_outlined, size: 18),
+                    label: Text(l10n.themeSystem),
+                  ),
+                ],
+                selected: {prefs.themeMode},
+                onSelectionChanged: (selection) => ref
+                    .read(prefsControllerProvider)
+                    .setThemeMode(selection.first),
+                style: ButtonStyle(
+                  minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
+                  side: WidgetStatePropertyAll(
+                    BorderSide(color: WaiterColors.borderOf(context)),
+                  ),
+                  backgroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? WaiterColors.primarySoftOf(context)
+                        : Colors.transparent,
+                  ),
+                  foregroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? WaiterColors.primaryOf(context)
+                        : WaiterColors.mutedOf(context),
+                  ),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 24),

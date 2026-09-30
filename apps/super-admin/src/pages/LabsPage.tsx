@@ -183,7 +183,7 @@ export function LabsPage() {
       </div>
 
       {message ? (
-        <div className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm text-text-secondary">
+        <div className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm text-text-secondary">
           {message}
         </div>
       ) : null}
@@ -196,12 +196,12 @@ export function LabsPage() {
             placeholder="Filter by name, slug, email…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="min-w-[16rem] flex-1 rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
+            className="min-w-[16rem] flex-1 rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
           />
           <select
             value={envFilter}
             onChange={(e) => setEnvFilter(e.target.value as 'all' | '0' | '1')}
-            className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
+            className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
           >
             <option value="all">All environments</option>
             <option value="0">Sandbox</option>
@@ -212,9 +212,9 @@ export function LabsPage() {
         {orgsQuery.isLoading ? (
           <p className="text-sm text-text-muted">Loading tenants…</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-white/5">
+          <div className="overflow-x-auto rounded-xl border border-line-subtle">
             <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-white/5 bg-bg-elevated text-xs uppercase tracking-wide text-text-muted">
+              <thead className="border-b border-line-subtle bg-bg-elevated text-xs uppercase tracking-wide text-text-muted">
                 <tr>
                   <th className="px-3 py-2 font-medium">Tenant</th>
                   <th className="px-3 py-2 font-medium">Status</th>
@@ -227,7 +227,7 @@ export function LabsPage() {
                 {filtered.map((t) => {
                   const sandbox = t.environmentClass === 0;
                   return (
-                    <tr key={t.id} className="border-b border-white/5 align-top">
+                    <tr key={t.id} className="border-b border-line-subtle align-top">
                       <td className="px-3 py-3">
                         <Link
                           to={`/tenants/${t.id}`}
@@ -289,7 +289,7 @@ export function LabsPage() {
                               type="button"
                               disabled={envMutation.isPending}
                               onClick={() => confirmEnvChange(t, 1)}
-                              className="rounded border border-white/10 px-2 py-1 text-xs hover:bg-white/5 disabled:opacity-60"
+                              className="rounded border border-line px-2 py-1 text-xs hover:bg-hover disabled:opacity-60"
                             >
                               Promote to Live
                             </button>
@@ -338,7 +338,7 @@ export function LabsPage() {
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     inputMode="numeric"
                     autoComplete="one-time-code"
-                    className="block w-32 rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 font-mono text-sm outline-none focus:border-brand-accent"
+                    className="block w-32 rounded-lg border border-line bg-bg-elevated px-3 py-2 font-mono text-sm outline-none focus:border-brand-accent"
                   />
                 </label>
                 <button
@@ -355,7 +355,7 @@ export function LabsPage() {
               type="button"
               disabled={startStepUpMutation.isPending}
               onClick={() => startStepUpMutation.mutate()}
-              className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
+              className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
             >
               {challengeToken ? 'Resend code' : 'Email me a code to unlock'}
             </button>
@@ -366,7 +366,7 @@ export function LabsPage() {
           onChange={(e) => setSql(e.target.value)}
           rows={6}
           spellCheck={false}
-          className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 font-mono text-sm outline-none focus:border-brand-accent"
+          className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 font-mono text-sm outline-none focus:border-brand-accent"
         />
         <div className="flex flex-wrap gap-2">
           <button
@@ -385,7 +385,7 @@ export function LabsPage() {
                 void navigator.clipboard.writeText(csv);
                 setMessage('CSV copied to clipboard');
               }}
-              className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
+              className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover"
             >
               Copy CSV
             </button>
@@ -404,9 +404,9 @@ export function LabsPage() {
               {sqlResult.rows.length} row(s) in {sqlResult.durationMs}ms
               {sqlResult.truncated ? ' (truncated at 200)' : ''}
             </p>
-            <div className="max-h-[28rem] overflow-auto rounded-xl border border-white/5">
+            <div className="max-h-[28rem] overflow-auto rounded-xl border border-line-subtle">
               <table className="min-w-full text-left text-xs">
-                <thead className="sticky top-0 border-b border-white/5 bg-bg-elevated text-text-muted">
+                <thead className="sticky top-0 border-b border-line-subtle bg-bg-elevated text-text-muted">
                   <tr>
                     {sqlResult.columns.map((c) => (
                       <th key={c} className="whitespace-nowrap px-2 py-1.5 font-medium">
@@ -417,7 +417,7 @@ export function LabsPage() {
                 </thead>
                 <tbody>
                   {sqlResult.rows.map((row, i) => (
-                    <tr key={i} className="border-b border-white/5">
+                    <tr key={i} className="border-b border-line-subtle">
                       {sqlResult.columns.map((c) => (
                         <td key={c} className="max-w-xs truncate px-2 py-1 font-mono">
                           {row[c] == null
@@ -441,9 +441,9 @@ export function LabsPage() {
         {auditsQuery.isLoading ? (
           <p className="text-sm text-text-muted">Loading audits…</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-white/5">
+          <div className="overflow-x-auto rounded-xl border border-line-subtle">
             <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-white/5 bg-bg-elevated text-text-muted">
+              <thead className="border-b border-line-subtle bg-bg-elevated text-text-muted">
                 <tr>
                   <th className="px-3 py-2">When</th>
                   <th className="px-3 py-2">Actor</th>
@@ -453,7 +453,7 @@ export function LabsPage() {
               </thead>
               <tbody>
                 {(auditsQuery.data ?? []).map((a) => (
-                  <tr key={a.id} className="border-b border-white/5 align-top">
+                  <tr key={a.id} className="border-b border-line-subtle align-top">
                     <td className="whitespace-nowrap px-3 py-2 text-text-muted">
                       {new Date(a.createdAt).toLocaleString()}
                     </td>

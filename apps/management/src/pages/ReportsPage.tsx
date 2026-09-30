@@ -36,19 +36,19 @@ export function ReportsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-white/5 bg-bg-card p-5">
+        <div className="rounded-xl border border-line-subtle bg-bg-card p-5">
           <p className="text-sm text-text-muted">Network revenue</p>
           <p className="mt-2 text-2xl font-semibold">
             {dailyLoading ? '…' : formatMoney(totalNetworkRevenue)}
           </p>
         </div>
-        <div className="rounded-xl border border-white/5 bg-bg-card p-5">
+        <div className="rounded-xl border border-line-subtle bg-bg-card p-5">
           <p className="text-sm text-text-muted">Outlets reporting</p>
           <p className="mt-2 text-2xl font-semibold">
             {comparisonLoading ? '…' : (comparison?.length ?? 1)}
           </p>
         </div>
-        <div className="rounded-xl border border-white/5 bg-bg-card p-5">
+        <div className="rounded-xl border border-line-subtle bg-bg-card p-5">
           <p className="text-sm text-text-muted">Cancelled orders</p>
           <p className="mt-2 text-2xl font-semibold">
             {dailyLoading ? '…' : (daily?.summary.cancelledOrders ?? 0)}
@@ -56,12 +56,12 @@ export function ReportsPage() {
         </div>
       </div>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
         <h2 className="font-medium">Outlet revenue summary</h2>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-white/5 text-text-muted">
+              <tr className="border-b border-line-subtle text-text-muted">
                 <th className="pb-3 pr-4 font-medium">Outlet</th>
                 <th className="pb-3 pr-4 font-medium">Revenue</th>
                 <th className="pb-3 pr-4 font-medium">Orders</th>
@@ -70,7 +70,7 @@ export function ReportsPage() {
             </thead>
             <tbody>
               {(comparison ?? []).map((row) => (
-                <tr key={row.outletId} className="border-b border-white/5">
+                <tr key={row.outletId} className="border-b border-line-subtle">
                   <td className="py-3 pr-4">{row.outletName}</td>
                   <td className="py-3 pr-4">{formatMoney(row.revenue)}</td>
                   <td className="py-3 pr-4">{row.orders}</td>
@@ -78,7 +78,7 @@ export function ReportsPage() {
                 </tr>
               ))}
               {!comparisonLoading && (comparison?.length ?? 0) === 0 && daily ? (
-                <tr className="border-b border-white/5">
+                <tr className="border-b border-line-subtle">
                   <td className="py-3 pr-4">Selected scope</td>
                   <td className="py-3 pr-4">{formatMoney(daily.summary.totalRevenue)}</td>
                   <td className="py-3 pr-4">{daily.summary.totalOrders}</td>
@@ -90,9 +90,9 @@ export function ReportsPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
         <h2 className="font-medium">Recent orders</h2>
-        <ul className="mt-4 divide-y divide-white/5">
+        <ul className="mt-4 divide-y divide-line-subtle">
           {(orders?.data ?? []).map((order) => (
             <li key={order.id} className="flex items-center justify-between py-3 text-sm">
               <div>

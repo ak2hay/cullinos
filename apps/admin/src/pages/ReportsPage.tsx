@@ -75,7 +75,7 @@ function SortableTable({
     );
   }
   return (
-    <section className="overflow-x-auto rounded-xl border border-white/5 bg-bg-card p-4">
+    <section className="overflow-x-auto rounded-xl border border-line-subtle bg-bg-card p-4">
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-text-secondary">
@@ -104,7 +104,7 @@ function SortableTable({
             </tr>
           ) : (
             sorted.map((row, i) => (
-              <tr key={i} className="border-t border-white/5">
+              <tr key={i} className="border-t border-line-subtle">
                 {row.map((cell, j) => (
                   <td key={j} className={`py-2 pr-4 ${headers[j]?.numeric ? 'font-mono' : ''}`}>
                     {cell}
@@ -152,12 +152,12 @@ function ExportFormatSelect({
         {selectedLabel} ▾
       </Button>
       {open ? (
-        <div className="absolute right-0 top-full z-20 mt-1 min-w-[180px] rounded-xl border border-white/10 bg-bg-card shadow-xl">
+        <div className="absolute right-0 top-full z-20 mt-1 min-w-[180px] rounded-xl border border-line bg-bg-card shadow-xl">
           {EXPORT_OPTIONS.map((opt) => (
             <button
               key={opt.id}
               type="button"
-              className="block w-full px-4 py-2.5 text-left text-sm hover:bg-white/5 first:rounded-t-xl last:rounded-b-xl"
+              className="block w-full px-4 py-2.5 text-left text-sm hover:bg-hover first:rounded-t-xl last:rounded-b-xl"
               onClick={() => {
                 setOpen(false);
                 onChange(opt.id);
@@ -322,14 +322,14 @@ export function ReportsPage() {
       {exportError ? <p className="text-sm text-status-error">{exportError}</p> : null}
 
       {/* ── Filters ── */}
-      <div className="flex flex-wrap items-end gap-4 rounded-xl border border-white/5 bg-bg-card p-4">
+      <div className="flex flex-wrap items-end gap-4 rounded-xl border border-line-subtle bg-bg-card p-4">
         <label className="space-y-1 text-sm">
           <span className="text-text-secondary">From</span>
           <input
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="block h-11 rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+            className="block h-11 rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
           />
         </label>
         <label className="space-y-1 text-sm">
@@ -339,7 +339,7 @@ export function ReportsPage() {
             value={to}
             min={from}
             onChange={(e) => setTo(e.target.value)}
-            className="block h-11 rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+            className="block h-11 rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
           />
         </label>
         <label className="space-y-1 text-sm">
@@ -347,7 +347,7 @@ export function ReportsPage() {
           <select
             value={outletId}
             onChange={(e) => setOutletId(e.target.value)}
-            className="block h-11 min-w-[180px] rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+            className="block h-11 min-w-[180px] rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
           >
             <option value="">All outlets</option>
             {(outletsQuery.data ?? []).map((o) => (
@@ -365,7 +365,7 @@ export function ReportsPage() {
               key={preset.label}
               type="button"
               onClick={() => applyPreset(preset.days)}
-              className="rounded-lg border border-white/10 px-3 py-2 text-xs text-text-secondary hover:bg-white/5 hover:text-text-primary transition"
+              className="rounded-lg border border-line px-3 py-2 text-xs text-text-secondary hover:bg-hover hover:text-text-primary transition"
             >
               {preset.label}
             </button>
@@ -383,7 +383,7 @@ export function ReportsPage() {
             className={`rounded-lg px-3 py-2 text-sm transition ${
               tab === t.id
                 ? 'bg-brand-primary/15 font-medium text-brand-primary'
-                : 'text-text-secondary hover:bg-white/5'
+                : 'text-text-secondary hover:bg-hover'
             }`}
           >
             {t.label}
@@ -407,7 +407,7 @@ export function ReportsPage() {
               <StatCard label="Avg order" value={`₹${Number(data?.averageOrderValue ?? 0).toFixed(0)}`} />
               <StatCard label="Tips" value={`₹${Number(data?.tips ?? 0).toFixed(0)}`} />
             </div>
-            <section className="rounded-xl border border-white/5 bg-bg-card p-4">
+            <section className="rounded-xl border border-line-subtle bg-bg-card p-4">
               <h2 className="font-semibold">Top items</h2>
               <ul className="mt-3 space-y-1 text-sm text-text-secondary">
                 {((data?.topItems as Array<{ name: string; quantity: number }>) ?? []).map(

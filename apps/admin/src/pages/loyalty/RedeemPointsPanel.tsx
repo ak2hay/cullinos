@@ -174,7 +174,7 @@ export function RedeemPointsPanel({ settings }: { settings: LoyaltySettings | un
 
   if (!outletId) {
     return (
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="font-semibold">Redeem points</h2>
         <p className="mt-2 text-sm text-text-muted">
           Select an outlet from the top bar to place a loyalty redemption order.
@@ -184,7 +184,7 @@ export function RedeemPointsPanel({ settings }: { settings: LoyaltySettings | un
   }
 
   return (
-    <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+    <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
       <h2 className="font-semibold">Redeem points</h2>
       <p className="mt-1 text-sm text-text-muted">
         Place an order for a customer and pay it with their loyalty points. Any balance left is
@@ -274,7 +274,7 @@ export function RedeemPointsPanel({ settings }: { settings: LoyaltySettings | un
                     key={item.id}
                     type="button"
                     onClick={() => updateQty(item, 1)}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-white/5 bg-bg-elevated/50 px-3 py-2 text-left text-sm hover:border-brand-primary/40"
+                    className="flex items-center justify-between gap-2 rounded-lg border border-line-subtle bg-bg-elevated/50 px-3 py-2 text-left text-sm hover:border-brand-primary/40"
                   >
                     <span className="truncate">{item.name}</span>
                     <span className="shrink-0 font-mono text-xs text-brand-primary">
@@ -303,7 +303,7 @@ export function RedeemPointsPanel({ settings }: { settings: LoyaltySettings | un
                         type="button"
                         aria-label={`Remove one ${line.name}`}
                         onClick={() => updateQty({ id: line.menuItemId, name: line.name, price: line.price }, -1)}
-                        className="h-7 w-7 rounded border border-white/10 hover:bg-white/5"
+                        className="h-7 w-7 rounded border border-line hover:bg-hover"
                       >
                         −
                       </button>
@@ -312,7 +312,7 @@ export function RedeemPointsPanel({ settings }: { settings: LoyaltySettings | un
                         type="button"
                         aria-label={`Add one ${line.name}`}
                         onClick={() => updateQty({ id: line.menuItemId, name: line.name, price: line.price }, 1)}
-                        className="h-7 w-7 rounded border border-white/10 hover:bg-white/5"
+                        className="h-7 w-7 rounded border border-line hover:bg-hover"
                       >
                         +
                       </button>
@@ -325,7 +325,7 @@ export function RedeemPointsPanel({ settings }: { settings: LoyaltySettings | un
               </ul>
             )}
 
-            <div className="flex justify-between border-t border-white/5 pt-3 text-sm">
+            <div className="flex justify-between border-t border-line-subtle pt-3 text-sm">
               <span>Subtotal</span>
               <span className="font-mono">{formatMoney(subtotalPaise)}</span>
             </div>
@@ -343,7 +343,7 @@ export function RedeemPointsPanel({ settings }: { settings: LoyaltySettings | un
               }
             />
 
-            <div className="rounded-lg border border-white/5 bg-bg-elevated/50 px-3 py-2 text-sm">
+            <div className="rounded-lg border border-line-subtle bg-bg-elevated/50 px-3 py-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-text-secondary">Points cover</span>
                 <span className="font-mono text-brand-primary">₹{pointsValueRupees.toFixed(2)}</span>

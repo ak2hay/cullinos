@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { ThemeToggle } from '@cullinos/ui';
 import { PLATFORM_APP_URL, RKYVES_BRAND } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
@@ -28,7 +29,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <>
-      <div className="border-b border-white/5 p-5">
+      <div className="border-b border-line-subtle p-5">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-primary font-mono text-sm font-bold text-text-primary">
             C
@@ -59,7 +60,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
               `block rounded-lg px-3 py-2.5 text-sm transition ${
                 isActive
                   ? 'bg-brand-primary/15 font-medium text-brand-primary'
-                  : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
+                  : 'text-text-secondary hover:bg-hover hover:text-text-primary'
               }`
             }
           >
@@ -68,9 +69,10 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
 
-      <div className="border-t border-white/5 p-4">
+      <div className="border-t border-line-subtle p-4">
         <p className="truncate text-sm font-medium">{admin?.name ?? admin?.email}</p>
         <p className="truncate text-xs text-text-muted">{admin?.email}</p>
+        <ThemeToggle variant="segmented" className="mt-3" />
         <button
           type="button"
           onClick={handleLogout}
@@ -85,10 +87,11 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppShell() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <div className="flex min-h-screen bg-bg-primary">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-white/5 bg-bg-secondary lg:flex">
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-line-subtle bg-bg-secondary lg:flex">
         <SidebarNav />
       </aside>
 
@@ -97,21 +100,21 @@ export function AppShell() {
           <button
             type="button"
             aria-label="Close navigation"
-            className="absolute inset-0 bg-black/60"
+            className="absolute inset-0 animate-fade-in bg-scrim"
             onClick={() => setMobileNavOpen(false)}
           />
-          <aside className="relative flex h-full w-[min(18rem,85vw)] flex-col border-r border-white/5 bg-bg-secondary shadow-xl">
+          <aside className="relative flex h-full w-[min(18rem,85vw)] animate-slide-in-left flex-col border-r border-line-subtle bg-bg-secondary shadow-xl">
             <SidebarNav onNavigate={() => setMobileNavOpen(false)} />
           </aside>
         </div>
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center border-b border-white/5 px-4 lg:hidden">
+        <header className="flex h-14 items-center border-b border-line-subtle px-4 lg:hidden">
           <button
             type="button"
             aria-label="Open navigation"
-            className="rounded-lg border border-white/10 p-2 text-text-secondary"
+            className="rounded-lg border border-line p-2 text-text-secondary"
             onClick={() => setMobileNavOpen(true)}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -124,10 +127,13 @@ export function AppShell() {
             </svg>
           </button>
           <p className="ml-3 text-sm font-medium">Cullinos App Ops</p>
+          <ThemeToggle className="ml-auto" />
         </header>
 
         <main className="flex-1 overflow-auto p-4 sm:p-6">
-          <Outlet />
+          <div key={location.pathname.split('/')[1]} className="animate-fade-in">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

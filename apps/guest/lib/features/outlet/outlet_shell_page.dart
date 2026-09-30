@@ -342,14 +342,14 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        backgroundColor: GuestColors.scaffold,
-        body: GuestLoading(),
+      return Scaffold(
+        backgroundColor: GuestColors.scaffoldOf(context),
+        body: const GuestLoading(),
       );
     }
     if (_error != null || _profile == null) {
       return Scaffold(
-        backgroundColor: GuestColors.scaffold,
+        backgroundColor: GuestColors.scaffoldOf(context),
         appBar: AppBar(),
         body: Center(child: Text(_error ?? 'Outlet not found')),
       );
@@ -370,7 +370,7 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
     return DefaultTabController(
       length: 4,
       child: Scaffold(
-        backgroundColor: GuestColors.scaffold,
+        backgroundColor: GuestColors.scaffoldOf(context),
         body: NestedScrollView(
           headerSliverBuilder: (ctx, _) => [
             // ── Hero + info card ─────────────────────────────────────
@@ -386,10 +386,10 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
               pinned: true,
               delegate: _StickyTabDelegate(
                 child: Container(
-                  color: GuestColors.surface,
+                  color: GuestColors.surfaceOf(context),
                   child: TabBar(
                     labelColor: GuestColors.primaryOf(context),
-                    unselectedLabelColor: GuestColors.muted,
+                    unselectedLabelColor: GuestColors.mutedOf(context),
                     indicatorColor: GuestColors.primaryOf(context),
                     indicatorWeight: 2.5,
                     labelStyle: const TextStyle(
@@ -531,7 +531,7 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
             child: Container(
               padding: const EdgeInsets.all(GuestSpacing.cardPad),
               decoration: BoxDecoration(
-                color: GuestColors.surface,
+                color: GuestColors.surfaceOf(context),
                 borderRadius:
                     BorderRadius.circular(GuestSpacing.radiusMd),
                 boxShadow: GuestSpacing.cardShadow,
@@ -547,7 +547,7 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                       shape: BoxShape.circle,
                       color: GuestColors.primarySoftOf(context),
                       border: Border.all(
-                          color: GuestColors.border, width: 1.5),
+                          color: GuestColors.borderOf(context), width: 1.5),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: GuestNetworkImage(
@@ -568,10 +568,10 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                               'Restaurant',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 15,
-                            color: GuestColors.ink,
+                            color: GuestColors.inkOf(context),
                           ),
                         ),
                         if (outlet['name'] != null &&
@@ -582,10 +582,10 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                             outlet['name'].toString(),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: GuestColors.muted,
+                              color: GuestColors.mutedOf(context),
                             ),
                           ),
                         ],
@@ -621,9 +621,9 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                               text,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
-                                color: GuestColors.muted,
+                                color: GuestColors.mutedOf(context),
                                 height: 1.3,
                               ),
                             ),
@@ -635,9 +635,9 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                             cuisine.map((t) => t.toString()).join(' · '),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: GuestColors.muted,
+                              color: GuestColors.mutedOf(context),
                             ),
                           ),
                         ],
@@ -659,27 +659,27 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                               const SizedBox(width: 8),
                             ],
                             if (dist != null) ...[
-                              const Icon(Icons.near_me_rounded,
-                                  size: 12, color: GuestColors.muted),
+                              Icon(Icons.near_me_rounded,
+                                  size: 12, color: GuestColors.mutedOf(context)),
                               const SizedBox(width: 2),
                               Text(
                                 '${(dist as num).toStringAsFixed(1)} km',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: GuestColors.muted,
+                                  color: GuestColors.mutedOf(context),
                                 ),
                               ),
                               const SizedBox(width: 8),
                             ],
                             if (prep != null) ...[
-                              const Icon(Icons.schedule_rounded,
-                                  size: 12, color: GuestColors.muted),
+                              Icon(Icons.schedule_rounded,
+                                  size: 12, color: GuestColors.mutedOf(context)),
                               const SizedBox(width: 2),
                               Text(
                                 '~$prep min',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: GuestColors.muted,
+                                  color: GuestColors.mutedOf(context),
                                 ),
                               ),
                             ],
@@ -732,14 +732,14 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
       chips.add(_ServiceChip(
         icon: Icons.table_restaurant_rounded,
         label: 'Dine-in',
-        color: GuestColors.ink,
+        color: GuestColors.inkOf(context),
       ));
     }
     if (modes['takeaway'] == true) {
       chips.add(_ServiceChip(
         icon: Icons.shopping_bag_outlined,
         label: 'Takeaway',
-        color: GuestColors.ink,
+        color: GuestColors.inkOf(context),
       ));
     }
     if (chips.isEmpty) return const SizedBox.shrink();
@@ -790,7 +790,7 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                   final desc = offer['description']?.toString() ??
                       (code != null ? 'Use code $code' : '');
                   return Material(
-                    color: GuestColors.surface,
+                    color: GuestColors.surfaceOf(context),
                     borderRadius:
                         BorderRadius.circular(GuestSpacing.radiusMd),
                     child: InkWell(
@@ -814,7 +814,7 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                         decoration: BoxDecoration(
                           borderRadius:
                               BorderRadius.circular(GuestSpacing.radiusMd),
-                          border: Border.all(color: GuestColors.border),
+                          border: Border.all(color: GuestColors.borderOf(context)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -833,9 +833,9 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                               desc,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: GuestColors.muted,
+                                color: GuestColors.mutedOf(context),
                               ),
                             ),
                           ],
@@ -924,6 +924,7 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                           .map((g) => Map<String, dynamic>.from(g as Map)),
                     );
                     if (variants.isEmpty && groups.isEmpty) {
+                      HapticFeedback.lightImpact();
                       // Simple item — add directly
                       ref.read(cartProvider).addItem(
                             menuItemId: item['id'].toString(),
@@ -991,10 +992,10 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                 children: [
                   Text(
                     '${(averageRating as num).toStringAsFixed(1)}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.w900,
-                      color: GuestColors.ink,
+                      color: GuestColors.inkOf(context),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -1015,9 +1016,9 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                       const SizedBox(height: 2),
                       Text(
                         'Based on $count review${count == 1 ? '' : 's'}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: GuestColors.muted,
+                          color: GuestColors.mutedOf(context),
                         ),
                       ),
                     ],
@@ -1072,8 +1073,8 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                           const SizedBox(height: 8),
                           Text(
                             r['comment'].toString(),
-                            style: const TextStyle(
-                              color: GuestColors.muted,
+                            style: TextStyle(
+                              color: GuestColors.mutedOf(context),
                               height: 1.4,
                             ),
                           ),
@@ -1173,8 +1174,8 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                                   e != null &&
                                   e.toString().isNotEmpty)
                               .join(', '),
-                          style: const TextStyle(
-                            color: GuestColors.muted,
+                          style: TextStyle(
+                            color: GuestColors.mutedOf(context),
                             height: 1.45,
                           ),
                         ),
@@ -1192,8 +1193,8 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                       Expanded(
                         child: Text(
                           cuisine.map((t) => t.toString()).join(' · '),
-                          style: const TextStyle(
-                              color: GuestColors.muted),
+                          style: TextStyle(
+                              color: GuestColors.mutedOf(context)),
                         ),
                       ),
                     ],
@@ -1208,12 +1209,12 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                       _ServiceChip(
                           icon: Icons.table_restaurant_rounded,
                           label: 'Dine-in',
-                          color: GuestColors.ink),
+                          color: GuestColors.inkOf(context)),
                     if (modes['takeaway'] == true)
                       _ServiceChip(
                           icon: Icons.shopping_bag_outlined,
                           label: 'Takeaway',
-                          color: GuestColors.ink),
+                          color: GuestColors.inkOf(context)),
                     if (modes['delivery'] == true)
                       _ServiceChip(
                           icon: Icons.delivery_dining_rounded,
@@ -1246,7 +1247,7 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                               ? 'Table $_resolvedTableName — tap to call for service.'
                               : 'Table session active — tap to call for service.',
                           style:
-                              TextStyle(fontWeight: FontWeight.w600),
+                              const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -1272,8 +1273,8 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                                   ? '${type[0].toUpperCase()}${type.substring(1)} (${left}s)'
                                   : type[0].toUpperCase() + type.substring(1),
                             ),
-                            backgroundColor: GuestColors.surface,
-                            side: const BorderSide(color: GuestColors.border),
+                            backgroundColor: GuestColors.surfaceOf(context),
+                            side: BorderSide(color: GuestColors.borderOf(context)),
                             onPressed: cooling
                                 ? null
                                 : () => _requestService(type),
@@ -1317,7 +1318,7 @@ class _OutletShellPageState extends ConsumerState<OutletShellPage> {
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
-                    ?.copyWith(color: GuestColors.muted),
+                    ?.copyWith(color: GuestColors.mutedOf(context)),
               ),
             ),
         ],

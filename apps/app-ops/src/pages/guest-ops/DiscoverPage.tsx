@@ -133,7 +133,7 @@ export function GuestOpsDiscoverPage() {
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="text-lg font-medium">{editingId ? 'Edit section' : 'New section'}</h2>
         <form
           className="mt-4 grid gap-3 sm:grid-cols-2"
@@ -156,7 +156,7 @@ export function GuestOpsDiscoverPage() {
           <label className="block text-sm">
             <span className="mb-1 block text-text-secondary">Type</span>
             <select
-              className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
+              className="w-full rounded-lg border border-line bg-bg-primary px-3 py-2"
               value={form.type}
               onChange={(e) =>
                 setForm((f) => ({ ...f, type: e.target.value as FormState['type'] }))
@@ -197,7 +197,7 @@ export function GuestOpsDiscoverPage() {
           <label className="block text-sm sm:col-span-2">
             <span className="mb-1 block text-text-secondary">Payload (JSON)</span>
             <textarea
-              className="min-h-32 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2 font-mono text-xs"
+              className="min-h-32 w-full rounded-lg border border-line bg-bg-primary px-3 py-2 font-mono text-xs"
               value={form.payloadJson}
               onChange={(e) => setForm((f) => ({ ...f, payloadJson: e.target.value }))}
             />
@@ -222,14 +222,14 @@ export function GuestOpsDiscoverPage() {
         </form>
       </section>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="text-lg font-medium">All sections</h2>
         {isLoading ? (
           <p className="mt-3 text-sm text-text-muted">Loading…</p>
         ) : sections.length === 0 ? (
           <p className="mt-3 text-sm text-text-muted">No discover sections yet.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-white/5">
+          <ul className="mt-4 divide-y divide-line-subtle">
             {sections.map((s) => (
               <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div>

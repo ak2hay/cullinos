@@ -20,17 +20,17 @@ export function FranchisePage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-white/5 bg-bg-card p-5">
+        <div className="rounded-xl border border-line-subtle bg-bg-card p-5">
           <p className="text-sm text-text-muted">Total franchisees</p>
           <p className="mt-2 text-2xl font-semibold">{isLoading ? '…' : franchisees.length}</p>
         </div>
-        <div className="rounded-xl border border-white/5 bg-bg-card p-5">
+        <div className="rounded-xl border border-line-subtle bg-bg-card p-5">
           <p className="text-sm text-text-muted">Active</p>
           <p className="mt-2 text-2xl font-semibold text-status-success">
             {isLoading ? '…' : activeCount}
           </p>
         </div>
-        <div className="rounded-xl border border-white/5 bg-bg-card p-5">
+        <div className="rounded-xl border border-line-subtle bg-bg-card p-5">
           <p className="text-sm text-text-muted">Total outlets</p>
           <p className="mt-2 text-2xl font-semibold">
             {isLoading ? '…' : franchisees.reduce((sum, f) => sum + f.outletCount, 0)}
@@ -44,12 +44,12 @@ export function FranchisePage() {
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
         <h2 className="font-medium">Franchisees</h2>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-white/5 text-text-muted">
+              <tr className="border-b border-line-subtle text-text-muted">
                 <th className="pb-3 pr-4 font-medium">Name</th>
                 <th className="pb-3 pr-4 font-medium">Contact</th>
                 <th className="pb-3 pr-4 font-medium">Status</th>
@@ -59,7 +59,7 @@ export function FranchisePage() {
             </thead>
             <tbody>
               {franchisees.map((f) => (
-                <tr key={f.id} className="border-b border-white/5">
+                <tr key={f.id} className="border-b border-line-subtle">
                   <td className="py-3 pr-4 font-medium">{f.name}</td>
                   <td className="py-3 pr-4 text-text-secondary">
                     {f.contactEmail ?? f.contactPhone ?? '—'}

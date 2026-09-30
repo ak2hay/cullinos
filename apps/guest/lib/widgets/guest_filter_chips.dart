@@ -29,10 +29,10 @@ class GuestFilterPill extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
-            color: selected ? GuestColors.primaryOf(context) : GuestColors.surface,
+            color: selected ? GuestColors.primaryOf(context) : GuestColors.surfaceOf(context),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
-              color: selected ? GuestColors.primaryOf(context) : GuestColors.border,
+              color: selected ? GuestColors.primaryOf(context) : GuestColors.borderOf(context),
             ),
             boxShadow: selected ? GuestSpacing.softShadow(color: GuestColors.primaryOf(context)) : null,
           ),
@@ -43,7 +43,7 @@ class GuestFilterPill extends StatelessWidget {
                 Icon(
                   icon,
                   size: 16,
-                  color: selected ? Colors.white : GuestColors.muted,
+                  color: selected ? Colors.white : GuestColors.mutedOf(context),
                 ),
                 const SizedBox(width: 6),
               ],
@@ -52,7 +52,7 @@ class GuestFilterPill extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white : GuestColors.ink,
+                  color: selected ? Colors.white : GuestColors.inkOf(context),
                 ),
               ),
               if (showChevron) ...[
@@ -60,7 +60,7 @@ class GuestFilterPill extends StatelessWidget {
                 Icon(
                   Icons.keyboard_arrow_down_rounded,
                   size: 18,
-                  color: selected ? Colors.white : GuestColors.muted,
+                  color: selected ? Colors.white : GuestColors.mutedOf(context),
                 ),
               ],
             ],
@@ -102,17 +102,17 @@ class GuestCategorySquare extends StatelessWidget {
               decoration: BoxDecoration(
                 color: selected
                     ? GuestColors.primarySoftOf(context)
-                    : (background ?? GuestColors.surface),
+                    : (background ?? GuestColors.surfaceOf(context)),
                 borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
                 border: Border.all(
-                  color: selected ? GuestColors.primaryOf(context) : GuestColors.border,
+                  color: selected ? GuestColors.primaryOf(context) : GuestColors.borderOf(context),
                   width: selected ? 1.5 : 1,
                 ),
                 boxShadow: GuestSpacing.softShadow(),
               ),
               child: Icon(
                 icon,
-                color: selected ? GuestColors.primaryDeepOf(context) : GuestColors.ink,
+                color: selected ? GuestColors.primaryDeepOf(context) : GuestColors.inkOf(context),
                 size: 26,
               ),
             ),
@@ -125,7 +125,7 @@ class GuestCategorySquare extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: GuestColors.ink,
+                color: GuestColors.inkOf(context),
               ),
             ),
           ],
@@ -161,7 +161,7 @@ class GuestCuisineCircle extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 boxShadow: GuestSpacing.softShadow(),
-                border: Border.all(color: GuestColors.surface, width: 3),
+                border: Border.all(color: GuestColors.surfaceOf(context), width: 3),
               ),
               clipBehavior: Clip.antiAlias,
               child: imageUrl != null && imageUrl!.isNotEmpty
@@ -175,10 +175,10 @@ class GuestCuisineCircle extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: GuestColors.ink,
+                color: GuestColors.inkOf(context),
               ),
             ),
           ],

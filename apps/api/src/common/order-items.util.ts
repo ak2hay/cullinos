@@ -43,6 +43,8 @@ export type ResolvedOrderItem = {
   notes: string | null;
   modifiers: Array<{ name: string; price: number; modifierId?: string }> | null;
   taxGroupId: string | null;
+  /** GST-exempt item: no tax applies, not even the org default group. */
+  isTaxExempt?: boolean;
   /** Menu item product type (e.g. "alcohol"); null for open/custom items. */
   productType?: string | null;
 };
@@ -206,6 +208,7 @@ export async function resolveOrderItems(
       notes: normalizeItemNote(item.notes),
       modifiers: resolvedModifiers,
       taxGroupId: menuItem.taxGroupId,
+      isTaxExempt: menuItem.isTaxExempt,
       productType: menuItem.productType ?? null,
     });
   }

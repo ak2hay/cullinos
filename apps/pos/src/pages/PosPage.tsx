@@ -7,6 +7,7 @@ import {
   itemNeedsOptions,
   type ItemOptionsItem,
   type ItemOptionsSelection,
+  ThemeToggle,
 } from '@cullinos/ui';
 import { CartSidebar, type PosCustomer, type PosOrderType } from '@/components/pos/CartSidebar';
 import { CategoryTabs } from '@/components/pos/CategoryTabs';
@@ -794,9 +795,9 @@ export function PosPage() {
 
   return (
     <div className="flex h-[100dvh] flex-col bg-[radial-gradient(ellipse_at_top,_var(--color-bg-secondary)_0%,_var(--color-bg-primary)_55%)]">
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-white/5 bg-bg-secondary/90 px-3 py-2 backdrop-blur sm:flex-nowrap sm:gap-4 sm:px-4 sm:py-3">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line-subtle bg-bg-secondary/90 px-3 py-2 backdrop-blur sm:flex-nowrap sm:gap-4 sm:px-4 sm:py-3">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-primary font-mono font-bold text-bg-primary shadow-md shadow-brand-primary/30 sm:h-10 sm:w-10">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-primary font-mono font-bold text-on-brand shadow-md shadow-brand-primary/30 sm:h-10 sm:w-10">
             C
           </div>
           <div className="min-w-0">
@@ -820,7 +821,7 @@ export function PosPage() {
             value={outletId ?? ''}
             onChange={(e) => setSelectedOutlet(e.target.value || null)}
             aria-label="Outlet"
-            className="h-9 min-w-0 max-w-[9rem] rounded-xl border border-white/10 bg-bg-elevated px-2 text-sm sm:h-10 sm:max-w-none sm:px-3"
+            className="h-9 min-w-0 max-w-[9rem] rounded-xl border border-line bg-bg-elevated px-2 text-sm sm:h-10 sm:max-w-none sm:px-3"
           >
             {(outletsQuery.data ?? []).map((outlet) => (
               <option key={outlet.id} value={outlet.id}>
@@ -837,22 +838,23 @@ export function PosPage() {
               onToggle={() => setHeldPanelOpen((v) => !v)}
             />
           </div>
+          <ThemeToggle className="shrink-0" />
           <button
             type="button"
             onClick={handleLogout}
-            className="shrink-0 rounded-xl border border-white/10 px-2.5 py-2 text-xs text-text-secondary hover:text-text-primary sm:px-3 sm:text-sm"
+            className="shrink-0 rounded-xl border border-line px-2.5 py-2 text-xs text-text-secondary hover:text-text-primary sm:px-3 sm:text-sm"
           >
             Sign out
           </button>
         </div>
       </header>
 
-      <div className="border-b border-white/5 px-3 py-2 md:hidden">
+      <div className="border-b border-line-subtle px-3 py-2 md:hidden">
         <SearchBar ref={searchRef} value={search} onChange={setSearch} />
       </div>
 
       {outletId ? (
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/5 bg-bg-elevated/60 px-3 py-1.5 text-xs sm:gap-3 sm:px-4 sm:py-2 sm:text-sm">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line-subtle bg-bg-elevated/60 px-3 py-1.5 text-xs sm:gap-3 sm:px-4 sm:py-2 sm:text-sm">
           {hasOpenShift ? (
             <>
               <p className="min-w-0 truncate text-text-secondary">
@@ -865,7 +867,7 @@ export function PosPage() {
                 type="button"
                 disabled={closeShiftMutation.isPending}
                 onClick={() => closeShiftMutation.mutate()}
-                className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold transition hover:border-status-error/40"
+                className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold transition hover:border-status-error/40"
               >
                 {closeShiftMutation.isPending ? 'Closing…' : 'Close shift'}
               </button>
@@ -877,7 +879,7 @@ export function PosPage() {
                 type="button"
                 disabled={openShiftMutation.isPending}
                 onClick={() => openShiftMutation.mutate()}
-                className="rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-bg-primary"
+                className="rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-on-brand"
               >
                 {openShiftMutation.isPending ? 'Opening…' : 'Open shift'}
               </button>
@@ -893,13 +895,13 @@ export function PosPage() {
       ) : null}
 
       {ebillOrderId ? (
-        <div className="flex shrink-0 items-center justify-center gap-2 border-b border-white/5 bg-bg-card px-4 py-2 text-sm">
+        <div className="flex shrink-0 items-center justify-center gap-2 border-b border-line-subtle bg-bg-card px-4 py-2 text-sm">
           <span className="text-text-secondary">Send e-bill?</span>
           <button
             type="button"
             disabled={ebillMutation.isPending}
             onClick={() => ebillMutation.mutate('sms')}
-            className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold"
+            className="rounded-lg border border-line px-3 py-1 text-xs font-semibold"
           >
             SMS
           </button>
@@ -907,7 +909,7 @@ export function PosPage() {
             type="button"
             disabled={ebillMutation.isPending}
             onClick={() => ebillMutation.mutate('email')}
-            className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold"
+            className="rounded-lg border border-line px-3 py-1 text-xs font-semibold"
           >
             Email
           </button>
@@ -955,7 +957,7 @@ export function PosPage() {
                         key={item.id}
                         type="button"
                         onClick={() => handleAddItem(item)}
-                        className="shrink-0 rounded-full border border-white/10 bg-bg-card px-4 py-2 text-sm font-medium transition hover:border-brand-primary/40 active:scale-95"
+                        className="shrink-0 rounded-full border border-line bg-bg-card px-4 py-2 text-sm font-medium transition hover:border-brand-primary/40 active:scale-95"
                       >
                         {item.name}
                       </button>
@@ -975,11 +977,11 @@ export function PosPage() {
         </main>
 
         {mobileView === 'menu' && (cartItemCount > 0 || unpaidOrder) ? (
-          <div className="shrink-0 border-t border-white/5 bg-bg-secondary px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">
+          <div className="shrink-0 border-t border-line-subtle bg-bg-secondary px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">
             <button
               type="button"
               onClick={() => setMobileView('cart')}
-              className="flex h-12 w-full items-center justify-between gap-3 rounded-xl bg-brand-primary px-4 text-bg-primary shadow-lg active:scale-[0.99]"
+              className="flex h-12 w-full items-center justify-between gap-3 rounded-xl bg-brand-primary px-4 text-on-brand shadow-lg active:scale-[0.99]"
             >
               <span className="flex items-center gap-2 text-sm font-semibold">
                 <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-bg-primary/20 px-2 font-mono">

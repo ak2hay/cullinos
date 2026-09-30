@@ -13,12 +13,12 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand-primary text-bg-primary hover:bg-brand-primary-dark disabled:opacity-60',
+    'bg-brand-primary text-on-brand hover:bg-brand-primary-dark disabled:opacity-60',
   secondary:
-    'bg-bg-elevated text-text-primary border border-white/10 hover:bg-bg-card disabled:opacity-60',
-  ghost: 'text-text-secondary hover:text-text-primary hover:bg-white/5 disabled:opacity-60',
-  success: 'bg-status-ready text-bg-primary hover:opacity-90 disabled:opacity-60',
-  warning: 'bg-status-preparing text-bg-primary hover:opacity-90 disabled:opacity-60',
+    'bg-bg-elevated text-text-primary border border-line hover:bg-bg-card disabled:opacity-60',
+  ghost: 'text-text-secondary hover:text-text-primary hover:bg-hover disabled:opacity-60',
+  success: 'bg-status-ready text-on-brand hover:opacity-90 disabled:opacity-60',
+  warning: 'bg-status-preparing text-on-brand hover:opacity-90 disabled:opacity-60',
   danger: 'bg-status-error text-white hover:opacity-90 disabled:opacity-60',
 };
 

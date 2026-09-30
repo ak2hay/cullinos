@@ -864,7 +864,7 @@ export function PortalPosPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[radial-gradient(ellipse_at_top,_var(--color-bg-secondary)_0%,_var(--color-bg-primary)_55%)]">
-      <div className="flex shrink-0 items-center gap-2 border-b border-white/5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
+      <div className="flex shrink-0 items-center gap-2 border-b border-line-subtle px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
         <div className="min-w-0 flex-1">
           <SearchBar ref={searchRef} value={search} onChange={setSearch} />
         </div>
@@ -882,7 +882,7 @@ export function PortalPosPage() {
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/5 bg-bg-elevated/60 px-3 py-1.5 text-xs sm:gap-3 sm:px-4 sm:py-2 sm:text-sm">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line-subtle bg-bg-elevated/60 px-3 py-1.5 text-xs sm:gap-3 sm:px-4 sm:py-2 sm:text-sm">
         {hasOpenShift ? (
           <>
             <p className="min-w-0 truncate text-text-secondary">
@@ -895,7 +895,7 @@ export function PortalPosPage() {
               type="button"
               disabled={closeShiftMutation.isPending}
               onClick={() => closeShiftMutation.mutate()}
-              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold transition hover:border-status-error/40"
+              className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold transition hover:border-status-error/40"
             >
               {closeShiftMutation.isPending ? 'Closing…' : 'Close shift'}
             </button>
@@ -907,7 +907,7 @@ export function PortalPosPage() {
               type="button"
               disabled={openShiftMutation.isPending}
               onClick={() => openShiftMutation.mutate()}
-              className="rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-bg-primary"
+              className="rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-on-brand"
             >
               {openShiftMutation.isPending ? 'Opening…' : 'Open shift'}
             </button>
@@ -921,7 +921,7 @@ export function PortalPosPage() {
         </div>
       ) : null}
 
-      <div className="flex shrink-0 flex-wrap items-end gap-2 border-b border-white/5 bg-bg-card/80 px-3 py-2 sm:gap-3 sm:px-4">
+      <div className="flex shrink-0 flex-wrap items-end gap-2 border-b border-line-subtle bg-bg-card/80 px-3 py-2 sm:gap-3 sm:px-4">
         <div className="min-w-[12rem] flex-1 sm:max-w-xs">
           <PhoneField
             label="Customer mobile (loyalty)"
@@ -933,7 +933,7 @@ export function PortalPosPage() {
           type="button"
           disabled={lookupMutation.isPending || !customerPhone.trim()}
           onClick={() => lookupMutation.mutate()}
-          className="rounded-xl border border-white/10 bg-bg-elevated px-4 py-2.5 text-sm font-medium disabled:opacity-40"
+          className="rounded-xl border border-line bg-bg-elevated px-4 py-2.5 text-sm font-medium disabled:opacity-40"
         >
           {lookupMutation.isPending ? '…' : 'Find'}
         </button>
@@ -994,7 +994,7 @@ export function PortalPosPage() {
                         key={item.id}
                         type="button"
                         onClick={() => handleAddItem(item)}
-                        className="shrink-0 rounded-full border border-white/10 bg-bg-card px-4 py-2 text-sm font-medium transition hover:border-brand-primary/40 active:scale-95"
+                        className="shrink-0 rounded-full border border-line bg-bg-card px-4 py-2 text-sm font-medium transition hover:border-brand-primary/40 active:scale-95"
                       >
                         {item.name}
                       </button>
@@ -1020,11 +1020,11 @@ export function PortalPosPage() {
         </main>
 
         {mobileView === 'menu' && (cartItemCount > 0 || unpaidOrder) ? (
-          <div className="shrink-0 border-t border-white/5 bg-bg-secondary px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">
+          <div className="shrink-0 border-t border-line-subtle bg-bg-secondary px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">
             <button
               type="button"
               onClick={() => setMobileView('cart')}
-              className="flex h-12 w-full items-center justify-between gap-3 rounded-xl bg-brand-primary px-4 text-bg-primary shadow-lg active:scale-[0.99]"
+              className="flex h-12 w-full items-center justify-between gap-3 rounded-xl bg-brand-primary px-4 text-on-brand shadow-lg active:scale-[0.99]"
             >
               <span className="flex items-center gap-2 text-sm font-semibold">
                 <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-bg-primary/20 px-2 font-mono">

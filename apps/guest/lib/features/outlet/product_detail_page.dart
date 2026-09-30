@@ -1,4 +1,6 @@
+import 'package:cullinos_guest/core/friendly_api_error.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -76,7 +78,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
             variants.isEmpty ? null : variants.first['id']?.toString();
       });
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyApiError(e));
     } finally {
       setState(() => _loading = false);
     }
@@ -152,6 +154,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       );
     }
 
+    HapticFeedback.lightImpact();
     cart.addItem(
       menuItemId: item['id'].toString(),
       name: display,
@@ -210,7 +213,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         outlet?['name']?.toString() ?? org?['name']?.toString() ?? 'Restaurant';
 
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       body: Column(
         children: [
           Expanded(
@@ -306,8 +309,8 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                         const SizedBox(height: 10),
                         Text(
                           desc,
-                          style: const TextStyle(
-                            color: GuestColors.muted,
+                          style: TextStyle(
+                            color: GuestColors.mutedOf(context),
                             height: 1.45,
                           ),
                         ),
@@ -365,9 +368,9 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                     (outlet?['cuisineTypes'] as List?)
                                             ?.join(', ') ??
                                         'Restaurant',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12,
-                                      color: GuestColors.muted,
+                                      color: GuestColors.mutedOf(context),
                                     ),
                                   ),
                                 ],
@@ -399,11 +402,11 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Required',
                           style: TextStyle(
                             fontSize: 12,
-                            color: GuestColors.muted,
+                            color: GuestColors.mutedOf(context),
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -437,11 +440,11 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Optional',
                           style: TextStyle(
                             fontSize: 12,
-                            color: GuestColors.muted,
+                            color: GuestColors.mutedOf(context),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -500,12 +503,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                           hintText: 'E.g. no onion, less spicy, extra cheese',
                           prefixIcon: const Icon(Icons.edit_note_rounded),
                           filled: true,
-                          fillColor: GuestColors.surface,
+                          fillColor: GuestColors.surfaceOf(context),
                           border: OutlineInputBorder(
                             borderRadius:
                                 BorderRadius.circular(GuestSpacing.radiusSm),
                             borderSide:
-                                const BorderSide(color: GuestColors.border),
+                                BorderSide(color: GuestColors.borderOf(context)),
                           ),
                         ),
                       ),
@@ -541,7 +544,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                 desc,
                                 style: TextStyle(
                                   fontStyle: FontStyle.italic,
-                                  color: GuestColors.ink.withValues(alpha: 0.8),
+                                  color: GuestColors.inkOf(context).withValues(alpha: 0.8),
                                   height: 1.4,
                                 ),
                               ),
@@ -590,7 +593,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
   Widget _roundIcon(IconData icon, VoidCallback onTap) {
     return Material(
-      color: Colors.white,
+      color: GuestColors.surfaceOf(context),
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
@@ -598,7 +601,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         child: SizedBox(
           width: 40,
           height: 40,
-          child: Icon(icon, size: 18, color: GuestColors.ink),
+          child: Icon(icon, size: 18, color: GuestColors.inkOf(context)),
         ),
       ),
     );
@@ -608,9 +611,9 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: GuestColors.surface,
+        color: GuestColors.surfaceOf(context),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: GuestColors.border),
+        border: Border.all(color: GuestColors.borderOf(context)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -648,10 +651,10 @@ class _SizeCard extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: selected ? GuestColors.primarySoftOf(context) : GuestColors.surface,
+          color: selected ? GuestColors.primarySoftOf(context) : GuestColors.surfaceOf(context),
           borderRadius: BorderRadius.circular(GuestSpacing.radiusSm),
           border: Border.all(
-            color: selected ? GuestColors.primaryOf(context) : GuestColors.border,
+            color: selected ? GuestColors.primaryOf(context) : GuestColors.borderOf(context),
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -661,13 +664,13 @@ class _SizeCard extends StatelessWidget {
               label,
               style: TextStyle(
                 fontWeight: FontWeight.w700,
-                color: selected ? GuestColors.primaryDeepOf(context) : GuestColors.ink,
+                color: selected ? GuestColors.primaryDeepOf(context) : GuestColors.inkOf(context),
               ),
             ),
             const SizedBox(height: 2),
             Text(
               price,
-              style: const TextStyle(fontSize: 12, color: GuestColors.muted),
+              style: TextStyle(fontSize: 12, color: GuestColors.mutedOf(context)),
             ),
           ],
         ),
@@ -691,9 +694,9 @@ class _ValueProp extends StatelessWidget {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 10,
-            color: GuestColors.muted,
+            color: GuestColors.mutedOf(context),
             height: 1.2,
           ),
         ),

@@ -7,6 +7,7 @@ import type { InventoryItem } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { allocateFifoLots, packsToBaseUnits } from "../../common/recipe-stock.util";
 import { LIQUID_UNITS, buildStockRegister } from "./stock-register.util";
+import { buildOutletStockMatrix } from "./outlet-stock.util";
 
 function toClientItem(item: InventoryItem) {
   return {
@@ -74,14 +75,55 @@ export class InventoryService {
     });
   }
 
-  listItems(orgId: string) {
-    return this.prisma.inventoryItem
-      .findMany({
+  /** With `outletId`: that outlet's own stock plus org-wide (unassigned) items. */
+  async listItems(orgId: string, outletId?: string) {
+    const items = await this.prisma.inventoryItem.findMany({
+      where: { organizationId: orgId, ...(await this.outletScope(orgId, outletId)) },
+      orderBy: { name: "asc" },
+      take: 500,
+    });
+    return items.map(toClientItem);
+  }
+
+  /** Every ingredient with its stock at each outlet, for the all-outlets comparison. */
+  async outletStock(orgId: string) {
+    const [outlets, items] = await Promise.all([
+      this.prisma.outlet.findMany({
+        where: { organizationId: orgId },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      this.prisma.inventoryItem.findMany({
         where: { organizationId: orgId },
         orderBy: { name: "asc" },
-        take: 500,
-      })
-      .then((items) => items.map(toClientItem));
+        take: 2000,
+      }),
+    ]);
+    return {
+      outlets,
+      rows: buildOutletStockMatrix(
+        items.map((i) => ({
+          id: i.id,
+          outletId: i.outletId,
+          name: i.name,
+          sku: i.sku,
+          unit: i.unit,
+          catalogKey: i.catalogKey,
+          currentStock: Number(i.currentStock),
+          reorderLevel: Number(i.reorderLevel),
+        })),
+      ),
+    };
+  }
+
+  private async outletScope(orgId: string, outletId?: string) {
+    if (!outletId) return {};
+    const outlet = await this.prisma.outlet.findFirst({
+      where: { id: outletId, organizationId: orgId },
+      select: { id: true },
+    });
+    if (!outlet) throw new NotFoundException("Outlet not found");
+    return { OR: [{ outletId }, { outletId: null }] };
   }
 
   async listLots(orgId: string, itemId: string) {
@@ -218,9 +260,9 @@ export class InventoryService {
     return { from: from.toISOString(), to: to.toISOString(), rows };
   }
 
-  async lowStock(orgId: string) {
+  async lowStock(orgId: string, outletId?: string) {
     const items = await this.prisma.inventoryItem.findMany({
-      where: { organizationId: orgId },
+      where: { organizationId: orgId, ...(await this.outletScope(orgId, outletId)) },
       orderBy: { name: "asc" },
       take: 500,
     });

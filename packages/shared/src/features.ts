@@ -214,8 +214,8 @@ export const PUBLIC_PLAN_CATALOG = {
     featureKey: 'STARTER' as const,
     name: 'Starter',
     description: 'Single outlet launch — POS, KDS, tables, QR + online ordering, reports',
-    priceMonthly: 2999,
-    priceYearly: 29999,
+    priceMonthly: 1499,
+    priceYearly: 14999,
     maxOutlets: 1,
     maxTerminals: 2,
     maxUsers: 5,
@@ -225,8 +225,8 @@ export const PUBLIC_PLAN_CATALOG = {
     featureKey: 'QSR' as const,
     name: 'QSR / Food SMB',
     description: 'Cafes, food trucks, counter-service — POS, QR, pickup queue, loyalty',
-    priceMonthly: 4999,
-    priceYearly: 49999,
+    priceMonthly: 2499,
+    priceYearly: 24999,
     maxOutlets: 1,
     maxTerminals: 3,
     maxUsers: 8,
@@ -236,8 +236,8 @@ export const PUBLIC_PLAN_CATALOG = {
     featureKey: 'PROFESSIONAL' as const,
     name: 'Professional',
     description: 'Growing restaurants — inventory, CRM, delivery, up to 3 outlets',
-    priceMonthly: 7999,
-    priceYearly: 79999,
+    priceMonthly: 4999,
+    priceYearly: 49999,
     maxOutlets: 3,
     maxTerminals: 10,
     maxUsers: 20,
@@ -247,8 +247,9 @@ export const PUBLIC_PLAN_CATALOG = {
     featureKey: 'ENTERPRISE' as const,
     name: 'Enterprise',
     description: 'Chains & franchise — multi-outlet, multi-brand, franchise, analytics, API',
-    priceMonthly: 19999,
-    priceYearly: 199990,
+    priceMonthly: 0,
+    priceYearly: 0,
+    contactSales: true,
     maxOutlets: 50,
     maxTerminals: 100,
     maxUsers: 200,
@@ -258,8 +259,9 @@ export const PUBLIC_PLAN_CATALOG = {
     featureKey: 'HOSPITALITY' as const,
     name: 'Hospitality',
     description: 'Hotels & resorts — room service, room posting, banquet, PMS-ready',
-    priceMonthly: 29999,
-    priceYearly: 299990,
+    priceMonthly: 0,
+    priceYearly: 0,
+    contactSales: true,
     maxOutlets: 100,
     maxTerminals: 200,
     maxUsers: 500,
@@ -268,6 +270,13 @@ export const PUBLIC_PLAN_CATALOG = {
 } as const;
 
 export type PublicPlanSlug = keyof typeof PUBLIC_PLAN_CATALOG;
+
+/** Public plans priced per quote: no self-serve activation, no catalog price overwrite on existing rows. */
+export function isContactSalesPlanSlug(slug: string | null | undefined): boolean {
+  if (!slug || !Object.prototype.hasOwnProperty.call(PUBLIC_PLAN_CATALOG, slug)) return false;
+  const entry = PUBLIC_PLAN_CATALOG[slug as PublicPlanSlug];
+  return 'contactSales' in entry && entry.contactSales === true;
+}
 
 /**
  * Derive DB entitlement modules from PLAN_FEATURES + baseline (and waiter for Pro+).
