@@ -17,6 +17,7 @@ Run during a maintenance window. Keep Cloudflare orange-cloud off or pause durin
 # On VM as root
 cd /opt/cullinos && git pull
 bash infrastructure/k8s/scripts/install-k3s.sh
+bash infrastructure/k8s/scripts/create-deploy-kubeconfig.sh production   # -> KUBE_CONFIG (production env)
 ```
 
 Port conflict note: k3s Traefik binds **80/443**. Host nginx must stop before Traefik can take traffic:

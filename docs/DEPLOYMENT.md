@@ -37,7 +37,10 @@ the deploy job waits for approval before touching the cluster.
 
 `KUBE_CONFIG` must be an **environment** secret (not a repository secret), holding a kubeconfig
 for a ServiceAccount bound to that environment's namespace only, so a staging run cannot
-touch production.
+touch production. Generate it on the node with
+`bash infrastructure/k8s/scripts/create-deploy-kubeconfig.sh <production|staging>` (creates the
+`github-deployer` ServiceAccount and Role, verifies the scope, writes `/root/kube-config-<ns>.b64`);
+never use the admin `/etc/rancher/k3s/k3s.yaml`.
 
 | Secret | Scope | Purpose |
 |--------|-------|---------|
