@@ -77,7 +77,7 @@ export function BanquetsPage() {
 
       <section className="space-y-4">
         <h2 className="font-semibold">Packages</h2>
-        <div className="grid gap-3 rounded-xl border border-white/5 bg-bg-card p-4 sm:grid-cols-3">
+        <div className="grid gap-3 rounded-xl border border-line-subtle bg-bg-card p-4 sm:grid-cols-3">
           <Input
             label="Package name"
             placeholder="Grand Ballroom"
@@ -107,9 +107,9 @@ export function BanquetsPage() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-white/5 bg-bg-card">
+        <div className="overflow-hidden rounded-xl border border-line-subtle bg-bg-card">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-white/5 bg-bg-elevated text-text-secondary">
+            <thead className="border-b border-line-subtle bg-bg-elevated text-text-secondary">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Capacity</th>
@@ -132,10 +132,10 @@ export function BanquetsPage() {
                 </tr>
               ) : (
                 packages.map((p) => (
-                  <tr key={p.id} className="border-b border-white/5 last:border-0">
+                  <tr key={p.id} className="border-b border-line-subtle last:border-0">
                     <td className="px-4 py-3 font-medium">{p.name}</td>
                     <td className="px-4 py-3">{p.capacity}</td>
-                    <td className="px-4 py-3 font-mono">{formatMoney(Number(p.baseRate))}</td>
+                    <td className="px-4 py-3 font-mono">{formatMoney(Math.round(Number(p.baseRate) * 100))}</td>
                     <td className="px-4 py-3">{p._count?.bookings ?? 0}</td>
                   </tr>
                 ))
@@ -147,13 +147,13 @@ export function BanquetsPage() {
 
       <section className="space-y-4">
         <h2 className="font-semibold">Bookings</h2>
-        <div className="grid gap-3 rounded-xl border border-white/5 bg-bg-card p-4 sm:grid-cols-2">
+        <div className="grid gap-3 rounded-xl border border-line-subtle bg-bg-card p-4 sm:grid-cols-2">
           <div className="space-y-1">
             <label className="block text-sm font-medium text-text-secondary">Package</label>
             <select
               value={booking.banquetId}
               onChange={(e) => setBooking({ ...booking, banquetId: e.target.value })}
-              className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-line bg-bg-primary px-3 py-2 text-sm"
             >
               <option value="">Select package</option>
               {packages.map((p) => (
@@ -205,7 +205,7 @@ export function BanquetsPage() {
             bookings.map((b) => (
               <div
                 key={b.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/5 bg-bg-card px-4 py-3 text-sm"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line-subtle bg-bg-card px-4 py-3 text-sm"
               >
                 <div>
                   <p className="font-medium">
@@ -215,7 +215,7 @@ export function BanquetsPage() {
                     {formatDate(b.eventDate)} · {b.guestCount} guests · {b.status}
                   </p>
                 </div>
-                <span className="font-mono">{formatMoney(Number(b.total))}</span>
+                <span className="font-mono">{formatMoney(Math.round(Number(b.total) * 100))}</span>
               </div>
             ))
           )}

@@ -60,14 +60,14 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
         <div className="flex gap-3">
           <button
             type="button"
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm text-text-primary hover:bg-white/5"
+            className="rounded-lg border border-line px-4 py-2 text-sm text-text-primary hover:bg-hover"
             onClick={() => orgQuery.refetch()}
           >
             Retry
           </button>
           <button
             type="button"
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm text-text-secondary hover:bg-white/5"
+            className="rounded-lg border border-line px-4 py-2 text-sm text-text-secondary hover:bg-hover"
             onClick={() => {
               logout();
               navigate('/login', { replace: true });

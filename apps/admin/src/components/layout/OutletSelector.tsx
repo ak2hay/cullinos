@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { ChevronDown, Store } from 'lucide-react';
 import { outletsApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
@@ -23,9 +24,7 @@ export function OutletSelector() {
   }, [outlets, selectedOutletId, setSelectedOutlet]);
 
   if (isLoading) {
-    return (
-      <div className="h-9 w-40 animate-pulse rounded-lg bg-bg-elevated" />
-    );
+    return <div className="ui-skeleton h-10 w-44 rounded-xl" />;
   }
 
   if (outlets.length === 0) {
@@ -35,17 +34,22 @@ export function OutletSelector() {
   }
 
   return (
-    <select
-      value={selectedOutletId ?? ''}
-      onChange={(e) => setSelectedOutlet(e.target.value || null)}
-      className="h-9 rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm text-text-primary outline-none focus:border-brand-primary"
-    >
-      {outlets.map((outlet) => (
-        <option key={outlet.id} value={outlet.id}>
-          {outlet.name}
-          {outlet.city ? ` · ${outlet.city}` : ''}
-        </option>
-      ))}
-    </select>
+    <label className="relative inline-flex min-w-0 items-center">
+      <span className="sr-only">Outlet</span>
+      <Store size={16} className="pointer-events-none absolute left-3 text-brand-primary" aria-hidden="true" />
+      <select
+        value={selectedOutletId ?? ''}
+        onChange={(e) => setSelectedOutlet(e.target.value || null)}
+        className="h-10 min-w-0 max-w-[14rem] appearance-none truncate rounded-xl border border-line bg-bg-card pl-9 pr-9 text-sm font-medium text-text-primary shadow-sm outline-none transition-colors hover:border-line-strong focus:border-brand-primary sm:max-w-[18rem]"
+      >
+        {outlets.map((outlet) => (
+          <option key={outlet.id} value={outlet.id}>
+            {outlet.name}
+            {outlet.city ? ` · ${outlet.city}` : ''}
+          </option>
+        ))}
+      </select>
+      <ChevronDown size={16} className="pointer-events-none absolute right-3 text-text-muted" aria-hidden="true" />
+    </label>
   );
 }

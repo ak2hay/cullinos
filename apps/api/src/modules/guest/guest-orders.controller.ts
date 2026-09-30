@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
+import { isAlcoholProductType, orgServesAlcohol } from "@cullinos/shared";
 import { Public } from "../../common/decorators";
 import { PrismaService } from "../../prisma/prisma.service";
 import { PaymentsService } from "../payments/payments.service";
@@ -147,16 +148,28 @@ export class GuestOrdersController {
         razorpaySignature: body.razorpaySignature,
         cashfreeOrderId: body.cashfreeOrderId,
       },
+      { expectedOrderId: order.id },
     );
-    await this.push.notifyCustomerOrder(order.customerId, {
-      title: "Payment received",
-      body: `Order #${order.orderNumber} payment confirmed`,
-      data: { orderId: order.id, type: "payment.confirmed" },
-    });
+    if (!result.success || result.orderId !== order.id) {
+      return { ...result, coinsAwarded: 0 };
+    }
+    if (!("alreadyPaid" in result && result.alreadyPaid)) {
+      await this.push.notifyCustomerOrder(order.customerId, {
+        title: "Payment received",
+        body: `Order #${order.orderNumber} payment confirmed`,
+        data: { orderId: order.id, type: "payment.confirmed" },
+      });
+    }
     let coinsAwarded = 0;
     try {
-      const award = await this.guest.awardCoinsForPaidOrder(guest.sub, order);
-      coinsAwarded = award.awarded ?? 0;
+      const paid = await this.prisma.payment.aggregate({
+        where: { orderId: order.id, status: "completed" },
+        _sum: { amount: true },
+      });
+      if (Number(paid._sum.amount ?? 0) + 0.005 >= Number(order.total)) {
+        const award = await this.guest.awardCoinsForPaidOrder(guest.sub, order);
+        coinsAwarded = award.awarded ?? 0;
+      }
     } catch {
       // Payment already succeeded — never fail verify on coin ledger errors.
     }
@@ -201,9 +214,16 @@ export class GuestOrdersController {
             organization: { select: { id: true, slug: true, name: true } },
           },
         },
+        organization: {
+          select: { businessType: true, settings: { select: { settings: true } } },
+        },
       },
     });
     if (!order) throw new NotFoundException("Order not found");
+    const servesAlcohol = orgServesAlcohol(
+      order.organization.businessType,
+      order.organization.settings?.settings,
+    );
 
     const available: Array<{
       menuItemId: string;
@@ -212,6 +232,7 @@ export class GuestOrdersController {
       unitPrice: number;
       variantId: string | null;
       modifiers: unknown;
+      isAlcohol: boolean;
     }> = [];
     const unavailable: Array<{ name: string; reason: string }> = [];
 
@@ -221,7 +242,7 @@ export class GuestOrdersController {
         continue;
       }
       const menuItem = await this.prisma.menuItem.findFirst({
-        where: { id: item.menuItemId, isActive: true },
+        where: { id: item.menuItemId, organizationId: order.organizationId, isActive: true },
         include: {
           outletPrices: {
             where: { outletId: order.outletId, priceType: "retail" },
@@ -231,6 +252,11 @@ export class GuestOrdersController {
       });
       if (!menuItem) {
         unavailable.push({ name: item.name, reason: "Unavailable" });
+        continue;
+      }
+      const isAlcohol = isAlcoholProductType(menuItem.productType);
+      if (isAlcohol && !servesAlcohol) {
+        unavailable.push({ name: item.name, reason: "Drinks not served" });
         continue;
       }
       const outletPrice = menuItem.outletPrices[0];
@@ -248,6 +274,7 @@ export class GuestOrdersController {
         unitPrice: priceRupees,
         variantId: item.variantId,
         modifiers: item.modifiers,
+        isAlcohol,
       });
     }
 

@@ -1,3 +1,5 @@
+import { csvRow } from "@cullinos/shared";
+
 export type DayBookRow = {
   date: string;
   voucherType: string;
@@ -11,21 +13,16 @@ export type DayBookRow = {
 export function dayBookToCsv(rows: DayBookRow[]): string {
   const header =
     "Date,Voucher Type,Voucher Number,Ledger Name,Debit Amount,Credit Amount,Narration";
-  const escape = (v: string) =>
-    /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-  const lines = rows.map(
-    (r) =>
-      [
-        r.date,
-        r.voucherType,
-        r.voucherNumber,
-        r.ledgerName,
-        r.debit > 0 ? r.debit.toFixed(2) : "",
-        r.credit > 0 ? r.credit.toFixed(2) : "",
-        r.narration,
-      ]
-        .map((c) => escape(String(c)))
-        .join(","),
+  const lines = rows.map((r) =>
+    csvRow([
+      r.date,
+      r.voucherType,
+      r.voucherNumber,
+      r.ledgerName,
+      r.debit > 0 ? r.debit.toFixed(2) : "",
+      r.credit > 0 ? r.credit.toFixed(2) : "",
+      r.narration,
+    ]),
   );
   return [header, ...lines].join("\n");
 }

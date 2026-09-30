@@ -15,12 +15,14 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
+import { RequirePlatformPermission } from "../../common/decorators";
 import { SuperAdminGuard } from "./guards/super-admin.guard";
-import { MARKETING_UPLOAD_MAX_BYTES } from "./marketing-upload.service";
+import { MARKETING_UPLOAD_MAX_BYTES, marketingImageFileFilter } from "./marketing-upload.service";
 import { MarketingService } from "./marketing.service";
 
 @Controller("super-admin/marketing")
 @UseGuards(SuperAdminGuard)
+@RequirePlatformPermission("marketing.manage")
 export class MarketingSuperAdminController {
   constructor(private marketing: MarketingService) {}
 
@@ -44,6 +46,7 @@ export class MarketingSuperAdminController {
     FileInterceptor("file", {
       storage: memoryStorage(),
       limits: { fileSize: MARKETING_UPLOAD_MAX_BYTES },
+      fileFilter: marketingImageFileFilter,
     }),
   )
   uploadAsset(
@@ -163,6 +166,35 @@ export class MarketingSuperAdminController {
   @Delete("blog/:id")
   deleteBlog(@Param("id") id: string) {
     return this.marketing.deleteBlogPost(id);
+  }
+
+  @Post("blog/:id/publish")
+  publishBlog(@Param("id") id: string) {
+    return this.marketing.publishBlogPost(id);
+  }
+
+  @Post("blog/:id/unpublish")
+  unpublishBlog(@Param("id") id: string) {
+    return this.marketing.unpublishBlogPost(id);
+  }
+
+  @Get("inquiries")
+  @RequirePlatformPermission("marketing.inquiries")
+  listInquiries(@Query("status") status?: string) {
+    return this.marketing.listInquiries(status);
+  }
+
+  @Get("inquiries/count-new")
+  @RequirePlatformPermission("marketing.inquiries")
+  countNewInquiries() {
+    return this.marketing.countNewInquiries().then((count) => ({ count }));
+  }
+
+  @Patch("inquiries/:id")
+  @RequirePlatformPermission("marketing.inquiries")
+  updateInquiry(@Param("id") id: string, @Body() body: { status?: string }) {
+    if (!body.status) throw new BadRequestException("status is required");
+    return this.marketing.updateInquiryStatus(id, body.status);
   }
 
   @Get("pages")

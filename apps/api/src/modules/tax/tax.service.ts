@@ -38,6 +38,9 @@ export class TaxService {
       if (!Number.isFinite(Number(r.rate))) {
         throw new BadRequestException("rate must be a number");
       }
+      if (Number(r.rate) < 0 || Number(r.rate) > 100) {
+        throw new BadRequestException("rate must be between 0 and 100");
+      }
       const type = (r.type?.trim() || "").toUpperCase();
       if (!ALLOWED_TAX_RATE_TYPES.has(type)) {
         throw new BadRequestException(

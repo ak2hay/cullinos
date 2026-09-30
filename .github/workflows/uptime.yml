@@ -14,11 +14,13 @@ jobs:
         url:
           - https://api.cullinos.com/api/v1/health
           - https://admin.cullinos.com/
-          - https://staging-api.cullinos.com/api/v1/health
+          # Re-add https://staging-api.cullinos.com/api/v1/health once staging DNS exists
     steps:
       - name: Check ${{ matrix.url }}
         run: |
-          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "${{ matrix.url }}" || echo "000")
+          # curl already prints 000 on connection failure; `|| true` avoids appending a second 000
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "${{ matrix.url }}" || true)
+          code="${code:-000}"
           echo "HTTP $code for ${{ matrix.url }}"
           # Staging may not exist yet — soft-fail staging only
           if [[ "${{ matrix.url }}" == *staging* ]]; then

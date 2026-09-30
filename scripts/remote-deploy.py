@@ -17,7 +17,14 @@ from pathlib import Path
 import paramiko
 
 ROOT = Path(__file__).resolve().parents[1]
-HOST = os.environ.get("DEPLOY_HOST", "95.135.254.46")
+HOST = os.environ.get("DEPLOY_HOST", "")
+if not HOST:
+    raise SystemExit("Set DEPLOY_HOST explicitly (no default target).")
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from deploy_git import local_git_commit  # noqa: E402
+
+GIT_COMMIT = local_git_commit()
 USER = os.environ.get("DEPLOY_USER", "root")
 PASSWORD = os.environ.get("DEPLOY_PASSWORD", "")
 APP_DIR = "/opt/cullinos"
@@ -29,7 +36,7 @@ CORS_ORIGINS = (
     "https://admin.cullinos.com,https://manage.cullinos.com,"
     "https://platform.cullinos.com,https://guest.cullinos.com,"
     "https://pos.cullinos.com,"
-    "https://kds.cullinos.com,https://cullinos.com"
+    "https://kds.cullinos.com,https://kiosk.cullinos.com,https://cullinos.com"
 )
 
 FRONTEND_DOMAINS = [
@@ -40,6 +47,7 @@ FRONTEND_DOMAINS = [
     "waiter.cullinos.com",
     "pos.cullinos.com",
     "kds.cullinos.com",
+    "kiosk.cullinos.com",
     "cullinos.com",
     "www.cullinos.com",
 ]
@@ -321,12 +329,21 @@ def main() -> int:
     sftp.close()
 
     if pg_password_changed:
+        if os.environ.get("CONFIRM_WIPE_DATABASE") != HOST:
+            print(
+                "POSTGRES_PASSWORD differs from the server .env. Refusing to wipe the database "
+                f"volume. Rotate the password inside Postgres instead, or set CONFIRM_WIPE_DATABASE={HOST} "
+                "to destroy all data on this host.",
+                file=sys.stderr,
+            )
+            ssh.close()
+            return 1
         reset_postgres_volume(ssh)
 
     print("Building and starting Docker stack (this may take several minutes)...")
     code, _, _ = run(
         ssh,
-        f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml build --no-cache api "
+        f"cd {APP_DIR} && GIT_COMMIT={GIT_COMMIT} docker compose -f docker-compose.prod.yml build --no-cache api "
         f"&& docker compose -f docker-compose.prod.yml up -d postgres redis api",
         timeout=1800,
     )
@@ -336,24 +353,18 @@ def main() -> int:
 
     print("Initializing database schema...")
     run(ssh, f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml stop api || true")
-    # Backfill payments.organization_id before required-column push (P0 hardening).
-    run(
+    # Refuses (exit 3) on a db-push database that has not been baselined; see
+    # docs/DEPLOYMENT.md "Database migrations".
+    code, _, _ = run(
         ssh,
         f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml run --rm -T api "
-        "npx prisma db execute --stdin --schema=packages/prisma/prisma/schema.prisma <<'SQL'\n"
-        "ALTER TABLE payments ADD COLUMN IF NOT EXISTS organization_id TEXT;\n"
-        "UPDATE payments p SET organization_id = o.organization_id "
-        "FROM orders o WHERE p.order_id = o.id "
-        "AND (p.organization_id IS NULL OR p.organization_id = '');\n"
-        "SQL",
-        timeout=300,
-    )
-    run(
-        ssh,
-        f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml run --rm -T api "
-        "npx prisma db push --accept-data-loss --schema=packages/prisma/prisma/schema.prisma",
+        "node packages/prisma/scripts/migrate-deploy.mjs",
         timeout=600,
     )
+    if code != 0:
+        print("migrate deploy failed; aborting before seed/restart", file=sys.stderr)
+        ssh.close()
+        return code
     run(
         ssh,
         f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml run --rm -T "

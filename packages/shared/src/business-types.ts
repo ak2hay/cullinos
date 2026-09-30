@@ -9,6 +9,7 @@ export const BUSINESS_TYPES = [
   'qsr',
   'cloud_kitchen',
   'catering',
+  'bar',
 ] as const;
 
 export type BusinessType = (typeof BUSINESS_TYPES)[number];
@@ -29,6 +30,7 @@ export const RESTAURANT_SIZE_LABELS: Record<RestaurantSize, string> = {
 export const BUSINESS_TYPE_PARENTS = [
   'restaurant',
   'qsr',
+  'bar',
   'cloud_kitchen',
   'catering',
 ] as const;
@@ -38,6 +40,7 @@ export type BusinessTypeParent = (typeof BUSINESS_TYPE_PARENTS)[number];
 export const BUSINESS_TYPE_PARENT_LABELS: Record<BusinessTypeParent, string> = {
   restaurant: 'Restaurant',
   qsr: 'QSR',
+  bar: 'Bar & Pub',
   cloud_kitchen: 'Cloud Kitchen',
   catering: 'Catering',
 };
@@ -62,6 +65,7 @@ export const BUSINESS_TYPE_LABELS: Record<BusinessType, string> = {
   qsr: 'Fast Casual',
   cloud_kitchen: 'Cloud Kitchen',
   catering: 'Catering',
+  bar: 'Bar & Pub',
 };
 
 export type OnboardingStep =
@@ -93,6 +97,30 @@ const CORE_OPS: FeatureKey[] = [
   FEATURES.BASIC_REPORTS,
 ];
 
+const COUNTER_OPS: FeatureKey[] = [
+  ...CORE_OPS,
+  FEATURES.COUNTER_MODE,
+  FEATURES.PICKUP_QUEUE,
+  FEATURES.KDS,
+  FEATURES.QR_ORDERING,
+  FEATURES.ONLINE_ORDERING,
+  FEATURES.LOYALTY,
+];
+
+const STOCK_OPS: FeatureKey[] = [FEATURES.INVENTORY, FEATURES.RECIPES, FEATURES.PURCHASING];
+
+const RESTAURANT_PROFESSIONAL_FEATURES: FeatureKey[] = [
+  ...CORE_OPS,
+  FEATURES.TABLES,
+  FEATURES.KDS,
+  ...STOCK_OPS,
+  FEATURES.LOYALTY,
+  FEATURES.CRM,
+  FEATURES.QR_ORDERING,
+  FEATURES.ONLINE_ORDERING,
+  FEATURES.DELIVERY,
+];
+
 /** Size-specific overrides when businessType === restaurant. */
 export const RESTAURANT_SIZE_PROFILES: Record<
   RestaurantSize,
@@ -100,35 +128,25 @@ export const RESTAURANT_SIZE_PROFILES: Record<
 > = {
   small: {
     recommendedPlan: 'STARTER',
-    features: [...CORE_OPS, FEATURES.QR_ORDERING, FEATURES.ONLINE_ORDERING],
-  },
-  medium: {
-    recommendedPlan: 'PROFESSIONAL',
     features: [
       ...CORE_OPS,
       FEATURES.TABLES,
       FEATURES.KDS,
-      FEATURES.INVENTORY,
-      FEATURES.LOYALTY,
       FEATURES.QR_ORDERING,
       FEATURES.ONLINE_ORDERING,
-      FEATURES.CRM,
     ],
+  },
+  medium: {
+    recommendedPlan: 'PROFESSIONAL',
+    features: RESTAURANT_PROFESSIONAL_FEATURES,
   },
   large: {
     recommendedPlan: 'ENTERPRISE',
     features: [
-      ...CORE_OPS,
-      FEATURES.TABLES,
-      FEATURES.KDS,
-      FEATURES.INVENTORY,
-      FEATURES.RECIPES,
-      FEATURES.LOYALTY,
-      FEATURES.QR_ORDERING,
-      FEATURES.ONLINE_ORDERING,
-      FEATURES.CRM,
-      FEATURES.DELIVERY,
+      ...RESTAURANT_PROFESSIONAL_FEATURES,
+      FEATURES.EVENTS,
       FEATURES.MULTI_OUTLET,
+      FEATURES.MULTI_BRAND,
       FEATURES.ADVANCED_ANALYTICS,
     ],
   },
@@ -150,37 +168,24 @@ export const BUSINESS_TYPE_DEFAULTS: Record<BusinessType, BusinessTypeDefaults> 
     ],
     recommendedPlan: 'PROFESSIONAL',
     sampleCategories: ['Starters', 'Main Course', 'Breads', 'Beverages', 'Desserts'],
-    features: [
-      FEATURES.POS,
-      FEATURES.BILLING,
-      FEATURES.KOT,
-      FEATURES.TABLES,
-      FEATURES.KDS,
-      FEATURES.QR_ORDERING,
-    ],
+    features: RESTAURANT_PROFESSIONAL_FEATURES,
   },
   cafe: {
     label: BUSINESS_TYPE_LABELS.cafe,
     operatingMode: 'counter',
-    enabledOrderTypes: ['takeaway', 'qr', 'online'],
+    enabledOrderTypes: ['dine_in', 'takeaway', 'qr', 'online'],
     onboardingSteps: [
       'business_info',
       'feature_preview',
       'menu_setup',
+      'tables',
       'tax_gst',
       'staff',
       'done',
     ],
     recommendedPlan: 'QSR',
     sampleCategories: ['Coffee', 'Tea', 'Pastries', 'Sandwiches', 'Cold Drinks'],
-    features: [
-      FEATURES.POS,
-      FEATURES.BILLING,
-      FEATURES.COUNTER_MODE,
-      FEATURES.LOYALTY,
-      FEATURES.QR_ORDERING,
-      FEATURES.KDS,
-    ],
+    features: [...COUNTER_OPS, FEATURES.TABLES, FEATURES.INVENTORY, FEATURES.RECIPES],
   },
   food_truck: {
     label: BUSINESS_TYPE_LABELS.food_truck,
@@ -189,15 +194,7 @@ export const BUSINESS_TYPE_DEFAULTS: Record<BusinessType, BusinessTypeDefaults> 
     onboardingSteps: ['business_info', 'feature_preview', 'menu_setup', 'tax_gst', 'done'],
     recommendedPlan: 'QSR',
     sampleCategories: ['Mains', 'Sides', 'Drinks', 'Combos'],
-    features: [
-      FEATURES.POS,
-      FEATURES.BILLING,
-      FEATURES.COUNTER_MODE,
-      FEATURES.PRE_ORDERS,
-      FEATURES.QR_ORDERING,
-      FEATURES.EVENTS,
-      FEATURES.KDS,
-    ],
+    features: [...COUNTER_OPS, FEATURES.INVENTORY, FEATURES.PRE_ORDERS, FEATURES.EVENTS],
   },
   bakery: {
     label: BUSINESS_TYPE_LABELS.bakery,
@@ -215,14 +212,11 @@ export const BUSINESS_TYPE_DEFAULTS: Record<BusinessType, BusinessTypeDefaults> 
     recommendedPlan: 'PROFESSIONAL',
     sampleCategories: ['Breads', 'Pastries', 'Cakes', 'Cookies', 'Savouries'],
     features: [
-      FEATURES.POS,
-      FEATURES.BILLING,
-      FEATURES.RECIPES,
+      ...COUNTER_OPS,
+      ...STOCK_OPS,
       FEATURES.PRODUCTION,
-      FEATURES.INVENTORY,
       FEATURES.PRE_ORDERS,
-      FEATURES.KDS,
-      FEATURES.LOYALTY,
+      FEATURES.DELIVERY,
     ],
   },
   qsr: {
@@ -239,14 +233,7 @@ export const BUSINESS_TYPE_DEFAULTS: Record<BusinessType, BusinessTypeDefaults> 
     ],
     recommendedPlan: 'QSR',
     sampleCategories: ['Combos', 'Mains', 'Sides', 'Drinks'],
-    features: [
-      FEATURES.POS,
-      FEATURES.BILLING,
-      FEATURES.COUNTER_MODE,
-      FEATURES.KDS,
-      FEATURES.QR_ORDERING,
-      FEATURES.LOYALTY,
-    ],
+    features: [...COUNTER_OPS, FEATURES.INVENTORY, FEATURES.RECIPES, FEATURES.DELIVERY],
   },
   cloud_kitchen: {
     label: BUSINESS_TYPE_LABELS.cloud_kitchen,
@@ -256,22 +243,26 @@ export const BUSINESS_TYPE_DEFAULTS: Record<BusinessType, BusinessTypeDefaults> 
     recommendedPlan: 'PROFESSIONAL',
     sampleCategories: ['Mains', 'Sides', 'Beverages'],
     features: [
-      FEATURES.POS,
-      FEATURES.BILLING,
+      ...CORE_OPS,
       FEATURES.KDS,
       FEATURES.DELIVERY,
       FEATURES.ONLINE_ORDERING,
       FEATURES.MULTI_BRAND,
+      ...STOCK_OPS,
+      FEATURES.LOYALTY,
+      FEATURES.CRM,
+      FEATURES.MULTI_OUTLET,
     ],
   },
   catering: {
     label: BUSINESS_TYPE_LABELS.catering,
     operatingMode: 'hybrid',
-    enabledOrderTypes: ['takeaway', 'online', 'banquet'],
+    enabledOrderTypes: ['takeaway', 'online', 'delivery', 'banquet'],
     onboardingSteps: [
       'business_info',
       'feature_preview',
       'menu_setup',
+      'recipes',
       'tax_gst',
       'staff',
       'done',
@@ -279,13 +270,43 @@ export const BUSINESS_TYPE_DEFAULTS: Record<BusinessType, BusinessTypeDefaults> 
     recommendedPlan: 'PROFESSIONAL',
     sampleCategories: ['Packages', 'Mains', 'Starters', 'Desserts'],
     features: [
-      FEATURES.POS,
-      FEATURES.BILLING,
+      ...CORE_OPS,
+      FEATURES.KDS,
       FEATURES.PRE_ORDERS,
       FEATURES.BANQUET,
       FEATURES.CRM,
       FEATURES.EVENTS,
       FEATURES.PRODUCTION,
+      ...STOCK_OPS,
+      FEATURES.ONLINE_ORDERING,
+      FEATURES.DELIVERY,
+    ],
+  },
+  bar: {
+    label: BUSINESS_TYPE_LABELS.bar,
+    operatingMode: 'hybrid',
+    enabledOrderTypes: ['dine_in', 'takeaway', 'qr'],
+    onboardingSteps: [
+      'business_info',
+      'feature_preview',
+      'menu_setup',
+      'tables',
+      'recipes',
+      'tax_gst',
+      'staff',
+      'done',
+    ],
+    recommendedPlan: 'PROFESSIONAL',
+    sampleCategories: ['Beer', 'Spirits', 'Cocktails', 'Wine', 'Mocktails', 'Bar Snacks'],
+    features: [
+      ...CORE_OPS,
+      FEATURES.TABLES,
+      FEATURES.KDS,
+      FEATURES.QR_ORDERING,
+      ...STOCK_OPS,
+      FEATURES.LOYALTY,
+      FEATURES.CRM,
+      FEATURES.EVENTS,
     ],
   },
 };
@@ -303,7 +324,8 @@ export const ADMIN_NAV_FEATURE_MAP: Record<string, FeatureKey> = {
   '/kds': FEATURES.KDS,
   '/cds': FEATURES.KDS,
   '/kiosk': FEATURES.QR_ORDERING,
-  '/recipes': FEATURES.RECIPES,
+  // Recipes drive stock deduction, so they follow inventory visibility.
+  '/recipes': FEATURES.INVENTORY,
   '/purchasing': FEATURES.PURCHASING,
   '/suppliers': FEATURES.PURCHASING,
   '/central-kitchen': FEATURES.MULTI_OUTLET,
@@ -316,6 +338,31 @@ export const ADMIN_NAV_FEATURE_MAP: Record<string, FeatureKey> = {
   '/hospitality/guests': FEATURES.ROOM_SERVICE,
   '/hospitality/rooms': FEATURES.ROOM_SERVICE,
 };
+
+/**
+ * Admin routes whose API endpoints are guarded by a subscription module
+ * (`@RequireModule`). Only list routes whose backing controllers enforce the
+ * module, otherwise nav would hide pages the API still serves.
+ */
+export const ADMIN_NAV_PLAN_MODULE_MAP: Record<string, string> = {
+  '/tables': 'tables',
+  '/reservations': 'tables',
+  '/inventory': 'inventory',
+  '/recipes': 'inventory',
+  '/purchasing': 'inventory',
+  '/suppliers': 'inventory',
+  '/production': 'production',
+  '/events': 'events',
+  '/loyalty': 'loyalty',
+  '/coupons': 'loyalty',
+  '/central-kitchen': 'management',
+};
+
+/**
+ * Plan modules that, when the subscription includes them, show their pages
+ * even if the business-type profile would hide them (a paid entitlement wins).
+ */
+const PLAN_MODULES_OVERRIDING_BUSINESS_TYPE: ReadonlySet<string> = new Set(['inventory']);
 
 export interface ProfileFeatures {
   features: FeatureKey[];
@@ -340,10 +387,7 @@ export function getFeaturesForProfile(
       operatingMode: base.operatingMode,
       enabledOrderTypes: base.enabledOrderTypes,
       sampleCategories: base.sampleCategories,
-      onboardingSteps:
-        size === 'small'
-          ? base.onboardingSteps.filter((s) => s !== 'tables')
-          : base.onboardingSteps,
+      onboardingSteps: base.onboardingSteps,
       label: `${base.label} · ${RESTAURANT_SIZE_LABELS[size]}`,
     };
   }
@@ -376,6 +420,7 @@ export function getBusinessTypeParent(type: BusinessType): BusinessTypeParent {
   if ((QSR_SUBTYPES as readonly string[]).includes(type)) return 'qsr';
   if (type === 'restaurant') return 'restaurant';
   if (type === 'cloud_kitchen') return 'cloud_kitchen';
+  if (type === 'bar') return 'bar';
   return 'catering';
 }
 
@@ -411,11 +456,28 @@ export function isNavFeatureVisible(
   return getFeaturesForProfile(type, size).features.includes(feature);
 }
 
+/**
+ * `enabledModules` is the active subscription's enabled entitlement modules.
+ * Pass null/undefined when unknown (loading, no active subscription) to skip
+ * the plan check and fall back to business-type visibility only.
+ */
 export function isAdminNavPathVisible(
   type: BusinessType | null | undefined,
   path: string,
   size?: RestaurantSize | null,
+  enabledModules?: readonly string[] | null,
 ): boolean {
+  const planModule = ADMIN_NAV_PLAN_MODULE_MAP[path];
+  if (planModule && enabledModules && !enabledModules.includes(planModule)) {
+    return false;
+  }
+  if (
+    planModule &&
+    enabledModules?.includes(planModule) &&
+    PLAN_MODULES_OVERRIDING_BUSINESS_TYPE.has(planModule)
+  ) {
+    return true;
+  }
   const feature = ADMIN_NAV_FEATURE_MAP[path];
   if (!feature) return true;
   return isNavFeatureVisible(type, feature, size);

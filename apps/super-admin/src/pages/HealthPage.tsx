@@ -47,7 +47,7 @@ export function HealthPage() {
         <div className="flex gap-2">
           <Link
             to="/"
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
+            className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover"
           >
             Dashboard
           </Link>
@@ -58,7 +58,7 @@ export function HealthPage() {
               void smsQuery.refetch();
             }}
             disabled={isFetching || smsQuery.isFetching}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
+            className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
           >
             {isFetching || smsQuery.isFetching ? 'Refreshing…' : 'Refresh'}
           </button>
@@ -80,7 +80,7 @@ export function HealthPage() {
         </div>
       ) : null}
 
-      <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-bg-card p-5">
+      <div className="flex items-center gap-3 rounded-xl border border-line-subtle bg-bg-card p-5">
         <span
           className={`h-3 w-3 rounded-full ${
             data?.status === 'ok' ? 'bg-status-success' : 'bg-status-warning'
@@ -99,7 +99,7 @@ export function HealthPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((card) => (
-          <div key={card.label} className="rounded-xl border border-white/5 bg-bg-card p-5">
+          <div key={card.label} className="rounded-xl border border-line-subtle bg-bg-card p-5">
             <p className="text-sm text-text-muted">{card.label}</p>
             <p className="mt-2 text-2xl font-semibold">
               {isLoading ? '…' : (card.value ?? 0)}
@@ -108,7 +108,7 @@ export function HealthPage() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <div className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="font-medium">SMS / MSG91</h2>
@@ -118,12 +118,20 @@ export function HealthPage() {
           </div>
           <span
             className={`rounded-full px-2 py-0.5 text-xs ${
-              sms?.configured
+              sms?.flowConfigured
                 ? 'bg-status-success/15 text-status-success'
-                : 'bg-status-warning/15 text-status-warning'
+                : sms?.widgetConfigured
+                  ? 'bg-status-warning/15 text-status-warning'
+                  : 'bg-status-warning/15 text-status-warning'
             }`}
           >
-            {smsQuery.isLoading ? '…' : sms?.configured ? 'Configured' : 'Not configured'}
+            {smsQuery.isLoading
+              ? '…'
+              : sms?.flowConfigured
+                ? 'Flow ready (Waiter)'
+                : sms?.widgetConfigured
+                  ? 'Widget only (Guest)'
+                  : 'Not configured'}
           </span>
         </div>
         {smsQuery.error ? (
@@ -134,6 +142,18 @@ export function HealthPage() {
           </p>
         ) : (
           <dl className="mt-4 grid gap-3 sm:grid-cols-3 text-sm">
+            <div>
+              <dt className="text-text-muted">Flow (Waiter SMS)</dt>
+              <dd className="mt-0.5 font-mono">
+                {sms?.flowConfigured ? 'configured' : 'missing template/key'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-text-muted">Widget (Guest)</dt>
+              <dd className="mt-0.5 font-mono">
+                {sms?.widgetConfigured ? 'configured' : 'not set'}
+              </dd>
+            </div>
             <div>
               <dt className="text-text-muted">Sender ID</dt>
               <dd className="mt-0.5 font-mono">{sms?.senderId ?? '—'}</dd>

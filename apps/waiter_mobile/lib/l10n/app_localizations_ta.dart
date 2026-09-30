@@ -299,4 +299,92 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get allFloors => 'All floors';
+
+  @override
+  String get portalDisabledTitle => 'வெயிட்டர் ஆப் முடக்கப்பட்டுள்ளது';
+
+  @override
+  String get portalDisabledBody =>
+      'Cullinos வெயிட்டர் ஆப்பை தற்காலிகமாக முடக்கியுள்ளது. உங்கள் மேலாளரைத் தொடர்பு கொள்ளவும் அல்லது அட்மின் போர்ட்டலைப் பயன்படுத்தவும்.';
+
+  @override
+  String get portalMaintenanceLabel => 'MAINTENANCE';
+
+  @override
+  String get portalMaintenanceTitle => 'Waiter app is under maintenance';
+
+  @override
+  String get portalMaintenanceBody =>
+      'Cullinos is performing maintenance on the waiter app. Please try again shortly.';
+
+  @override
+  String get checkAgain => 'மீண்டும் சரிபார்க்கவும்';
+
+  @override
+  String get mergeStepPrimary => 'படி 1/2: முதன்மை மேசையைத் தட்டவும்';
+
+  @override
+  String mergeStepSecondary(String table) {
+    return 'படி 2/2: $table உடன் இணைக்க வேண்டிய மேசையைத் தட்டவும்';
+  }
+
+  @override
+  String get transferStepSource => 'படி 1/2: மாற்ற வேண்டிய மேசையைத் தட்டவும்';
+
+  @override
+  String transferStepTarget(String table) {
+    return 'படி 2/2: $table ஐ மாற்ற காலியான மேசையைத் தட்டவும்';
+  }
+
+  @override
+  String mergedWith(String table) {
+    return '$table உடன் இணைக்கப்பட்டது';
+  }
+
+  @override
+  String get primaryTag => 'முதன்மை';
+
+  @override
+  String get fromTag => 'இருந்து';
+
+  @override
+  String confirmMerge(String secondary, String primary) {
+    return '$secondary ஐ $primary உடன் இணைக்கவா?';
+  }
+
+  @override
+  String confirmTransfer(String from, String to) {
+    return '$from ஐ $to க்கு மாற்றவா?';
+  }
+
+  @override
+  String get confirm => 'உறுதிசெய்';
+
+  @override
+  String get unmerge => 'பிரி';
+
+  @override
+  String openTable(String table) {
+    return '$table திற';
+  }
+
+  @override
+  String mergedTableHint(String table) {
+    return 'இந்த மேசையின் ஆர்டர் மற்றும் பில் $table இல் உள்ளது.';
+  }
+
+  @override
+  String get appearance => 'தோற்றம்';
+
+  @override
+  String get themeLight => 'லைட்';
+
+  @override
+  String get themeDark => 'டார்க்';
+
+  @override
+  String get themeSystem => 'சிஸ்டம்';
+
+  @override
+  String get retry => 'மீண்டும் முயற்சிக்கவும்';
 }

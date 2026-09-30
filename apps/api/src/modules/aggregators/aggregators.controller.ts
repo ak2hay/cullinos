@@ -10,7 +10,10 @@ import {
 } from "@nestjs/common";
 import { IsBoolean, IsObject, IsOptional, IsString } from "class-validator";
 import type { AggregatorOutletConfig, AggregatorProvider } from "@cullinos/integrations";
-import { OrgId, RequireModule } from "../../common/decorators";
+import type { JwtPayload } from "@cullinos/auth";
+import { CurrentUser, OrgId, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
+import { AuditService } from "../audit/audit.service";
 import { AggregatorsService, type SettlementImportRow } from "./aggregators.service";
 
 class UpsertAggregatorDto {
@@ -53,14 +56,19 @@ class ImportSettlementsDto {
 @Controller("aggregators")
 @RequireModule("reports")
 export class AggregatorsController {
-  constructor(private service: AggregatorsService) {}
+  constructor(
+    private service: AggregatorsService,
+    private audit: AuditService,
+  ) {}
 
   @Get()
+  @RequirePermissions("settings:read")
   list(@OrgId() orgId: string) {
     return this.service.list(orgId);
   }
 
   @Get("reconciliation")
+  @RequirePermissions("reports:read")
   reconciliation(
     @OrgId() orgId: string,
     @Query("from") from?: string,
@@ -72,28 +80,55 @@ export class AggregatorsController {
   }
 
   @Get(":provider")
+  @RequirePermissions("settings:read")
   get(@OrgId() orgId: string, @Param("provider") provider: AggregatorProvider) {
     return this.service.getProvider(orgId, provider);
   }
 
   @Put(":provider")
-  upsert(
+  @RequirePermissions("settings:update")
+  async upsert(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @Param("provider") provider: AggregatorProvider,
     @Body() dto: UpsertAggregatorDto,
   ) {
-    return this.service.upsertProvider(orgId, provider, dto);
+    const result = await this.service.upsertProvider(orgId, provider, dto);
+    await this.audit.log({
+      organizationId: orgId,
+      userId: user.sub,
+      action: "aggregators.update",
+      entityType: "aggregator_integration",
+      entityId: provider,
+      metadata: {
+        isActive: dto.isActive ?? null,
+        webhookSecretChanged: Boolean(dto.webhookSecret),
+        outletsChanged: dto.outlets !== undefined,
+      },
+    });
+    return result;
   }
 
   @Post(":provider/regenerate-webhook-secret")
-  regenerateSecret(
+  @RequirePermissions("settings:update")
+  async regenerateSecret(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @Param("provider") provider: AggregatorProvider,
   ) {
-    return this.service.regenerateWebhookSecret(orgId, provider);
+    const result = await this.service.regenerateWebhookSecret(orgId, provider);
+    await this.audit.log({
+      organizationId: orgId,
+      userId: user.sub,
+      action: "aggregators.webhook_secret_rotated",
+      entityType: "aggregator_integration",
+      entityId: provider,
+    });
+    return result;
   }
 
   @Patch(":provider/outlets/:outletId")
+  @RequirePermissions("settings:update")
   updateOutlet(
     @OrgId() orgId: string,
     @Param("provider") provider: AggregatorProvider,
@@ -104,6 +139,7 @@ export class AggregatorsController {
   }
 
   @Post(":provider/outlets/:outletId/menu-sync")
+  @RequirePermissions("menu:update")
   menuSync(
     @OrgId() orgId: string,
     @Param("provider") provider: AggregatorProvider,
@@ -113,6 +149,7 @@ export class AggregatorsController {
   }
 
   @Post("settlements/import")
+  @RequirePermissions("reports:export")
   importSettlements(@OrgId() orgId: string, @Body() dto: ImportSettlementsDto) {
     const format = dto.format ?? (dto.csv ? "csv" : "json");
     const rows =

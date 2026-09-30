@@ -34,7 +34,7 @@ Demo logins (after `npm run db:seed`):
 
 | Role | Email | Password | Notes |
 |------|-------|----------|-------|
-| **Platform Super Admin** | `akshrkd@gmail.com` | `Missyou@1` | Onboards restaurants, issues owner credentials |
+| **Platform Super Admin** | `SEED_SUPER_ADMIN_EMAIL` | `SEED_SUPER_ADMIN_PASSWORD` (env) | Onboards restaurants, issues owner credentials |
 | **Restaurant owner** | `owner@cullinos.com` | `demo1234` | Admin app — creates all staff manually under Staff |
 | **Staff (waiter, etc.)** | *(created by owner)* | *(set by owner)* | Owner adds accounts in Admin → Staff |
 

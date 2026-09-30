@@ -6,7 +6,7 @@ import sys
 
 import paramiko
 
-HOST = os.environ.get("DEPLOY_HOST", "95.135.254.46")
+HOST = os.environ.get("DEPLOY_HOST") or sys.exit("Set DEPLOY_HOST explicitly (no default target).")
 PASSWORD = os.environ.get("DEPLOY_PASSWORD", "") or (sys.argv[1] if len(sys.argv) > 1 else "")
 
 

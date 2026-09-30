@@ -4,6 +4,7 @@
  * Kiosk orders print locally on the tablet (notes start with "Kiosk ·") and are skipped here.
  */
 
+import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { resolveViteApiBase } from '@cullinos/shared';
@@ -41,11 +42,8 @@ function displayCode(order: ReceiptOrder): string {
   return order.pickupCode || order.orderNumber;
 }
 
-function qrImageUrl(order: ReceiptOrder, outletId: string): string {
-  const code = displayCode(order);
-  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
-    JSON.stringify({ code, orderId: order.id, outletId }),
-  )}`;
+function qrPayload(order: ReceiptOrder, outletId: string): string {
+  return JSON.stringify({ code: displayCode(order), orderId: order.id, outletId });
 }
 
 export function ReceiptPrintPage({ outletId }: { outletId: string }) {
@@ -53,6 +51,7 @@ export function ReceiptPrintPage({ outletId }: { outletId: string }) {
   const [status, setStatus] = useState<'connecting' | 'live' | 'error'>('connecting');
   const [lastPrinted, setLastPrinted] = useState<string | null>(null);
   const [slip, setSlip] = useState<ReceiptOrder | null>(null);
+  const [slipQr, setSlipQr] = useState<string | null>(null);
   const printedIds = useRef(new Set<string>());
   const printTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -79,10 +78,15 @@ export function ReceiptPrintPage({ outletId }: { outletId: string }) {
       if (!payload?.id || printedIds.current.has(payload.id)) return;
       if (!shouldAutoPrint(payload)) return;
       printedIds.current.add(payload.id);
-      setSlip(payload);
-      setLastPrinted(displayCode(payload));
-      if (printTimer.current) clearTimeout(printTimer.current);
-      printTimer.current = setTimeout(() => window.print(), 500);
+      void QRCode.toDataURL(qrPayload(payload, outletId), { width: 200, margin: 1 })
+        .catch(() => null)
+        .then((src) => {
+          setSlip(payload);
+          setSlipQr(src);
+          setLastPrinted(displayCode(payload));
+          if (printTimer.current) clearTimeout(printTimer.current);
+          printTimer.current = setTimeout(() => window.print(), 300);
+        });
     };
 
     socket.on('order.updated', onOrder);
@@ -127,7 +131,7 @@ export function ReceiptPrintPage({ outletId }: { outletId: string }) {
         {slip ? (
           <button
             type="button"
-            className="rounded-xl bg-brand-primary px-4 py-3 font-semibold text-bg-primary"
+            className="rounded-xl bg-brand-primary px-4 py-3 font-semibold text-on-brand"
             onClick={() => window.print()}
           >
             Reprint last
@@ -140,11 +144,13 @@ export function ReceiptPrintPage({ outletId }: { outletId: string }) {
           <p className="text-xs font-semibold uppercase tracking-widest">Cullinos</p>
           <p className="text-sm">Pickup code</p>
           <p className="font-mono text-4xl font-black tracking-widest">{displayCode(slip)}</p>
-          <img
-            src={qrImageUrl(slip, outletId)}
-            alt={`QR ${displayCode(slip)}`}
-            className="mx-auto h-36 w-36 bg-white p-1"
-          />
+          {slipQr ? (
+            <img
+              src={slipQr}
+              alt={`QR ${displayCode(slip)}`}
+              className="mx-auto h-36 w-36 bg-white p-1"
+            />
+          ) : null}
           {slip.customerName ? <p className="text-xs">{slip.customerName}</p> : null}
           <ul className="space-y-0.5 text-left text-xs">
             {(slip.items ?? []).map((item) => (

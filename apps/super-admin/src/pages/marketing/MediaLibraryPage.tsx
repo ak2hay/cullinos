@@ -28,12 +28,12 @@ export function MediaLibraryPage() {
         <p className="mt-1 text-text-secondary">Upload and assign images to marketing slots.</p>
       </div>
 
-      <div className="rounded-xl border border-white/10 bg-bg-card p-5">
+      <div className="rounded-xl border border-line bg-bg-card p-5">
         <label className="block text-sm text-text-secondary">Image slot (optional)</label>
         <select
           value={slotKey}
           onChange={(e) => setSlotKey(e.target.value)}
-          className="mt-1 w-full max-w-md rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+          className="mt-1 w-full max-w-md rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
         >
           <option value="">General upload</option>
           {MARKETING_IMAGE_SLOTS.map((slot) => (
@@ -46,7 +46,7 @@ export function MediaLibraryPage() {
           <span className="text-sm text-text-secondary">Upload file</span>
           <input
             type="file"
-            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            accept="image/png,image/jpeg,image/webp"
             className="mt-1 block w-full text-sm"
             onChange={(e) => {
               const file = e.target.files?.[0];
@@ -62,7 +62,7 @@ export function MediaLibraryPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {assets.map((asset) => (
-            <div key={String(asset.id)} className="overflow-hidden rounded-xl border border-white/10 bg-bg-card">
+            <div key={String(asset.id)} className="overflow-hidden rounded-xl border border-line bg-bg-card">
               <div className="aspect-video bg-bg-elevated">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img

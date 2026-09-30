@@ -1,4 +1,7 @@
 import { Injectable } from "@nestjs/common";
+import { BUSINESS_TYPES } from "@cullinos/shared";
+import { ensureBarStationsIfServingAlcohol } from "../../common/kitchen-stations.util";
+import { stockDeductionTrigger } from "../../common/stock-deduction.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
 
@@ -30,6 +33,7 @@ export class OrganizationsService {
         city: true,
         timezone: true,
         currency: true,
+        logoUrl: true,
         settings: { select: { settings: true } },
       },
     });
@@ -38,7 +42,10 @@ export class OrganizationsService {
 
     const subscription = await this.prisma.subscription.findFirst({
       where: { organizationId: orgId },
-      include: { plan: { select: { slug: true, name: true } } },
+      include: {
+        plan: { select: { slug: true, name: true } },
+        entitlements: { where: { enabled: true }, select: { module: true } },
+      },
       orderBy: { createdAt: "desc" },
     });
     const now = Date.now();
@@ -63,14 +70,19 @@ export class OrganizationsService {
       city: org.city,
       timezone: org.timezone,
       currency: org.currency,
+      logoUrl: org.logoUrl,
       setupCompleted: json.setupCompleted === true,
       loyaltySettings: json.loyaltySettings ?? null,
+      language: typeof json.language === "string" ? json.language : null,
       subscriptionStatus: subscription?.status ?? null,
       trialEndsAt: subscription?.trialEndsAt?.toISOString() ?? null,
       trialExpired,
       subscriptionActive: Boolean(subscriptionActive),
       planSlug: subscription?.plan?.slug ?? null,
       planName: subscription?.plan?.name ?? null,
+      enabledModules: subscriptionActive
+        ? (subscription?.entitlements.map((e) => e.module) ?? [])
+        : null,
     };
   }
 
@@ -93,17 +105,30 @@ export class OrganizationsService {
       where: { organizationId: orgId },
     });
     const settings = { ...this.settingsJson(existing?.settings), ...incoming };
-    return this.prisma.organizationSettings.upsert({
+    if ("servesAlcohol" in incoming) settings.servesAlcohol = incoming.servesAlcohol === true;
+    if ("stockDeductionTrigger" in incoming) {
+      settings.stockDeductionTrigger = stockDeductionTrigger(incoming);
+    }
+    const saved = await this.prisma.organizationSettings.upsert({
       where: { organizationId: orgId },
       update: { settings: settings as never },
       create: { organizationId: orgId, settings: settings as never },
     });
+    if (settings.servesAlcohol === true) {
+      await ensureBarStationsIfServingAlcohol(this.prisma, orgId);
+    }
+    return saved;
   }
 
-  update(orgId: string, data: Record<string, unknown>) {
+  async update(orgId: string, data: Record<string, unknown>) {
     const allowed: Record<string, unknown> = {};
     if (typeof data.name === "string") allowed.name = data.name;
-    if (typeof data.businessType === "string") allowed.businessType = data.businessType;
+    if (
+      typeof data.businessType === "string" &&
+      (BUSINESS_TYPES as readonly string[]).includes(data.businessType)
+    ) {
+      allowed.businessType = data.businessType;
+    }
     if (data.restaurantSize === null) allowed.restaurantSize = null;
     else if (typeof data.restaurantSize === "string") allowed.restaurantSize = data.restaurantSize;
     if (data.gstin !== undefined) allowed.gstin = data.gstin;
@@ -113,10 +138,13 @@ export class OrganizationsService {
     if (data.city !== undefined) allowed.city = data.city;
     if (typeof data.timezone === "string") allowed.timezone = data.timezone;
     if (typeof data.currency === "string") allowed.currency = data.currency;
-    return this.prisma.organization.update({
+    if (data.logoUrl !== undefined) allowed.logoUrl = data.logoUrl;
+    const updated = await this.prisma.organization.update({
       where: { id: orgId },
       data: allowed as never,
     });
+    await ensureBarStationsIfServingAlcohol(this.prisma, orgId);
+    return updated;
   }
 
   private settingsJson(value: unknown): Record<string, unknown> {

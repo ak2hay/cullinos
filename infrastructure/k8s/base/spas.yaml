@@ -1,11 +1,11 @@
-# Shared template applied per SPA via kustomize nameSuffix / images in overlays.
-# Each SPA is a separate Deployment+Service in this file.
+# One Deployment+Service per SPA. Images run nginx-unprivileged (uid 101) on :8080.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: spa-admin
   labels:
     app: spa-admin
+    app.kubernetes.io/component: spa
 spec:
   replicas: 1
   selector:
@@ -15,13 +15,32 @@ spec:
     metadata:
       labels:
         app: spa-admin
+        app.kubernetes.io/component: spa
     spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: nginx
           image: ghcr.io/ak2hay/cullinos-spa-admin:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 80
+            - containerPort: 8080
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -32,9 +51,12 @@ spec:
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: http
             initialDelaySeconds: 3
             periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -45,7 +67,7 @@ spec:
     app: spa-admin
   ports:
     - port: 80
-      targetPort: 80
+      targetPort: http
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -53,6 +75,7 @@ metadata:
   name: spa-management
   labels:
     app: spa-management
+    app.kubernetes.io/component: spa
 spec:
   replicas: 1
   selector:
@@ -62,13 +85,32 @@ spec:
     metadata:
       labels:
         app: spa-management
+        app.kubernetes.io/component: spa
     spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: nginx
           image: ghcr.io/ak2hay/cullinos-spa-management:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 80
+            - containerPort: 8080
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -79,7 +121,12 @@ spec:
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -90,7 +137,7 @@ spec:
     app: spa-management
   ports:
     - port: 80
-      targetPort: 80
+      targetPort: http
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -98,6 +145,7 @@ metadata:
   name: spa-super-admin
   labels:
     app: spa-super-admin
+    app.kubernetes.io/component: spa
 spec:
   replicas: 1
   selector:
@@ -107,13 +155,32 @@ spec:
     metadata:
       labels:
         app: spa-super-admin
+        app.kubernetes.io/component: spa
     spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: nginx
           image: ghcr.io/ak2hay/cullinos-spa-super-admin:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 80
+            - containerPort: 8080
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -124,7 +191,12 @@ spec:
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -135,7 +207,77 @@ spec:
     app: spa-super-admin
   ports:
     - port: 80
-      targetPort: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spa-app-ops
+  labels:
+    app: spa-app-ops
+    app.kubernetes.io/component: spa
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spa-app-ops
+  template:
+    metadata:
+      labels:
+        app: spa-app-ops
+        app.kubernetes.io/component: spa
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nginx
+          image: ghcr.io/ak2hay/cullinos-spa-app-ops:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spa-app-ops
+spec:
+  selector:
+    app: spa-app-ops
+  ports:
+    - port: 80
+      targetPort: http
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -143,6 +285,7 @@ metadata:
   name: spa-pos
   labels:
     app: spa-pos
+    app.kubernetes.io/component: spa
 spec:
   replicas: 1
   selector:
@@ -152,13 +295,32 @@ spec:
     metadata:
       labels:
         app: spa-pos
+        app.kubernetes.io/component: spa
     spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: nginx
           image: ghcr.io/ak2hay/cullinos-spa-pos:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 80
+            - containerPort: 8080
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -169,7 +331,12 @@ spec:
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -180,7 +347,7 @@ spec:
     app: spa-pos
   ports:
     - port: 80
-      targetPort: 80
+      targetPort: http
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -188,6 +355,7 @@ metadata:
   name: spa-kds
   labels:
     app: spa-kds
+    app.kubernetes.io/component: spa
 spec:
   replicas: 1
   selector:
@@ -197,13 +365,32 @@ spec:
     metadata:
       labels:
         app: spa-kds
+        app.kubernetes.io/component: spa
     spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: nginx
           image: ghcr.io/ak2hay/cullinos-spa-kds:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 80
+            - containerPort: 8080
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -214,7 +401,12 @@ spec:
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -225,7 +417,77 @@ spec:
     app: spa-kds
   ports:
     - port: 80
-      targetPort: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spa-kiosk
+  labels:
+    app: spa-kiosk
+    app.kubernetes.io/component: spa
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spa-kiosk
+  template:
+    metadata:
+      labels:
+        app: spa-kiosk
+        app.kubernetes.io/component: spa
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nginx
+          image: ghcr.io/ak2hay/cullinos-spa-kiosk:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spa-kiosk
+spec:
+  selector:
+    app: spa-kiosk
+  ports:
+    - port: 80
+      targetPort: http
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -233,6 +495,7 @@ metadata:
   name: spa-guest-landing
   labels:
     app: spa-guest-landing
+    app.kubernetes.io/component: spa
 spec:
   replicas: 1
   selector:
@@ -242,13 +505,32 @@ spec:
     metadata:
       labels:
         app: spa-guest-landing
+        app.kubernetes.io/component: spa
     spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: nginx
           image: ghcr.io/ak2hay/cullinos-spa-guest-landing:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 80
+            - containerPort: 8080
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -259,7 +541,12 @@ spec:
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -270,7 +557,7 @@ spec:
     app: spa-guest-landing
   ports:
     - port: 80
-      targetPort: 80
+      targetPort: http
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -278,6 +565,7 @@ metadata:
   name: spa-waiter-landing
   labels:
     app: spa-waiter-landing
+    app.kubernetes.io/component: spa
 spec:
   replicas: 1
   selector:
@@ -287,13 +575,32 @@ spec:
     metadata:
       labels:
         app: spa-waiter-landing
+        app.kubernetes.io/component: spa
     spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: nginx
           image: ghcr.io/ak2hay/cullinos-spa-waiter-landing:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 80
+            - containerPort: 8080
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -304,7 +611,12 @@ spec:
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -315,4 +627,4 @@ spec:
     app: spa-waiter-landing
   ports:
     - port: 80
-      targetPort: 80
+      targetPort: http

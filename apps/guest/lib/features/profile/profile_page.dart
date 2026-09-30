@@ -1,12 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cullinos_guest/core/firebase/guest_firestore_service.dart';
 import 'package:cullinos_guest/core/friendly_api_error.dart';
 import 'package:cullinos_guest/core/guest_colors.dart';
 import 'package:cullinos_guest/core/guest_spacing.dart';
+import 'package:cullinos_guest/core/theme_mode_controller.dart';
 import 'package:cullinos_guest/data/guest_api.dart';
 import 'package:cullinos_guest/features/auth/auth_controller.dart';
 import 'package:cullinos_guest/features/location/map_pin_page.dart';
@@ -33,6 +37,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   int _totalLoyaltyPts = 0;
   int _coinsBalance = 0;
   int _orderCount = 0;
+  String? _photoUrl;
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
@@ -94,6 +100,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         final orders = await api.orders();
         orderCount = orders.length;
       } catch (_) {}
+      String? photoUrl;
+      try {
+        final uid = FirebaseAuth.instance.currentUser?.uid ??
+            ref.read(authControllerProvider).guestId;
+        if (uid != null && uid.isNotEmpty) {
+          final profile =
+              await ref.read(guestFirestoreServiceProvider).fetchProfile(uid);
+          photoUrl = profile?.photoUrl ??
+              FirebaseAuth.instance.currentUser?.photoURL;
+        }
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _addresses = addresses;
@@ -103,10 +120,84 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         _totalLoyaltyPts = totalPts;
         _coinsBalance = coins;
         _orderCount = orderCount;
+        _photoUrl = photoUrl;
       });
     } catch (_) {
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _setProfilePicture() async {
+    if (_uploadingPhoto) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid ??
+        ref.read(authControllerProvider).guestId;
+    if (uid == null || uid.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to set a profile picture.')),
+      );
+      return;
+    }
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: GuestColors.surfaceOf(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (picked == null || !mounted) return;
+      setState(() => _uploadingPhoto = true);
+      final url = await ref.read(guestFirestoreServiceProvider).uploadProfilePhoto(
+            uid: uid,
+            file: File(picked.path),
+          );
+      if (!mounted) return;
+      setState(() {
+        _photoUrl = url;
+        _uploadingPhoto = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Profile picture updated'),
+          backgroundColor: GuestColors.primaryOf(context),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _uploadingPhoto = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyApiError(e))),
+      );
     }
   }
 
@@ -117,7 +208,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: GuestColors.surface,
+        backgroundColor: GuestColors.surfaceOf(context),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
         ),
@@ -152,7 +243,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
-              backgroundColor: GuestColors.primary,
+              backgroundColor: GuestColors.primaryOf(context),
             ),
             child: const Text('Save'),
           ),
@@ -171,9 +262,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated'),
-            backgroundColor: GuestColors.primary,
+          SnackBar(
+            content: const Text('Profile updated'),
+            backgroundColor: GuestColors.primaryOf(context),
           ),
         );
       }
@@ -212,18 +303,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       return InputDecoration(
         labelText: label,
         filled: true,
-        fillColor: GuestColors.scaffold,
+        fillColor: GuestColors.scaffoldOf(context),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GuestSpacing.radiusSm),
-          borderSide: const BorderSide(color: GuestColors.border),
+          borderSide: BorderSide(color: GuestColors.borderOf(context)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GuestSpacing.radiusSm),
-          borderSide: const BorderSide(color: GuestColors.border),
+          borderSide: BorderSide(color: GuestColors.borderOf(context)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(GuestSpacing.radiusSm),
-          borderSide: const BorderSide(color: GuestColors.primary, width: 1.5),
+          borderSide: BorderSide(color: GuestColors.primaryOf(context), width: 1.5),
         ),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -264,7 +355,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          backgroundColor: GuestColors.surface,
+          backgroundColor: GuestColors.surfaceOf(context),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
           ),
@@ -282,16 +373,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Used for delivery checkout',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: GuestColors.muted,
+                  color: GuestColors.mutedOf(context),
                 ),
               ),
               const SizedBox(height: 10),
-              const Divider(height: 1, color: GuestColors.border),
+              Divider(height: 1, color: GuestColors.borderOf(context)),
             ],
           ),
           content: SingleChildScrollView(
@@ -341,8 +432,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         : 'Pick on map',
                   ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: GuestColors.primary,
-                    side: const BorderSide(color: GuestColors.border),
+                    foregroundColor: GuestColors.primaryOf(context),
+                    side: BorderSide(color: GuestColors.borderOf(context)),
                     minimumSize: const Size(double.infinity, 44),
                     shape: RoundedRectangleBorder(
                       borderRadius:
@@ -377,14 +468,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   decoration: fieldDecoration(
                     'Pincode *',
                     suffix: pincodeLoading
-                        ? const Padding(
-                            padding: EdgeInsets.all(12),
+                        ? Padding(
+                            padding: const EdgeInsets.all(12),
                             child: SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: GuestColors.primary,
+                                color: GuestColors.primaryOf(context),
                               ),
                             ),
                           )
@@ -424,12 +515,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     'Default address',
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                   ),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Prefill this on delivery checkout',
-                    style: TextStyle(fontSize: 11, color: GuestColors.muted),
+                    style: TextStyle(fontSize: 11, color: GuestColors.mutedOf(context)),
                   ),
                   value: isDefault,
-                  activeThumbColor: GuestColors.primary,
+                  activeThumbColor: GuestColors.primaryOf(context),
                   onChanged: (v) => setLocal(() => isDefault = v),
                 ),
                 if (formError != null)
@@ -472,7 +563,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 Navigator.pop(ctx, true);
               },
               style: FilledButton.styleFrom(
-                backgroundColor: GuestColors.primary,
+                backgroundColor: GuestColors.primaryOf(context),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(GuestSpacing.radiusSm),
                 ),
@@ -528,11 +619,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         if (active.isActive) context.go(active.outletPath);
       },
       child: Scaffold(
-        backgroundColor: GuestColors.scaffold,
+        backgroundColor: GuestColors.scaffoldOf(context),
         body: SafeArea(
           child: _loading
-              ? const Center(
-                  child: CircularProgressIndicator(color: GuestColors.primary),
+              ? Center(
+                  child: CircularProgressIndicator(color: GuestColors.primaryOf(context)),
                 )
               : ListView(
                   padding: const EdgeInsets.fromLTRB(
@@ -551,25 +642,38 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       name: auth.name?.isNotEmpty == true
                           ? auth.name!
                           : 'Guest',
-                      trailing: IconButton(
-                        onPressed: _editProfile,
-                        icon: const Icon(
-                          Icons.edit_rounded,
-                          color: GuestColors.primary,
-                        ),
-                      ),
+                      photoUrl: _photoUrl,
+                      onAvatarTap:
+                          _uploadingPhoto ? null : _setProfilePicture,
+                      showSetPhotoHint: true,
+                      trailing: _uploadingPhoto
+                          ? SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: GuestColors.primaryOf(context),
+                              ),
+                            )
+                          : IconButton(
+                              onPressed: _editProfile,
+                              icon: Icon(
+                                Icons.edit_rounded,
+                                color: GuestColors.primaryOf(context),
+                              ),
+                            ),
                     ),
                     const SizedBox(height: 4),
                     if (auth.phone != null && auth.phone!.isNotEmpty)
                       Row(
                         children: [
-                          const Icon(Icons.phone_outlined,
-                              size: 14, color: GuestColors.muted),
+                          Icon(Icons.phone_outlined,
+                              size: 14, color: GuestColors.mutedOf(context)),
                           const SizedBox(width: 6),
                           Text(
                             _formatPhone(auth.phone),
-                            style: const TextStyle(
-                                color: GuestColors.muted, fontSize: 13),
+                            style: TextStyle(
+                                color: GuestColors.mutedOf(context), fontSize: 13),
                           ),
                         ],
                       ),
@@ -577,16 +681,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          const Icon(Icons.email_outlined,
-                              size: 14, color: GuestColors.muted),
+                          Icon(Icons.email_outlined,
+                              size: 14, color: GuestColors.mutedOf(context)),
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
                               auth.email!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  color: GuestColors.muted, fontSize: 13),
+                              style: TextStyle(
+                                  color: GuestColors.mutedOf(context), fontSize: 13),
                             ),
                           ),
                         ],
@@ -629,8 +733,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           horizontal: 12, vertical: 10),
                       child: Row(
                         children: [
-                          const Icon(Icons.receipt_long_rounded,
-                              color: GuestColors.primary, size: 20),
+                          Icon(Icons.receipt_long_rounded,
+                              color: GuestColors.primaryOf(context), size: 20),
                           const SizedBox(width: 10),
                           const Expanded(
                             child: Text(
@@ -640,12 +744,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           ),
                           Text(
                             '$_orderCount',
-                            style: const TextStyle(
-                                color: GuestColors.muted,
+                            style: TextStyle(
+                                color: GuestColors.mutedOf(context),
                                 fontWeight: FontWeight.w600),
                           ),
-                          const Icon(Icons.chevron_right,
-                              color: GuestColors.muted),
+                          Icon(Icons.chevron_right,
+                              color: GuestColors.mutedOf(context)),
                         ],
                       ),
                     ),
@@ -656,8 +760,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           horizontal: 12, vertical: 10),
                       child: Row(
                         children: [
-                          const Icon(Icons.card_giftcard_rounded,
-                              color: GuestColors.primary, size: 20),
+                          Icon(Icons.card_giftcard_rounded,
+                              color: GuestColors.primaryOf(context), size: 20),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
@@ -671,14 +775,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                   _membershipCount == 0
                                       ? 'Join restaurants to earn points'
                                       : '$_membershipCount restaurants · $_totalLoyaltyPts pts',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: GuestColors.muted),
+                                  style: TextStyle(
+                                      fontSize: 12, color: GuestColors.mutedOf(context)),
                                 ),
                               ],
                             ),
                           ),
-                          const Icon(Icons.chevron_right,
-                              color: GuestColors.muted),
+                          Icon(Icons.chevron_right,
+                              color: GuestColors.mutedOf(context)),
                         ],
                       ),
                     ),
@@ -692,8 +796,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           Container(
                             width: 28,
                             height: 28,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFDCFCE7),
+                            decoration: BoxDecoration(
+                              color: GuestColors.softOf(context,
+                                  const Color(0xFFDCFCE7), const Color(0xFF15803D)),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -713,14 +818,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                 ),
                                 Text(
                                   'Balance $_coinsBalance',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: GuestColors.muted),
+                                  style: TextStyle(
+                                      fontSize: 12, color: GuestColors.mutedOf(context)),
                                 ),
                               ],
                             ),
                           ),
-                          const Icon(Icons.chevron_right,
-                              color: GuestColors.muted),
+                          Icon(Icons.chevron_right,
+                              color: GuestColors.mutedOf(context)),
                         ],
                       ),
                     ),
@@ -729,18 +834,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       onTap: () => context.push('/notifications'),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
-                      child: const Row(
+                      child: Row(
                         children: [
                           Icon(Icons.notifications_none_rounded,
-                              color: GuestColors.primary, size: 20),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
+                              color: GuestColors.primaryOf(context), size: 20),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: const Text(
                               'Notifications inbox',
-                              style: TextStyle(fontWeight: FontWeight.w700),
+                              style: const TextStyle(fontWeight: FontWeight.w700),
                             ),
                           ),
-                          Icon(Icons.chevron_right, color: GuestColors.muted),
+                          Icon(Icons.chevron_right, color: GuestColors.mutedOf(context)),
                         ],
                       ),
                     ),
@@ -752,16 +857,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     ),
                     const SizedBox(height: 8),
                     if (_addresses.isEmpty)
-                      const GuestSoftCard(
+                      GuestSoftCard(
                         child: Row(
                           children: [
                             Icon(Icons.location_on_outlined,
-                                color: GuestColors.muted),
-                            SizedBox(width: 10),
+                                color: GuestColors.mutedOf(context)),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 'No addresses yet. Add one for delivery.',
-                                style: TextStyle(color: GuestColors.muted),
+                                style: TextStyle(color: GuestColors.mutedOf(context)),
                               ),
                             ),
                           ],
@@ -793,16 +898,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                       height: 32,
                                       decoration: BoxDecoration(
                                         color: isDefault
-                                            ? GuestColors.primarySoft
-                                            : GuestColors.borderLight,
+                                            ? GuestColors.primarySoftOf(context)
+                                            : GuestColors.borderLightOf(context),
                                         shape: BoxShape.circle,
                                       ),
                                       child: Icon(
                                         Icons.home_outlined,
                                         size: 16,
                                         color: isDefault
-                                            ? GuestColors.primary
-                                            : GuestColors.muted,
+                                            ? GuestColors.primaryOf(context)
+                                            : GuestColors.mutedOf(context),
                                       ),
                                     ),
                                     const SizedBox(width: 10),
@@ -819,16 +924,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 8, vertical: 3),
                                         decoration: BoxDecoration(
-                                          color: GuestColors.primarySoft,
+                                          color: GuestColors.primarySoftOf(context),
                                           borderRadius:
                                               BorderRadius.circular(999),
                                         ),
-                                        child: const Text(
+                                        child: Text(
                                           'Default',
                                           style: TextStyle(
                                             fontSize: 10,
                                             fontWeight: FontWeight.w700,
-                                            color: GuestColors.primaryDeep,
+                                            color: GuestColors.primaryDeepOf(context),
                                           ),
                                         ),
                                       ),
@@ -838,15 +943,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                   const SizedBox(height: 4),
                                   Text(
                                     subtitle,
-                                    style: const TextStyle(
-                                        fontSize: 12, color: GuestColors.muted),
+                                    style: TextStyle(
+                                        fontSize: 12, color: GuestColors.mutedOf(context)),
                                   ),
                                 ],
                                 Row(
                                   children: [
                                     TextButton(
                                       style: TextButton.styleFrom(
-                                        foregroundColor: GuestColors.primary,
+                                        foregroundColor: GuestColors.primaryOf(context),
                                         visualDensity: VisualDensity.compact,
                                       ),
                                       onPressed: () => _editAddress(a),
@@ -855,7 +960,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                     if (!isDefault)
                                       TextButton(
                                         style: TextButton.styleFrom(
-                                          foregroundColor: GuestColors.primary,
+                                          foregroundColor: GuestColors.primaryOf(context),
                                           visualDensity: VisualDensity.compact,
                                         ),
                                         onPressed: () => _setDefaultAddress(
@@ -871,8 +976,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                             .deleteAddress(a['id'].toString());
                                         await _load();
                                       },
-                                      icon: const Icon(Icons.delete_outline,
-                                          color: GuestColors.muted, size: 20),
+                                      icon: Icon(Icons.delete_outline,
+                                          color: GuestColors.mutedOf(context), size: 20),
                                     ),
                                   ],
                                 ),
@@ -886,16 +991,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         title: 'Saved restaurants', emoji: '❤️'),
                     const SizedBox(height: 8),
                     if (_favorites.isEmpty)
-                      const GuestSoftCard(
+                      GuestSoftCard(
                         child: Row(
                           children: [
                             Icon(Icons.favorite_border,
-                                color: GuestColors.muted),
-                            SizedBox(width: 10),
+                                color: GuestColors.mutedOf(context)),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 'Heart places from their detail page.',
-                                style: TextStyle(color: GuestColors.muted),
+                                style: TextStyle(color: GuestColors.mutedOf(context)),
                               ),
                             ),
                           ],
@@ -918,8 +1023,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                 horizontal: 12, vertical: 10),
                             child: Row(
                               children: [
-                                const Icon(Icons.favorite_rounded,
-                                    color: GuestColors.primary, size: 18),
+                                Icon(Icons.favorite_rounded,
+                                    color: GuestColors.primaryOf(context), size: 18),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
@@ -941,15 +1046,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                           outlet['name'].toString(),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                               fontSize: 11,
-                                              color: GuestColors.muted),
+                                              color: GuestColors.mutedOf(context)),
                                         ),
                                     ],
                                   ),
                                 ),
-                                const Icon(Icons.chevron_right,
-                                    color: GuestColors.muted),
+                                Icon(Icons.chevron_right,
+                                    color: GuestColors.mutedOf(context)),
                               ],
                             ),
                           ),
@@ -972,7 +1077,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                             subtitle: const Text('Transactional messages',
                                 style: TextStyle(fontSize: 12)),
                             value: _prefs?['transactionalEnabled'] != false,
-                            activeThumbColor: GuestColors.primary,
+                            activeThumbColor: GuestColors.primaryOf(context),
                             onChanged: (v) async {
                               final prefs = await ref
                                   .read(guestApiProvider)
@@ -982,15 +1087,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                               setState(() => _prefs = prefs);
                             },
                           ),
-                          const Divider(
-                              height: 1, color: GuestColors.borderLight),
+                          Divider(
+                              height: 1, color: GuestColors.borderLightOf(context)),
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
                             dense: true,
                             title: const Text('Offers & marketing',
                                 style: TextStyle(fontSize: 14)),
                             value: _prefs?['marketingEnabled'] != false,
-                            activeThumbColor: GuestColors.primary,
+                            activeThumbColor: GuestColors.primaryOf(context),
                             onChanged: (v) async {
                               final prefs = await ref
                                   .read(guestApiProvider)
@@ -1004,24 +1109,31 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    const GuestSectionHeader(title: 'Appearance', emoji: '🌓'),
+                    const SizedBox(height: 8),
+                    const GuestSoftCard(
+                      padding: EdgeInsets.all(12),
+                      child: _AppearanceSelector(),
+                    ),
+                    const SizedBox(height: 12),
                     const GuestSectionHeader(title: 'Privacy & legal'),
                     const SizedBox(height: 8),
                     GuestSoftCard(
                       onTap: () => context.push('/privacy'),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
-                      child: const Row(
+                      child: Row(
                         children: [
                           Icon(Icons.privacy_tip_outlined,
-                              color: GuestColors.muted, size: 20),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
+                              color: GuestColors.mutedOf(context), size: 20),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: const Text(
                               'Privacy Policy',
-                              style: TextStyle(fontWeight: FontWeight.w600),
+                              style: const TextStyle(fontWeight: FontWeight.w600),
                             ),
                           ),
-                          Icon(Icons.chevron_right, color: GuestColors.muted),
+                          Icon(Icons.chevron_right, color: GuestColors.mutedOf(context)),
                         ],
                       ),
                     ),
@@ -1030,34 +1142,34 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       onTap: () => context.push('/terms'),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
-                      child: const Row(
+                      child: Row(
                         children: [
                           Icon(Icons.description_outlined,
-                              color: GuestColors.muted, size: 20),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
+                              color: GuestColors.mutedOf(context), size: 20),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: const Text(
                               'Terms of Service',
-                              style: TextStyle(fontWeight: FontWeight.w600),
+                              style: const TextStyle(fontWeight: FontWeight.w600),
                             ),
                           ),
-                          Icon(Icons.chevron_right, color: GuestColors.muted),
+                          Icon(Icons.chevron_right, color: GuestColors.mutedOf(context)),
                         ],
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const GuestSoftCard(
-                      padding: EdgeInsets.all(12),
+                    GuestSoftCard(
+                      padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
                           Icon(Icons.info_outline,
-                              color: GuestColors.muted, size: 18),
-                          SizedBox(width: 10),
+                              color: GuestColors.mutedOf(context), size: 18),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               'Data export and erasure are available via Cullinos privacy controls.',
                               style: TextStyle(
-                                  color: GuestColors.muted,
+                                  color: GuestColors.mutedOf(context),
                                   height: 1.4,
                                   fontSize: 13),
                             ),
@@ -1078,38 +1190,38 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       },
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
-                      child: const Row(
+                      child: Row(
                         children: [
                           Icon(Icons.email_outlined,
-                              color: GuestColors.primary, size: 20),
-                          SizedBox(width: 12),
+                              color: GuestColors.primaryOf(context), size: 20),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                const Text(
                                   'Contact support',
-                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                  style: const TextStyle(fontWeight: FontWeight.w700),
                                 ),
                                 Text(
                                   'support@cullinos.com',
                                   style: TextStyle(
-                                      fontSize: 12, color: GuestColors.muted),
+                                      fontSize: 12, color: GuestColors.mutedOf(context)),
                                 ),
                               ],
                             ),
                           ),
-                          Icon(Icons.chevron_right, color: GuestColors.muted),
+                          Icon(Icons.chevron_right, color: GuestColors.mutedOf(context)),
                         ],
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Center(
+                    Center(
                       child: Text(
                         'Version 1.0.0',
                         style: TextStyle(
                           fontSize: 12,
-                          color: GuestColors.muted,
+                          color: GuestColors.mutedOf(context),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -1124,6 +1236,57 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     ),
                   ],
                 ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppearanceSelector extends ConsumerWidget {
+  const _AppearanceSelector();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(themeModeProvider);
+    return SizedBox(
+      width: double.infinity,
+      child: SegmentedButton<ThemeMode>(
+        showSelectedIcon: false,
+        segments: const [
+          ButtonSegment(
+            value: ThemeMode.light,
+            icon: Icon(Icons.light_mode_outlined, size: 18),
+            label: Text('Light'),
+          ),
+          ButtonSegment(
+            value: ThemeMode.dark,
+            icon: Icon(Icons.dark_mode_outlined, size: 18),
+            label: Text('Dark'),
+          ),
+          ButtonSegment(
+            value: ThemeMode.system,
+            icon: Icon(Icons.brightness_auto_outlined, size: 18),
+            label: Text('System'),
+          ),
+        ],
+        selected: {controller.mode},
+        onSelectionChanged: (selection) =>
+            controller.setMode(selection.first),
+        style: ButtonStyle(
+          visualDensity: VisualDensity.comfortable,
+          side: WidgetStatePropertyAll(
+            BorderSide(color: GuestColors.borderOf(context)),
+          ),
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? GuestColors.primarySoftOf(context)
+                : Colors.transparent,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? GuestColors.primaryOf(context)
+                : GuestColors.mutedOf(context),
+          ),
         ),
       ),
     );
@@ -1148,7 +1311,7 @@ class _ProfileStatTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
-          color: GuestColors.surface,
+          color: GuestColors.surfaceOf(context),
           borderRadius: BorderRadius.circular(GuestSpacing.radiusSm),
           boxShadow: GuestSpacing.cardShadow,
         ),
@@ -1156,18 +1319,18 @@ class _ProfileStatTile extends StatelessWidget {
           children: [
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 16,
-                color: GuestColors.primaryDeep,
+                color: GuestColors.primaryDeepOf(context),
               ),
             ),
             const SizedBox(height: 2),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: GuestColors.muted,
+                color: GuestColors.mutedOf(context),
                 fontWeight: FontWeight.w600,
               ),
             ),

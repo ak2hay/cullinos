@@ -1,10 +1,13 @@
+import 'package:cullinos_guest/core/friendly_api_error.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cullinos_guest/core/guest_colors.dart';
 import 'package:cullinos_guest/core/guest_spacing.dart';
 import 'package:cullinos_guest/data/guest_api.dart';
+import 'package:cullinos_guest/features/outlet/alcohol_gate.dart';
 import 'package:cullinos_guest/features/outlet/cart_controller.dart';
 import 'package:cullinos_guest/features/outlet/menu_utils.dart';
 import 'package:cullinos_guest/widgets/guest_badges.dart';
@@ -38,11 +41,18 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   int _qty = 1;
   String? _selectedVariantId;
   final Map<String, Map<String, dynamic>> _selectedMods = {};
+  final _noteController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -68,7 +78,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
             variants.isEmpty ? null : variants.first['id']?.toString();
       });
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyApiError(e));
     } finally {
       setState(() => _loading = false);
     }
@@ -95,9 +105,14 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     return price;
   }
 
-  void _addToCart() {
+  Future<void> _addToCart() async {
     final item = _item;
     if (item == null) return;
+    final alcohol = isAlcoholItem(item);
+    if (alcohol && !await ensureDrinkingAge(context, ref.read(cartProvider))) {
+      return;
+    }
+    if (!mounted) return;
     final variants = List<Map<String, dynamic>>.from(
       (item['variants'] as List? ?? [])
           .map((e) => Map<String, dynamic>.from(e as Map)),
@@ -139,6 +154,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       );
     }
 
+    HapticFeedback.lightImpact();
     cart.addItem(
       menuItemId: item['id'].toString(),
       name: display,
@@ -147,13 +163,17 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
       variantLabel: variantLabel,
       modifiers: mods.isEmpty ? null : mods,
       quantity: _qty,
+      notes: _noteController.text,
       imageUrl: item['imageUrl']?.toString(),
       isVeg: item['isVeg'] == true,
+      isAlcohol: alcohol,
     );
+    _noteController.clear();
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Added ${item['name']} to cart'),
+        duration: const Duration(seconds: 2),
         action: SnackBarAction(
           label: 'View Cart',
           onPressed: () => context.push(
@@ -193,7 +213,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         outlet?['name']?.toString() ?? org?['name']?.toString() ?? 'Restaurant';
 
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       body: Column(
         children: [
           Expanded(
@@ -289,8 +309,8 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                         const SizedBox(height: 10),
                         Text(
                           desc,
-                          style: const TextStyle(
-                            color: GuestColors.muted,
+                          style: TextStyle(
+                            color: GuestColors.mutedOf(context),
                             height: 1.45,
                           ),
                         ),
@@ -300,13 +320,20 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                         spacing: 10,
                         runSpacing: 8,
                         children: [
-                          _metaChip(
-                            isVeg ? Icons.circle : Icons.circle,
-                            isVeg ? 'Veg' : 'Non-Veg',
-                            isVeg
-                                ? const Color(0xFF16A34A)
-                                : GuestColors.popularRed,
-                          ),
+                          if (isAlcoholItem(item))
+                            _metaChip(
+                              Icons.local_bar_rounded,
+                              'Dine-in only',
+                              GuestColors.primaryOf(context),
+                            )
+                          else
+                            _metaChip(
+                              isVeg ? Icons.circle : Icons.circle,
+                              isVeg ? 'Veg' : 'Non-Veg',
+                              isVeg
+                                  ? const Color(0xFF16A34A)
+                                  : GuestColors.popularRed,
+                            ),
                           if (item['calories'] != null)
                             _metaChip(
                               Icons.local_fire_department_rounded,
@@ -341,9 +368,9 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                     (outlet?['cuisineTypes'] as List?)
                                             ?.join(', ') ??
                                         'Restaurant',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12,
-                                      color: GuestColors.muted,
+                                      color: GuestColors.mutedOf(context),
                                     ),
                                   ),
                                 ],
@@ -375,11 +402,11 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Required',
                           style: TextStyle(
                             fontSize: 12,
-                            color: GuestColors.muted,
+                            color: GuestColors.mutedOf(context),
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -413,11 +440,11 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Optional',
                           style: TextStyle(
                             fontSize: 12,
-                            color: GuestColors.muted,
+                            color: GuestColors.mutedOf(context),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -461,6 +488,30 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                           ),
                         ),
                       ],
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Add note',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _noteController,
+                        maxLines: 2,
+                        maxLength: cartNoteMaxLength,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          hintText: 'E.g. no onion, less spicy, extra cheese',
+                          prefixIcon: const Icon(Icons.edit_note_rounded),
+                          filled: true,
+                          fillColor: GuestColors.surfaceOf(context),
+                          border: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(GuestSpacing.radiusSm),
+                            borderSide:
+                                BorderSide(color: GuestColors.borderOf(context)),
+                          ),
+                        ),
+                      ),
                       if (desc.isNotEmpty) ...[
                         const SizedBox(height: 16),
                         Container(
@@ -493,7 +544,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                                 desc,
                                 style: TextStyle(
                                   fontStyle: FontStyle.italic,
-                                  color: GuestColors.ink.withValues(alpha: 0.8),
+                                  color: GuestColors.inkOf(context).withValues(alpha: 0.8),
                                   height: 1.4,
                                 ),
                               ),
@@ -542,7 +593,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
 
   Widget _roundIcon(IconData icon, VoidCallback onTap) {
     return Material(
-      color: Colors.white,
+      color: GuestColors.surfaceOf(context),
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
@@ -550,7 +601,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         child: SizedBox(
           width: 40,
           height: 40,
-          child: Icon(icon, size: 18, color: GuestColors.ink),
+          child: Icon(icon, size: 18, color: GuestColors.inkOf(context)),
         ),
       ),
     );
@@ -560,9 +611,9 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: GuestColors.surface,
+        color: GuestColors.surfaceOf(context),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: GuestColors.border),
+        border: Border.all(color: GuestColors.borderOf(context)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -600,10 +651,10 @@ class _SizeCard extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: selected ? GuestColors.primarySoftOf(context) : GuestColors.surface,
+          color: selected ? GuestColors.primarySoftOf(context) : GuestColors.surfaceOf(context),
           borderRadius: BorderRadius.circular(GuestSpacing.radiusSm),
           border: Border.all(
-            color: selected ? GuestColors.primaryOf(context) : GuestColors.border,
+            color: selected ? GuestColors.primaryOf(context) : GuestColors.borderOf(context),
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -613,13 +664,13 @@ class _SizeCard extends StatelessWidget {
               label,
               style: TextStyle(
                 fontWeight: FontWeight.w700,
-                color: selected ? GuestColors.primaryDeepOf(context) : GuestColors.ink,
+                color: selected ? GuestColors.primaryDeepOf(context) : GuestColors.inkOf(context),
               ),
             ),
             const SizedBox(height: 2),
             Text(
               price,
-              style: const TextStyle(fontSize: 12, color: GuestColors.muted),
+              style: TextStyle(fontSize: 12, color: GuestColors.mutedOf(context)),
             ),
           ],
         ),
@@ -643,9 +694,9 @@ class _ValueProp extends StatelessWidget {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 10,
-            color: GuestColors.muted,
+            color: GuestColors.mutedOf(context),
             height: 1.2,
           ),
         ),

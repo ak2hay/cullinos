@@ -12,20 +12,24 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { OrgId, Public, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { getJwtSecret } from "../../common/jwt-secret.util";
 import { LoyaltyService } from "./loyalty.service";
 
 @Controller("loyalty")
+@RequirePermissions("settings:update")
 export class LoyaltyController {
   constructor(private service: LoyaltyService) {}
 
   @Get()
+  @RequirePermissions("customer:read")
   list(@OrgId() orgId: string) {
     return this.service.list(orgId);
   }
 
   @Get("settings")
   @RequireModule("loyalty")
+  @RequirePermissions("customer:read")
   getSettings(@OrgId() orgId: string) {
     return this.service.getSettings(orgId);
   }
@@ -50,18 +54,21 @@ export class LoyaltyController {
 
   @Post("customers/:customerId/stamp")
   @RequireModule("loyalty")
+  @RequirePermissions("pos:access", "customer:update")
   addStamp(@OrgId() orgId: string, @Param("customerId") customerId: string) {
     return this.service.addStamp(orgId, customerId);
   }
 
   @Post("customers/:customerId/redeem-stamps")
   @RequireModule("loyalty")
+  @RequirePermissions("pos:access", "customer:update")
   redeemStamps(@OrgId() orgId: string, @Param("customerId") customerId: string) {
     return this.service.redeemStamps(orgId, customerId);
   }
 
   @Post("customers/:customerId/redeem")
   @RequireModule("loyalty")
+  @RequirePermissions("pos:access", "customer:update")
   redeemPoints(
     @OrgId() orgId: string,
     @Param("customerId") customerId: string,
@@ -77,6 +84,7 @@ export class LoyaltyController {
 
   @Get("rewards")
   @RequireModule("loyalty")
+  @RequirePermissions("customer:read")
   listRewards(@OrgId() orgId: string) {
     return this.service.listRewards(orgId);
   }
@@ -105,6 +113,7 @@ export class LoyaltyController {
 
   @Post("customers/:customerId/redeem-reward")
   @RequireModule("loyalty")
+  @RequirePermissions("pos:access", "customer:update")
   redeemReward(
     @OrgId() orgId: string,
     @Param("customerId") customerId: string,
@@ -140,7 +149,7 @@ export class PublicLoyaltyController {
       if (payload.type !== "customer") {
         throw new UnauthorizedException("Not a customer token");
       }
-      if (payload.orgId && payload.orgId !== orgId) {
+      if (!payload.orgId || payload.orgId !== orgId) {
         throw new UnauthorizedException("Organization mismatch");
       }
       return payload.sub;
@@ -181,6 +190,7 @@ export class PublicLoyaltyController {
       customerId,
       Number(body.points),
       body.orderId,
+      { requireOwnedOrder: true },
     );
   }
 
@@ -206,6 +216,7 @@ export class PublicLoyaltyController {
       customerId,
       body.rewardId,
       body.orderId,
+      { requireOwnedOrder: true },
     );
   }
 }

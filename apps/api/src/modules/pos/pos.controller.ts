@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Param, Post, Query } from "@nestjs/common";
 import { CurrentUser, OrgId, RequireModule } from "../../common/decorators";
 import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import type { JwtPayload } from "@cullinos/auth";
@@ -14,12 +14,19 @@ export class PosController {
 
   @Post("quick-order")
   @RequireModule("pos")
+  @RequirePermissions("pos:access")
   quickOrder(
     @OrgId() orgId: string,
     @CurrentUser() user: JwtPayload,
     @Body() body: Record<string, unknown>,
+    @Headers("idempotency-key") idempotencyHeader?: string,
   ) {
+    const idempotencyKey =
+      (typeof body.idempotencyKey === "string" && body.idempotencyKey.trim()) ||
+      idempotencyHeader?.trim() ||
+      undefined;
     return this.ordersService.create(orgId, user.sub, {
+      idempotencyKey,
       outletId: body.outletId as string,
       source: (body.source as string) ?? "POS",
       type: (body.type as string) ?? undefined,
@@ -28,6 +35,8 @@ export class PosController {
       customerName: body.customerName as string | undefined,
       tipAmount: body.tipAmount as number | undefined,
       notes: body.notes as string | undefined,
+      deliveryAddress: typeof body.deliveryAddress === "string" ? body.deliveryAddress : undefined,
+      deliveryPincode: typeof body.deliveryPincode === "string" ? body.deliveryPincode : undefined,
       items: body.items as never,
       autoConfirm: body.autoConfirm !== false,
     });
@@ -35,18 +44,21 @@ export class PosController {
 
   @Post("orders/:id/hold")
   @RequireModule("pos")
+  @RequirePermissions("pos:access", "order:update")
   holdOrder(@OrgId() orgId: string, @Param("id") id: string) {
     return this.ordersService.hold(orgId, id);
   }
 
   @Post("orders/:id/resume")
   @RequireModule("pos")
+  @RequirePermissions("pos:access", "order:update")
   resumeOrder(@OrgId() orgId: string, @Param("id") id: string) {
     return this.ordersService.resume(orgId, id);
   }
 
   @Get("shifts/open")
   @RequireModule("pos")
+  @RequirePermissions("pos:access")
   openShiftStatus(
     @OrgId() orgId: string,
     @CurrentUser() user: JwtPayload,

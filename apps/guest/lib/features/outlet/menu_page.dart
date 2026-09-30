@@ -1,9 +1,12 @@
+import 'package:cullinos_guest/core/friendly_api_error.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cullinos_guest/core/guest_colors.dart';
 import 'package:cullinos_guest/core/guest_spacing.dart';
 import 'package:cullinos_guest/data/guest_api.dart';
+import 'package:cullinos_guest/features/outlet/alcohol_gate.dart';
 import 'package:cullinos_guest/features/outlet/cart_controller.dart';
 import 'package:cullinos_guest/features/outlet/menu_utils.dart';
 import 'package:cullinos_guest/widgets/guest_back_button.dart';
@@ -30,6 +33,7 @@ class _MenuPageState extends ConsumerState<MenuPage> {
   List<Map<String, dynamic>> _categories = [];
   bool _loading = true;
   String? _error;
+
   /// all | veg | nonveg
   String _dietFilter = 'all';
   String? _selectedCategoryId; // null = show all
@@ -64,7 +68,7 @@ class _MenuPageState extends ConsumerState<MenuPage> {
       setState(() => _categories = cats);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyApiError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -98,17 +102,14 @@ class _MenuPageState extends ConsumerState<MenuPage> {
         items = items
             .where((i) =>
                 (i['name']?.toString().toLowerCase() ?? '').contains(q) ||
-                (i['description']?.toString().toLowerCase() ?? '')
-                    .contains(q))
+                (i['description']?.toString().toLowerCase() ?? '').contains(q))
             .toList();
       }
       return {...cat, 'items': items};
     }).toList();
 
     // Drop empty categories
-    return cats
-        .where((c) => (c['items'] as List? ?? []).isNotEmpty)
-        .toList();
+    return cats.where((c) => (c['items'] as List? ?? []).isNotEmpty).toList();
   }
 
   // ─── Build ─────────────────────────────────────────────────────────────────
@@ -118,40 +119,44 @@ class _MenuPageState extends ConsumerState<MenuPage> {
     final cart = ref.watch(cartProvider);
 
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       appBar: _buildAppBar(),
-      body: _loading
-          ? const GuestLoading()
-          : _error != null
-              ? Center(child: Text(_error!))
-              : _categories.isEmpty
-                  ? const GuestEmptyState(
-                      message: 'Menu is empty right now.',
-                      icon: Icons.restaurant_menu_outlined,
-                    )
-                  : _buildBody(),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 280),
+        switchInCurve: Curves.easeOutCubic,
+        child: _loading
+            ? const GuestLoading()
+            : _error != null
+                ? Center(child: Text(_error!))
+                : _categories.isEmpty
+                    ? const GuestEmptyState(
+                        message: 'Menu is empty right now.',
+                        icon: Icons.restaurant_menu_outlined,
+                      )
+                    : _buildBody(),
+      ),
       bottomNavigationBar: cart.lines.isEmpty
           ? null
           : GuestCartStickyBar(
               itemCount: cart.itemCount,
               totalLabel: '₹${cart.subtotal.toStringAsFixed(0)}',
-              onViewCart: () => context.push(
-                  '/o/${widget.orgSlug}/${widget.outletSlug}/cart'),
+              onViewCart: () => context
+                  .push('/o/${widget.orgSlug}/${widget.outletSlug}/cart'),
             ),
     );
   }
 
   AppBar _buildAppBar() {
     return AppBar(
-      backgroundColor: GuestColors.surface,
+      backgroundColor: GuestColors.surfaceOf(context),
       surfaceTintColor: Colors.transparent,
       leading: const GuestBackButton(),
       titleSpacing: 0,
-      title: const Text(
+      title: Text(
         'Menu',
         style: TextStyle(
           fontWeight: FontWeight.w800,
-          color: GuestColors.ink,
+          color: GuestColors.inkOf(context),
           fontSize: 18,
         ),
       ),
@@ -176,13 +181,16 @@ class _MenuPageState extends ConsumerState<MenuPage> {
                           horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: _dietFilter == entry.$1
-                            ? const Color(0xFFE8F8EF)
-                            : GuestColors.surface,
+                            ? GuestColors.softOf(
+                                context,
+                                const Color(0xFFE8F8EF),
+                                const Color(0xFF1B8A4A))
+                            : GuestColors.surfaceOf(context),
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(
                           color: _dietFilter == entry.$1
                               ? const Color(0xFF1B8A4A)
-                              : GuestColors.border,
+                              : GuestColors.borderOf(context),
                         ),
                       ),
                       child: Text(
@@ -192,7 +200,7 @@ class _MenuPageState extends ConsumerState<MenuPage> {
                           fontWeight: FontWeight.w600,
                           color: _dietFilter == entry.$1
                               ? const Color(0xFF1B8A4A)
-                              : GuestColors.muted,
+                              : GuestColors.mutedOf(context),
                         ),
                       ),
                     ),
@@ -206,7 +214,7 @@ class _MenuPageState extends ConsumerState<MenuPage> {
         preferredSize: const Size.fromHeight(1),
         child: Container(
           height: 1,
-          color: GuestColors.border,
+          color: GuestColors.borderOf(context),
         ),
       ),
     );
@@ -226,13 +234,13 @@ class _MenuPageState extends ConsumerState<MenuPage> {
             decoration: InputDecoration(
               hintText: 'Search dishes…',
               hintStyle:
-                  const TextStyle(color: GuestColors.muted, fontSize: 14),
-              prefixIcon: const Icon(Icons.search_rounded,
-                  color: GuestColors.muted, size: 20),
+                  TextStyle(color: GuestColors.mutedOf(context), fontSize: 14),
+              prefixIcon: Icon(Icons.search_rounded,
+                  color: GuestColors.mutedOf(context), size: 20),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.close_rounded,
-                          color: GuestColors.muted, size: 18),
+                      icon: Icon(Icons.close_rounded,
+                          color: GuestColors.mutedOf(context), size: 18),
                       onPressed: () {
                         _searchController.clear();
                         setState(() => _searchQuery = '');
@@ -240,22 +248,19 @@ class _MenuPageState extends ConsumerState<MenuPage> {
                     )
                   : null,
               filled: true,
-              fillColor: GuestColors.surface,
+              fillColor: GuestColors.surfaceOf(context),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               border: OutlineInputBorder(
-                borderRadius:
-                    BorderRadius.circular(GuestSpacing.radiusMd),
-                borderSide: const BorderSide(color: GuestColors.border),
+                borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
+                borderSide: BorderSide(color: GuestColors.borderOf(context)),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius:
-                    BorderRadius.circular(GuestSpacing.radiusMd),
-                borderSide: const BorderSide(color: GuestColors.border),
+                borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
+                borderSide: BorderSide(color: GuestColors.borderOf(context)),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius:
-                    BorderRadius.circular(GuestSpacing.radiusMd),
+                borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
                 borderSide: BorderSide(
                     color: GuestColors.primaryOf(context), width: 1.5),
               ),
@@ -270,8 +275,8 @@ class _MenuPageState extends ConsumerState<MenuPage> {
             height: 36,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: GuestSpacing.page),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: GuestSpacing.page),
               itemCount: _categories.length + 1, // +1 for "All"
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (_, i) {
@@ -280,8 +285,7 @@ class _MenuPageState extends ConsumerState<MenuPage> {
                   return _CategoryChip(
                     label: 'All',
                     selected: isAll,
-                    onTap: () =>
-                        setState(() => _selectedCategoryId = null),
+                    onTap: () => setState(() => _selectedCategoryId = null),
                   );
                 }
                 final cat = _categories[i - 1];
@@ -290,8 +294,7 @@ class _MenuPageState extends ConsumerState<MenuPage> {
                 return _CategoryChip(
                   label: cat['name']?.toString() ?? 'Category',
                   selected: isSelected,
-                  onTap: () =>
-                      setState(() => _selectedCategoryId = catId),
+                  onTap: () => setState(() => _selectedCategoryId = catId),
                 );
               },
             ),
@@ -316,15 +319,13 @@ class _MenuPageState extends ConsumerState<MenuPage> {
                       final cat = display[catIdx];
                       final items = List<Map<String, dynamic>>.from(
                         (cat['items'] as List? ?? [])
-                            .map((i) =>
-                                Map<String, dynamic>.from(i as Map)),
+                            .map((i) => Map<String, dynamic>.from(i as Map)),
                       );
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding:
-                                const EdgeInsets.only(top: 16, bottom: 10),
+                            padding: const EdgeInsets.only(top: 16, bottom: 10),
                             child: Row(
                               children: [
                                 Expanded(
@@ -335,22 +336,21 @@ class _MenuPageState extends ConsumerState<MenuPage> {
                                         .titleMedium
                                         ?.copyWith(
                                           fontWeight: FontWeight.w800,
-                                          color: GuestColors.ink,
+                                          color: GuestColors.inkOf(context),
                                         ),
                                   ),
                                 ),
                                 Text(
                                   '${items.length} item${items.length == 1 ? '' : 's'}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: GuestColors.muted,
+                                    color: GuestColors.mutedOf(context),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          for (final item in items)
-                            _buildItemRow(item),
+                          for (final item in items) _buildItemRow(item),
                         ],
                       );
                     },
@@ -384,7 +384,7 @@ class _MenuPageState extends ConsumerState<MenuPage> {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: GuestColors.surface,
+          color: GuestColors.surfaceOf(context),
           borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
           boxShadow: GuestSpacing.softShadow(),
         ),
@@ -396,8 +396,7 @@ class _MenuPageState extends ConsumerState<MenuPage> {
               url: imageUrl?.isNotEmpty == true ? imageUrl : null,
               width: 80,
               height: 80,
-              borderRadius:
-                  BorderRadius.circular(GuestSpacing.radiusSm),
+              borderRadius: BorderRadius.circular(GuestSpacing.radiusSm),
               icon: Icons.lunch_dining_rounded,
             ),
             const SizedBox(width: 12),
@@ -423,8 +422,8 @@ class _MenuPageState extends ConsumerState<MenuPage> {
                             child: Container(
                               width: 7,
                               height: 7,
-                              decoration: BoxDecoration(
-                                color: Color(0xFF1B8A4A),
+                              decoration: const BoxDecoration(
+                                color: const Color(0xFF1B8A4A),
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -435,24 +434,28 @@ class _MenuPageState extends ConsumerState<MenuPage> {
                           name,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
-                            color: GuestColors.ink,
+                            color: GuestColors.inkOf(context),
                           ),
                         ),
                       ),
                     ],
                   ),
+                  if (isAlcoholItem(item)) ...[
+                    const SizedBox(height: 4),
+                    const DineInOnlyBadge(),
+                  ],
                   if (desc.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
                       desc,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: GuestColors.muted,
+                        color: GuestColors.mutedOf(context),
                         height: 1.3,
                       ),
                     ),
@@ -463,10 +466,10 @@ class _MenuPageState extends ConsumerState<MenuPage> {
                       Expanded(
                         child: Text(
                           '₹${price.toStringAsFixed(0)}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 15,
-                            color: GuestColors.ink,
+                            color: GuestColors.inkOf(context),
                           ),
                         ),
                       ),
@@ -483,7 +486,8 @@ class _MenuPageState extends ConsumerState<MenuPage> {
                                 : Colors.transparent,
                             borderRadius:
                                 BorderRadius.circular(GuestSpacing.radiusSm),
-                            border: Border.all(color: GuestColors.primaryOf(context)),
+                            border: Border.all(
+                                color: GuestColors.primaryOf(context)),
                           ),
                           child: Text(
                             cartQty > 0 ? '$cartQty in cart' : 'ADD +',
@@ -510,7 +514,12 @@ class _MenuPageState extends ConsumerState<MenuPage> {
 
   // ─── Handle ADD ────────────────────────────────────────────────────────────
 
-  void _handleAdd(Map<String, dynamic> item, double price) {
+  Future<void> _handleAdd(Map<String, dynamic> item, double price) async {
+    final alcohol = isAlcoholItem(item);
+    if (alcohol && !await ensureDrinkingAge(context, ref.read(cartProvider))) {
+      return;
+    }
+    if (!mounted) return;
     final variants = List<Map<String, dynamic>>.from(
       (item['variants'] as List? ?? [])
           .map((v) => Map<String, dynamic>.from(v as Map)),
@@ -521,6 +530,7 @@ class _MenuPageState extends ConsumerState<MenuPage> {
     );
 
     if (variants.isEmpty && groups.isEmpty) {
+      HapticFeedback.lightImpact();
       // Simple item — add directly and show feedback
       ref.read(cartProvider).addItem(
             menuItemId: item['id'].toString(),
@@ -528,6 +538,7 @@ class _MenuPageState extends ConsumerState<MenuPage> {
             unitPrice: price,
             imageUrl: item['imageUrl']?.toString(),
             isVeg: item['isVeg'] as bool?,
+            isAlcohol: alcohol,
           );
       setState(() {}); // Refresh to update cart qty display
     } else {
@@ -558,13 +569,16 @@ class _CategoryChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? GuestColors.primaryOf(context) : GuestColors.surface,
+          color: selected
+              ? GuestColors.primaryOf(context)
+              : GuestColors.surfaceOf(context),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: selected ? GuestColors.primaryOf(context) : GuestColors.border,
+            color: selected
+                ? GuestColors.primaryOf(context)
+                : GuestColors.borderOf(context),
           ),
           boxShadow: selected
               ? GuestSpacing.softShadow(color: GuestColors.primaryOf(context))
@@ -575,7 +589,7 @@ class _CategoryChip extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : GuestColors.ink,
+            color: selected ? Colors.white : GuestColors.inkOf(context),
           ),
         ),
       ),

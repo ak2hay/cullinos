@@ -34,9 +34,11 @@ final dioProvider = Provider<Dio>((ref) {
               path.contains('/public/guest/auth/phone-status') ||
               path.contains('/public/guest/auth/firebase') ||
               path.contains('/public/guest/auth/pin/login');
-          // Loyalty uses a customer JWT; a 401 there must not clear the guest session.
+          // Loyalty / membership 401 must not wipe guest session mid-checkout.
           final isLoyalty = path.contains('/public/loyalty/');
-          if (!isPublicAuth && !isLoyalty) {
+          final isMembership = path.contains('/public/guest/memberships');
+          final isCoupon = path.contains('/public/guest/coupons');
+          if (!isPublicAuth && !isLoyalty && !isMembership && !isCoupon) {
             ref.read(authControllerProvider).clearUnauthorizedSession();
           }
         }

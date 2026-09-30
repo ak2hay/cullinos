@@ -32,7 +32,7 @@ class GuestPillButton extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
           color: secondary
-              ? GuestColors.surface
+              ? GuestColors.surfaceOf(context)
               : (enabled ? GuestColors.primaryOf(context) : GuestColors.primarySoftOf(context)),
           border: secondary
               ? Border.all(color: GuestColors.primarySoftOf(context), width: 1.5)
@@ -96,7 +96,7 @@ class GuestPillButton extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: secondary
-                                        ? GuestColors.muted
+                                        ? GuestColors.mutedOf(context)
                                         : Colors.white.withValues(alpha: 0.85),
                                   ),
                                 ),

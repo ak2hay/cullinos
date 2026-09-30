@@ -142,7 +142,7 @@ export function GuestBannersPage() {
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="text-lg font-medium">{editingId ? 'Edit banner' : 'New platform banner'}</h2>
         <form
           className="mt-4 grid gap-3 sm:grid-cols-2"
@@ -172,7 +172,7 @@ export function GuestBannersPage() {
           <label className="block text-sm">
             <span className="mb-1 block text-text-secondary">Link type</span>
             <select
-              className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
+              className="w-full rounded-lg border border-line bg-bg-primary px-3 py-2"
               value={form.linkType}
               onChange={(e) =>
                 setForm((f) => ({
@@ -241,7 +241,7 @@ export function GuestBannersPage() {
         </form>
       </section>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="text-lg font-medium">Platform banners</h2>
         {isLoading ? (
           <p className="mt-3 text-sm text-text-muted">Loading…</p>
@@ -252,7 +252,7 @@ export function GuestBannersPage() {
             {banners.map((b) => (
               <li
                 key={b.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/5 p-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line-subtle p-3"
               >
                 <div className="min-w-0">
                   <p className="font-medium">

@@ -14,7 +14,10 @@ export interface ToastItem {
   id: string;
   variant: ToastVariant;
   message: string;
+  leaving?: boolean;
 }
+
+const TOAST_EXIT_MS = 200;
 
 interface ToastContextValue {
   toast: (message: string, variant?: ToastVariant) => void;
@@ -43,7 +46,10 @@ export function ToastProvider({
   const [items, setItems] = useState<ToastItem[]>([]);
 
   const dismiss = useCallback((id: string) => {
-    setItems((prev) => prev.filter((t) => t.id !== id));
+    setItems((prev) => prev.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
+    window.setTimeout(() => {
+      setItems((prev) => prev.filter((t) => t.id !== id));
+    }, TOAST_EXIT_MS);
   }, []);
 
   const toast = useCallback(
@@ -74,9 +80,14 @@ export function ToastProvider({
         {items.map((item) => (
           <div
             key={item.id}
+            role="status"
+            onClick={() => dismiss(item.id)}
             className={cn(
-              'pointer-events-auto rounded-lg border px-4 py-3 text-sm font-medium shadow-lg',
+              'pointer-events-auto cursor-pointer rounded-lg border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-md',
               toastStyles[item.variant],
+              item.leaving
+                ? 'animate-[ui-toast-out_200ms_ease-in_both]'
+                : 'animate-[ui-toast-in_260ms_var(--ease-out)_both]',
             )}
           >
             {item.message}

@@ -31,7 +31,7 @@ export function OutletSelector() {
     <select
       value={selectedOutletId ?? ''}
       onChange={(e) => setSelectedOutlet(e.target.value || null)}
-      className="h-9 rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm text-text-primary outline-none focus:border-brand-primary"
+      className="h-9 rounded-lg border border-line bg-bg-elevated px-3 text-sm text-text-primary outline-none focus:border-brand-primary"
     >
       <option value="">All outlets</option>
       {outlets.map((outlet) => (

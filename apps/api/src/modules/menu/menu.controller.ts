@@ -14,14 +14,19 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
-import { OrgId, Public, RequireModule } from "../../common/decorators";
+import type { JwtPayload } from "@cullinos/auth";
+import { CurrentUser, OrgId, Public, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import {
   MARKETING_UPLOAD_MAX_BYTES,
   MarketingUploadService,
+  marketingImageFileFilter,
+  uploadMaxBytesFor,
 } from "../marketing/marketing-upload.service";
 import { MenuService } from "./menu.service";
 
 @Controller("menu")
+@RequirePermissions("menu:read")
 export class MenuController {
   constructor(
     private service: MenuService,
@@ -39,14 +44,64 @@ export class MenuController {
     return this.service.listCategories(orgId);
   }
 
+  @Get("kitchen-stations")
+  @RequireModule("menu")
+  listKitchenStations(@OrgId() orgId: string) {
+    return this.service.listKitchenStations(orgId);
+  }
+
+  @Get("kitchen-stations/outlets")
+  @RequireModule("menu")
+  listOutletStations(@OrgId() orgId: string) {
+    return this.service.listOutletStations(orgId);
+  }
+
+  @Post("kitchen-stations")
+  @RequireModule("menu")
+  @RequirePermissions("menu:update")
+  createKitchenStation(@OrgId() orgId: string, @Body() body: Record<string, unknown>) {
+    return this.service.createKitchenStation(orgId, {
+      name: typeof body.name === "string" ? body.name : undefined,
+      code: typeof body.code === "string" ? body.code : undefined,
+      outletIds: Array.isArray(body.outletIds)
+        ? body.outletIds.filter((v): v is string => typeof v === "string")
+        : undefined,
+      sortOrder: typeof body.sortOrder === "number" ? body.sortOrder : undefined,
+    });
+  }
+
+  @Patch("kitchen-stations/:id")
+  @RequireModule("menu")
+  @RequirePermissions("menu:update")
+  updateKitchenStation(
+    @OrgId() orgId: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.service.updateKitchenStation(orgId, id, {
+      name: typeof body.name === "string" ? body.name : undefined,
+      sortOrder: typeof body.sortOrder === "number" ? body.sortOrder : undefined,
+      isActive: typeof body.isActive === "boolean" ? body.isActive : undefined,
+    });
+  }
+
+  @Delete("kitchen-stations/:id")
+  @RequireModule("menu")
+  @RequirePermissions("menu:update")
+  deleteKitchenStation(@OrgId() orgId: string, @Param("id") id: string) {
+    return this.service.deleteKitchenStation(orgId, id);
+  }
+
   @Post("categories")
   @RequireModule("menu")
+  @RequirePermissions("menu:create")
   createCategory(@OrgId() orgId: string, @Body() body: Record<string, unknown>) {
     return this.service.createCategory(orgId, body as never);
   }
 
   @Patch("categories/:id")
   @RequireModule("menu")
+  @RequirePermissions("menu:update")
   updateCategory(
     @OrgId() orgId: string,
     @Param("id") id: string,
@@ -58,6 +113,7 @@ export class MenuController {
   @Delete("categories/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequireModule("menu")
+  @RequirePermissions("menu:update")
   deleteCategory(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.deleteCategory(orgId, id);
   }
@@ -68,6 +124,13 @@ export class MenuController {
     return this.service.listItems(orgId);
   }
 
+  @Post("items/bulk-tax")
+  @RequireModule("menu")
+  @RequirePermissions("menu:update")
+  bulkUpdateTax(@OrgId() orgId: string, @Body() body: Record<string, unknown>) {
+    return this.service.bulkUpdateTax(orgId, body);
+  }
+
   @Get("items/:id")
   @RequireModule("menu")
   getItem(@OrgId() orgId: string, @Param("id") id: string) {
@@ -76,12 +139,14 @@ export class MenuController {
 
   @Post("items")
   @RequireModule("menu")
+  @RequirePermissions("menu:create")
   createItem(@OrgId() orgId: string, @Body() body: Record<string, unknown>) {
     return this.service.createItem(orgId, body as never);
   }
 
   @Patch("items/:id")
   @RequireModule("menu")
+  @RequirePermissions("menu:update")
   updateItem(
     @OrgId() orgId: string,
     @Param("id") id: string,
@@ -92,19 +157,32 @@ export class MenuController {
 
   @Post("items/:id/image-upload")
   @RequireModule("menu")
+  @RequirePermissions("menu:update")
   @UseInterceptors(
     FileInterceptor("file", {
       storage: memoryStorage(),
       limits: { fileSize: MARKETING_UPLOAD_MAX_BYTES },
+      fileFilter: marketingImageFileFilter,
     }),
   )
   async uploadItemImage(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @Param("id") id: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file?.buffer) throw new BadRequestException("No file uploaded.");
-    const result = await this.uploadService.saveUploadedFile(file, `menu-item-${id}`, "menuItem");
+    const result = await this.uploadService.saveUploadedFile(
+      file,
+      {
+        scope: "org",
+        orgId,
+        entityId: id,
+        leafName: id,
+        imageSlot: "menuItem",
+      },
+      uploadMaxBytesFor(user),
+    );
     await this.service.setItemImageUrl(orgId, id, result.url);
     return { imageUrl: result.url, url: result.url };
   }
@@ -112,6 +190,7 @@ export class MenuController {
   @Delete("items/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequireModule("menu")
+  @RequirePermissions("menu:update")
   deleteItem(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.deleteItem(orgId, id);
   }
@@ -124,12 +203,14 @@ export class MenuController {
 
   @Post("schedules")
   @RequireModule("menu")
+  @RequirePermissions("menu:update")
   createSchedule(@OrgId() orgId: string, @Body() body: Record<string, unknown>) {
     return this.service.createSchedule(orgId, body as never);
   }
 
   @Patch("schedules/:id")
   @RequireModule("menu")
+  @RequirePermissions("menu:update")
   updateSchedule(
     @OrgId() orgId: string,
     @Param("id") id: string,
@@ -141,6 +222,7 @@ export class MenuController {
   @Delete("schedules/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequireModule("menu")
+  @RequirePermissions("menu:update")
   deleteSchedule(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.deleteSchedule(orgId, id);
   }
@@ -153,12 +235,14 @@ export class MenuController {
 
   @Post("combos")
   @RequireModule("menu")
+  @RequirePermissions("menu:create")
   createCombo(@OrgId() orgId: string, @Body() body: Record<string, unknown>) {
     return this.service.createCombo(orgId, body as never);
   }
 
   @Patch("combos/:id")
   @RequireModule("menu")
+  @RequirePermissions("menu:update")
   updateCombo(
     @OrgId() orgId: string,
     @Param("id") id: string,
@@ -170,6 +254,7 @@ export class MenuController {
   @Delete("combos/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequireModule("menu")
+  @RequirePermissions("menu:update")
   deleteCombo(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.deleteCombo(orgId, id);
   }
@@ -188,6 +273,7 @@ export class MenuController {
 
   @Post("outlets/:outletId/items/:menuItemId/prices")
   @RequireModule("menu")
+  @RequirePermissions("menu:update")
   setOutletPrice(
     @OrgId() orgId: string,
     @Param("outletId") outletId: string,

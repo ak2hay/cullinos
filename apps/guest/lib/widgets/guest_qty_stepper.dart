@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cullinos_guest/core/guest_colors.dart';
 
-class GuestQtyStepper extends StatelessWidget {
+class GuestQtyStepper extends StatefulWidget {
   const GuestQtyStepper({
     super.key,
     required this.quantity,
@@ -16,9 +17,23 @@ class GuestQtyStepper extends StatelessWidget {
   final bool compact;
 
   @override
+  State<GuestQtyStepper> createState() => _GuestQtyStepperState();
+}
+
+class _GuestQtyStepperState extends State<GuestQtyStepper> {
+  bool _increasing = true;
+
+  void _change(int next) {
+    HapticFeedback.selectionClick();
+    _increasing = next > widget.quantity;
+    widget.onChanged(next);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final h = compact ? 32.0 : 36.0;
-    final btn = compact ? 26.0 : 28.0;
+    final h = widget.compact ? 32.0 : 36.0;
+    final btn = widget.compact ? 26.0 : 28.0;
+    final direction = _increasing ? 1.0 : -1.0;
     return Container(
       height: h,
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -32,16 +47,36 @@ class GuestQtyStepper extends StatelessWidget {
           _CircleBtn(
             size: btn,
             icon: Icons.remove_rounded,
-            onTap: quantity > min ? () => onChanged(quantity - 1) : null,
+            onTap: widget.quantity > widget.min
+                ? () => _change(widget.quantity - 1)
+                : null,
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Text(
-              '$quantity',
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                color: GuestColors.ink,
-                fontSize: 14,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              transitionBuilder: (child, animation) {
+                final incoming = child.key == ValueKey(widget.quantity);
+                final offset = Tween<Offset>(
+                  begin: Offset(0, (incoming ? 0.6 : -0.6) * direction),
+                  end: Offset.zero,
+                ).animate(animation);
+                return ClipRect(
+                  child: SlideTransition(
+                    position: offset,
+                    child: FadeTransition(opacity: animation, child: child),
+                  ),
+                );
+              },
+              child: Text(
+                '${widget.quantity}',
+                key: ValueKey(widget.quantity),
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: GuestColors.inkOf(context),
+                  fontSize: 14,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ),
           ),
@@ -49,7 +84,7 @@ class GuestQtyStepper extends StatelessWidget {
             size: btn,
             icon: Icons.add_rounded,
             filled: true,
-            onTap: () => onChanged(quantity + 1),
+            onTap: () => _change(widget.quantity + 1),
           ),
         ],
       ),
@@ -72,23 +107,26 @@ class _CircleBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primary = GuestColors.primaryOf(context);
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
         width: size,
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: filled
-              ? GuestColors.primaryOf(context)
+              ? primary
               : (onTap == null
-                  ? GuestColors.primaryOf(context).withValues(alpha: 0.25)
+                  ? primary.withValues(alpha: 0.25)
                   : GuestColors.primarySoftOf(context)),
         ),
         child: Icon(
           icon,
           size: size * 0.55,
-          color: filled ? Colors.white : GuestColors.primaryOf(context),
+          color: filled ? Theme.of(context).colorScheme.onPrimary : primary,
         ),
       ),
     );

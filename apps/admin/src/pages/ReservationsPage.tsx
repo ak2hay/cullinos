@@ -77,6 +77,7 @@ export function ReservationsPage() {
     () => (slotsQuery.data?.slots ?? []).filter((s) => s.available),
     [slotsQuery.data],
   );
+  const allSlots = useMemo(() => slotsQuery.data?.slots ?? [], [slotsQuery.data]);
 
   const createMutation = useMutation({
     mutationFn: reservationsApi.create,
@@ -196,13 +197,13 @@ export function ReservationsPage() {
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-4 rounded-xl border border-white/5 bg-bg-card p-4">
+      <div className="flex flex-wrap gap-4 rounded-xl border border-line-subtle bg-bg-card p-4">
         <label className="space-y-1 text-sm">
           <span className="text-text-secondary">Outlet</span>
           <select
             value={outletId}
             onChange={(e) => setOutletId(e.target.value)}
-            className="block h-11 min-w-[200px] rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+            className="block h-11 min-w-[200px] rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
           >
             <option value="">Select outlet</option>
             {(outletsQuery.data ?? []).map((o) => (
@@ -231,7 +232,7 @@ export function ReservationsPage() {
 
       {outletId ? (
         <form
-          className="grid gap-4 rounded-xl border border-white/5 bg-bg-card p-6 md:grid-cols-3"
+          className="grid gap-4 rounded-xl border border-line-subtle bg-bg-card p-6 md:grid-cols-3"
           onSubmit={(e) => {
             e.preventDefault();
             settingsMutation.mutate({
@@ -313,7 +314,7 @@ export function ReservationsPage() {
       <form
         id="manual-reservation"
         onSubmit={handleCreate}
-        className="grid gap-4 rounded-xl border border-white/5 bg-bg-card p-6 md:grid-cols-2"
+        className="grid gap-4 rounded-xl border border-line-subtle bg-bg-card p-6 md:grid-cols-2"
       >
         <h2 className="font-medium md:col-span-2">Manual reservation</h2>
         <Input
@@ -350,43 +351,64 @@ export function ReservationsPage() {
             required
             value={form.date}
             onChange={(e) => setForm((f) => ({ ...f, date: e.target.value, slotStart: '' }))}
-            className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+            className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
           />
         </label>
-        <label className="block text-sm md:col-span-2">
-          <span className="mb-1.5 block text-text-secondary">Available slot</span>
-          <select
-            required
-            value={form.slotStart}
-            onChange={(e) => setForm((f) => ({ ...f, slotStart: e.target.value }))}
-            className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
-          >
-            <option value="">
-              {slotsQuery.isLoading ? 'Loading slots…' : 'Select a slot'}
-            </option>
-            {availableSlots.map((s) => (
-              <option key={s.startAt} value={s.startAt}>
-                {new Date(s.startAt).toLocaleTimeString([], {
+        <div className="md:col-span-2">
+          <span className="mb-1.5 block text-sm text-text-secondary">Available slot</span>
+          {slotsQuery.isLoading ? (
+            <p className="text-sm text-text-muted">Loading slots…</p>
+          ) : allSlots.length === 0 ? (
+            <p className="text-xs text-text-muted">
+              No slots for this date / party size. Check opening hours and capacity settings.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {allSlots.map((s) => {
+                const selected = form.slotStart === s.startAt;
+                const label = new Date(s.startAt).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
-                })}{' '}
-                · {s.coversAvailable} covers left
-              </option>
-            ))}
-          </select>
-          {!slotsQuery.isLoading && availableSlots.length === 0 ? (
+                });
+                const base =
+                  'rounded-lg border px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed';
+                const tone = selected
+                  ? 'border-brand-primary bg-brand-primary text-on-brand'
+                  : s.available
+                    ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:border-emerald-400'
+                    : 'border-amber-500/40 bg-amber-500/15 text-amber-200/80 line-through opacity-80';
+                return (
+                  <button
+                    key={s.startAt}
+                    type="button"
+                    disabled={!s.available}
+                    onClick={() => setForm((f) => ({ ...f, slotStart: s.startAt }))}
+                    className={`${base} ${tone}`}
+                    title={
+                      s.available
+                        ? `${s.coversAvailable} covers left`
+                        : 'Unavailable / full'
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {!slotsQuery.isLoading && availableSlots.length === 0 && allSlots.length > 0 ? (
             <span className="mt-1 block text-xs text-text-muted">
-              No open slots for this date / party size. Check opening hours and capacity settings.
+              All slots are full for this party size.
             </span>
           ) : null}
-        </label>
+        </div>
         <label className="block text-sm md:col-span-2">
           <span className="mb-1.5 block text-text-secondary">Notes</span>
           <textarea
             rows={2}
             value={form.notes}
             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-            className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+            className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
           />
         </label>
         <div className="md:col-span-2">
@@ -396,14 +418,14 @@ export function ReservationsPage() {
         </div>
       </form>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
         <h2 className="mb-4 font-medium">Upcoming reservations</h2>
         {reservationsQuery.isLoading ? (
           <p className="text-text-muted">Loading…</p>
         ) : (reservationsQuery.data ?? []).length === 0 ? (
           <p className="text-sm text-text-secondary">No reservations yet.</p>
         ) : (
-          <ul className="divide-y divide-white/5">
+          <ul className="divide-y divide-line-subtle">
             {(reservationsQuery.data ?? []).map((r) => (
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
                 <div>
@@ -415,7 +437,7 @@ export function ReservationsPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs uppercase">
+                  <span className="rounded-full bg-hover px-2 py-0.5 text-xs uppercase">
                     {r.status}
                   </span>
                   {r.status === 'pending' ? (

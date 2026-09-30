@@ -19,7 +19,7 @@ Future<void> showGuestLocationSheet(
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: GuestColors.surface,
+    backgroundColor: GuestColors.surfaceOf(context),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -36,7 +36,7 @@ class GuestLocationChip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = ref.watch(guestLocationProvider).state;
     return Material(
-      color: GuestColors.surface,
+      color: GuestColors.surfaceOf(context),
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
@@ -45,7 +45,7 @@ class GuestLocationChip extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: GuestColors.border),
+            border: Border.all(color: GuestColors.borderOf(context)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -72,18 +72,18 @@ class GuestLocationChip extends ConsumerWidget {
                   loc.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
-                    color: GuestColors.ink,
+                    color: GuestColors.inkOf(context),
                   ),
                 ),
               ),
               const SizedBox(width: 2),
-              const Icon(
+              Icon(
                 Icons.keyboard_arrow_down_rounded,
                 size: 18,
-                color: GuestColors.muted,
+                color: GuestColors.mutedOf(context),
               ),
             ],
           ),
@@ -257,7 +257,7 @@ class _LocationSheetState extends ConsumerState<_LocationSheet> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: GuestColors.border,
+                    color: GuestColors.borderOf(context),
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -268,9 +268,9 @@ class _LocationSheetState extends ConsumerState<_LocationSheet> {
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'We’ll show restaurants and offers near you',
-                style: TextStyle(color: GuestColors.muted, fontSize: 13),
+                style: TextStyle(color: GuestColors.mutedOf(context), fontSize: 13),
               ),
               const SizedBox(height: 14),
               TextField(
@@ -299,16 +299,16 @@ class _LocationSheetState extends ConsumerState<_LocationSheet> {
                             )
                           : null),
                   filled: true,
-                  fillColor: GuestColors.scaffold,
+                  fillColor: GuestColors.scaffoldOf(context),
                   border: OutlineInputBorder(
                     borderRadius:
                         BorderRadius.circular(GuestSpacing.radiusSm),
-                    borderSide: const BorderSide(color: GuestColors.border),
+                    borderSide: BorderSide(color: GuestColors.borderOf(context)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius:
                         BorderRadius.circular(GuestSpacing.radiusSm),
-                    borderSide: const BorderSide(color: GuestColors.border),
+                    borderSide: BorderSide(color: GuestColors.borderOf(context)),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -333,14 +333,14 @@ class _LocationSheetState extends ConsumerState<_LocationSheet> {
                   shrinkWrap: true,
                   children: [
                     if (_searchHits.isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8, bottom: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 4),
                         child: Text(
                           'Search results',
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
-                            color: GuestColors.muted,
+                            color: GuestColors.mutedOf(context),
                           ),
                         ),
                       ),
@@ -411,10 +411,10 @@ class _LocationSheetState extends ConsumerState<_LocationSheet> {
                         width: 42,
                         height: 42,
                         decoration: BoxDecoration(
-                          color: GuestColors.scaffold,
+                          color: GuestColors.scaffoldOf(context),
                           borderRadius:
                               BorderRadius.circular(GuestSpacing.radiusSm),
-                          border: Border.all(color: GuestColors.border),
+                          border: Border.all(color: GuestColors.borderOf(context)),
                         ),
                         child: Icon(
                           Icons.map_rounded,
@@ -440,12 +440,12 @@ class _LocationSheetState extends ConsumerState<_LocationSheet> {
                       )
                     else if (_addresses.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      const Text(
+                      Text(
                         'Saved addresses',
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
-                          color: GuestColors.muted,
+                          color: GuestColors.mutedOf(context),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -490,16 +490,16 @@ class _LocationSheetState extends ConsumerState<_LocationSheet> {
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: GuestColors.scaffold,
+                          color: GuestColors.scaffoldOf(context),
                           borderRadius:
                               BorderRadius.circular(GuestSpacing.radiusSm),
-                          border: Border.all(color: GuestColors.border),
+                          border: Border.all(color: GuestColors.borderOf(context)),
                         ),
-                        child: const Text(
+                        child: Text(
                           'No saved addresses yet. Use current location or Set on map — or add an address in Profile with a map pin.',
                           style: TextStyle(
                             fontSize: 12,
-                            color: GuestColors.muted,
+                            color: GuestColors.mutedOf(context),
                             height: 1.35,
                           ),
                         ),

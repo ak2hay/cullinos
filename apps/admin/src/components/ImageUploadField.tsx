@@ -2,20 +2,35 @@ import { useRef, useState } from 'react';
 import { Button } from '@cullinos/ui';
 import { API_BASE } from '@/lib/api';
 import { ImageCropModal } from '@/components/ImageCropModal';
+import { useAuthStore } from '@/stores/auth';
 
-/** Platform-wide max image upload size (must match API MARKETING_UPLOAD_MAX_BYTES). */
-export const IMAGE_UPLOAD_MAX_MB = 5;
+/** Tenant max image upload size (must match API TENANT_UPLOAD_MAX_BYTES). */
+export const IMAGE_UPLOAD_MAX_MB = 2;
+/** Super-admin / impersonation max (must match API MARKETING_UPLOAD_MAX_BYTES). */
+export const PLATFORM_IMAGE_UPLOAD_MAX_MB = 5;
 export const IMAGE_UPLOAD_MAX_PIXELS = 4096;
+
+export const ALLOWED_IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp';
+
+/** Effective upload limit for the signed-in user; super admins are exempt from the tenant cap. */
+export function useImageUploadMaxMb(): number {
+  const impersonation = useAuthStore((s) => s.impersonation);
+  const isSuperAdmin = useAuthStore((s) => Boolean(s.user?.isSuperAdmin));
+  return impersonation || isSuperAdmin ? PLATFORM_IMAGE_UPLOAD_MAX_MB : IMAGE_UPLOAD_MAX_MB;
+}
 
 /** Resolve relative `/cms/...` upload URLs against the API host (not the SPA origin). */
 export function resolvePublicImageSrc(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) return trimmed;
-  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:')) return trimmed;
+  if (/^https?:\/\//i.test(trimmed) || /^data:image\//i.test(trimmed) || /^blob:/i.test(trimmed)) {
+    return trimmed;
+  }
   if (trimmed.startsWith('/')) {
     const origin = API_BASE.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
     return `${origin}${trimmed}`;
   }
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return '';
   return trimmed;
 }
 
@@ -39,6 +54,7 @@ export const IMAGE_SLOT_HINTS: Record<string, ImageSlotHint> = {
     targetWidth: 1200,
     targetHeight: 400,
     maxMb: IMAGE_UPLOAD_MAX_MB,
+    cropBeforeUpload: true,
   },
   promoSlide: {
     label: 'Promo slide',
@@ -47,6 +63,7 @@ export const IMAGE_SLOT_HINTS: Record<string, ImageSlotHint> = {
     targetWidth: 1920,
     targetHeight: 1080,
     maxMb: IMAGE_UPLOAD_MAX_MB,
+    cropBeforeUpload: true,
   },
   coupon: {
     label: 'Coupon / offer',
@@ -73,6 +90,7 @@ export const IMAGE_SLOT_HINTS: Record<string, ImageSlotHint> = {
     targetWidth: 1600,
     targetHeight: 900,
     maxMb: IMAGE_UPLOAD_MAX_MB,
+    cropBeforeUpload: true,
   },
   outletGallery: {
     label: 'Gallery photo',
@@ -81,6 +99,34 @@ export const IMAGE_SLOT_HINTS: Record<string, ImageSlotHint> = {
     targetWidth: 1200,
     targetHeight: 900,
     maxMb: IMAGE_UPLOAD_MAX_MB,
+    cropBeforeUpload: true,
+  },
+  notification: {
+    label: 'Push notification hero',
+    ratioLabel: '2:1',
+    ratio: 2 / 1,
+    targetWidth: 1200,
+    targetHeight: 600,
+    maxMb: PLATFORM_IMAGE_UPLOAD_MAX_MB,
+    cropBeforeUpload: true,
+  },
+  orgLogo: {
+    label: 'Receipt / brand logo',
+    ratioLabel: '1:1',
+    ratio: 1,
+    targetWidth: 512,
+    targetHeight: 512,
+    maxMb: IMAGE_UPLOAD_MAX_MB,
+    cropBeforeUpload: true,
+  },
+  avatar: {
+    label: 'Profile photo',
+    ratioLabel: '1:1',
+    ratio: 1,
+    targetWidth: 512,
+    targetHeight: 512,
+    maxMb: IMAGE_UPLOAD_MAX_MB,
+    cropBeforeUpload: true,
   },
 } as const;
 
@@ -124,12 +170,13 @@ function readImageDimensions(file: File): Promise<{ width: number; height: numbe
 export async function validateClientImageFile(
   file: File,
   hint?: ImageSlotHint,
+  maxMbOverride?: number,
 ): Promise<void> {
   const allowed = new Set(['image/png', 'image/jpeg', 'image/webp']);
   if (!allowed.has(file.type)) {
     throw new Error('Unsupported file type. Use PNG, JPG, or WebP.');
   }
-  const maxMb = hint?.maxMb ?? IMAGE_UPLOAD_MAX_MB;
+  const maxMb = maxMbOverride ?? hint?.maxMb ?? IMAGE_UPLOAD_MAX_MB;
   const maxBytes = maxMb * 1024 * 1024;
   if (file.size > maxBytes) {
     throw new Error(`File too large. Maximum size is ${maxMb}MB.`);
@@ -153,6 +200,7 @@ export function ImageUploadField({
   bare,
 }: Props) {
   const hint = IMAGE_SLOT_HINTS[slot];
+  const maxMb = useImageUploadMaxMb();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -162,7 +210,7 @@ export function ImageUploadField({
     setUploading(true);
     setError(null);
     try {
-      await validateClientImageFile(file, hint);
+      await validateClientImageFile(file, hint, maxMb);
       const url = await onUpload(file);
       onChange(url);
     } catch (err) {
@@ -177,7 +225,7 @@ export function ImageUploadField({
     if (!file) return;
     setError(null);
     try {
-      await validateClientImageFile(file, hint);
+      await validateClientImageFile(file, hint, maxMb);
       if (hint.cropBeforeUpload) {
         setCropFile(file);
         return;
@@ -190,8 +238,8 @@ export function ImageUploadField({
   }
 
   const hintText = hint.cropBeforeUpload
-    ? `Any ratio OK — crop to ${hint.targetWidth}×${hint.targetHeight}px before upload. PNG/JPG/WebP, max ${hint.maxMb} MB.`
-    : `Recommended ${hint.targetWidth}×${hint.targetHeight}px (${hint.ratioLabel}), PNG/JPG/WebP, max ${hint.maxMb} MB.`;
+    ? `Any ratio OK — crop to ${hint.targetWidth}×${hint.targetHeight}px (${hint.ratioLabel}) before upload. PNG/JPG/WebP, max ${maxMb} MB.`
+    : `Recommended ${hint.targetWidth}×${hint.targetHeight}px (${hint.ratioLabel}), PNG/JPG/WebP, max ${maxMb} MB.`;
 
   const body = (
     <>
@@ -206,17 +254,17 @@ export function ImageUploadField({
           className="h-28 max-w-full rounded-lg object-cover"
         />
       ) : (
-        <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-white/20 text-xs text-text-muted">
+        <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-line-strong text-xs text-text-muted">
           No image
         </div>
       )}
       <div className="flex flex-wrap gap-2">
-        <label className="inline-flex cursor-pointer items-center rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm">
+        <label className="inline-flex cursor-pointer items-center rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm">
           {uploading ? 'Uploading…' : uploadLabel ?? 'Upload image'}
           <input
             ref={inputRef}
             type="file"
-            accept="image/png,image/jpeg,image/webp"
+            accept={ALLOWED_IMAGE_ACCEPT}
             className="hidden"
             disabled={disabled || uploading}
             onChange={(e) => void handleFile(e.target.files?.[0] ?? null)}
@@ -251,5 +299,5 @@ export function ImageUploadField({
     return <div className="space-y-2">{body}</div>;
   }
 
-  return <div className="space-y-2 rounded-lg border border-white/5 p-3">{body}</div>;
+  return <div className="space-y-2 rounded-lg border border-line-subtle p-3">{body}</div>;
 }

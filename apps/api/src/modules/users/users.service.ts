@@ -7,11 +7,12 @@ import {
 } from "@nestjs/common";
 import { hashPassword } from "@cullinos/auth";
 import { PrismaService } from "../../prisma/prisma.service";
+import { assertPlanCapacity } from "../../common/plan-limits.util";
 import {
   STAFF_CREATABLE_ROLES,
   type SystemRoleSlug,
 } from "../../common/default-role-permissions";
-import { normalizeStaffPhone } from "../../common/phone.util";
+import { normalizeStaffPhone, staffPhoneLookupVariants } from "../../common/phone.util";
 import { OrgRolesService } from "../organizations/org-roles.service";
 
 type CreateStaffUserInput = {
@@ -22,6 +23,13 @@ type CreateStaffUserInput = {
   outletIds?: string[];
   defaultOutletId?: string;
   phone?: string;
+};
+
+export type UpdateStaffUserInput = {
+  name?: string;
+  /** Empty string or null clears the phone. */
+  phone?: string | null;
+  roleSlug?: string;
 };
 
 @Injectable()
@@ -86,19 +94,9 @@ export class UsersService {
       throw new ConflictException("A user with this email already exists");
     }
 
-    const rawPhone = input.phone?.trim() || null;
-    const phone = rawPhone ? normalizeStaffPhone(rawPhone) : null;
-    if (phone) {
-      if (phone.length < 12) {
-        throw new BadRequestException("Invalid phone number");
-      }
-      const phoneTaken = await this.prisma.user.findFirst({
-        where: { organizationId: orgId, phone },
-      });
-      if (phoneTaken) {
-        throw new ConflictException("A user with this phone already exists");
-      }
-    }
+    await assertPlanCapacity(this.prisma, orgId, "users");
+
+    const phone = await this.resolveStaffPhone(input.phone);
 
     await this.orgRoles.ensureSystemRoles(orgId);
 
@@ -164,6 +162,110 @@ export class UsersService {
     };
   }
 
+  /**
+   * Normalize + validate a staff phone. Waiter OTP login resolves users by phone
+   * across all orgs, so a phone may belong to only one active staff account.
+   */
+  private async resolveStaffPhone(
+    raw: string | null | undefined,
+    excludeUserId?: string,
+  ): Promise<string | null> {
+    const trimmed = raw?.trim() || null;
+    if (!trimmed) return null;
+    const phone = normalizeStaffPhone(trimmed);
+    if (phone.length < 12) {
+      throw new BadRequestException("Invalid phone number");
+    }
+    const taken = await this.prisma.user.findFirst({
+      where: {
+        phone: { in: staffPhoneLookupVariants(phone) },
+        status: "active",
+        isSuperAdmin: false,
+        ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+      },
+      select: { id: true },
+    });
+    if (taken) {
+      throw new ConflictException("This phone is already linked to another staff account");
+    }
+    return phone;
+  }
+
+  async updateStaffUser(orgId: string, userId: string, input: UpdateStaffUserInput) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId: orgId, isSuperAdmin: false },
+      include: { userRoles: { include: { role: true } } },
+    });
+    if (!user) throw new NotFoundException("User not found");
+    const isOwner = user.userRoles.some((ur) => ur.role.slug === "owner");
+
+    const data: { name?: string; phone?: string | null } = {};
+    if (input.name !== undefined) {
+      const name = input.name.trim();
+      if (!name) throw new BadRequestException("Name is required");
+      data.name = name;
+    }
+    if (input.phone !== undefined) {
+      data.phone = await this.resolveStaffPhone(input.phone, userId);
+    }
+
+    let roleSlug: string | undefined;
+    if (input.roleSlug) {
+      roleSlug = input.roleSlug.toLowerCase();
+      if (isOwner) {
+        throw new ForbiddenException("Cannot change the organization owner's role");
+      }
+      if (!STAFF_CREATABLE_ROLES.includes(roleSlug as SystemRoleSlug)) {
+        throw new BadRequestException(
+          `Role must be one of: ${STAFF_CREATABLE_ROLES.join(", ")}`,
+        );
+      }
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data,
+    });
+
+    if (roleSlug) {
+      await this.orgRoles.ensureSystemRoles(orgId);
+      const current = user.userRoles.map((ur) => ur.role.slug);
+      if (!current.includes(roleSlug)) {
+        await this.prisma.userRole.deleteMany({
+          where: {
+            userId,
+            role: {
+              organizationId: orgId,
+              slug: { in: [...STAFF_CREATABLE_ROLES] },
+            },
+          },
+        });
+        await this.orgRoles.assignRole(userId, orgId, roleSlug as SystemRoleSlug);
+      }
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        organizationId: orgId,
+        action: "staff.updated",
+        entityType: "user",
+        entityId: userId,
+        metadata: {
+          fields: Object.keys(data).concat(roleSlug ? ["roleSlug"] : []),
+          ...(roleSlug ? { roleSlug } : {}),
+        },
+      },
+    });
+
+    return {
+      id: updated.id,
+      email: updated.email,
+      name: updated.name,
+      phone: updated.phone,
+      status: updated.status,
+    };
+  }
+
   async deactivate(orgId: string, userId: string) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, organizationId: orgId },
@@ -189,6 +291,9 @@ export class UsersService {
     if (user.userRoles.some((ur) => ur.role.slug === "owner")) {
       throw new ForbiddenException("Cannot change status of the organization owner");
     }
+    if (user.status === "inactive") {
+      await assertPlanCapacity(this.prisma, orgId, "users");
+    }
 
     return this.prisma.user.update({
       where: { id: userId },
@@ -204,6 +309,24 @@ export class UsersService {
     if (!user) throw new NotFoundException("User not found");
     if (user.userRoles.some((ur) => ur.role.slug === "owner")) {
       throw new ForbiddenException("Cannot delete the organization owner");
+    }
+
+    // Cashier shifts are financial records and block a hard delete; deactivate instead.
+    const shiftCount = await this.prisma.cashierShift.count({ where: { userId } });
+    if (shiftCount > 0) {
+      await this.prisma.$transaction([
+        this.prisma.user.update({ where: { id: userId }, data: { status: "inactive" } }),
+        this.prisma.auditLog.create({
+          data: {
+            organizationId: orgId,
+            action: "staff.deactivated",
+            entityType: "user",
+            entityId: user.id,
+            metadata: { email: user.email, name: user.name, reason: "has_cashier_shifts" },
+          },
+        }),
+      ]);
+      return { success: true, id: userId, deactivated: true };
     }
 
     await this.prisma.auditLog.create({

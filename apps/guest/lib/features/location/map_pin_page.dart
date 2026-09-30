@@ -156,10 +156,10 @@ class _MapPinPageState extends ConsumerState<MapPinPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       appBar: AppBar(
-        backgroundColor: GuestColors.surface,
-        foregroundColor: GuestColors.ink,
+        backgroundColor: GuestColors.surfaceOf(context),
+        foregroundColor: GuestColors.inkOf(context),
         elevation: 0,
         title: const Text(
           'Set location on map',
@@ -213,7 +213,7 @@ class _MapPinPageState extends ConsumerState<MapPinPage> {
                         right: 16,
                         bottom: 16,
                         child: Material(
-                          color: GuestColors.surface,
+                          color: GuestColors.surfaceOf(context),
                           elevation: 2,
                           shape: const CircleBorder(),
                           child: IconButton(
@@ -249,9 +249,9 @@ class _MapPinPageState extends ConsumerState<MapPinPage> {
                     GuestSpacing.page,
                     16 + MediaQuery.of(context).padding.bottom,
                   ),
-                  decoration: const BoxDecoration(
-                    color: GuestColors.surface,
-                    border: Border(top: BorderSide(color: GuestColors.border)),
+                  decoration: BoxDecoration(
+                    color: GuestColors.surfaceOf(context),
+                    border: Border(top: BorderSide(color: GuestColors.borderOf(context))),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,

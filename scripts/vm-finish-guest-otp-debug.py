@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import sys
 
 import json
 import os
@@ -13,7 +14,7 @@ if not pw:
 
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-ssh.connect("95.135.254.46", username="root", password=pw, timeout=30)
+ssh.connect(os.environ.get("DEPLOY_HOST") or sys.exit("Set DEPLOY_HOST explicitly (no default target)."), username="root", password=pw, timeout=30)
 
 
 def run(cmd: str, timeout: int = 120) -> str:

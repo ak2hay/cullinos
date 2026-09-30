@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Patch platform_settings R2 account/endpoint to the TLS-working account; keep access keys as-is."""
 from __future__ import annotations
+import sys
 
 import os
 from pathlib import Path
@@ -8,7 +9,7 @@ from pathlib import Path
 import paramiko
 
 ROOT = Path(__file__).resolve().parents[1]
-HOST = os.environ.get("DEPLOY_HOST", "95.135.254.46")
+HOST = os.environ.get("DEPLOY_HOST") or sys.exit("Set DEPLOY_HOST explicitly (no default target).")
 GOOD = "b8ca0cf70da5a81d986dd7727d3ceaf7"
 EP = f"https://{GOOD}.r2.cloudflarestorage.com"
 

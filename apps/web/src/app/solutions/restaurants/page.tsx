@@ -14,7 +14,7 @@ export const metadata = createMetadata({
 });
 
 const modules = [
-  'Touch-optimized POS with GST billing',
+  'Touch-optimized POS with configurable GST tax groups',
   'Kitchen display and KOT routing',
   'Waiter app for table-side ordering',
   'QR and online ordering channels',
@@ -48,8 +48,8 @@ export default function RestaurantsSolutionPage() {
             description="Unified order engine routes every channel — POS, waiter, QR, and online — to KDS in real time."
           />
           <PainPoint
-            title="GST compliance is manual and error-prone"
-            description="CGST, SGST, and IGST are built into billing from day one with India-first defaults."
+            title="Tax on bills is calculated by hand"
+            description="Set up tax groups such as CGST + SGST for your menu items, and every bill shows the tax breakdown. Your accountant still confirms rates and handles filings."
           />
           <PainPoint
             title="Internet outages stop service"

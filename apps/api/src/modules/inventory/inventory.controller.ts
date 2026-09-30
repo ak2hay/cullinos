@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { OrgId, RequireModule } from "../../common/decorators";
 import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { InventoryService } from "./inventory.service";
@@ -16,8 +16,15 @@ export class InventoryController {
   @Get("items")
   @RequireModule("inventory")
   @RequirePermissions("inventory:read")
-  listItems(@OrgId() orgId: string) {
-    return this.service.listItems(orgId);
+  listItems(@OrgId() orgId: string, @Query("outletId") outletId?: string) {
+    return this.service.listItems(orgId, outletId || undefined);
+  }
+
+  @Get("outlet-stock")
+  @RequireModule("inventory")
+  @RequirePermissions("inventory:read")
+  outletStock(@OrgId() orgId: string) {
+    return this.service.outletStock(orgId);
   }
 
   @Get("items/:id/lots")
@@ -27,11 +34,24 @@ export class InventoryController {
     return this.service.listLots(orgId, id);
   }
 
+  @Get("stock-register")
+  @RequireModule("inventory")
+  @RequirePermissions("inventory:read")
+  stockRegister(
+    @OrgId() orgId: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("outletId") outletId?: string,
+    @Query("liquidOnly") liquidOnly?: string,
+  ) {
+    return this.service.stockRegister(orgId, { from, to, outletId, liquidOnly });
+  }
+
   @Get("low-stock")
   @RequireModule("inventory")
   @RequirePermissions("inventory:read")
-  lowStock(@OrgId() orgId: string) {
-    return this.service.lowStock(orgId);
+  lowStock(@OrgId() orgId: string, @Query("outletId") outletId?: string) {
+    return this.service.lowStock(orgId, outletId || undefined);
   }
 
   @Post("items")
@@ -47,6 +67,8 @@ export class InventoryController {
       unit?: string;
       currentStock?: number;
       reorderLevel?: number;
+      packLabel?: string | null;
+      packSize?: number | null;
     },
   ) {
     return this.service.createItem(orgId, body);
@@ -65,6 +87,8 @@ export class InventoryController {
       unit?: string;
       currentStock?: number;
       reorderLevel?: number;
+      packLabel?: string | null;
+      packSize?: number | null;
     },
   ) {
     return this.service.updateItem(orgId, id, body);
@@ -83,7 +107,8 @@ export class InventoryController {
   adjust(
     @OrgId() orgId: string,
     @Param("id") id: string,
-    @Body() body: { quantity: number; type: "in" | "out" | "waste"; notes?: string },
+    @Body()
+    body: { quantity: number; type: "in" | "out" | "waste"; notes?: string; inPacks?: boolean },
   ) {
     return this.service.adjust(orgId, id, body);
   }

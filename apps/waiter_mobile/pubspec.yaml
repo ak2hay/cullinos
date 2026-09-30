@@ -1,7 +1,7 @@
 name: cullinos_waiter
 description: Cullinos Waiter — floor staff app for phone and tablet
 publish_to: "none"
-version: 1.0.0+1
+version: 1.0.3+4
 
 environment:
   sdk: ">=3.5.0 <4.0.0"

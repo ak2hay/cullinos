@@ -18,7 +18,7 @@ export function Tabs<T extends string>({ items, value, onChange, className }: Ta
     <div
       role="tablist"
       className={cn(
-        'inline-flex flex-wrap gap-1 rounded-xl border border-white/10 bg-bg-elevated/80 p-1',
+        'inline-flex flex-wrap gap-1 rounded-xl border border-line bg-bg-elevated/80 p-1',
         className,
       )}
     >
@@ -34,8 +34,8 @@ export function Tabs<T extends string>({ items, value, onChange, className }: Ta
             className={cn(
               'rounded-lg px-3 py-1.5 text-sm font-medium transition duration-[var(--duration-fast)]',
               active
-                ? 'bg-brand-primary text-bg-primary shadow-sm'
-                : 'text-text-secondary hover:bg-white/5 hover:text-text-primary',
+                ? 'bg-brand-primary text-on-brand shadow-sm'
+                : 'text-text-secondary hover:bg-hover hover:text-text-primary',
             )}
           >
             {item.label}

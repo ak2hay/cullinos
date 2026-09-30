@@ -3,7 +3,9 @@ import { useState } from 'react';
 import { INVENTORY_UNIT_OPTIONS } from '@cullinos/shared';
 import { Button, Card, CardHeader, Drawer, Input, PageShell, Select } from '@cullinos/ui';
 import { inventoryApi, outletsApi, wastageApi } from '@/lib/api';
+import { formatPackDefinition, formatPackStock, hasPack } from '@/lib/inventory-packs';
 import { useAuthStore } from '@/stores/auth';
+import { StockRegisterPanel } from './inventory/StockRegisterPanel';
 
 type SortField = 'name' | 'stock' | 'reorder';
 type SortDir = 'asc' | 'desc';
@@ -47,6 +49,8 @@ export function InventoryPage() {
   const [unit, setUnit] = useState('kg');
   const [currentStock, setCurrentStock] = useState('0');
   const [reorderLevel, setReorderLevel] = useState('0');
+  const [packLabel, setPackLabel] = useState('');
+  const [packSize, setPackSize] = useState('');
 
   // ─── edit form ─────────────────────────────────────────────────
   const [editItem, setEditItem] = useState<null | {
@@ -62,6 +66,8 @@ export function InventoryPage() {
   const [editUnit, setEditUnit] = useState('kg');
   const [editStock, setEditStock] = useState('0');
   const [editReorder, setEditReorder] = useState('0');
+  const [editPackLabel, setEditPackLabel] = useState('');
+  const [editPackSize, setEditPackSize] = useState('');
 
   // ─── delete confirm ────────────────────────────────────────────
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -79,6 +85,7 @@ export function InventoryPage() {
   const [adjustQty, setAdjustQty] = useState('1');
   const [adjustType, setAdjustType] = useState<'in' | 'out' | 'waste'>('in');
   const [adjustNotes, setAdjustNotes] = useState('');
+  const [adjustInPacks, setAdjustInPacks] = useState(false);
 
   // ─── wastage ───────────────────────────────────────────────────
   const [wasteItemId, setWasteItemId] = useState('');
@@ -105,13 +112,22 @@ export function InventoryPage() {
 
   // ─── queries ───────────────────────────────────────────────────
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ['inventory', 'items'],
-    queryFn: inventoryApi.listItems,
+    queryKey: ['inventory', 'items', outletId],
+    queryFn: () => inventoryApi.listItems(outletId),
+    enabled: Boolean(outletId),
   });
 
   const { data: lowStock = [] } = useQuery({
-    queryKey: ['inventory', 'low-stock'],
-    queryFn: inventoryApi.listLowStock,
+    queryKey: ['inventory', 'low-stock', outletId],
+    queryFn: () => inventoryApi.listLowStock(outletId),
+    enabled: Boolean(outletId),
+  });
+
+  // Transfers need the source outlet's own items, not the selected outlet's.
+  const { data: transferSourceItems = [] } = useQuery({
+    queryKey: ['inventory', 'items', txFromOutlet],
+    queryFn: () => inventoryApi.listItems(txFromOutlet),
+    enabled: showTransfer && Boolean(txFromOutlet),
   });
 
   const { data: wastageRows = [] } = useQuery({
@@ -124,7 +140,23 @@ export function InventoryPage() {
     queryFn: outletsApi.list,
   });
 
+  const [view, setView] = useState<'outlet' | 'all'>('outlet');
+  const [newItemShared, setNewItemShared] = useState(false);
+  const multiOutlet = outlets.length > 1;
+  const outletName = (id: string | null | undefined) =>
+    id ? (outlets.find((o) => o.id === id)?.name ?? 'Outlet') : 'Shared';
+  const selectedOutletName = outletName(outletId);
+
+  function openTransfer(fromOutletId?: string, itemId?: string) {
+    setTxFromOutlet(fromOutletId ?? outletId ?? '');
+    setTxToOutlet('');
+    setTxItemId(itemId ?? '');
+    setShowTransfer(true);
+  }
+
   const lowStockIds = new Set(lowStock.map((i) => i.id));
+  const adjustItem = items.find((i) => i.id === adjustItemId);
+  const adjustCanUsePacks = adjustItem ? hasPack(adjustItem) : false;
 
   // ─── sorted + filtered items ───────────────────────────────────
   const displayItems = [...items]
@@ -149,6 +181,8 @@ export function InventoryPage() {
     setEditUnit(item.unit);
     setEditStock(String(item.currentStock));
     setEditReorder(String(item.reorderLevel ?? 0));
+    setEditPackLabel(item.packLabel ?? '');
+    setEditPackSize(item.packSize ? String(item.packSize) : '');
   }
 
   // ─── mutations ─────────────────────────────────────────────────
@@ -161,6 +195,7 @@ export function InventoryPage() {
     onSuccess: () => {
       notify('Inventory item created.');
       setName(''); setSku(''); setUnit('kg'); setCurrentStock('0'); setReorderLevel('0');
+      setPackLabel(''); setPackSize('');
       setShowForm(false);
       invalidate();
     },
@@ -168,7 +203,7 @@ export function InventoryPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...payload }: { id: string; name?: string; sku?: string; unit?: string; currentStock?: number; reorderLevel?: number }) =>
+    mutationFn: ({ id, ...payload }: Parameters<typeof inventoryApi.updateItem>[1] & { id: string }) =>
       inventoryApi.updateItem(id, payload),
     onSuccess: () => {
       notify('Item updated.');
@@ -212,6 +247,7 @@ export function InventoryPage() {
         quantity: Number(adjustQty),
         type: adjustType,
         notes: adjustNotes || undefined,
+        inPacks: adjustCanUsePacks && adjustInPacks ? true : undefined,
       }),
     onSuccess: () => {
       notify('Stock adjusted.');
@@ -241,16 +277,45 @@ export function InventoryPage() {
   return (
     <PageShell
       title="Inventory"
-      description="Track stock items for production and purchasing."
+      description={
+        multiOutlet
+          ? `Stock at ${selectedOutletName} (plus shared items). Switch outlet from the top bar, or compare all outlets.`
+          : 'Track stock items for production and purchasing.'
+      }
       actions={
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => setShowTransfer(true)}>
-            Transfer stock
-          </Button>
+        <div className="flex flex-wrap gap-2">
+          {multiOutlet ? (
+            <div className="flex rounded-lg border border-line p-0.5 text-sm">
+              {(['outlet', 'all'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setView(v)}
+                  className={`rounded-md px-3 py-1.5 transition ${
+                    view === v
+                      ? 'bg-brand-primary/15 font-medium text-brand-primary'
+                      : 'text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  {v === 'outlet' ? selectedOutletName : 'All outlets'}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {multiOutlet ? (
+            <Button variant="secondary" onClick={() => openTransfer()}>
+              Transfer stock
+            </Button>
+          ) : null}
           <Button onClick={() => setShowForm(true)}>Add item</Button>
         </div>
       }
     >
+      {view === 'all' && multiOutlet ? (
+        <OutletStockComparison onTransfer={openTransfer} />
+      ) : null}
+
+      <div className={view === 'all' && multiOutlet ? 'hidden' : 'space-y-6'}>
       {/* ── Low-stock alert ── */}
       {lowStock.length > 0 ? (
         <div className="rounded-xl border border-status-warning/40 bg-status-warning/10 px-4 py-3 text-sm">
@@ -310,16 +375,36 @@ export function InventoryPage() {
           onSubmit={(e) => {
             e.preventDefault();
             createMutation.mutate({
-              outletId: outletId ?? undefined,
+              outletId: newItemShared ? undefined : (outletId ?? undefined),
               name, sku: sku || undefined, unit: unit || 'kg',
               currentStock: Number(currentStock) || 0,
               reorderLevel: Number(reorderLevel) || 0,
+              packLabel: packLabel.trim() || null,
+              packSize: Number(packSize) > 0 ? Number(packSize) : null,
             });
           }}
         >
+          {multiOutlet ? (
+            <Select
+              label="Stock kept at"
+              options={[
+                { value: 'outlet', label: `${selectedOutletName} only` },
+                { value: 'shared', label: 'Shared by all outlets (one common stock)' },
+              ]}
+              value={newItemShared ? 'shared' : 'outlet'}
+              onChange={(e) => setNewItemShared(e.target.value === 'shared')}
+            />
+          ) : null}
           <Input label="Item name" required placeholder="Flour" value={name} onChange={(e) => setName(e.target.value)} />
           <Input label="SKU" placeholder="Optional" value={sku} onChange={(e) => setSku(e.target.value)} />
           <Select label="Unit" required options={INVENTORY_UNIT_OPTIONS} value={unit} onChange={(e) => setUnit(e.target.value)} />
+          <PackFields
+            unit={unit}
+            packLabel={packLabel}
+            packSize={packSize}
+            onPackLabelChange={setPackLabel}
+            onPackSizeChange={setPackSize}
+          />
           <Input label="Current stock" type="number" min={0} step="any" value={currentStock} onChange={(e) => setCurrentStock(e.target.value)} />
           <Input label="Reorder level" type="number" min={0} step="any" value={reorderLevel} onChange={(e) => setReorderLevel(e.target.value)} />
         </form>
@@ -363,12 +448,21 @@ export function InventoryPage() {
               unit: editUnit,
               currentStock: Number(editStock),
               reorderLevel: Number(editReorder),
+              packLabel: editPackLabel.trim() || null,
+              packSize: Number(editPackSize) > 0 ? Number(editPackSize) : null,
             });
           }}
         >
           <Input label="Item name" required value={editName} onChange={(e) => setEditName(e.target.value)} />
           <Input label="SKU" placeholder="Optional" value={editSku} onChange={(e) => setEditSku(e.target.value)} />
           <Select label="Unit" required options={INVENTORY_UNIT_OPTIONS} value={editUnit} onChange={(e) => setEditUnit(e.target.value)} />
+          <PackFields
+            unit={editUnit}
+            packLabel={editPackLabel}
+            packSize={editPackSize}
+            onPackLabelChange={setEditPackLabel}
+            onPackSizeChange={setEditPackSize}
+          />
           <Input label="Current stock" type="number" min={0} step="any" value={editStock} onChange={(e) => setEditStock(e.target.value)} />
           <Input label="Reorder level" type="number" min={0} step="any" value={editReorder} onChange={(e) => setEditReorder(e.target.value)} />
           {editItem ? <InventoryLotsPreview itemId={editItem.id} /> : null}
@@ -377,8 +471,8 @@ export function InventoryPage() {
 
       {/* ── Delete confirmation ── */}
       {deleteId ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-bg-card p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-line bg-bg-card p-6 shadow-2xl">
             <h2 className="font-semibold">Delete inventory item?</h2>
             <p className="mt-2 text-sm text-text-secondary">
               This will permanently remove the item and its stock history.
@@ -439,9 +533,9 @@ export function InventoryPage() {
             <span className="text-text-secondary">From outlet</span>
             <select
               value={txFromOutlet}
-              onChange={(e) => setTxFromOutlet(e.target.value)}
+              onChange={(e) => { setTxFromOutlet(e.target.value); setTxItemId(''); }}
               required
-              className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+              className="block h-11 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
             >
               <option value="">Select outlet…</option>
               {outlets.map((o) => (
@@ -455,7 +549,7 @@ export function InventoryPage() {
               value={txToOutlet}
               onChange={(e) => setTxToOutlet(e.target.value)}
               required
-              className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+              className="block h-11 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
             >
               <option value="">Select outlet…</option>
               {outlets.map((o) => (
@@ -469,12 +563,13 @@ export function InventoryPage() {
               value={txItemId}
               onChange={(e) => setTxItemId(e.target.value)}
               required
-              className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+              className="block h-11 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
             >
-              <option value="">Select item…</option>
-              {items.map((item) => (
+              <option value="">{txFromOutlet ? 'Select item…' : 'Choose the source outlet first'}</option>
+              {(txFromOutlet ? transferSourceItems : []).map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name} ({item.currentStock} {item.unit})
+                  {item.name} ({item.currentStock} {item.unit}
+                  {item.outletId ? '' : ' · shared'})
                 </option>
               ))}
             </select>
@@ -512,8 +607,8 @@ export function InventoryPage() {
             <span className="text-text-secondary">Item</span>
             <select
               value={adjustItemId}
-              onChange={(e) => setAdjustItemId(e.target.value)}
-              className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+              onChange={(e) => { setAdjustItemId(e.target.value); setAdjustInPacks(false); }}
+              className="block h-11 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
               required
             >
               <option value="">Select item…</option>
@@ -524,21 +619,37 @@ export function InventoryPage() {
               ))}
             </select>
           </label>
-          <Input
-            label="Quantity"
-            type="number"
-            min={0.001}
-            step="any"
-            required
-            value={adjustQty}
-            onChange={(e) => setAdjustQty(e.target.value)}
-          />
+          <div className="space-y-1">
+            <Input
+              label={
+                adjustCanUsePacks && adjustInPacks
+                  ? `Quantity (${adjustItem?.packLabel || 'pack'}s)`
+                  : `Quantity${adjustItem ? ` (${adjustItem.unit})` : ''}`
+              }
+              type="number"
+              min={0.001}
+              step="any"
+              required
+              value={adjustQty}
+              onChange={(e) => setAdjustQty(e.target.value)}
+            />
+            {adjustCanUsePacks && adjustItem ? (
+              <label className="flex items-center gap-2 text-xs text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={adjustInPacks}
+                  onChange={(e) => setAdjustInPacks(e.target.checked)}
+                />
+                Enter in {adjustItem.packLabel || 'pack'}s ({formatPackDefinition(adjustItem)})
+              </label>
+            ) : null}
+          </div>
           <label className="space-y-1 text-sm">
             <span className="text-text-secondary">Type</span>
             <select
               value={adjustType}
               onChange={(e) => setAdjustType(e.target.value as 'in' | 'out' | 'waste')}
-              className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+              className="block h-11 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
             >
               <option value="in">In (+)</option>
               <option value="out">Out (−)</option>
@@ -575,7 +686,7 @@ export function InventoryPage() {
             <select
               value={wasteItemId}
               onChange={(e) => setWasteItemId(e.target.value)}
-              className="block h-11 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+              className="block h-11 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
               required
             >
               <option value="">Select item…</option>
@@ -632,7 +743,7 @@ export function InventoryPage() {
 
       {/* ── Items table ── */}
       <Card padding="none" className="overflow-hidden">
-        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/5">
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-line-subtle">
           <span className="text-sm font-medium">
             {filterLowStock
               ? `${displayItems.length} low-stock item${displayItems.length === 1 ? '' : 's'}`
@@ -650,7 +761,7 @@ export function InventoryPage() {
         </div>
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-white/5 bg-bg-secondary text-text-muted">
+            <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
               <th className="px-4 py-3">
                 <SortButton field="name" label="Name" current={sortField} dir={sortDir} onSort={handleSort} />
               </th>
@@ -678,10 +789,15 @@ export function InventoryPage() {
                 return (
                   <tr
                     key={item.id}
-                    className={`border-b border-white/5 ${isLow ? 'bg-status-warning/5' : ''}`}
+                    className={`border-b border-line-subtle ${isLow ? 'bg-status-warning/5' : ''}`}
                   >
                     <td className="px-4 py-3 font-medium">
                       {item.name}
+                      {multiOutlet && !item.outletId ? (
+                        <span className="ml-2 inline-flex items-center rounded-full bg-hover px-2 py-0.5 text-xs font-normal text-text-muted">
+                          Shared
+                        </span>
+                      ) : null}
                       {isLow ? (
                         <span className="ml-2 inline-flex items-center rounded-full bg-status-warning/15 px-2 py-0.5 text-xs font-semibold text-status-warning">
                           Low
@@ -692,6 +808,11 @@ export function InventoryPage() {
                     <td className="px-4 py-3">{item.unit}</td>
                     <td className={`px-4 py-3 ${isLow ? 'font-bold text-status-warning' : ''}`}>
                       {item.currentStock}
+                      {formatPackStock(item) ? (
+                        <span className="block text-xs font-normal text-text-muted">
+                          {formatPackStock(item)}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-text-secondary">
                       {item.reorderLevel ?? 0}
@@ -721,7 +842,167 @@ export function InventoryPage() {
           </tbody>
         </table>
       </Card>
+
+      <StockRegisterPanel outletId={outletId} />
+      </div>
     </PageShell>
+  );
+}
+
+function OutletStockComparison({
+  onTransfer,
+}: {
+  onTransfer: (fromOutletId?: string, itemId?: string) => void;
+}) {
+  const matrixQuery = useQuery({
+    queryKey: ['inventory', 'outlet-stock'],
+    queryFn: inventoryApi.outletStock,
+  });
+  const [lowOnly, setLowOnly] = useState(false);
+  const outlets = matrixQuery.data?.outlets ?? [];
+  const allRows = matrixQuery.data?.rows ?? [];
+  const hasShared = allRows.some((r) => r.shared);
+  const rows = lowOnly
+    ? allRows.filter((r) => r.shared?.low || Object.values(r.byOutlet).some((c) => c.low))
+    : allRows;
+
+  return (
+    <Card padding="none" className="overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-subtle px-4 py-3">
+        <div>
+          <p className="text-sm font-medium">Stock across outlets</p>
+          <p className="text-xs text-text-muted">
+            Each outlet keeps its own stock. Sales deduct from the selling outlet; move stock with
+            Transfer.
+          </p>
+        </div>
+        <label className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-brand-primary"
+            checked={lowOnly}
+            onChange={(e) => setLowOnly(e.target.checked)}
+          />
+          Low stock only
+        </label>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
+              <th className="px-4 py-3 font-medium">Item</th>
+              {hasShared ? <th className="px-4 py-3 font-medium">Shared</th> : null}
+              {outlets.map((o) => (
+                <th key={o.id} className="px-4 py-3 font-medium">
+                  {o.name}
+                </th>
+              ))}
+              <th className="px-4 py-3 font-medium">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {matrixQuery.isLoading ? (
+              <tr>
+                <td colSpan={outlets.length + 3} className="px-4 py-8 text-center text-text-muted">
+                  Loading…
+                </td>
+              </tr>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td colSpan={outlets.length + 3} className="px-4 py-8 text-center text-text-muted">
+                  {lowOnly ? 'No low-stock items at any outlet.' : 'No inventory items yet.'}
+                </td>
+              </tr>
+            ) : (
+              rows.map((row) => (
+                <tr key={row.key} className="border-b border-line-subtle">
+                  <td className="px-4 py-3">
+                    <span className="font-medium">{row.name}</span>
+                    <span className="ml-1 text-xs text-text-muted">({row.unit})</span>
+                  </td>
+                  {hasShared ? (
+                    <td className="px-4 py-3">
+                      <StockCell cell={row.shared} />
+                    </td>
+                  ) : null}
+                  {outlets.map((o) => {
+                    const cell = row.byOutlet[o.id] ?? null;
+                    return (
+                      <td key={o.id} className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <StockCell cell={cell} />
+                          {cell && cell.stock > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => onTransfer(o.id, cell.itemId)}
+                              className="text-xs text-brand-primary hover:underline"
+                              title={`Transfer ${row.name} from ${o.name}`}
+                            >
+                              Move
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    );
+                  })}
+                  <td className="px-4 py-3 font-medium">{row.total}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+function StockCell({ cell }: { cell: { stock: number; low: boolean } | null }) {
+  if (!cell) return <span className="text-text-muted">—</span>;
+  return (
+    <span className={cell.low ? 'font-semibold text-status-warning' : ''}>
+      {cell.stock}
+      {cell.low ? <span className="ml-1 text-xs">Low</span> : null}
+    </span>
+  );
+}
+
+function PackFields({
+  unit,
+  packLabel,
+  packSize,
+  onPackLabelChange,
+  onPackSizeChange,
+}: {
+  unit: string;
+  packLabel: string;
+  packSize: string;
+  onPackLabelChange: (v: string) => void;
+  onPackSizeChange: (v: string) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-line-subtle bg-bg-elevated/40 p-3">
+      <p className="text-xs font-medium text-text-secondary">Purchase pack (optional)</p>
+      <p className="mt-0.5 text-xs text-text-muted">
+        Buy in packets, buckets or bottles? Stock stays in {unit}; packs make receiving easier.
+      </p>
+      <div className="mt-2 grid grid-cols-2 gap-3">
+        <Input
+          label="Pack name"
+          placeholder="packet"
+          value={packLabel}
+          onChange={(e) => onPackLabelChange(e.target.value)}
+        />
+        <Input
+          label={`${unit} per pack`}
+          type="number"
+          min={0}
+          step="any"
+          placeholder="50"
+          value={packSize}
+          onChange={(e) => onPackSizeChange(e.target.value)}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -733,7 +1014,7 @@ function InventoryLotsPreview({ itemId }: { itemId: string }) {
   const lots = lotsQuery.data ?? [];
 
   return (
-    <div className="rounded-lg border border-white/5 bg-bg-elevated/40 p-3">
+    <div className="rounded-lg border border-line-subtle bg-bg-elevated/40 p-3">
       <p className="text-xs font-medium text-text-secondary">FIFO lots</p>
       {lotsQuery.isLoading ? (
         <p className="mt-1 text-xs text-text-muted">Loading…</p>

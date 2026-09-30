@@ -1,16 +1,38 @@
 import { BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { toPaise } from "./money.util";
+import { bestHappyHourPrice, type HappyHourRuleLike } from "./happy-hour.util";
 
 export type IncomingOrderItem = {
   menuItemId?: string;
   variantId?: string;
   quantity: number;
-  modifiers?: Array<{ name: string; price: number; modifierId?: string }>;
+  /**
+   * Guest app sends catalogue modifiers as `{ id, name, price }`; `id` is an alias for `modifierId`.
+   * `price` is paise and only used for free-form staff modifiers (catalogue prices come from the DB).
+   */
+  modifiers?: Array<{ name: string; price: number; modifierId?: string; id?: string }>;
   notes?: string;
   name?: string;
+  /** Open (non-menu) items only, in rupees. */
   unitPrice?: number;
 };
+
+export const ORDER_ITEM_MAX_QUANTITY = 999;
+
+export function assertValidQuantity(quantity: unknown): number {
+  if (
+    typeof quantity !== "number" ||
+    !Number.isInteger(quantity) ||
+    quantity < 1 ||
+    quantity > ORDER_ITEM_MAX_QUANTITY
+  ) {
+    throw new BadRequestException(
+      `Item quantity must be a whole number between 1 and ${ORDER_ITEM_MAX_QUANTITY}`,
+    );
+  }
+  return quantity;
+}
 
 export type ResolvedOrderItem = {
   menuItemId: string | null;
@@ -21,11 +43,17 @@ export type ResolvedOrderItem = {
   notes: string | null;
   modifiers: Array<{ name: string; price: number; modifierId?: string }> | null;
   taxGroupId: string | null;
+  /** GST-exempt item: no tax applies, not even the org default group. */
+  isTaxExempt?: boolean;
+  /** Menu item product type (e.g. "alcohol"); null for open/custom items. */
+  productType?: string | null;
 };
 
 export type ResolveOrderItemsOptions = {
   /** Public storefront orders: menu IDs only, server prices, DB modifier prices. */
   publicOrder?: boolean;
+  /** Currently active happy-hour rules for the outlet; discount the item price (not modifiers). */
+  happyHourRules?: HappyHourRuleLike[];
 };
 
 export async function resolveOrderItems(
@@ -42,6 +70,7 @@ export async function resolveOrderItems(
   const resolved: ResolvedOrderItem[] = [];
 
   for (const item of items) {
+    const quantity = assertValidQuantity(item?.quantity);
     if (!item.menuItemId) {
       if (options.publicOrder) {
         throw new BadRequestException("Public orders require menuItemId for every item");
@@ -49,13 +78,16 @@ export async function resolveOrderItems(
       if (!item.name || item.unitPrice == null) {
         throw new BadRequestException("Each item requires menuItemId or name + unitPrice");
       }
+      if (typeof item.unitPrice !== "number" || !Number.isFinite(item.unitPrice) || item.unitPrice < 0) {
+        throw new BadRequestException("Item unitPrice must be a non-negative number");
+      }
       resolved.push({
         menuItemId: null,
         variantId: null,
         name: item.name,
-        quantity: item.quantity,
-        unitPrice: toRupeesFromClient(item.unitPrice),
-        notes: item.notes ?? null,
+        quantity,
+        unitPrice: item.unitPrice,
+        notes: normalizeItemNote(item.notes),
         modifiers: item.modifiers ?? null,
         taxGroupId: null,
       });
@@ -98,6 +130,15 @@ export async function resolveOrderItems(
       unitPriceRupees = Number(outletPrice.price);
     }
 
+    if (options.happyHourRules?.length) {
+      const happy = bestHappyHourPrice(
+        unitPriceRupees,
+        { menuItemId: menuItem.id, categoryId: menuItem.categoryId },
+        options.happyHourRules,
+      );
+      if (happy) unitPriceRupees = happy.price;
+    }
+
     const modifierCatalog = new Map<
       string,
       { id: string; name: string; price: number }
@@ -119,13 +160,14 @@ export async function resolveOrderItems(
     if (item.modifiers?.length) {
       resolvedModifiers = [];
       for (const incoming of item.modifiers) {
+        const incomingModifierId = incoming.modifierId ?? incoming.id;
         if (options.publicOrder) {
-          if (!incoming.modifierId) {
+          if (!incomingModifierId) {
             throw new BadRequestException("Public orders require modifierId for modifiers");
           }
-          const catalog = modifierCatalog.get(incoming.modifierId);
+          const catalog = modifierCatalog.get(incomingModifierId);
           if (!catalog) {
-            throw new BadRequestException(`Modifier not found: ${incoming.modifierId}`);
+            throw new BadRequestException(`Modifier not found: ${incomingModifierId}`);
           }
           resolvedModifiers.push({
             name: catalog.name,
@@ -133,8 +175,8 @@ export async function resolveOrderItems(
             modifierId: catalog.id,
           });
           modifierTotalRupees += catalog.price;
-        } else if (incoming.modifierId && modifierCatalog.has(incoming.modifierId)) {
-          const catalog = modifierCatalog.get(incoming.modifierId)!;
+        } else if (incomingModifierId && modifierCatalog.has(incomingModifierId)) {
+          const catalog = modifierCatalog.get(incomingModifierId)!;
           resolvedModifiers.push({
             name: catalog.name,
             price: toPaise(catalog.price),
@@ -142,14 +184,17 @@ export async function resolveOrderItems(
           });
           modifierTotalRupees += catalog.price;
         } else {
-          // Staff POS may still send free-form modifiers with client prices.
-          const priceRupees = toRupeesFromClient(incoming.price ?? 0);
+          // Staff POS may still send free-form modifiers; their price is paise (same unit we store).
+          const pricePaise = Number(incoming.price ?? 0);
+          if (!Number.isInteger(pricePaise) || pricePaise < 0) {
+            throw new BadRequestException("Modifier price must be a non-negative whole number of paise");
+          }
           resolvedModifiers.push({
             name: incoming.name,
-            price: toPaise(priceRupees),
+            price: pricePaise,
             modifierId: incoming.modifierId,
           });
-          modifierTotalRupees += priceRupees;
+          modifierTotalRupees += pricePaise / 100;
         }
       }
     }
@@ -158,21 +203,29 @@ export async function resolveOrderItems(
       menuItemId: menuItem.id,
       variantId,
       name,
-      quantity: item.quantity,
+      quantity,
       unitPrice: unitPriceRupees + modifierTotalRupees,
-      notes: item.notes ?? null,
+      notes: normalizeItemNote(item.notes),
       modifiers: resolvedModifiers,
       taxGroupId: menuItem.taxGroupId,
+      isTaxExempt: menuItem.isTaxExempt,
+      productType: menuItem.productType ?? null,
     });
   }
 
   return resolved;
 }
 
-function toRupeesFromClient(price: number): number {
-  // Client sends paise when values are large integers; small values are rupees.
-  return price >= 1000 ? price / 100 : price;
+export const ORDER_ITEM_NOTE_MAX_LENGTH = 200;
+
+/** Public/session routes skip DTO validation, so clamp here too. */
+export function normalizeItemNote(notes: unknown): string | null {
+  if (typeof notes !== "string") return null;
+  const trimmed = notes.trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, ORDER_ITEM_NOTE_MAX_LENGTH);
 }
+
 
 export function mapOrderToClient(order: {
   id: string;
@@ -187,6 +240,7 @@ export function mapOrderToClient(order: {
   taxTotal?: unknown;
   total?: unknown;
   tipAmount?: unknown;
+  discountTotal?: unknown;
   customerName?: string | null;
   notes?: string | null;
   scheduledPickupAt?: Date | null;
@@ -203,6 +257,8 @@ export function mapOrderToClient(order: {
     name: string;
     quantity: number;
     unitPrice: unknown;
+    taxAmount?: unknown;
+    total?: unknown;
     notes: string | null;
     menuItemId?: string | null;
     menuItem?: { hsnCode?: string | null } | null;
@@ -225,6 +281,7 @@ export function mapOrderToClient(order: {
     subtotal: toPaise(Number(order.subtotal)),
     taxTotal: order.taxTotal != null ? toPaise(Number(order.taxTotal)) : 0,
     tipAmount: order.tipAmount != null ? toPaise(Number(order.tipAmount)) : 0,
+    discountTotal: order.discountTotal != null ? toPaise(Number(order.discountTotal)) : 0,
     total: order.total != null ? toPaise(Number(order.total)) : undefined,
     totalAmount:
       order.total != null ? toPaise(Number(order.total)) : toPaise(Number(order.subtotal)),
@@ -239,6 +296,8 @@ export function mapOrderToClient(order: {
       name: item.name,
       quantity: item.quantity,
       unitPrice: toPaise(Number(item.unitPrice)),
+      taxAmount: item.taxAmount != null ? toPaise(Number(item.taxAmount)) : 0,
+      lineTotal: item.total != null ? toPaise(Number(item.total)) : undefined,
       notes: item.notes,
       hsnCode: item.menuItem?.hsnCode ?? null,
     })),

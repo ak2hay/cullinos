@@ -14,6 +14,20 @@ export {
 } from './theme';
 
 export { cn } from './utils';
+export {
+  THEME_STORAGE_KEY,
+  getThemeMode,
+  resolveTheme,
+  setThemeMode,
+  useCssVar,
+  useLockedTheme,
+  useThemeMode,
+  type ResolvedTheme,
+  type ThemeMode,
+} from './theme-mode';
+export { usePresence } from './use-presence';
+export { ThemeToggle, type ThemeToggleProps } from './components/ThemeToggle';
+export { Skeleton } from './components/Skeleton';
 
 export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from './components/Button';
 export { Field, controlClassName, fieldId, type FieldProps } from './components/Field';
@@ -25,6 +39,7 @@ export {
   DEFAULT_DIAL_CODE,
   parsePhoneValue,
   composePhone,
+  isoToFlag,
   type PhoneFieldProps,
   type DialCodeOption,
 } from './components/PhoneField';
@@ -61,6 +76,13 @@ export { Badge, type BadgeProps, type BadgeVariant } from './components/Badge';
 export { Tabs, TabPanel, type TabsProps, type TabItem } from './components/Tabs';
 export { Dialog, type DialogProps } from './components/Dialog';
 export { Drawer, type DrawerProps } from './components/Drawer';
+export {
+  ItemOptionsDialog,
+  itemNeedsOptions,
+  type ItemOptionsDialogProps,
+  type ItemOptionsItem,
+  type ItemOptionsSelection,
+} from './components/ItemOptionsDialog';
 export {
   CommandPalette,
   type CommandPaletteProps,

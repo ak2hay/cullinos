@@ -1,6 +1,15 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { foodCostPct, ingredientCostForSales } from "../../common/food-cost.util";
+import {
+  hourInZone,
+  orgDayRange,
+  ymdInZone,
+  type OrgDayRange,
+} from "../../common/org-day-range.util";
+
+/** Sales reports count only settled orders; open tickets and cancellations are excluded. */
+const REVENUE_STATUSES = ["completed"] as const;
 
 @Injectable()
 export class ReportsService {
@@ -14,16 +23,15 @@ export class ReportsService {
   }
 
   async smbSummary(orgId: string, outletId?: string, date?: string) {
-    const dayStart = date ? new Date(date) : new Date();
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(dayStart);
-    dayEnd.setDate(dayEnd.getDate() + 1);
+    const range = await this.range(orgId, date, date);
+    const dayStart = range.start;
+    const dayEnd = range.end;
 
     const [orders, wastage, attendance] = await Promise.all([
       this.prisma.order.findMany({
         where: {
           organizationId: orgId,
-          status: { in: ["completed", "confirmed", "ready", "served"] },
+          status: { in: [...REVENUE_STATUSES] },
           createdAt: { gte: dayStart, lt: dayEnd },
           ...(outletId ? { outletId } : {}),
         },
@@ -31,7 +39,9 @@ export class ReportsService {
       }),
       this.prisma.wastage.findMany({
         where: {
+          organizationId: orgId,
           recordedAt: { gte: dayStart, lt: dayEnd },
+          ...(outletId ? { outletId } : {}),
         },
         take: 100,
       }),
@@ -50,7 +60,7 @@ export class ReportsService {
     const hourCounts = new Map<number, number>();
 
     for (const order of orders) {
-      const hour = order.createdAt.getHours();
+      const hour = hourInZone(order.createdAt, range.timeZone);
       hourCounts.set(hour, (hourCounts.get(hour) ?? 0) + 1);
       for (const item of order.items) {
         itemCounts.set(item.name, (itemCounts.get(item.name) ?? 0) + item.quantity);
@@ -77,7 +87,7 @@ export class ReportsService {
     });
 
     return {
-      date: dayStart.toISOString().slice(0, 10),
+      date: range.fromYmd,
       revenue,
       tips,
       orderCount: orders.length,
@@ -93,20 +103,12 @@ export class ReportsService {
 
   /** Export-friendly order summary rows for a date range (CSV-ish JSON). */
   async export(orgId: string, from?: string, to?: string, outletId?: string) {
-    const fromDate = from ? new Date(from) : new Date();
-    fromDate.setHours(0, 0, 0, 0);
-    const toDate = to ? new Date(to) : new Date(fromDate);
-    toDate.setHours(23, 59, 59, 999);
-    if (!to) {
-      // default: single day from `from` (or today)
-      toDate.setTime(fromDate.getTime());
-      toDate.setHours(23, 59, 59, 999);
-    }
+    const range = await this.range(orgId, from, to);
 
     const orders = await this.prisma.order.findMany({
       where: {
         organizationId: orgId,
-        createdAt: { gte: fromDate, lte: toDate },
+        createdAt: { gte: range.start, lt: range.end },
         ...(outletId ? { outletId } : {}),
       },
       orderBy: { createdAt: "asc" },
@@ -145,36 +147,32 @@ export class ReportsService {
     }));
 
     return {
-      from: fromDate.toISOString().slice(0, 10),
-      to: toDate.toISOString().slice(0, 10),
+      from: range.fromYmd,
+      to: range.toYmd,
       count: rows.length,
       rows,
     };
   }
 
-  private dateRange(from?: string, to?: string) {
-    const fromDate = from ? new Date(from) : new Date();
-    fromDate.setHours(0, 0, 0, 0);
-    const toDate = to ? new Date(to) : new Date(fromDate);
-    toDate.setHours(23, 59, 59, 999);
-    if (!to) {
-      toDate.setTime(fromDate.getTime());
-      toDate.setHours(23, 59, 59, 999);
-    }
-    return { fromDate, toDate };
+  private async range(orgId: string, from?: string, to?: string): Promise<OrgDayRange> {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { timezone: true },
+    });
+    return orgDayRange(from, to, org?.timezone);
   }
 
   private orderWhere(
     orgId: string,
-    params: { outletId?: string; from?: string; to?: string },
-    statuses?: string[],
+    range: OrgDayRange,
+    params: { outletId?: string },
+    statuses?: readonly string[],
   ) {
-    const { fromDate, toDate } = this.dateRange(params.from, params.to);
     return {
       organizationId: orgId,
-      createdAt: { gte: fromDate, lte: toDate },
+      createdAt: { gte: range.start, lt: range.end },
       ...(params.outletId ? { outletId: params.outletId } : {}),
-      ...(statuses ? { status: { in: statuses as never[] } } : {}),
+      ...(statuses ? { status: { in: [...statuses] as never[] } } : {}),
     };
   }
 
@@ -182,14 +180,9 @@ export class ReportsService {
     orgId: string,
     params: { outletId?: string; from?: string; to?: string },
   ) {
+    const range = await this.range(orgId, params.from, params.to);
     const orders = await this.prisma.order.findMany({
-      where: this.orderWhere(orgId, params, [
-        "completed",
-        "confirmed",
-        "preparing",
-        "ready",
-        "served",
-      ]),
+      where: this.orderWhere(orgId, range, params, REVENUE_STATUSES),
       include: { items: true },
       take: 5000,
     });
@@ -213,8 +206,8 @@ export class ReportsService {
 
     const items = [...map.values()].sort((a, b) => b.revenue - a.revenue);
     return {
-      from: this.dateRange(params.from, params.to).fromDate.toISOString().slice(0, 10),
-      to: this.dateRange(params.from, params.to).toDate.toISOString().slice(0, 10),
+      from: range.fromYmd,
+      to: range.toYmd,
       items,
       totalItems: items.reduce((s, i) => s + i.quantity, 0),
       totalRevenue: items.reduce((s, i) => s + i.revenue, 0),
@@ -225,14 +218,9 @@ export class ReportsService {
     orgId: string,
     params: { outletId?: string; from?: string; to?: string },
   ) {
+    const range = await this.range(orgId, params.from, params.to);
     const orders = await this.prisma.order.findMany({
-      where: this.orderWhere(orgId, params, [
-        "completed",
-        "confirmed",
-        "preparing",
-        "ready",
-        "served",
-      ]),
+      where: this.orderWhere(orgId, range, params, REVENUE_STATUSES),
       include: {
         items: {
           include: {
@@ -256,8 +244,8 @@ export class ReportsService {
 
     const categories = [...map.values()].sort((a, b) => b.revenue - a.revenue);
     return {
-      from: this.dateRange(params.from, params.to).fromDate.toISOString().slice(0, 10),
-      to: this.dateRange(params.from, params.to).toDate.toISOString().slice(0, 10),
+      from: range.fromYmd,
+      to: range.toYmd,
       categories,
     };
   }
@@ -266,15 +254,12 @@ export class ReportsService {
     orgId: string,
     params: { outletId?: string; from?: string; to?: string },
   ) {
+    const range = await this.range(orgId, params.from, params.to);
     const orders = await this.prisma.order.findMany({
-      where: this.orderWhere(orgId, params, [
-        "completed",
-        "confirmed",
-        "preparing",
-        "ready",
-        "served",
-      ]),
-      include: { payments: { include: { paymentMethod: true } } },
+      where: this.orderWhere(orgId, range, params, REVENUE_STATUSES),
+      include: {
+        payments: { where: { status: "completed" }, include: { paymentMethod: true } },
+      },
       take: 5000,
     });
 
@@ -297,8 +282,8 @@ export class ReportsService {
     }
 
     return {
-      from: this.dateRange(params.from, params.to).fromDate.toISOString().slice(0, 10),
-      to: this.dateRange(params.from, params.to).toDate.toISOString().slice(0, 10),
+      from: range.fromYmd,
+      to: range.toYmd,
       methods: [...map.values()].sort((a, b) => b.amount - a.amount),
     };
   }
@@ -307,9 +292,10 @@ export class ReportsService {
     orgId: string,
     params: { outletId?: string; from?: string; to?: string },
   ) {
+    const range = await this.range(orgId, params.from, params.to);
     const orders = await this.prisma.order.findMany({
       where: {
-        ...this.orderWhere(orgId, params),
+        ...this.orderWhere(orgId, range, params, REVENUE_STATUSES),
         discountTotal: { gt: 0 },
       },
       include: { discounts: true },
@@ -328,8 +314,8 @@ export class ReportsService {
     }
 
     return {
-      from: this.dateRange(params.from, params.to).fromDate.toISOString().slice(0, 10),
-      to: this.dateRange(params.from, params.to).toDate.toISOString().slice(0, 10),
+      from: range.fromYmd,
+      to: range.toYmd,
       orderCount: orders.length,
       totalDiscount,
       byType: [...byType.values()].sort((a, b) => b.amount - a.amount),
@@ -340,8 +326,9 @@ export class ReportsService {
     orgId: string,
     params: { outletId?: string; from?: string; to?: string },
   ) {
+    const range = await this.range(orgId, params.from, params.to);
     const orders = await this.prisma.order.findMany({
-      where: this.orderWhere(orgId, params, ["cancelled", "voided"]),
+      where: this.orderWhere(orgId, range, params, ["cancelled", "voided"]),
       select: {
         id: true,
         orderNumber: true,
@@ -359,8 +346,8 @@ export class ReportsService {
     }
 
     return {
-      from: this.dateRange(params.from, params.to).fromDate.toISOString().slice(0, 10),
-      to: this.dateRange(params.from, params.to).toDate.toISOString().slice(0, 10),
+      from: range.fromYmd,
+      to: range.toYmd,
       count: orders.length,
       lostRevenue: orders.reduce((s, o) => s + Number(o.total), 0),
       byStatus: [...byStatus.entries()].map(([status, count]) => ({ status, count })),
@@ -373,14 +360,9 @@ export class ReportsService {
     orgId: string,
     params: { outletId?: string; from?: string; to?: string },
   ) {
+    const range = await this.range(orgId, params.from, params.to);
     const orders = await this.prisma.order.findMany({
-      where: this.orderWhere(orgId, params, [
-        "completed",
-        "confirmed",
-        "preparing",
-        "ready",
-        "served",
-      ]),
+      where: this.orderWhere(orgId, range, params, REVENUE_STATUSES),
       include: { items: true },
       take: 5000,
     });
@@ -497,8 +479,8 @@ export class ReportsService {
     items.sort((a, b) => b.revenue - a.revenue);
 
     return {
-      from: this.dateRange(params.from, params.to).fromDate.toISOString().slice(0, 10),
-      to: this.dateRange(params.from, params.to).toDate.toISOString().slice(0, 10),
+      from: range.fromYmd,
+      to: range.toYmd,
       items,
     };
   }
@@ -508,14 +490,9 @@ export class ReportsService {
     orgId: string,
     params: { outletId?: string; from?: string; to?: string },
   ) {
-    const { fromDate, toDate } = this.dateRange(params.from, params.to);
+    const range = await this.range(orgId, params.from, params.to);
     const orders = await this.prisma.order.findMany({
-      where: {
-        organizationId: orgId,
-        createdAt: { gte: fromDate, lte: toDate },
-        status: { notIn: ["cancelled", "voided"] },
-        ...(params.outletId ? { outletId: params.outletId } : {}),
-      },
+      where: this.orderWhere(orgId, range, params, REVENUE_STATUSES),
       select: {
         id: true,
         createdAt: true,
@@ -544,7 +521,7 @@ export class ReportsService {
     };
 
     for (const order of orders) {
-      const date = order.createdAt.toISOString().slice(0, 10);
+      const date = ymdInZone(order.createdAt, range.timeZone);
       let bucket = byDate.get(date);
       if (!bucket) {
         bucket = { date, cgst: 0, sgst: 0, igst: 0, excise: 0, other: 0, total: 0 };
@@ -584,8 +561,8 @@ export class ReportsService {
     );
 
     return {
-      from: fromDate.toISOString().slice(0, 10),
-      to: toDate.toISOString().slice(0, 10),
+      from: range.fromYmd,
+      to: range.toYmd,
       days,
       totals: {
         cgst: Math.round(totals.cgst * 100) / 100,
@@ -603,14 +580,9 @@ export class ReportsService {
     orgId: string,
     params: { outletId?: string; from?: string; to?: string },
   ) {
-    const { fromDate, toDate } = this.dateRange(params.from, params.to);
+    const range = await this.range(orgId, params.from, params.to);
     const orders = await this.prisma.order.findMany({
-      where: {
-        organizationId: orgId,
-        createdAt: { gte: fromDate, lte: toDate },
-        status: { notIn: ["cancelled", "voided"] },
-        ...(params.outletId ? { outletId: params.outletId } : {}),
-      },
+      where: this.orderWhere(orgId, range, params, REVENUE_STATUSES),
       select: {
         items: {
           select: {
@@ -622,6 +594,7 @@ export class ReportsService {
             menuItem: {
               select: {
                 taxGroupId: true,
+                isTaxExempt: true,
                 taxGroup: { select: { id: true, name: true } },
               },
             },
@@ -641,9 +614,12 @@ export class ReportsService {
 
     for (const order of orders) {
       for (const item of order.items) {
-        const groupId = item.menuItem?.taxGroupId ?? null;
-        const groupName = item.menuItem?.taxGroup?.name ?? "Unassigned";
-        const key = groupId ?? "unassigned";
+        const exempt = item.menuItem?.isTaxExempt === true;
+        const groupId = exempt ? null : (item.menuItem?.taxGroupId ?? null);
+        const groupName = exempt
+          ? "GST exempt (nil-rated)"
+          : (item.menuItem?.taxGroup?.name ?? "Unassigned");
+        const key = exempt ? "exempt" : (groupId ?? "unassigned");
         let row = map.get(key);
         if (!row) {
           row = {
@@ -670,8 +646,8 @@ export class ReportsService {
       .sort((a, b) => b.revenue - a.revenue);
 
     return {
-      from: fromDate.toISOString().slice(0, 10),
-      to: toDate.toISOString().slice(0, 10),
+      from: range.fromYmd,
+      to: range.toYmd,
       groups,
     };
   }

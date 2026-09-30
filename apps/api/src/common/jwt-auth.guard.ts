@@ -7,7 +7,9 @@ import {
 import { Reflector } from "@nestjs/core";
 import { JwtService } from "@nestjs/jwt";
 import { IS_PUBLIC_KEY } from "./decorators";
-import { getJwtSecret } from "./jwt-secret.util";
+import { verifyStaffAccessToken } from "./access-token.util";
+
+export { isStaffAccessPayload } from "./access-token.util";
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -26,15 +28,11 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException("Missing token");
     }
 
-    try {
-      const token = authHeader.slice(7);
-      const payload = this.jwtService.verify(token, {
-        secret: getJwtSecret(),
-      });
-      request.user = payload;
-      return true;
-    } catch {
+    const payload = verifyStaffAccessToken(this.jwtService, authHeader.slice(7));
+    if (!payload) {
       throw new UnauthorizedException("Invalid token");
     }
+    request.user = payload;
+    return true;
   }
 }

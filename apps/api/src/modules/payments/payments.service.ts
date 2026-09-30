@@ -54,9 +54,60 @@ export class PaymentsService {
     amount?: number,
     userId?: string,
   ) {
-    const order = await this.requireOrder(orgId, orderId);
-    const remaining = await this.remainingUnpaid(order.id, Number(order.total));
-    if (remaining <= 0) {
+    const order = await this.requirePayableOrder(orgId, orderId);
+    if (amount != null && Number.isFinite(amount) && amount <= 0) {
+      throw new BadRequestException("Amount must be positive");
+    }
+    const method = await this.ensureMethod("cash", "Cash");
+
+    // Lock the order row so two tills can't both take the same remaining balance.
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM orders WHERE id = ${order.id} FOR UPDATE`;
+      const paid = await tx.payment.aggregate({
+        where: { orderId: order.id, status: "completed" },
+        _sum: { amount: true },
+      });
+      const remaining = Math.max(
+        0,
+        Math.round((Number(order.total) - Number(paid._sum.amount ?? 0)) * 100) / 100,
+      );
+      if (remaining <= 0) return null;
+
+      const payAmount =
+        amount != null && Number.isFinite(amount)
+          ? Math.min(remaining, Math.round(amount * 100) / 100)
+          : remaining;
+      const payment = await tx.payment.create({
+        data: {
+          organizationId: orgId,
+          orderId: order.id,
+          paymentMethodId: method.id,
+          amount: payAmount,
+          status: "completed",
+          processedAt: new Date(),
+          metadata: { kind: "diner", tender: "cash" } satisfies PaymentMetadata,
+        },
+      });
+
+      if (userId) {
+        const shift = await tx.cashierShift.findFirst({
+          where: { outletId: order.outletId, userId, status: "open" },
+        });
+        if (shift) {
+          await tx.cashMovement.create({
+            data: {
+              shiftId: shift.id,
+              type: "sale",
+              amount: payAmount,
+              reason: `POS cash · order ${order.orderNumber}`,
+            },
+          });
+        }
+      }
+      return { payment, payAmount };
+    });
+
+    if (!result) {
       return {
         success: true,
         orderId: order.id,
@@ -64,49 +115,10 @@ export class PaymentsService {
         remaining: 0,
       };
     }
+    const { payment, payAmount } = result;
 
-    let payAmount = remaining;
-    if (amount != null && Number.isFinite(amount)) {
-      if (amount <= 0) throw new BadRequestException("Amount must be positive");
-      payAmount = Math.min(remaining, Math.round(amount * 100) / 100);
-    }
-
-    const method = await this.ensureMethod("cash", "Cash");
-    const payment = await this.prisma.payment.create({
-      data: {
-        organizationId: orgId,
-        orderId: order.id,
-        paymentMethodId: method.id,
-        amount: payAmount,
-        status: "completed",
-        processedAt: new Date(),
-        metadata: { kind: "diner", tender: "cash" } satisfies PaymentMetadata,
-      },
-    });
-
-    if (userId) {
-      const shift = await this.prisma.cashierShift.findFirst({
-        where: { outletId: order.outletId, userId, status: "open" },
-      });
-      if (shift) {
-        await this.prisma.cashMovement.create({
-          data: {
-            shiftId: shift.id,
-            type: "sale",
-            amount: payAmount,
-            reason: `POS cash · order ${order.orderNumber}`,
-          },
-        });
-      }
-    }
-
+    // Payment settled ≠ kitchen/order completed — leave status for Orders/KDS.
     const left = await this.remainingUnpaid(order.id, Number(order.total));
-    if (left <= 0 && !["completed", "cancelled", "voided"].includes(order.status)) {
-      await this.prisma.order.update({
-        where: { id: order.id },
-        data: { status: "completed", completedAt: new Date() },
-      });
-    }
 
     return {
       success: true,
@@ -135,7 +147,7 @@ export class PaymentsService {
     amount?: number,
     preferredProvider?: string,
   ) {
-    const order = await this.requireOrder(orgId, orderId);
+    const order = await this.requirePayableOrder(orgId, orderId);
     let remaining = await this.remainingUnpaid(order.id, Number(order.total));
     if (remaining <= 0) {
       throw new BadRequestException("Order is already paid");
@@ -156,9 +168,13 @@ export class PaymentsService {
       orderBy: { createdAt: "desc" },
     });
     const existingMeta = (existing?.metadata ?? {}) as PaymentMetadata;
+    // A gateway order is fixed to the amount it was created for; only reuse it for the same amount.
+    const sameAmount =
+      existing != null && Math.round(Number(existing.amount) * 100) === Math.round(remaining * 100);
 
     if (
       existing?.id &&
+      sameAmount &&
       existingMeta.provider === creds.provider &&
       ((creds.provider === "razorpay" && existingMeta.razorpayOrderId) ||
         (creds.provider === "cashfree" && existingMeta.paymentSessionId))
@@ -190,9 +206,21 @@ export class PaymentsService {
       };
     }
 
-    const pending =
-      existing ??
-      (await this.prisma.payment.create({
+    const pending = existing
+      ? sameAmount
+        ? existing
+        : await this.prisma.payment.update({
+            where: { id: existing.id },
+            data: {
+              amount: remaining,
+              metadata: {
+                kind: "diner",
+                provider: creds.provider,
+                outletId: order.outletId,
+              } satisfies PaymentMetadata,
+            },
+          })
+      : (await this.prisma.payment.create({
         data: {
           organizationId: orgId,
           orderId: order.id,
@@ -325,6 +353,7 @@ export class PaymentsService {
       razorpaySignature?: string;
       cashfreeOrderId?: string;
     },
+    opts?: { expectedOrderId?: string },
   ) {
     const providerHint =
       data.provider && isPaymentGatewayProvider(data.provider)
@@ -334,7 +363,7 @@ export class PaymentsService {
           : "razorpay";
 
     if (providerHint === "cashfree") {
-      return this.verifyCashfreePayment(orgId, data.cashfreeOrderId ?? "");
+      return this.verifyCashfreePayment(orgId, data.cashfreeOrderId ?? "", opts?.expectedOrderId);
     }
 
     if (
@@ -351,6 +380,9 @@ export class PaymentsService {
     });
 
     if (!byRef) throw new NotFoundException("Payment not found");
+    if (opts?.expectedOrderId && byRef.orderId !== opts.expectedOrderId) {
+      throw new BadRequestException("Payment does not belong to this order");
+    }
 
     const meta = (byRef.metadata ?? {}) as PaymentMetadata;
     const creds = await this.credentials.resolveForProvider(
@@ -382,7 +414,11 @@ export class PaymentsService {
     });
   }
 
-  private async verifyCashfreePayment(orgId: string, cashfreeOrderId: string) {
+  private async verifyCashfreePayment(
+    orgId: string,
+    cashfreeOrderId: string,
+    expectedOrderId?: string,
+  ) {
     if (!cashfreeOrderId?.trim()) {
       throw new BadRequestException("Missing cashfreeOrderId");
     }
@@ -392,6 +428,9 @@ export class PaymentsService {
       orderBy: { createdAt: "desc" },
     });
     if (!payment) throw new NotFoundException("Payment not found");
+    if (expectedOrderId && payment.orderId !== expectedOrderId) {
+      throw new BadRequestException("Payment does not belong to this order");
+    }
 
     const meta = (payment.metadata ?? {}) as PaymentMetadata;
     const creds = await this.credentials.resolveForProvider(
@@ -456,6 +495,11 @@ export class PaymentsService {
       }
       throw err;
     }
+  }
+
+  /** Undo a claim so the provider's retry is processed instead of treated as a duplicate. */
+  async releaseWebhookEvent(provider: string, eventId: string): Promise<void> {
+    await this.prisma.paymentWebhookEvent.deleteMany({ where: { provider, eventId } });
   }
 
   async resolveRazorpayWebhookCredentials(body: Record<string, unknown>): Promise<{
@@ -658,8 +702,9 @@ export class PaymentsService {
       const provider =
         input.provider ?? meta.provider ?? ("razorpay" as PaymentGatewayProvider);
 
+      // A failed attempt can be followed by a successful retry on the same gateway order.
       const updated = await tx.payment.updateMany({
-        where: { id: payment.id, status: "pending" },
+        where: { id: payment.id, status: { in: ["pending", "failed"] } },
         data: {
           status: "completed",
           paymentMethodId: method.id,
@@ -754,6 +799,14 @@ export class PaymentsService {
       where: { id: orderId, organizationId: orgId },
     });
     if (!order) throw new NotFoundException("Order not found");
+    return order;
+  }
+
+  private async requirePayableOrder(orgId: string, orderId: string) {
+    const order = await this.requireOrder(orgId, orderId);
+    if (order.status === "cancelled" || order.status === "voided") {
+      throw new BadRequestException(`Cannot take payment on a ${order.status} order`);
+    }
     return order;
   }
 

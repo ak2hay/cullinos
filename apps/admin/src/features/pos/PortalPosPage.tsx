@@ -1,30 +1,47 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  ItemOptionsDialog,
+  itemNeedsOptions,
+  PhoneField,
+  type ItemOptionsItem,
+  type ItemOptionsSelection,
+} from '@cullinos/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   customersApi,
   feedbackApi,
+  isRouteMissing,
   loyaltyApi,
   menuApi,
   ordersApi,
+  organizationsApi,
   outletsApi,
   paymentsApi,
   posApi,
+  settingsApi,
 } from '@/lib/api';
-import { generateIdempotencyKey } from '@/lib/format';
+import { formatMoney, generateIdempotencyKey } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
-import { CartSidebar, type PosCustomer } from './CartSidebar';
+import { getPosOrderTypes, isBusinessType } from '@cullinos/shared';
+import { CartSidebar, type PosCustomer, type PosOrderType } from './CartSidebar';
 import { CategoryTabs } from './CategoryTabs';
 import { HeldOrdersPanel } from './HeldOrdersPanel';
 import { ItemGrid } from './ItemGrid';
 import { KeyboardHints } from './KeyboardHints';
 import { SearchBar } from './SearchBar';
-import { useCartStore } from './cartStore';
+import { toOrderItems, useCartStore } from './cartStore';
 import { useHeldOrdersStore, type HeldOrder } from './heldOrdersStore';
 import { openRazorpayCheckout } from './razorpayCheckout';
 import { openCashfreeCheckout } from './cashfreeCheckout';
 import { printWithProfile, type PrintableOrder } from './printHelper';
 
 const RECENT_KEY = 'cullinos.portal-pos.recentItemIds';
+
+const COUNTER_ORDER_LABELS: Record<PosOrderType, string> = {
+  takeaway: 'Pickup',
+  dine_in: 'Eat in',
+  delivery: 'Delivery',
+};
 
 function loadRecentIds(): string[] {
   try {
@@ -35,6 +52,40 @@ function loadRecentIds(): string[] {
   } catch {
     return [];
   }
+}
+
+function toOptionsItem(item: {
+  id: string;
+  name: string;
+  price: number;
+  variants?: Array<{ id?: string; name: string; price: number }>;
+  modifierGroups?: Array<{
+    id?: string;
+    name: string;
+    minSelect?: number;
+    maxSelect?: number;
+    modifiers?: Array<{ id?: string; name: string; price: number }>;
+  }>;
+}): ItemOptionsItem {
+  return {
+    id: item.id,
+    name: item.name,
+    price: item.price,
+    variants: (item.variants ?? [])
+      .filter((v): v is typeof v & { id: string } => Boolean(v.id))
+      .map((v) => ({ id: v.id, name: v.name, price: v.price })),
+    modifierGroups: (item.modifierGroups ?? [])
+      .filter((g): g is typeof g & { id: string } => Boolean(g.id))
+      .map((g) => ({
+        id: g.id,
+        name: g.name,
+        minSelect: g.minSelect,
+        maxSelect: g.maxSelect,
+        modifiers: (g.modifiers ?? [])
+          .filter((m): m is typeof m & { id: string } => Boolean(m.id))
+          .map((m) => ({ id: m.id, name: m.name, price: m.price })),
+      })),
+  };
 }
 
 function pushRecentId(id: string) {
@@ -64,11 +115,14 @@ export function PortalPosPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [heldPanelOpen, setHeldPanelOpen] = useState(false);
+  const [optionsItem, setOptionsItem] = useState<ItemOptionsItem | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [linkedCustomer, setLinkedCustomer] = useState<PosCustomer | null>(null);
-  const [orderType, setOrderType] = useState<'takeaway' | 'dine_in'>('takeaway');
+  const [orderType, setOrderType] = useState<PosOrderType>('takeaway');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryPincode, setDeliveryPincode] = useState('');
   const [tipAmount, setTipAmount] = useState(0);
   const [redeemPoints, setRedeemPoints] = useState(0);
   const [couponCode, setCouponCode] = useState('');
@@ -78,9 +132,23 @@ export function PortalPosPage() {
     null,
   );
   const [splitSelectIds, setSplitSelectIds] = useState<string[]>([]);
-  const [ebillOrderId, setEbillOrderId] = useState<string | null>(null);
   const [recentIds, setRecentIds] = useState<string[]>(() => loadRecentIds());
+  const [mobileView, setMobileView] = useState<'menu' | 'cart'>('menu');
   const redeemAppliedOrderId = useRef<string | null>(null);
+  const idempotencyKeyRef = useRef<string | null>(null);
+  const prevLineCount = useRef(lines.length);
+  const cartItemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
+
+  useEffect(() => {
+    idempotencyKeyRef.current = null;
+  }, [lines]);
+
+  useEffect(() => {
+    if (prevLineCount.current > 0 && lines.length === 0 && !unpaidOrder) {
+      setMobileView('menu');
+    }
+    prevLineCount.current = lines.length;
+  }, [lines.length, unpaidOrder]);
 
   const outletsQuery = useQuery({
     queryKey: ['outlets'],
@@ -109,6 +177,17 @@ export function PortalPosPage() {
     | undefined;
   const hasOpenShift = Boolean(openShift?.id);
 
+  const gatewayStatusQuery = useQuery({
+    queryKey: ['payments', 'gateway-status', outletId],
+    queryFn: () => paymentsApi.gatewayStatus(outletId!),
+    enabled: Boolean(outletId),
+    staleTime: 60_000,
+  });
+  const onlineDisabledReason =
+    gatewayStatusQuery.data?.onlineEnabled === false
+      ? 'UPI/card is off: connect Razorpay or Cashfree in Settings → Payments.'
+      : null;
+
   const unpaidBalanceQuery = useQuery({
     queryKey: ['pos', 'balance', unpaidOrder?.id],
     queryFn: () => paymentsApi.getBalance(unpaidOrder!.id),
@@ -121,6 +200,32 @@ export function PortalPosPage() {
     queryFn: () => ordersApi.get(unpaidOrder!.id),
     enabled: Boolean(unpaidOrder?.id),
   });
+
+  const settingsQuery = useQuery({
+    queryKey: ['settings'],
+    queryFn: settingsApi.get,
+    staleTime: 60_000,
+  });
+  const whatsappReceiptsEnabled =
+    settingsQuery.data?.settings?.whatsappReceiptsEnabled === true;
+
+  const orgQuery = useQuery({
+    queryKey: ['organizations', 'current'],
+    queryFn: organizationsApi.current,
+    staleTime: 60_000,
+  });
+  const orgBusinessType = isBusinessType(orgQuery.data?.businessType)
+    ? orgQuery.data.businessType
+    : null;
+  const orderTypeOptions = useMemo(
+    () => getPosOrderTypes(orgBusinessType, settingsQuery.data?.settings),
+    [orgBusinessType, settingsQuery.data?.settings],
+  );
+  useEffect(() => {
+    if (orderTypeOptions.length && !orderTypeOptions.includes(orderType)) {
+      setOrderType(orderTypeOptions[0]);
+    }
+  }, [orderTypeOptions, orderType]);
 
   const openShiftMutation = useMutation({
     mutationFn: () => posApi.openShift(outletId!, 0),
@@ -168,22 +273,9 @@ export function PortalPosPage() {
       setStatusMessage(err instanceof Error ? err.message : 'Split failed'),
   });
 
-  const ebillMutation = useMutation({
-    mutationFn: (channel: 'email' | 'sms') => {
-      if (!ebillOrderId) throw new Error('No order');
-      return ordersApi.sendEbill(ebillOrderId, channel);
-    },
-    onSuccess: (_data, channel) => {
-      setStatusMessage(`E-bill sent via ${channel}`);
-      setEbillOrderId(null);
-    },
-    onError: (err) =>
-      setStatusMessage(err instanceof Error ? err.message : 'E-bill failed'),
-  });
-
   const quantities = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const line of lines) map[line.menuItemId] = line.quantity;
+    for (const line of lines) map[line.menuItemId] = (map[line.menuItemId] ?? 0) + line.quantity;
     return map;
   }, [lines]);
 
@@ -207,8 +299,10 @@ export function PortalPosPage() {
 
   const createOrder = useCallback(async () => {
     if (!outletId || lines.length === 0) throw new Error('Cart is empty');
-    const items = lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity }));
-    const key = generateIdempotencyKey();
+    const items = toOrderItems(lines);
+    // One key per cart so a retried checkout returns the same order instead of a duplicate.
+    idempotencyKeyRef.current ??= generateIdempotencyKey();
+    const key = idempotencyKeyRef.current;
     const payload = {
       outletId,
       items,
@@ -217,19 +311,39 @@ export function PortalPosPage() {
       customerId: linkedCustomer?.id,
       customerName: customerName || linkedCustomer?.name || undefined,
       tipAmount: tipAmount || undefined,
-      notes: counterMode
-        ? `Counter order · ${orderType === 'takeaway' ? 'Pickup' : 'Eat in'}`
-        : undefined,
+      notes: counterMode ? `Counter order · ${COUNTER_ORDER_LABELS[orderType]}` : undefined,
+      ...(counterMode && orderType === 'delivery'
+        ? {
+            deliveryAddress: deliveryAddress.trim() || undefined,
+            deliveryPincode: deliveryPincode.trim() || undefined,
+          }
+        : {}),
     };
+    if (counterMode && orderType === 'delivery' && !deliveryAddress.trim()) {
+      throw new Error('Enter a delivery address');
+    }
     try {
       return await posApi.quickOrder(payload, key);
-    } catch {
+    } catch (err) {
+      // A delivery order must not silently fall back to a plain takeaway ticket.
+      if (counterMode && orderType === 'delivery') throw err;
+      if (!isRouteMissing(err)) throw err;
       return ordersApi.create(
         { outletId, source: 'POS', items, customerId: linkedCustomer?.id },
         key,
       );
     }
-  }, [outletId, lines, counterMode, orderType, customerName, tipAmount, linkedCustomer]);
+  }, [
+    outletId,
+    lines,
+    counterMode,
+    orderType,
+    customerName,
+    tipAmount,
+    linkedCustomer,
+    deliveryAddress,
+    deliveryPincode,
+  ]);
 
   const resetCustomer = useCallback(() => {
     setCustomerName('');
@@ -237,6 +351,8 @@ export function PortalPosPage() {
     setLinkedCustomer(null);
     setTipAmount(0);
     setRedeemPoints(0);
+    setDeliveryAddress('');
+    setDeliveryPincode('');
   }, []);
 
   const finishPaid = useCallback(
@@ -259,42 +375,74 @@ export function PortalPosPage() {
         }>;
       },
       method: string,
+      opts: { fromCart: boolean },
     ) => {
-      clearCart();
-      resetCustomer();
+      const autoWhatsapp =
+        whatsappReceiptsEnabled &&
+        Boolean(linkedCustomer?.phone?.trim() || customerPhone.trim());
+
+      if (opts.fromCart) {
+        clearCart();
+        resetCustomer();
+        idempotencyKeyRef.current = null;
+      }
       setUnpaidOrder(null);
       setSplitSelectIds([]);
       setPartialCashAmount(undefined);
+      setCouponCode('');
+      setManualDiscount(0);
       redeemAppliedOrderId.current = null;
       setStatusMessage(`Order #${order.orderNumber} paid · ${method}`);
       queryClient.invalidateQueries({ queryKey: ['menu'] });
       queryClient.invalidateQueries({ queryKey: ['pos', 'shift', outletId] });
-      if (order.id) setEbillOrderId(order.id);
+
+      if (autoWhatsapp && order.id) {
+        void ordersApi
+          .sendEbill(order.id, 'whatsapp')
+          .then(() => {
+            setStatusMessage(`Order #${order.orderNumber} paid · ${method} · WhatsApp sent`);
+          })
+          .catch((err) => {
+            setStatusMessage(
+              err instanceof Error
+                ? `Paid · WhatsApp e-bill failed: ${err.message}`
+                : 'Paid · WhatsApp e-bill failed',
+            );
+          });
+      }
 
       if (outletId) {
         const toRupees = (paise: number) => paise / 100;
-        const printable: PrintableOrder = {
-          orderNumber: order.orderNumber,
-          customerName: order.customerName,
-          notes: order.notes,
-          subtotal: toRupees(order.subtotal ?? 0),
-          taxTotal: toRupees(order.taxTotal ?? 0),
-          total: toRupees(order.totalAmount ?? 0),
-          taxLines: (order.taxLines ?? []).map((t) => ({
-            taxName: t.taxName,
-            amount: toRupees(t.amount),
-            rate: t.rate,
-          })),
-          gstin: selectedOutlet?.gstin ?? null,
-          items: (order.items ?? []).map((item) => ({
-            name: item.name,
-            quantity: item.quantity,
-            unitPrice: toRupees(item.unitPrice),
-            notes: item.notes,
-            hsnCode: item.hsnCode ?? null,
-          })),
-        };
         void (async () => {
+          // The create response predates discounts, redemptions and payments; print the settled bill.
+          const latest = order.id
+            ? await ordersApi.get(order.id).catch(() => null)
+            : null;
+          const bill = latest ?? order;
+          const printable: PrintableOrder = {
+            orderNumber: bill.orderNumber,
+            customerName: bill.customerName,
+            notes: bill.notes,
+            outletName: selectedOutlet?.name ?? null,
+            subtotal: toRupees(bill.subtotal ?? 0),
+            taxTotal: toRupees(bill.taxTotal ?? 0),
+            discountTotal: toRupees(latest?.discountTotal ?? 0),
+            tipAmount: toRupees(latest?.tipAmount ?? 0),
+            total: toRupees(bill.totalAmount ?? 0),
+            taxLines: (bill.taxLines ?? []).map((t) => ({
+              taxName: t.taxName,
+              amount: toRupees(t.amount),
+              rate: t.rate,
+            })),
+            gstin: selectedOutlet?.gstin ?? null,
+            items: (bill.items ?? []).map((item) => ({
+              name: item.name,
+              quantity: item.quantity,
+              unitPrice: toRupees(item.unitPrice),
+              notes: item.notes,
+              hsnCode: 'hsnCode' in item ? ((item.hsnCode as string | null | undefined) ?? null) : null,
+            })),
+          };
           if (order.id) {
             try {
               const survey = await feedbackApi.surveyLink(order.id);
@@ -303,16 +451,28 @@ export function PortalPosPage() {
               /* optional */
             }
           }
-          await printWithProfile('kot', outletId, printable, {
-            orderId: order.id,
-          }).catch(() => undefined);
+          if (opts.fromCart) {
+            await printWithProfile('kot', outletId, printable, {
+              orderId: order.id,
+            }).catch(() => undefined);
+          }
           await printWithProfile('receipt', outletId, printable, {
             orderId: order.id,
           }).catch(() => undefined);
         })();
       }
     },
-    [clearCart, outletId, queryClient, resetCustomer, selectedOutlet?.gstin],
+    [
+      clearCart,
+      customerPhone,
+      linkedCustomer?.phone,
+      outletId,
+      queryClient,
+      resetCustomer,
+      selectedOutlet?.gstin,
+      selectedOutlet?.name,
+      whatsappReceiptsEnabled,
+    ],
   );
 
   const loyaltySettingsQuery = useQuery({
@@ -370,12 +530,17 @@ export function PortalPosPage() {
         }
       }
 
+      const fromCart = !input.orderId;
+
       if (couponCode.trim() || manualDiscount > 0) {
         await ordersApi.applyDiscount(order.id, {
           couponCode: couponCode.trim() || undefined,
           discountAmount: manualDiscount > 0 ? manualDiscount : undefined,
           reason: manualDiscount > 0 ? 'POS manual discount' : undefined,
         });
+        // Applied server-side; a retry must not stack the same discount again.
+        setCouponCode('');
+        setManualDiscount(0);
       }
 
       if (input.tender === 'cash') {
@@ -387,12 +552,12 @@ export function PortalPosPage() {
           setUnpaidOrder({ id: order.id, orderNumber: order.orderNumber });
           setPartialCashAmount(undefined);
           setStatusMessage(`Partial cash recorded. Remaining ₹${cashResult.remaining}`);
-          clearCart();
+          if (fromCart) clearCart();
           queryClient.invalidateQueries({ queryKey: ['pos', 'balance', order.id] });
           queryClient.invalidateQueries({ queryKey: ['pos', 'shift', outletId] });
-          return { order, method: 'Cash (partial)', partial: true as const };
+          return { order, method: 'Cash (partial)', partial: true as const, fromCart };
         }
-        return { order, method: 'Cash', partial: false as const };
+        return { order, method: 'Cash', partial: false as const, fromCart };
       }
 
       const bal = await paymentsApi.getBalance(order.id);
@@ -404,7 +569,7 @@ export function PortalPosPage() {
       try {
         if (intent.provider === 'cashfree') {
           if (!intent.paymentSessionId || !intent.cashfreeOrderId) {
-            throw new Error('Cashfree session is missing. Configure Payments for this restaurant.');
+            throw new Error('Cashfree session is missing. Configure it in Settings → Payments.');
           }
           await openCashfreeCheckout({
             paymentSessionId: intent.paymentSessionId,
@@ -419,7 +584,7 @@ export function PortalPosPage() {
           const key = intent.keyId;
           if (!key || !intent.razorpayOrderId) {
             throw new Error(
-              'Razorpay is not configured. Add Key ID under Payments for this restaurant.',
+              'Razorpay is not configured. Add the Key ID in Settings → Payments.',
             );
           }
           const result = await openRazorpayCheckout({
@@ -441,22 +606,22 @@ export function PortalPosPage() {
           setUnpaidOrder({ id: order.id, orderNumber: order.orderNumber });
           setPartialCashAmount(undefined);
           setStatusMessage(`Partial UPI recorded. Remaining ₹${after.remaining}`);
-          clearCart();
-          return { order, method: 'UPI (partial)', partial: true as const };
+          if (fromCart) clearCart();
+          return { order, method: 'UPI (partial)', partial: true as const, fromCart };
         }
-        return { order, method: 'UPI / card', partial: false as const };
+        return { order, method: 'UPI / card', partial: false as const, fromCart };
       } catch (err) {
         setUnpaidOrder({ id: order.id, orderNumber: order.orderNumber });
-        if (!input.orderId) {
+        if (fromCart) {
           clearCart();
           resetCustomer();
         }
         throw err;
       }
     },
-    onSuccess: ({ order, method, partial }) => {
+    onSuccess: ({ order, method, partial, fromCart }) => {
       if (partial) return;
-      finishPaid(order, method);
+      finishPaid(order, method, { fromCart });
     },
     onError: (err) => {
       setStatusMessage(err instanceof Error ? err.message : 'Checkout failed');
@@ -466,13 +631,14 @@ export function PortalPosPage() {
   const holdMutation = useMutation({
     mutationFn: async () => {
       if (!outletId || lines.length === 0) throw new Error('Cart is empty');
-      const items = lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity }));
+      const items = toOrderItems(lines);
       const key = generateIdempotencyKey();
       let order;
       try {
         order = await posApi.quickOrder({ outletId, items, autoConfirm: false }, key);
         order = await posApi.holdOrder(order.id);
-      } catch {
+      } catch (err) {
+        if (!isRouteMissing(err)) throw err;
         order = await ordersApi.create({ outletId, source: 'POS', items }, key);
         order = await ordersApi.hold(order.id);
       }
@@ -572,17 +738,25 @@ export function PortalPosPage() {
 
   const resumeHeld = useCallback(
     async (held: HeldOrder) => {
+      // The held order already exists server-side; paying it must not create a second order.
+      if (lines.length > 0 || unpaidOrder) {
+        setStatusMessage('Finish or hold the current bill before resuming another');
+        return;
+      }
       try {
-        await posApi.resumeOrder(held.id).catch(() => ordersApi.resume(held.id));
-        useCartStore.setState({ lines: held.lines });
+        await posApi
+          .resumeOrder(held.id)
+          .catch((err) => (isRouteMissing(err) ? ordersApi.resume(held.id) : Promise.reject(err)));
         removeHeld(held.id);
+        setUnpaidOrder({ id: held.id, orderNumber: held.orderNumber });
         setHeldPanelOpen(false);
-        setStatusMessage(`Resumed ${held.orderNumber}`);
+        setMobileView('cart');
+        setStatusMessage(`Resumed ${held.orderNumber} — take payment`);
       } catch (err) {
         setStatusMessage(err instanceof Error ? err.message : 'Resume failed');
       }
     },
-    [removeHeld],
+    [lines.length, removeHeld, unpaidOrder],
   );
 
   const handleCash = useCallback(() => {
@@ -654,9 +828,28 @@ export function PortalPosPage() {
   }, [statusMessage]);
 
   function handleAddItem(item: { id: string; name: string; price: number }) {
+    const full = menuQuery.data?.items.find((i) => i.id === item.id);
+    const options = full ? toOptionsItem(full) : null;
+    if (options && itemNeedsOptions(options)) {
+      setOptionsItem(options);
+      return;
+    }
     addItem(item);
     setRecentIds(pushRecentId(item.id));
     setStatusMessage(`Added ${item.name}`);
+  }
+
+  function handleOptionsConfirm(selection: ItemOptionsSelection) {
+    addItem({
+      id: selection.menuItemId,
+      name: selection.name,
+      price: selection.unitPrice,
+      variantId: selection.variantId,
+      modifiers: selection.modifiers,
+    });
+    setOptionsItem(null);
+    setRecentIds(pushRecentId(selection.menuItemId));
+    setStatusMessage(`Added ${selection.name}`);
   }
 
   if (!outletId) {
@@ -671,12 +864,14 @@ export function PortalPosPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[radial-gradient(ellipse_at_top,_var(--color-bg-secondary)_0%,_var(--color-bg-primary)_55%)]">
-      <div className="flex shrink-0 items-center gap-3 border-b border-white/5 px-4 py-2.5">
+      <div className="flex shrink-0 items-center gap-2 border-b border-line-subtle px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
         <div className="min-w-0 flex-1">
           <SearchBar ref={searchRef} value={search} onChange={setSearch} />
         </div>
-        <KeyboardHints />
-        <div className="relative">
+        <div className="hidden lg:block">
+          <KeyboardHints />
+        </div>
+        <div className="relative shrink-0">
           <HeldOrdersPanel
             orders={heldOrders}
             onResume={resumeHeld}
@@ -687,10 +882,10 @@ export function PortalPosPage() {
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/5 bg-bg-elevated/60 px-4 py-2 text-sm">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line-subtle bg-bg-elevated/60 px-3 py-1.5 text-xs sm:gap-3 sm:px-4 sm:py-2 sm:text-sm">
         {hasOpenShift ? (
           <>
-            <p className="text-text-secondary">
+            <p className="min-w-0 truncate text-text-secondary">
               Shift open
               {openShift?.openedAt
                 ? ` · since ${new Date(openShift.openedAt).toLocaleTimeString()}`
@@ -700,19 +895,19 @@ export function PortalPosPage() {
               type="button"
               disabled={closeShiftMutation.isPending}
               onClick={() => closeShiftMutation.mutate()}
-              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold transition hover:border-status-error/40"
+              className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold transition hover:border-status-error/40"
             >
               {closeShiftMutation.isPending ? 'Closing…' : 'Close shift'}
             </button>
           </>
         ) : (
           <>
-            <p className="text-status-warning">No open shift — cash tender blocked</p>
+            <p className="min-w-0 truncate text-status-warning">No open shift — cash tender blocked</p>
             <button
               type="button"
               disabled={openShiftMutation.isPending}
               onClick={() => openShiftMutation.mutate()}
-              className="rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-bg-primary"
+              className="rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-on-brand"
             >
               {openShiftMutation.isPending ? 'Opening…' : 'Open shift'}
             </button>
@@ -726,37 +921,51 @@ export function PortalPosPage() {
         </div>
       ) : null}
 
-      {ebillOrderId ? (
-        <div className="flex shrink-0 items-center justify-center gap-2 border-b border-white/5 bg-bg-card px-4 py-2 text-sm">
-          <span className="text-text-secondary">Send e-bill?</span>
-          <button
-            type="button"
-            disabled={ebillMutation.isPending}
-            onClick={() => ebillMutation.mutate('sms')}
-            className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold"
-          >
-            SMS
-          </button>
-          <button
-            type="button"
-            disabled={ebillMutation.isPending}
-            onClick={() => ebillMutation.mutate('email')}
-            className="rounded-lg border border-white/10 px-3 py-1 text-xs font-semibold"
-          >
-            Email
-          </button>
-          <button
-            type="button"
-            onClick={() => setEbillOrderId(null)}
-            className="rounded-lg px-2 py-1 text-xs text-text-muted"
-          >
-            Dismiss
-          </button>
+      <div className="flex shrink-0 flex-wrap items-end gap-2 border-b border-line-subtle bg-bg-card/80 px-3 py-2 sm:gap-3 sm:px-4">
+        <div className="min-w-[12rem] flex-1 sm:max-w-xs">
+          <PhoneField
+            label="Customer mobile (loyalty)"
+            value={customerPhone}
+            onChange={setCustomerPhone}
+          />
         </div>
-      ) : null}
+        <button
+          type="button"
+          disabled={lookupMutation.isPending || !customerPhone.trim()}
+          onClick={() => lookupMutation.mutate()}
+          className="rounded-xl border border-line bg-bg-elevated px-4 py-2.5 text-sm font-medium disabled:opacity-40"
+        >
+          {lookupMutation.isPending ? '…' : 'Find'}
+        </button>
+        {linkedCustomer ? (
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border border-brand-primary/30 bg-brand-primary/10 px-3 py-2 text-sm sm:max-w-sm">
+            <div className="min-w-0">
+              <p className="truncate font-medium">{linkedCustomer.name}</p>
+              <p className="text-xs text-brand-primary">
+                {linkedCustomer.loyaltyPoints} pts · no OTP required
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setLinkedCustomer(null);
+                setCustomerPhone('');
+                setRedeemPoints(0);
+              }}
+              className="shrink-0 text-xs text-text-muted hover:text-text-primary"
+            >
+              Clear
+            </button>
+          </div>
+        ) : null}
+      </div>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <main className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
+        <main
+          className={`${
+            mobileView === 'cart' ? 'hidden lg:flex' : 'flex'
+          } min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4`}
+        >
           {menuQuery.isLoading ? (
             <div className="flex flex-1 items-center justify-center text-text-muted">
               Loading menu…
@@ -785,7 +994,7 @@ export function PortalPosPage() {
                         key={item.id}
                         type="button"
                         onClick={() => handleAddItem(item)}
-                        className="shrink-0 rounded-full border border-white/10 bg-bg-card px-4 py-2 text-sm font-medium transition hover:border-brand-primary/40 active:scale-95"
+                        className="shrink-0 rounded-full border border-line bg-bg-card px-4 py-2 text-sm font-medium transition hover:border-brand-primary/40 active:scale-95"
                       >
                         {item.name}
                       </button>
@@ -799,6 +1008,7 @@ export function PortalPosPage() {
                     id: item.id,
                     name: item.name,
                     price: item.price,
+                    regularPrice: item.regularPrice,
                     isAvailable: item.isAvailable !== false,
                   }))}
                   quantities={quantities}
@@ -809,11 +1019,39 @@ export function PortalPosPage() {
           )}
         </main>
 
-        <div className="flex h-full min-h-0 w-full shrink-0 flex-col lg:w-[26rem]">
+        {mobileView === 'menu' && (cartItemCount > 0 || unpaidOrder) ? (
+          <div className="shrink-0 border-t border-line-subtle bg-bg-secondary px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileView('cart')}
+              className="flex h-12 w-full items-center justify-between gap-3 rounded-xl bg-brand-primary px-4 text-on-brand shadow-lg active:scale-[0.99]"
+            >
+              <span className="flex items-center gap-2 text-sm font-semibold">
+                <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-bg-primary/20 px-2 font-mono">
+                  {cartItemCount}
+                </span>
+                {cartItemCount === 1 ? 'item' : 'items'}
+              </span>
+              <span className="flex items-center gap-2 text-sm font-bold">
+                {unpaidOrder && cartItemCount === 0 ? 'Pending payment' : formatMoney(subtotal())}
+                <span aria-hidden="true">→</span>
+                <span>View cart</span>
+              </span>
+            </button>
+          </div>
+        ) : null}
+
+        <div
+          className={`${
+            mobileView === 'menu' ? 'hidden lg:flex' : 'flex'
+          } min-h-0 w-full flex-1 flex-col lg:h-full lg:w-[26rem] lg:flex-none`}
+        >
         <CartSidebar
+          onBack={() => setMobileView('menu')}
           onCash={handleCash}
           onOnline={handleOnline}
           cashDisabled={!hasOpenShift}
+          onlineDisabledReason={onlineDisabledReason}
           unpaidOrder={unpaidOrder}
           unpaidBalance={unpaidBalanceQuery.data ?? null}
           splitItems={(unpaidDetailQuery.data?.items ?? []).map((it) => ({
@@ -868,6 +1106,11 @@ export function PortalPosPage() {
           }}
           orderType={orderType}
           onOrderTypeChange={setOrderType}
+          orderTypeOptions={orderTypeOptions}
+          deliveryAddress={deliveryAddress}
+          onDeliveryAddressChange={setDeliveryAddress}
+          deliveryPincode={deliveryPincode}
+          onDeliveryPincodeChange={setDeliveryPincode}
           tipAmount={tipAmount}
           onTipChange={setTipAmount}
           couponCode={couponCode}
@@ -892,6 +1135,12 @@ export function PortalPosPage() {
         />
         </div>
       </div>
+      <ItemOptionsDialog
+        item={optionsItem}
+        onClose={() => setOptionsItem(null)}
+        onConfirm={handleOptionsConfirm}
+        formatMoney={formatMoney}
+      />
     </div>
   );
 }

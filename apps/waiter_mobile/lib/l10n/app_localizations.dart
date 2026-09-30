@@ -695,6 +695,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'All floors'**
   String get allFloors;
+
+  /// No description provided for @portalDisabledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiter app is turned off'**
+  String get portalDisabledTitle;
+
+  /// No description provided for @portalDisabledBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Cullinos has temporarily turned off the waiter app. Please contact your manager or use the admin portal.'**
+  String get portalDisabledBody;
+
+  /// No description provided for @portalMaintenanceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'MAINTENANCE'**
+  String get portalMaintenanceLabel;
+
+  /// No description provided for @portalMaintenanceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiter app is under maintenance'**
+  String get portalMaintenanceTitle;
+
+  /// No description provided for @portalMaintenanceBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Cullinos is performing maintenance on the waiter app. Please try again shortly.'**
+  String get portalMaintenanceBody;
+
+  /// No description provided for @checkAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Check again'**
+  String get checkAgain;
+
+  /// No description provided for @mergeStepPrimary.
+  ///
+  /// In en, this message translates to:
+  /// **'Step 1 of 2: Tap the main table'**
+  String get mergeStepPrimary;
+
+  /// No description provided for @mergeStepSecondary.
+  ///
+  /// In en, this message translates to:
+  /// **'Step 2 of 2: Tap the table to merge into {table}'**
+  String mergeStepSecondary(String table);
+
+  /// No description provided for @transferStepSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Step 1 of 2: Tap the table to move'**
+  String get transferStepSource;
+
+  /// No description provided for @transferStepTarget.
+  ///
+  /// In en, this message translates to:
+  /// **'Step 2 of 2: Tap a free table to move {table} to'**
+  String transferStepTarget(String table);
+
+  /// No description provided for @mergedWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Merged with {table}'**
+  String mergedWith(String table);
+
+  /// No description provided for @primaryTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Main'**
+  String get primaryTag;
+
+  /// No description provided for @fromTag.
+  ///
+  /// In en, this message translates to:
+  /// **'From'**
+  String get fromTag;
+
+  /// No description provided for @confirmMerge.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge {secondary} into {primary}?'**
+  String confirmMerge(String secondary, String primary);
+
+  /// No description provided for @confirmTransfer.
+  ///
+  /// In en, this message translates to:
+  /// **'Move {from} to {to}?'**
+  String confirmTransfer(String from, String to);
+
+  /// No description provided for @confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get confirm;
+
+  /// No description provided for @unmerge.
+  ///
+  /// In en, this message translates to:
+  /// **'Unmerge'**
+  String get unmerge;
+
+  /// No description provided for @openTable.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {table}'**
+  String openTable(String table);
+
+  /// No description provided for @mergedTableHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Orders and bill for this table are on {table}.'**
+  String mergedTableHint(String table);
+
+  /// No description provided for @appearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get appearance;
+
+  /// No description provided for @themeLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get themeLight;
+
+  /// No description provided for @themeDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get themeDark;
+
+  /// No description provided for @themeSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get themeSystem;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
 }
 
 class _AppLocalizationsDelegate

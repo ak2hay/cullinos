@@ -1,12 +1,32 @@
-import { Body, Controller, ForbiddenException, Post, Req } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
+  UseInterceptors,
+} from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
-import { IsEmail, IsOptional, IsString, Length, MaxLength, MinLength } from "class-validator";
-import type { Request } from "express";
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Length,
+  MaxLength,
+  MinLength,
+} from "class-validator";
+import type { Request, Response } from "express";
 import type { JwtPayload } from "@cullinos/auth";
 import { CurrentUser, Public } from "../../common/decorators";
 import { assertTurnstile } from "../../common/turnstile.util";
+import { clientIp } from "../../common/client-ip.util";
 import { AuthService } from "./auth.service";
 import { RefreshTokenDto } from "./dto/refresh.dto";
+import { RefreshCookieInterceptor } from "./refresh-cookie.interceptor";
+import { clearRefreshCookie, readRefreshCookie } from "./refresh-cookie.util";
 
 class LoginDto {
   @IsEmail()
@@ -68,6 +88,29 @@ class StaffPhoneOtpVerifyDto {
   otp!: string;
 }
 
+class StaffPhoneOtpWidgetRetryDto {
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  reqId!: string;
+}
+
+class StaffPhoneOtpWidgetConfirmDto {
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  reqId!: string;
+
+  @IsString()
+  @Length(6, 6)
+  otp!: string;
+
+  @IsString()
+  @MinLength(10)
+  @MaxLength(20)
+  phone!: string;
+}
+
 class ForgotPasswordDto {
   @IsEmail()
   email!: string;
@@ -105,25 +148,20 @@ class RegisterOwnerDto {
   @IsEmail()
   ownerEmail!: string;
 
-  @IsOptional()
   @IsString()
+  @IsNotEmpty()
   @MinLength(10)
   @MaxLength(20)
-  ownerPhone?: string;
+  ownerPhone!: string;
 
   @IsOptional()
   @IsString()
   captchaToken?: string;
 }
 
-function clientIp(req: Request): string | undefined {
-  const xf = req.headers["x-forwarded-for"];
-  if (typeof xf === "string" && xf.length > 0) return xf.split(",")[0]?.trim();
-  return req.ip;
-}
-
 @Controller("auth")
 @Throttle({ default: { limit: 10, ttl: 60_000 } })
+@UseInterceptors(RefreshCookieInterceptor)
 export class AuthController {
   constructor(private authService: AuthService) {}
 
@@ -172,6 +210,34 @@ export class AuthController {
     return this.authService.verifyStaffPhoneOtp(dto.challengeToken, dto.otp);
   }
 
+  /** MSG91 Widget path (no DLT/Flow) — preferred for Waiter when Widget is configured. */
+  @Public()
+  @Post("phone/otp/widget-send")
+  async requestPhoneOtpWidget(
+    @Body() dto: StaffPhoneOtpRequestDto,
+    @Req() req: Request,
+  ) {
+    await assertTurnstile(dto.captchaToken, clientIp(req));
+    return this.authService.requestStaffPhoneOtpWidget(dto.phone);
+  }
+
+  @Public()
+  @Post("phone/otp/widget-retry")
+  retryPhoneOtpWidget(@Body() dto: StaffPhoneOtpWidgetRetryDto) {
+    return this.authService.retryStaffPhoneOtpWidget(dto.reqId);
+  }
+
+  @Public()
+  @Post("phone/otp/widget-confirm")
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  confirmPhoneOtpWidget(@Body() dto: StaffPhoneOtpWidgetConfirmDto) {
+    return this.authService.confirmStaffPhoneOtpWidget({
+      reqId: dto.reqId,
+      otp: dto.otp,
+      phone: dto.phone,
+    });
+  }
+
   @Public()
   @Post("forgot-password")
   async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
@@ -187,8 +253,39 @@ export class AuthController {
 
   @Public()
   @Post("refresh")
-  refresh(@Body() dto: RefreshTokenDto) {
-    return this.authService.refreshAccessToken(dto.refreshToken);
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  refresh(@Body() dto: RefreshTokenDto, @Req() req: Request) {
+    const token = dto.refreshToken || readRefreshCookie(req);
+    if (!token) throw new UnauthorizedException("Invalid refresh token");
+    const userAgent = typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : null;
+    return this.authService.refreshAccessToken(token, userAgent);
+  }
+
+  @Public()
+  @Post("logout")
+  async logout(
+    @Body() dto: RefreshTokenDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.logout(dto.refreshToken || readRefreshCookie(req));
+    clearRefreshCookie(req, res);
+    return result;
+  }
+
+  /** Ends every session of the signed-in user on all devices. */
+  @Post("logout-all")
+  async logoutAll(
+    @CurrentUser() user: JwtPayload,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    if (user.impersonation) {
+      throw new ForbiddenException("Not available during support impersonation");
+    }
+    const result = await this.authService.logoutAll(user.sub, user.organizationId, user.email);
+    clearRefreshCookie(req, res);
+    return result;
   }
 
   @Post("change-password")

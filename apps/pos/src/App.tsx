@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { PortalGate } from '@/components/PortalGate';
 import { LoginPage } from '@/pages/LoginPage';
 import { PosPage } from '@/pages/PosPage';
 import { useAuthStore } from '@/stores/auth';
@@ -14,6 +15,7 @@ function PublicOnly({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <PortalGate>
     <Routes>
       <Route
         path="/login"
@@ -33,5 +35,6 @@ export default function App() {
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </PortalGate>
   );
 }

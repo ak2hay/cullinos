@@ -54,6 +54,9 @@ class _CoinsPageState extends ConsumerState<CoinsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final dark = GuestColors.isDark(context);
+    final greenInk = dark ? const Color(0xFF86EFAC) : _greenDeep;
+    final greenSoft = GuestColors.softOf(context, _greenLight, _green);
     final balance = (_data?['balance'] as num?)?.toInt() ??
         (_data?['coins'] as num?)?.toInt() ??
         0;
@@ -62,10 +65,10 @@ class _CoinsPageState extends ConsumerState<CoinsPage> {
     );
 
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       appBar: AppBar(
-        backgroundColor: GuestColors.scaffold,
-        foregroundColor: GuestColors.ink,
+        backgroundColor: GuestColors.scaffoldOf(context),
+        foregroundColor: GuestColors.inkOf(context),
         elevation: 0,
         leading: const GuestBackButton(fallbackPath: '/profile'),
         title: const Text(
@@ -198,10 +201,14 @@ class _CoinsPageState extends ConsumerState<CoinsPage> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: _greenLight,
+                          color: greenSoft,
                           borderRadius:
                               BorderRadius.circular(GuestSpacing.radiusMd),
-                          border: Border.all(color: _greenBorder),
+                          border: Border.all(
+                            color: dark
+                                ? _green.withValues(alpha: 0.4)
+                                : _greenBorder,
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -219,7 +226,7 @@ class _CoinsPageState extends ConsumerState<CoinsPage> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            const Expanded(
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -228,13 +235,13 @@ class _CoinsPageState extends ConsumerState<CoinsPage> {
                                     style: TextStyle(
                                       fontWeight: FontWeight.w800,
                                       fontSize: 14,
-                                      color: _greenDeep,
+                                      color: greenInk,
                                     ),
                                   ),
-                                  SizedBox(height: 2),
-                                  Text(
+                                  const SizedBox(height: 2),
+                                  const Text(
                                     'Coming soon — redeem coins for coupons',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       fontSize: 12,
                                       color: _green,
                                       fontWeight: FontWeight.w500,
@@ -267,7 +274,7 @@ class _CoinsPageState extends ConsumerState<CoinsPage> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: GuestColors.surface,
+                          color: GuestColors.surfaceOf(context),
                           borderRadius:
                               BorderRadius.circular(GuestSpacing.radiusMd),
                           boxShadow: GuestSpacing.cardShadow,
@@ -275,12 +282,12 @@ class _CoinsPageState extends ConsumerState<CoinsPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'How to earn',
                               style: TextStyle(
                                 fontWeight: FontWeight.w800,
                                 fontSize: 14,
-                                color: _greenDeep,
+                                color: greenInk,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -308,14 +315,14 @@ class _CoinsPageState extends ConsumerState<CoinsPage> {
                       if (ledger.isEmpty)
                         GuestSoftCard(
                           child: Row(
-                            children: const [
+                            children: [
                               Icon(Icons.history_rounded,
-                                  color: GuestColors.muted),
-                              SizedBox(width: 10),
+                                  color: GuestColors.mutedOf(context)),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   'No activity yet. Place orders to earn coins.',
-                                  style: TextStyle(color: GuestColors.muted),
+                                  style: TextStyle(color: GuestColors.mutedOf(context)),
                                 ),
                               ),
                             ],
@@ -348,8 +355,8 @@ class _CoinsPageState extends ConsumerState<CoinsPage> {
                                     height: 36,
                                     decoration: BoxDecoration(
                                       color: isCredit
-                                          ? _greenLight
-                                          : const Color(0xFFFFE4E6),
+                                          ? greenSoft
+                                          : GuestColors.popularSoftOf(context),
                                       borderRadius: BorderRadius.circular(
                                           GuestSpacing.radiusSm),
                                     ),
@@ -377,9 +384,9 @@ class _CoinsPageState extends ConsumerState<CoinsPage> {
                                         if (date != null)
                                           Text(
                                             _formatDate(date),
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 11,
-                                              color: GuestColors.muted,
+                                              color: GuestColors.mutedOf(context),
                                             ),
                                           ),
                                       ],
@@ -421,7 +428,7 @@ class _CoinsPageState extends ConsumerState<CoinsPage> {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(fontSize: 13, color: GuestColors.ink),
+            style: TextStyle(fontSize: 13, color: GuestColors.inkOf(context)),
           ),
         ),
       ],

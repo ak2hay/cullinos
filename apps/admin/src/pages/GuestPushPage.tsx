@@ -48,7 +48,7 @@ export function GuestPushPage() {
         description="Compose a marketing notification for Cullinos App users who have joined your restaurants. Respects each guest’s marketing preference."
       />
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="text-lg font-medium">Compose</h2>
         <form className="mt-4 space-y-3" onSubmit={handleSend}>
           <Input
@@ -61,7 +61,7 @@ export function GuestPushPage() {
           <label className="block text-sm">
             <span className="mb-1 block text-text-secondary">Body</span>
             <textarea
-              className="min-h-28 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
+              className="min-h-28 w-full rounded-lg border border-line bg-bg-primary px-3 py-2"
               value={body}
               onChange={(e) => setBody(e.target.value)}
               maxLength={240}
@@ -74,14 +74,14 @@ export function GuestPushPage() {
         </form>
       </section>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="text-lg font-medium">Campaign history</h2>
         {isLoading ? (
           <p className="mt-3 text-sm text-text-muted">Loading…</p>
         ) : campaigns.length === 0 ? (
           <p className="mt-3 text-sm text-text-muted">No campaigns yet.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-white/5">
+          <ul className="mt-4 divide-y divide-line-subtle">
             {campaigns.map((c) => (
               <li key={c.id} className="py-3">
                 <p className="font-medium">{c.title}</p>

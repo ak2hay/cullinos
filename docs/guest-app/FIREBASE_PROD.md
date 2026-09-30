@@ -39,6 +39,8 @@ docker compose -f docker-compose.prod.yml up -d --build api
 
 Confirm API logs show: `Firebase Admin initialized`.
 
+That same service account powers **FCM HTTP v1** (order + marketing push). The legacy `FCM_SERVER_KEY` platform setting is deprecated and ignored. App Ops → Runtime should show `FCM push delivery: configured` when Admin is loaded.
+
 ## 3. Prod Guest app build
 
 ```bash

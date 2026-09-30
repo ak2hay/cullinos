@@ -7,6 +7,7 @@ import {
 } from "class-validator";
 import type { JwtPayload } from "@cullinos/auth";
 import { CurrentUser, OrgId, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { PromoService } from "./promo.service";
 
 class SendCampaignDto {
@@ -36,6 +37,7 @@ class SendSmsCampaignDto {
 }
 
 @Controller("promo")
+@RequirePermissions("customer:update", "settings:update")
 export class PromoController {
   constructor(private service: PromoService) {}
 

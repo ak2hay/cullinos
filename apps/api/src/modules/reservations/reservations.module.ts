@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { MailModule } from "../mail/mail.module";
 import { SmsModule } from "../sms/sms.module";
 import { StorefrontModule } from "../storefront/storefront.module";
+import { WalletModule } from "../wallet/wallet.module";
 import {
   PublicReservationsController,
   ReservationsController,
@@ -9,7 +10,7 @@ import {
 import { ReservationsService } from "./reservations.service";
 
 @Module({
-  imports: [StorefrontModule, MailModule, SmsModule],
+  imports: [StorefrontModule, MailModule, SmsModule, WalletModule],
   controllers: [ReservationsController, PublicReservationsController],
   providers: [ReservationsService],
   exports: [ReservationsService],

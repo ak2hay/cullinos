@@ -10,10 +10,10 @@ import {
   isGuestThemePresetKey,
 } from "@cullinos/shared";
 import { PrismaService } from "../../prisma/prisma.service";
-import { MarketingUploadService } from "../marketing/marketing-upload.service";
+import { MarketingUploadService, uploadMaxBytesFor } from "../marketing/marketing-upload.service";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
 import { GuestPushService } from "./guest-push.service";
-import type { BannerInput } from "./guest-marketing.service";
+import { uploadScopeOf, type BannerInput } from "./guest-marketing.service";
 
 const PUSH_AUDIENCES = [
   "all",
@@ -315,7 +315,7 @@ export class GuestOpsService {
       body.imageUrl !== undefined &&
       (body.imageUrl?.trim() || null) !== row.imageUrl
     ) {
-      await this.upload.deleteManagedUrl(row.imageUrl);
+      await this.upload.deleteManagedUrl(row.imageUrl, uploadScopeOf(row));
     }
     return this.prisma.guestBanner.update({
       where: { id },
@@ -346,7 +346,7 @@ export class GuestOpsService {
   async deleteBanner(id: string) {
     const row = await this.prisma.guestBanner.findUnique({ where: { id } });
     if (!row) throw new NotFoundException("Banner not found");
-    await this.upload.deleteManagedUrl(row.imageUrl);
+    await this.upload.deleteManagedUrl(row.imageUrl, uploadScopeOf(row));
     await this.prisma.guestBanner.delete({ where: { id } });
     return { success: true };
   }
@@ -374,6 +374,9 @@ export class GuestOpsService {
       deepLink?: string | null;
       data?: Record<string, unknown>;
       scheduledAt?: string | null;
+      imageUrl?: string | null;
+      stylePreset?: string | null;
+      creative?: Record<string, unknown>;
     },
     createdByUserId?: string,
   ) {
@@ -393,6 +396,13 @@ export class GuestOpsService {
     if (scope === "organization" && !body.organizationId) {
       throw new BadRequestException("organizationId required for org scope");
     }
+    const stylePreset = body.stylePreset?.trim() || null;
+    if (
+      stylePreset &&
+      !["offer", "alert", "promo", "custom"].includes(stylePreset)
+    ) {
+      throw new BadRequestException(`Invalid stylePreset: ${stylePreset}`);
+    }
 
     return this.prisma.guestPushCampaign.create({
       data: {
@@ -401,6 +411,9 @@ export class GuestOpsService {
         title,
         body: text,
         data: (body.data ?? {}) as Prisma.InputJsonValue,
+        imageUrl: body.imageUrl?.trim() || null,
+        stylePreset,
+        creative: (body.creative ?? {}) as Prisma.InputJsonValue,
         audience,
         audienceFilter: (body.audienceFilter ?? {}) as Prisma.InputJsonValue,
         deepLink: body.deepLink?.trim() || null,
@@ -422,6 +435,9 @@ export class GuestOpsService {
       data?: Record<string, unknown>;
       organizationId?: string | null;
       scheduledAt?: string | null;
+      imageUrl?: string | null;
+      stylePreset?: string | null;
+      creative?: Record<string, unknown>;
     },
   ) {
     const row = await this.prisma.guestPushCampaign.findUnique({
@@ -433,6 +449,21 @@ export class GuestOpsService {
     }
     if (body.audience && !PUSH_AUDIENCES.includes(body.audience as PushAudience)) {
       throw new BadRequestException(`Invalid audience: ${body.audience}`);
+    }
+    if (
+      body.stylePreset !== undefined &&
+      body.stylePreset !== null &&
+      body.stylePreset.trim() &&
+      !["offer", "alert", "promo", "custom"].includes(body.stylePreset.trim())
+    ) {
+      throw new BadRequestException(`Invalid stylePreset: ${body.stylePreset}`);
+    }
+
+    if (
+      body.imageUrl !== undefined &&
+      (body.imageUrl?.trim() || null) !== row.imageUrl
+    ) {
+      await this.upload.deleteManagedUrl(row.imageUrl, uploadScopeOf(row));
     }
 
     return this.prisma.guestPushCampaign.update({
@@ -461,6 +492,15 @@ export class GuestOpsService {
                 ? new Date(body.scheduledAt)
                 : null,
             }
+          : {}),
+        ...(body.imageUrl !== undefined
+          ? { imageUrl: body.imageUrl?.trim() || null }
+          : {}),
+        ...(body.stylePreset !== undefined
+          ? { stylePreset: body.stylePreset?.trim() || null }
+          : {}),
+        ...(body.creative !== undefined
+          ? { creative: body.creative as Prisma.InputJsonValue }
           : {}),
       },
     });
@@ -508,8 +548,44 @@ export class GuestOpsService {
     if (row.status === "sending") {
       throw new BadRequestException("Cannot delete a campaign while it is sending");
     }
+    await this.upload.deleteManagedUrl(row.imageUrl, uploadScopeOf(row));
     await this.prisma.guestPushCampaign.delete({ where: { id } });
     return { success: true };
+  }
+
+  async uploadPushImage(file: Express.Multer.File, actor?: { isSuperAdmin?: boolean }) {
+    if (!file?.buffer) {
+      throw new BadRequestException("No file uploaded.");
+    }
+    const result = await this.upload.saveUploadedFile(
+      file,
+      {
+        scope: "platform",
+        platformArea: "guest-ops",
+        imageSlot: "notification",
+      },
+      uploadMaxBytesFor(actor),
+    );
+    return { imageUrl: result.url };
+  }
+
+  async uploadBannerImage(
+    file: Express.Multer.File,
+    actor?: { isSuperAdmin?: boolean },
+  ) {
+    if (!file?.buffer) {
+      throw new BadRequestException("No file uploaded.");
+    }
+    const result = await this.upload.saveUploadedFile(
+      file,
+      {
+        scope: "platform",
+        platformArea: "guest-ops",
+        imageSlot: "banner",
+      },
+      uploadMaxBytesFor(actor),
+    );
+    return { imageUrl: result.url };
   }
 
   private async resolveAudienceGuestIds(campaign: {
@@ -612,6 +688,54 @@ export class GuestOpsService {
     }
   }
 
+  async resendPushCampaign(id: string, createdByUserId?: string) {
+    const source = await this.prisma.guestPushCampaign.findUnique({
+      where: { id },
+    });
+    if (!source) throw new NotFoundException("Campaign not found");
+    if (source.status === "sending") {
+      throw new BadRequestException("Campaign is still sending");
+    }
+
+    const creative =
+      source.creative &&
+      typeof source.creative === "object" &&
+      !Array.isArray(source.creative)
+        ? (source.creative as Record<string, unknown>)
+        : {};
+    const data =
+      source.data &&
+      typeof source.data === "object" &&
+      !Array.isArray(source.data)
+        ? (source.data as Record<string, unknown>)
+        : {};
+    const audienceFilter =
+      source.audienceFilter &&
+      typeof source.audienceFilter === "object" &&
+      !Array.isArray(source.audienceFilter)
+        ? (source.audienceFilter as Record<string, unknown>)
+        : {};
+
+    const draft = await this.createPushDraft(
+      {
+        title: source.title,
+        body: source.body,
+        scope: source.scope,
+        organizationId: source.organizationId,
+        audience: source.audience,
+        audienceFilter,
+        deepLink: source.deepLink,
+        data,
+        imageUrl: source.imageUrl,
+        stylePreset: source.stylePreset,
+        creative,
+      },
+      createdByUserId,
+    );
+
+    return this.sendPushCampaign(draft.id);
+  }
+
   async sendPushCampaign(id: string) {
     const campaign = await this.prisma.guestPushCampaign.findUnique({
       where: { id },
@@ -638,6 +762,22 @@ export class GuestOpsService {
         campaignId: campaign.id,
       };
       if (campaign.deepLink) dataPayload.deepLink = campaign.deepLink;
+      if (campaign.imageUrl) dataPayload.imageUrl = campaign.imageUrl;
+      if (campaign.stylePreset) dataPayload.stylePreset = campaign.stylePreset;
+      const creative =
+        campaign.creative &&
+        typeof campaign.creative === "object" &&
+        !Array.isArray(campaign.creative)
+          ? (campaign.creative as Record<string, unknown>)
+          : {};
+      if (Object.keys(creative).length > 0) {
+        dataPayload.creative = JSON.stringify(creative);
+        for (const [k, v] of Object.entries(creative)) {
+          if (v != null && typeof v !== "object") {
+            dataPayload[`creative_${k}`] = String(v);
+          }
+        }
+      }
       const existingData =
         campaign.data &&
         typeof campaign.data === "object" &&
@@ -653,6 +793,7 @@ export class GuestOpsService {
           const result = await this.push.notifyGuestUser(guestUserId, {
             title: campaign.title,
             body: campaign.body,
+            imageUrl: campaign.imageUrl,
             data: dataPayload,
           });
           if (result.sent > 0) sentCount += 1;
@@ -850,6 +991,7 @@ export class GuestOpsService {
   async searchGuestUsers(query: { q?: string; limit?: string | number }) {
     const limit = Math.min(parseIntParam(query.limit, 30), 100);
     const q = query.q?.trim();
+    const digits = q ? q.replace(/\D/g, "") : "";
     const where: Prisma.GuestUserWhereInput = {
       anonymizedAt: null,
       ...(q
@@ -857,6 +999,7 @@ export class GuestOpsService {
             OR: [
               { name: { contains: q, mode: "insensitive" } },
               { phone: { contains: q } },
+              ...(digits.length >= 6 ? [{ phone: { contains: digits } }] : []),
               { email: { contains: q, mode: "insensitive" } },
               { id: q },
             ],
@@ -872,6 +1015,8 @@ export class GuestOpsService {
         phone: true,
         email: true,
         createdAt: true,
+        suspendedAt: true,
+        suspendReason: true,
         _count: {
           select: { memberships: true, devices: true, reviews: true },
         },
@@ -886,6 +1031,8 @@ export class GuestOpsService {
       phone: maskPhone(u.phone),
       email: maskEmail(u.email),
       createdAt: u.createdAt,
+      suspendedAt: u.suspendedAt,
+      suspendReason: u.suspendReason,
       counts: u._count,
     }));
   }
@@ -923,6 +1070,124 @@ export class GuestOpsService {
     });
     if (!user) throw new NotFoundException("Guest user not found");
     return user;
+  }
+
+  async getGuestUserActivity(id: string) {
+    const user = await this.prisma.guestUser.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        suspendedAt: true,
+        anonymizedAt: true,
+        createdAt: true,
+        cullinosCoins: true,
+      },
+    });
+    if (!user) throw new NotFoundException("Guest user not found");
+
+    const [devices, reviews, coinLedger, memberships, notifications] = await Promise.all([
+      this.prisma.guestDevice.findMany({
+        where: { guestUserId: id },
+        orderBy: { lastSeenAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          platform: true,
+          lastSeenAt: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.guestOutletReview.findMany({
+        where: { guestUserId: id },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          rating: true,
+          status: true,
+          createdAt: true,
+          outlet: { select: { id: true, name: true, city: true } },
+        },
+      }),
+      this.prisma.guestCoinLedger.findMany({
+        where: { guestUserId: id },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      this.prisma.guestOrgMembership.findMany({
+        where: { guestUserId: id },
+        include: {
+          organization: { select: { id: true, name: true, slug: true } },
+          customer: {
+            select: {
+              id: true,
+              loyaltyPoints: true,
+              orders: {
+                orderBy: { createdAt: "desc" },
+                take: 20,
+                select: {
+                  id: true,
+                  orderNumber: true,
+                  status: true,
+                  total: true,
+                  createdAt: true,
+                  outlet: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.guestNotification.findMany({
+        where: { guestUserId: id },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+        select: {
+          id: true,
+          title: true,
+          body: true,
+          createdAt: true,
+          readAt: true,
+        },
+      }),
+    ]);
+
+    const orders = memberships.flatMap((m) =>
+      (m.customer?.orders ?? []).map((o) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        status: o.status,
+        total: o.total,
+        createdAt: o.createdAt,
+        outlet: o.outlet,
+        organizationId: m.organizationId,
+        organizationName: m.organization.name,
+      })),
+    );
+
+    return {
+      user: {
+        ...user,
+        phone: maskPhone(user.phone),
+        email: maskEmail(user.email),
+      },
+      devices,
+      reviews,
+      coinLedger,
+      notifications,
+      orders: orders
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, 50),
+      memberships: memberships.map((m) => ({
+        organizationId: m.organizationId,
+        organizationName: m.organization.name,
+        customerId: m.customerId,
+        loyaltyPoints: m.customer?.loyaltyPoints ?? 0,
+      })),
+    };
   }
 
   async analyticsSummary() {
@@ -1001,9 +1266,6 @@ export class GuestOpsService {
       }
     }
 
-    const fcmKey =
-      this.platformConfig.get("FCM_SERVER_KEY") || process.env.FCM_SERVER_KEY;
-
     return {
       minVersionCode: Number(
         this.platformConfig.get("GUEST_APP_MIN_VERSION") || "1",
@@ -1023,7 +1285,7 @@ export class GuestOpsService {
       phoneMenuQrEnabled:
         String(this.platformConfig.get("GUEST_APP_PHONE_MENU_QR_ENABLED") || "")
           .toLowerCase() === "true",
-      fcmConfigured: Boolean(fcmKey && fcmKey.trim()),
+      fcmConfigured: this.push.isConfigured(),
       platformDefaultGuestThemeKey: (() => {
         const raw =
           this.platformConfig.get("PLATFORM_DEFAULT_GUEST_THEME_KEY") ||

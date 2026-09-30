@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { type Tenant, superAdminApi } from '@/lib/api';
+import { ApiRequestError, type Tenant, superAdminApi } from '@/lib/api';
+
+type StepUp = { token: string; expiresAt: number };
 
 function EnvBadge({ environmentClass }: { environmentClass?: number }) {
   const sandbox = environmentClass === 0;
@@ -44,6 +46,33 @@ export function LabsPage() {
   } | null>(null);
   const [sqlError, setSqlError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [stepUp, setStepUp] = useState<StepUp | null>(null);
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [otp, setOtp] = useState('');
+  const stepUpActive = stepUp != null && stepUp.expiresAt > Date.now();
+
+  const startStepUpMutation = useMutation({
+    mutationFn: () => superAdminApi.startLabsStepUp(),
+    onSuccess: (res) => {
+      setChallengeToken(res.challengeToken);
+      setOtp('');
+      setSqlError(null);
+      setMessage('Verification code sent to your email');
+    },
+    onError: (err: Error) => setSqlError(err.message),
+  });
+
+  const verifyStepUpMutation = useMutation({
+    mutationFn: () => superAdminApi.verifyLabsStepUp(challengeToken!, otp.trim()),
+    onSuccess: (res) => {
+      setStepUp({ token: res.stepUpToken, expiresAt: Date.now() + res.expiresInSeconds * 1000 });
+      setChallengeToken(null);
+      setOtp('');
+      setSqlError(null);
+      setMessage('Labs SQL unlocked for 10 minutes');
+    },
+    onError: (err: Error) => setSqlError(err.message),
+  });
 
   const orgsQuery = useQuery({
     queryKey: ['super-admin', 'organizations', 'labs'],
@@ -90,7 +119,7 @@ export function LabsPage() {
   });
 
   const sqlMutation = useMutation({
-    mutationFn: () => superAdminApi.runLabsSql(sql),
+    mutationFn: () => superAdminApi.runLabsSql(sql, stepUp?.token ?? ''),
     onSuccess: (result) => {
       setSqlError(null);
       setSqlResult(result);
@@ -98,6 +127,9 @@ export function LabsPage() {
     },
     onError: (err: Error) => {
       setSqlResult(null);
+      if (err instanceof ApiRequestError && err.code === 'STEP_UP_REQUIRED') {
+        setStepUp(null);
+      }
       setSqlError(err.message);
       auditsQuery.refetch();
     },
@@ -110,7 +142,7 @@ export function LabsPage() {
     const ok = window.confirm(
       `Change ${tenant.name} from ${from} to ${to}?${
         nextClass === 0
-          ? '\n\nSandbox can skip email MFA, SMS OTP, and relax passwords.'
+          ? '\n\nSandbox can skip email MFA and SMS OTP when the Skip OTP toggles are on (default), and can relax passwords.'
           : '\n\nLive tenants always enforce normal OTP and password rules.'
       }`,
     );
@@ -151,7 +183,7 @@ export function LabsPage() {
       </div>
 
       {message ? (
-        <div className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm text-text-secondary">
+        <div className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm text-text-secondary">
           {message}
         </div>
       ) : null}
@@ -164,12 +196,12 @@ export function LabsPage() {
             placeholder="Filter by name, slug, email…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="min-w-[16rem] flex-1 rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
+            className="min-w-[16rem] flex-1 rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
           />
           <select
             value={envFilter}
             onChange={(e) => setEnvFilter(e.target.value as 'all' | '0' | '1')}
-            className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
+            className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
           >
             <option value="all">All environments</option>
             <option value="0">Sandbox</option>
@@ -180,9 +212,9 @@ export function LabsPage() {
         {orgsQuery.isLoading ? (
           <p className="text-sm text-text-muted">Loading tenants…</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-white/5">
+          <div className="overflow-x-auto rounded-xl border border-line-subtle">
             <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-white/5 bg-bg-elevated text-xs uppercase tracking-wide text-text-muted">
+              <thead className="border-b border-line-subtle bg-bg-elevated text-xs uppercase tracking-wide text-text-muted">
                 <tr>
                   <th className="px-3 py-2 font-medium">Tenant</th>
                   <th className="px-3 py-2 font-medium">Status</th>
@@ -195,7 +227,7 @@ export function LabsPage() {
                 {filtered.map((t) => {
                   const sandbox = t.environmentClass === 0;
                   return (
-                    <tr key={t.id} className="border-b border-white/5 align-top">
+                    <tr key={t.id} className="border-b border-line-subtle align-top">
                       <td className="px-3 py-3">
                         <Link
                           to={`/tenants/${t.id}`}
@@ -257,7 +289,7 @@ export function LabsPage() {
                               type="button"
                               disabled={envMutation.isPending}
                               onClick={() => confirmEnvChange(t, 1)}
-                              className="rounded border border-white/10 px-2 py-1 text-xs hover:bg-white/5 disabled:opacity-60"
+                              className="rounded border border-line px-2 py-1 text-xs hover:bg-hover disabled:opacity-60"
                             >
                               Promote to Live
                             </button>
@@ -292,19 +324,54 @@ export function LabsPage() {
       <section className="space-y-4">
         <h2 className="text-lg font-medium">SQL console (SELECT only)</h2>
         <p className="text-sm text-text-muted">
-          Max 200 rows, ~5s timeout. Multi-statement and DML/DDL are rejected server-side.
+          Max 200 rows, ~5s timeout, read-only transaction. Multi-statement and DML/DDL are
+          rejected server-side. Requires an emailed verification code every 10 minutes.
         </p>
+        {!stepUpActive ? (
+          <div className="flex flex-wrap items-end gap-2 rounded-lg border border-status-warning/30 bg-status-warning/5 p-3">
+            {challengeToken ? (
+              <>
+                <label className="space-y-1 text-sm">
+                  <span className="text-text-secondary">Verification code</span>
+                  <input
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    className="block w-32 rounded-lg border border-line bg-bg-elevated px-3 py-2 font-mono text-sm outline-none focus:border-brand-accent"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={otp.length !== 6 || verifyStepUpMutation.isPending}
+                  onClick={() => verifyStepUpMutation.mutate()}
+                  className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-text-primary hover:opacity-90 disabled:opacity-60"
+                >
+                  {verifyStepUpMutation.isPending ? 'Verifying…' : 'Verify'}
+                </button>
+              </>
+            ) : null}
+            <button
+              type="button"
+              disabled={startStepUpMutation.isPending}
+              onClick={() => startStepUpMutation.mutate()}
+              className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
+            >
+              {challengeToken ? 'Resend code' : 'Email me a code to unlock'}
+            </button>
+          </div>
+        ) : null}
         <textarea
           value={sql}
           onChange={(e) => setSql(e.target.value)}
           rows={6}
           spellCheck={false}
-          className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 font-mono text-sm outline-none focus:border-brand-accent"
+          className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 font-mono text-sm outline-none focus:border-brand-accent"
         />
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            disabled={sqlMutation.isPending || !sql.trim()}
+            disabled={sqlMutation.isPending || !sql.trim() || !stepUpActive}
             onClick={() => sqlMutation.mutate()}
             className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-text-primary hover:opacity-90 disabled:opacity-60"
           >
@@ -318,7 +385,7 @@ export function LabsPage() {
                 void navigator.clipboard.writeText(csv);
                 setMessage('CSV copied to clipboard');
               }}
-              className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
+              className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover"
             >
               Copy CSV
             </button>
@@ -337,9 +404,9 @@ export function LabsPage() {
               {sqlResult.rows.length} row(s) in {sqlResult.durationMs}ms
               {sqlResult.truncated ? ' (truncated at 200)' : ''}
             </p>
-            <div className="max-h-[28rem] overflow-auto rounded-xl border border-white/5">
+            <div className="max-h-[28rem] overflow-auto rounded-xl border border-line-subtle">
               <table className="min-w-full text-left text-xs">
-                <thead className="sticky top-0 border-b border-white/5 bg-bg-elevated text-text-muted">
+                <thead className="sticky top-0 border-b border-line-subtle bg-bg-elevated text-text-muted">
                   <tr>
                     {sqlResult.columns.map((c) => (
                       <th key={c} className="whitespace-nowrap px-2 py-1.5 font-medium">
@@ -350,7 +417,7 @@ export function LabsPage() {
                 </thead>
                 <tbody>
                   {sqlResult.rows.map((row, i) => (
-                    <tr key={i} className="border-b border-white/5">
+                    <tr key={i} className="border-b border-line-subtle">
                       {sqlResult.columns.map((c) => (
                         <td key={c} className="max-w-xs truncate px-2 py-1 font-mono">
                           {row[c] == null
@@ -374,9 +441,9 @@ export function LabsPage() {
         {auditsQuery.isLoading ? (
           <p className="text-sm text-text-muted">Loading audits…</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-white/5">
+          <div className="overflow-x-auto rounded-xl border border-line-subtle">
             <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-white/5 bg-bg-elevated text-text-muted">
+              <thead className="border-b border-line-subtle bg-bg-elevated text-text-muted">
                 <tr>
                   <th className="px-3 py-2">When</th>
                   <th className="px-3 py-2">Actor</th>
@@ -386,7 +453,7 @@ export function LabsPage() {
               </thead>
               <tbody>
                 {(auditsQuery.data ?? []).map((a) => (
-                  <tr key={a.id} className="border-b border-white/5 align-top">
+                  <tr key={a.id} className="border-b border-line-subtle align-top">
                     <td className="whitespace-nowrap px-3 py-2 text-text-muted">
                       {new Date(a.createdAt).toLocaleString()}
                     </td>

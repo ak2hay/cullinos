@@ -29,6 +29,7 @@ import 'package:cullinos_guest/features/profile/notifications_page.dart';
 import 'package:cullinos_guest/features/profile/legal_web_page.dart';
 import 'package:cullinos_guest/features/splash/splash_page.dart';
 import 'package:cullinos_guest/widgets/guest_floating_nav.dart';
+import 'package:cullinos_guest/widgets/guest_motion.dart';
 import 'package:cullinos_guest/widgets/restaurant_bottom_nav.dart';
 
 final guestRootNavigatorKey = GlobalKey<NavigatorState>();
@@ -176,7 +177,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/wallets',
-        builder: (_, __) => const WalletsPage(),
+        builder: (_, state) => WalletsPage(
+          initialOrgId: state.uri.queryParameters['orgId'],
+        ),
       ),
       GoRoute(
         path: '/coins',
@@ -206,7 +209,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/explore', builder: (_, __) => const ExplorePage()),
+              GoRoute(
+                  path: '/explore', builder: (_, __) => const ExplorePage()),
             ],
           ),
           StatefulShellBranch(
@@ -216,7 +220,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
+              GoRoute(
+                  path: '/profile', builder: (_, __) => const ProfilePage()),
             ],
           ),
         ],
@@ -235,8 +240,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/location/map',
         builder: (context, state) {
-          final returnResult =
-              state.uri.queryParameters['returnResult'] == '1';
+          final returnResult = state.uri.queryParameters['returnResult'] == '1';
           return MapPinPage(returnResult: returnResult);
         },
       ),
@@ -310,14 +314,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-                path: 'kiosk',
-                builder: (context, state) {
-                  final orgSlug = state.pathParameters['orgSlug']!;
-                  final outletSlug = state.pathParameters['outletSlug']!;
-                  return KioskPage(orgSlug: orgSlug, outletSlug: outletSlug);
-                },
-              ),
-              GoRoute(
+            path: 'kiosk',
+            builder: (context, state) {
+              final orgSlug = state.pathParameters['orgSlug']!;
+              final outletSlug = state.pathParameters['outletSlug']!;
+              return KioskPage(orgSlug: orgSlug, outletSlug: outletSlug);
+            },
+          ),
+          GoRoute(
             path: 'checkout',
             builder: (context, state) {
               final orgSlug = state.pathParameters['orgSlug']!;
@@ -355,14 +359,19 @@ class _RestaurantScaffold extends ConsumerWidget {
       primaryColor: active.primaryColor,
       accentColor: active.accentColor,
     );
-    final restaurantTheme = buildGuestThemeFromPalette(palette);
+    final restaurantTheme = buildGuestThemeFromPalette(
+      palette,
+      Theme.of(context).brightness,
+    );
 
-    return Theme(
+    return AnimatedTheme(
       data: restaurantTheme,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
       child: GuestPaletteScope(
         palette: palette,
         child: Scaffold(
-          backgroundColor: GuestColors.scaffold,
+          backgroundColor: restaurantTheme.scaffoldBackgroundColor,
           extendBody: true,
           body: child,
           bottomNavigationBar: RestaurantBottomNav(
@@ -386,7 +395,8 @@ class _GuestShellScaffold extends ConsumerStatefulWidget {
   final String matchedLocation;
 
   @override
-  ConsumerState<_GuestShellScaffold> createState() => _GuestShellScaffoldState();
+  ConsumerState<_GuestShellScaffold> createState() =>
+      _GuestShellScaffoldState();
 }
 
 class _GuestShellScaffoldState extends ConsumerState<_GuestShellScaffold> {
@@ -406,8 +416,6 @@ class _GuestShellScaffoldState extends ConsumerState<_GuestShellScaffold> {
   }
 
   void _handleBack() {
-    final loc = widget.matchedLocation;
-
     if (!_onShellRoot) {
       context.go('/');
       return;
@@ -465,9 +473,12 @@ class _GuestShellScaffoldState extends ConsumerState<_GuestShellScaffold> {
         if (!didPop) _handleBack();
       },
       child: Scaffold(
-        backgroundColor: GuestColors.scaffold,
+        backgroundColor: GuestColors.scaffoldOf(context),
         extendBody: true,
-        body: widget.navigationShell,
+        body: GuestFadeThrough(
+          trigger: widget.navigationShell.currentIndex,
+          child: widget.navigationShell,
+        ),
         bottomNavigationBar: GuestFloatingNav(
           currentIndex: navIndex,
           onTap: _onNavTap,

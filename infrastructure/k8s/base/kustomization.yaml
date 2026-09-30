@@ -9,6 +9,8 @@ resources:
   - api.yaml
   - web.yaml
   - spas.yaml
+  - security-headers.yaml
+  - network-policy.yaml
 
 labels:
   - pairs:

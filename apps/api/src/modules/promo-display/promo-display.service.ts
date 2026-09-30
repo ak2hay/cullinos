@@ -62,7 +62,7 @@ export class PromoDisplayService {
       body.imageUrl !== undefined &&
       body.imageUrl?.trim() !== (slide.imageUrl ?? "")
     ) {
-      await this.upload.deleteManagedUrl(slide.imageUrl);
+      await this.upload.deleteManagedUrl(slide.imageUrl, { orgId });
     }
     return this.prisma.promoDisplaySlide.update({
       where: { id },
@@ -91,7 +91,7 @@ export class PromoDisplayService {
       where: { id, organizationId: orgId },
     });
     if (!slide) throw new NotFoundException("Slide not found");
-    await this.upload.deleteManagedUrl(slide.imageUrl);
+    await this.upload.deleteManagedUrl(slide.imageUrl, { orgId });
     await this.prisma.promoDisplaySlide.delete({ where: { id } });
     return { success: true, id };
   }

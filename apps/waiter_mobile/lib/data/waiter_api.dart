@@ -24,7 +24,7 @@ class WaiterApi {
     String phone, {
     String? captchaToken,
   }) async {
-    final res = await _dio.post('/auth/phone/otp/request', data: {
+    final res = await _dio.post('/auth/phone/otp/widget-send', data: {
       'phone': phone.trim(),
       if (captchaToken != null && captchaToken.isNotEmpty)
         'captchaToken': captchaToken,
@@ -32,13 +32,22 @@ class WaiterApi {
     return Map<String, dynamic>.from(res.data as Map);
   }
 
+  Future<Map<String, dynamic>> retryPhoneOtp(String reqId) async {
+    final res = await _dio.post('/auth/phone/otp/widget-retry', data: {
+      'reqId': reqId.trim(),
+    });
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
   Future<Map<String, dynamic>> verifyPhoneOtp({
-    required String challengeToken,
+    required String reqId,
     required String otp,
+    required String phone,
   }) async {
-    final res = await _dio.post('/auth/phone/otp/verify', data: {
-      'challengeToken': challengeToken,
+    final res = await _dio.post('/auth/phone/otp/widget-confirm', data: {
+      'reqId': reqId.trim(),
       'otp': otp.trim(),
+      'phone': phone.trim(),
     });
     return Map<String, dynamic>.from(res.data as Map);
   }
@@ -160,8 +169,12 @@ class WaiterApi {
   }) async {
     await _dio.post('/tables/outlets/$outletId/merge', data: {
       'primaryTableId': primaryTableId,
-      'otherTableIds': otherTableIds,
+      'tableIds': otherTableIds,
     });
+  }
+
+  Future<void> unmergeTable(String outletId, String tableId) async {
+    await _dio.post('/tables/outlets/$outletId/$tableId/unmerge');
   }
 
   Future<Map<String, dynamic>> menu(String outletId) async {

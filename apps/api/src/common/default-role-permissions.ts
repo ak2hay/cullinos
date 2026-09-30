@@ -8,6 +8,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "pos:access", "pos:shift:open", "pos:shift:close", "pos:day:close",
     "table:read", "table:manage", "inventory:read", "inventory:adjust", "inventory:transfer",
     "purchase:read", "purchase:create",
+    "customer:read", "customer:create", "customer:update",
     "reports:read", "reports:export", "settings:read", "settings:update", "staff:read", "staff:manage",
   ],
   manager: [
@@ -16,6 +17,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "pos:access", "pos:shift:open", "pos:shift:close", "pos:day:close",
     "table:read", "table:manage", "inventory:read", "inventory:adjust", "inventory:transfer",
     "purchase:read", "purchase:create",
+    "customer:read", "customer:create", "customer:update",
     "reports:read", "reports:export", "settings:read", "settings:update", "staff:read",
   ],
   waiter: [

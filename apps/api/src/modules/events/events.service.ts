@@ -1,5 +1,19 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
+import { pickDefined } from "../../common/pick.util";
+
+const UPDATABLE_EVENT_FIELDS = [
+  "name",
+  "location",
+  "address",
+  "latitude",
+  "longitude",
+  "startTime",
+  "endTime",
+  "maxPreOrders",
+  "notes",
+  "isActive",
+] as const;
 
 @Injectable()
 export class EventsService {
@@ -8,13 +22,23 @@ export class EventsService {
   list(orgId: string, outletId?: string) {
     return this.prisma.outletEvent.findMany({
       where: {
-        ...(orgId ? { organizationId: orgId } : {}),
+        organizationId: orgId,
         ...(outletId ? { outletId } : {}),
         isActive: true,
       },
       orderBy: { eventDate: "asc" },
       take: 200,
     });
+  }
+
+  /** Public listing: only events whose organization owns the outlet. */
+  async listPublicByOutlet(outletId: string) {
+    const outlet = await this.prisma.outlet.findUnique({
+      where: { id: outletId },
+      select: { organizationId: true },
+    });
+    if (!outlet) return [];
+    return this.list(outlet.organizationId, outletId);
   }
 
   async get(orgId: string, id: string) {
@@ -25,7 +49,7 @@ export class EventsService {
     return event;
   }
 
-  create(
+  async create(
     orgId: string,
     data: {
       outletId: string;
@@ -43,6 +67,11 @@ export class EventsService {
       notes?: string;
     },
   ) {
+    const outlet = await this.prisma.outlet.findFirst({
+      where: { id: data.outletId, organizationId: orgId },
+      select: { id: true },
+    });
+    if (!outlet) throw new BadRequestException("Invalid outletId");
     return this.prisma.outletEvent.create({
       data: {
         organizationId: orgId,
@@ -65,7 +94,7 @@ export class EventsService {
 
   async update(orgId: string, id: string, data: Record<string, unknown>) {
     await this.get(orgId, id);
-    const update: Record<string, unknown> = { ...data };
+    const update: Record<string, unknown> = pickDefined(data, UPDATABLE_EVENT_FIELDS);
     if (data.eventDate) update.eventDate = new Date(data.eventDate as string);
     if (data.preOrderOpensAt) update.preOrderOpensAt = new Date(data.preOrderOpensAt as string);
     if (data.preOrderClosesAt) update.preOrderClosesAt = new Date(data.preOrderClosesAt as string);

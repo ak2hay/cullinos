@@ -155,6 +155,73 @@ table.pretty tr:nth-child(even) td { background: var(--card); }
 .plan .price span { font-size: 9pt; color: var(--muted); font-family: 'DM Sans', sans-serif; }
 .plan ul { margin: 8px 0 0; padding-left: 16px; font-size: 9pt; color: var(--muted); }
 
+.plan-kicker {
+  font-size: 8pt; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--gold-dim);
+}
+.tag {
+  display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px;
+  background: var(--gold); color: var(--ink);
+  font-family: 'DM Sans', sans-serif; font-size: 7pt; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; vertical-align: middle;
+}
+
+.plan-hero {
+  background:
+    radial-gradient(ellipse 70% 80% at 100% 0%, rgba(212,160,23,0.25), transparent 60%),
+    linear-gradient(160deg, #0F0F1A 0%, #1a1a28 60%, #12121c 100%);
+  color: #f5f2ea; border-radius: 16px; padding: 20px 24px;
+  page-break-inside: avoid;
+}
+.plan-hero-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.mark.mark-sm { width: 34px; height: 34px; border-radius: 9px; font-size: 17pt; }
+.plan-hero-body { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
+.plan-hero h1 { color: #f5f2ea; font-size: 26pt; margin: 0 0 6px; }
+.plan-hero .tagline { font-size: 10.5pt; max-width: 400px; }
+.price-block { text-align: right; flex-shrink: 0; }
+.price-main { font-family: 'Fraunces', Georgia, serif; font-size: 26pt; color: var(--gold-bright); line-height: 1.1; }
+.price-main span { font-family: 'DM Sans', sans-serif; font-size: 10pt; color: rgba(245,242,234,0.7); }
+.price-alt { font-size: 9.5pt; color: #f5f2ea; margin-top: 4px; }
+.price-note { font-size: 8pt; color: rgba(245,242,234,0.55); margin-top: 2px; }
+
+.limits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+.limits > div {
+  border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+  padding: 10px 14px; display: flex; align-items: baseline; gap: 8px;
+}
+.limits strong { font-family: 'Fraunces', Georgia, serif; font-size: 18pt; font-weight: 600; color: var(--ink); }
+.limits span { font-size: 9pt; color: var(--muted); }
+
+.feature-grid { margin-top: 10px; }
+.feature-card { padding: 12px 14px; }
+ul.check { list-style: none; padding: 0; margin: 0; font-size: 9pt; color: var(--ink-soft); }
+ul.check li { position: relative; padding-left: 16px; margin-bottom: 3px; line-height: 1.35; }
+ul.check li::before { content: '✓'; position: absolute; left: 0; color: var(--gold-dim); font-weight: 700; }
+.upgrade {
+  border-left: 3px solid var(--gold); background: var(--card);
+  padding: 8px 12px; border-radius: 0 8px 8px 0; color: var(--ink-soft);
+}
+
+table.matrix {
+  width: 100%; border-collapse: collapse; margin: 10px 0 12px;
+  font-size: 8.5pt; page-break-inside: avoid;
+}
+table.matrix th {
+  background: var(--ink); color: var(--gold); padding: 7px 6px;
+  font-weight: 600; text-align: center; font-size: 8.5pt;
+}
+table.matrix th:first-child, table.matrix td:first-child { text-align: left; padding-left: 10px; }
+table.matrix th.featured { background: var(--gold); color: var(--ink); }
+table.matrix td { padding: 3px 6px; border-bottom: 1px solid var(--line); text-align: center; }
+table.matrix td.featured { background: #fffaeb; }
+table.matrix tr.group td {
+  background: var(--cream); font-weight: 700; font-size: 7.5pt;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--gold-dim);
+}
+table.matrix .yes { color: var(--gold-dim); font-weight: 700; }
+table.matrix .no { color: #c4c0b6; }
+table.matrix tr.key td { font-weight: 600; }
+
 .footer-bar {
   margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line);
   font-size: 8.5pt; color: var(--muted);
@@ -197,7 +264,7 @@ table.pretty tr:nth-child(even) td { background: var(--card); }
     <tbody>
       <tr><td>Owner / manager</td><td>https://admin.cullinos.com</td><td>Owner email from onboarding</td></tr>
       <tr><td>Cashier</td><td>https://pos.cullinos.com<br/>or Admin → Portal POS</td><td>Cashier staff account</td></tr>
-      <tr><td>Waiter</td><td>Cullinos Waiter Android app</td><td>Waiter staff account</td></tr>
+      <tr><td>Waiter</td><td>https://Cullinos Waiter (Android)</td><td>Waiter staff account</td></tr>
       <tr><td>Kitchen</td><td>https://kds.cullinos.com</td><td>Kitchen / staff login</td></tr>
       <tr><td>Guests (web)</td><td>https://order.cullinos.com/<em>org</em>/<em>outlet</em></td><td>No login required</td></tr>
       <tr><td>Guests (app)</td><td>Cullinos Guest (Android)</td><td>Phone OTP / PIN</td></tr>
@@ -215,7 +282,7 @@ table.pretty tr:nth-child(even) td { background: var(--card); }
   <div class="step"><div class="step-num">6</div><div><h3>Optional: reservations &amp; Guest app</h3><p>Enable <strong>Reservations</strong> for book-links. Under <strong>Cullinos App</strong>, set App listing, banners, and coupons if you use the marketplace.</p></div></div>
 
   <h2 class="section-break">2. Taking orders — Waiter (dine-in)</h2>
-  <div class="step"><div class="step-num">1</div><div><h3>Open Waiter</h3><p>Cullinos Waiter Android → log in → select outlet → see the table grid.</p></div></div>
+  <div class="step"><div class="step-num">1</div><div><h3>Open Waiter</h3><p>Cullinos Waiter (Android) → log in → select outlet → see the table grid.</p></div></div>
   <div class="step"><div class="step-num">2</div><div><h3>Open a table</h3><p>Tap a table → add menu items → confirm. Note the order number.</p></div></div>
   <div class="step"><div class="step-num">3</div><div><h3>Optional: guest QR</h3><p>Use <strong>Show QR to customers</strong> so guests order on their phones into the same table ticket. End the session when the table clears.</p></div></div>
   <div class="step"><div class="step-num">4</div><div><h3>Kitchen sees it</h3><p>KOTs appear on KDS (kds.cullinos.com) within seconds.</p></div></div>

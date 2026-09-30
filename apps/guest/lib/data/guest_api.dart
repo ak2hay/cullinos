@@ -35,9 +35,14 @@ class GuestApi {
     return Map<String, dynamic>.from(res.data as Map);
   }
 
-  Future<Map<String, dynamic>> widgetRetryOtp(String reqId) async {
+  Future<Map<String, dynamic>> widgetRetryOtp(
+    String reqId, {
+    String? captchaToken,
+  }) async {
     final res = await _dio.post('/public/guest/auth/otp/widget-retry', data: {
       'reqId': reqId,
+      if (captchaToken != null && captchaToken.isNotEmpty)
+        'captchaToken': captchaToken,
     });
     return Map<String, dynamic>.from(res.data as Map);
   }
@@ -264,13 +269,17 @@ class GuestApi {
     required List<Map<String, dynamic>> items,
     String? customerName,
     String? notes,
+    bool? ageConfirmed,
+    String? customerId,
   }) async {
     final res = await _dio.post(
       '/public/sessions/$sessionToken/items',
       data: {
         'items': items,
+        if (customerId != null) 'customerId': customerId,
         if (customerName != null) 'customerName': customerName,
         if (notes != null) 'notes': notes,
+        if (ageConfirmed != null) 'ageConfirmed': ageConfirmed,
       },
     );
     return Map<String, dynamic>.from(res.data as Map);
@@ -278,8 +287,8 @@ class GuestApi {
 
   /// Permanent table sticker → join or create dining session.
   Future<Map<String, dynamic>> joinTableByQr(String qrCode) async {
-    final res = await _dio.get(
-      '/public/tables/by-qr/${Uri.encodeComponent(qrCode)}',
+    final res = await _dio.post(
+      '/public/tables/by-qr/${Uri.encodeComponent(qrCode)}/join',
     );
     return Map<String, dynamic>.from(res.data as Map);
   }
@@ -436,6 +445,16 @@ class GuestApi {
     await _dio.post('/public/guest/notifications/read-all');
   }
 
+  Future<void> deleteNotification(String id) async {
+    await _dio.delete('/public/guest/notifications/$id');
+  }
+
+  Future<int> unreadNotificationCount() async {
+    final res = await _dio.get('/public/guest/notifications/unread-count');
+    final data = Map<String, dynamic>.from(res.data as Map);
+    return (data['count'] as num?)?.toInt() ?? 0;
+  }
+
   Future<Map<String, dynamic>> notificationPrefs() async {
     final res = await _dio.get('/public/guest/notification-preferences');
     return Map<String, dynamic>.from(res.data as Map);
@@ -527,8 +546,11 @@ class GuestApi {
     required int partySize,
     required String reservedAt,
     String? notes,
+    String? captchaToken,
   }) async {
     final res = await _dio.post('/public/reservations', data: {
+      if (captchaToken != null && captchaToken.isNotEmpty)
+        'captchaToken': captchaToken,
       if (inviteToken != null) 'inviteToken': inviteToken,
       if (orgSlug != null) 'orgSlug': orgSlug,
       if (outletSlug != null) 'outletSlug': outletSlug,

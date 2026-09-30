@@ -1,4 +1,4 @@
-import { IsArray, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsArray, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
 export class CreateFloorDto {
   @IsString()
@@ -88,18 +88,21 @@ export class UpdateTableStatusDto {
 }
 
 export class MergeTablesDto {
-  @IsUUID()
+  @IsString()
+  @IsNotEmpty()
   primaryTableId!: string;
 
   @IsArray()
-  @IsUUID('4', { each: true })
+  @IsString({ each: true })
   tableIds!: string[];
 }
 
 export class TransferTableDto {
-  @IsUUID()
+  @IsString()
+  @IsNotEmpty()
   fromTableId!: string;
 
-  @IsUUID()
+  @IsString()
+  @IsNotEmpty()
   toTableId!: string;
 }

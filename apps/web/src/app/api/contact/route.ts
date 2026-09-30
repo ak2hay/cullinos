@@ -16,6 +16,16 @@ interface ContactPayload {
   'cf-turnstile-response'?: string;
 }
 
+/** Linear-time shape check: one "@", no whitespace, and a dot inside the domain. */
+function isPlausibleEmail(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length > 254 || /\s/.test(value)) return false;
+  const at = value.indexOf('@');
+  if (at < 1 || at !== value.lastIndexOf('@')) return false;
+  const domain = value.slice(at + 1);
+  const dot = domain.lastIndexOf('.');
+  return dot > 0 && dot < domain.length - 1;
+}
+
 const rateLimit = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 5;
 const RATE_WINDOW_MS = 60_000;
@@ -44,7 +54,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Please fill in all required fields.' }, { status: 400 });
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!isPlausibleEmail(email)) {
       return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 });
     }
 
@@ -64,6 +74,33 @@ export async function POST(request: Request) {
       'Message:',
       message,
     ].join('\n');
+
+    const apiBase = (
+      process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1'
+    ).replace(/\/$/, '');
+    try {
+      await fetch(`${apiBase}/public/marketing/inquiries`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(process.env.INTERNAL_API_KEY
+            ? { 'x-internal-key': process.env.INTERNAL_API_KEY }
+            : {}),
+        },
+        body: JSON.stringify({
+          name,
+          business,
+          email,
+          phone: body.phone,
+          city: body.city,
+          outlets: body.outlets,
+          plan: body.plan,
+          message,
+        }),
+      });
+    } catch (err) {
+      console.error('[contact] Failed to persist inquiry:', err);
+    }
 
     if (!apiKey) {
       console.log('[contact] RESEND_API_KEY not set. Submission logged:\n', text);

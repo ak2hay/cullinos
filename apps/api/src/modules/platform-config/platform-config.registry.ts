@@ -1,4 +1,5 @@
 export type ConfigGroupId =
+  | "portals"
   | "smtp"
   | "resend"
   | "r2"
@@ -7,6 +8,7 @@ export type ConfigGroupId =
   | "webhooks"
   | "revalidate"
   | "msg91"
+  | "whatsapp"
   | "fcm"
   | "guest_app"
   | "billing";
@@ -15,6 +17,10 @@ export type ConfigKeyDef = {
   key: string;
   isSecret: boolean;
   label: string;
+  /** Rendered as a toggle; stored as "true" / "false". */
+  type?: "boolean";
+  /** Effective value when neither DB nor environment sets the key. */
+  defaultValue?: string;
 };
 
 export type ConfigGroupDef = {
@@ -25,6 +31,109 @@ export type ConfigGroupDef = {
 };
 
 export const CONFIG_GROUPS: ConfigGroupDef[] = [
+  {
+    id: "portals",
+    label: "Portals",
+    description:
+      "Platform-wide switches and maintenance. Turning a portal off blocks sign-in and API calls from that client for every tenant. Non-empty maintenance text puts the portal in maintenance (separate UI from disabled). Super Admin (platform.cullinos.com) is never gated.",
+    keys: [
+      {
+        key: "PORTAL_MANAGEMENT_ENABLED",
+        isSecret: false,
+        label: "Management web (manage.cullinos.com)",
+        type: "boolean",
+        defaultValue: "true",
+      },
+      {
+        key: "PORTAL_MANAGEMENT_MAINTENANCE",
+        isSecret: false,
+        label: "Management maintenance message (empty = off)",
+      },
+      {
+        key: "PORTAL_ADMIN_ENABLED",
+        isSecret: false,
+        label: "Admin web (admin.cullinos.com)",
+        type: "boolean",
+        defaultValue: "true",
+      },
+      {
+        key: "PORTAL_ADMIN_MAINTENANCE",
+        isSecret: false,
+        label: "Admin maintenance message (empty = off)",
+      },
+      {
+        key: "PORTAL_POS_ENABLED",
+        isSecret: false,
+        label: "POS web",
+        type: "boolean",
+        defaultValue: "true",
+      },
+      {
+        key: "PORTAL_POS_MAINTENANCE",
+        isSecret: false,
+        label: "POS maintenance message (empty = off)",
+      },
+      {
+        key: "PORTAL_KDS_ENABLED",
+        isSecret: false,
+        label: "KDS web",
+        type: "boolean",
+        defaultValue: "true",
+      },
+      {
+        key: "PORTAL_KDS_MAINTENANCE",
+        isSecret: false,
+        label: "KDS maintenance message (empty = off)",
+      },
+      {
+        key: "PORTAL_APP_OPS_ENABLED",
+        isSecret: false,
+        label: "App Ops (app.cullinos.com)",
+        type: "boolean",
+        defaultValue: "true",
+      },
+      {
+        key: "PORTAL_APP_OPS_MAINTENANCE",
+        isSecret: false,
+        label: "App Ops maintenance message (empty = off)",
+      },
+      {
+        key: "PORTAL_WAITER_ENABLED",
+        isSecret: false,
+        label: "Waiter app (Android)",
+        type: "boolean",
+        defaultValue: "true",
+      },
+      {
+        key: "PORTAL_WAITER_MAINTENANCE",
+        isSecret: false,
+        label: "Waiter app maintenance message (empty = off)",
+      },
+      {
+        key: "PORTAL_WAITER_LANDING_ENABLED",
+        isSecret: false,
+        label: "Waiter landing (waiter.cullinos.com)",
+        type: "boolean",
+        defaultValue: "true",
+      },
+      {
+        key: "PORTAL_WAITER_LANDING_MAINTENANCE",
+        isSecret: false,
+        label: "Waiter landing maintenance message (empty = off)",
+      },
+      {
+        key: "PORTAL_DISABLED_MESSAGE",
+        isSecret: false,
+        label: "Message shown when a portal is off (optional)",
+      },
+      {
+        key: "WAITER_APP_PLAY_STORE_URL",
+        isSecret: false,
+        label:
+          "Waiter app Play Store URL (waiter.cullinos.com shows 'coming soon' while empty)",
+      },
+    ],
+  },
   {
     id: "smtp",
     label: "SMTP (transactional / staff OTP)",
@@ -118,23 +227,23 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
     id: "msg91",
     label: "Phone OTP (MSG91)",
     description:
-      "Guest + customer phone OTP. Prefer Widget (ID + tokenAuth); Flow SMS needs auth key + template + sender. Turn off Guest OTP debug once Flow works.",
+      "Guest and Waiter phone OTP prefer Widget (ID + tokenAuth). Flow (Auth key + template ID + sender) is optional fallback for staff when DLT is available, and for marketing SMS (MESSAGE var). OTP Flow expects OTP var.",
     keys: [
       { key: "MSG91_AUTH_KEY", isSecret: true, label: "Auth key (server verify)" },
       {
         key: "MSG91_WIDGET_ID",
         isSecret: false,
-        label: "Widget ID",
+        label: "Widget ID (guest + waiter app)",
       },
       {
         key: "MSG91_WIDGET_TOKEN",
         isSecret: true,
-        label: "Widget tokenAuth (client)",
+        label: "Widget tokenAuth (guest client)",
       },
       {
         key: "MSG91_TEMPLATE_ID",
         isSecret: false,
-        label: "Flow template ID (fallback SMS)",
+        label: "Flow template ID (optional; Flow SMS fallback)",
       },
       {
         key: "MSG91_MARKETING_TEMPLATE_ID",
@@ -150,15 +259,57 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
     ],
   },
   {
-    id: "billing",
-    label: "Portal wallet & SMS pricing",
+    id: "whatsapp",
+    label: "WhatsApp (Meta Cloud API)",
     description:
-      "Prepaid wallet pricing for Cullinos portal addons. SMS campaigns deduct pro-rata from SMS_PRICE_PER_100_PAISE (e.g. 10000 = ₹100 per 100 SMS).",
+      "Cullinos platform Meta Cloud API credentials. Powers Cullinos-level ops and tenant e-bill receipts when owners enable WhatsApp receipts (metered from portal wallet). Leave blank until keys are ready.",
+    keys: [
+      {
+        key: "WHATSAPP_ACCESS_TOKEN",
+        isSecret: true,
+        label: "Access token",
+      },
+      {
+        key: "WHATSAPP_PHONE_NUMBER_ID",
+        isSecret: false,
+        label: "Phone number ID",
+      },
+      {
+        key: "WHATSAPP_API_VERSION",
+        isSecret: false,
+        label: "Graph API version",
+        defaultValue: "v21.0",
+      },
+      {
+        key: "WHATSAPP_RECEIPT_TEMPLATE",
+        isSecret: false,
+        label:
+          "Approved e-bill template name (body params: {{1}} order no., {{2}} outlet, {{3}} total, {{4}} feedback link)",
+      },
+      {
+        key: "WHATSAPP_TEMPLATE_LANGUAGE",
+        isSecret: false,
+        label: "Template language code",
+        defaultValue: "en",
+      },
+    ],
+  },
+  {
+    id: "billing",
+    label: "Portal wallet & messaging pricing",
+    description:
+      "Prepaid wallet pricing for Cullinos portal addons. SMS campaigns and WhatsApp e-bills deduct pro-rata (e.g. 10000 = ₹100 per 100 messages).",
     keys: [
       {
         key: "SMS_PRICE_PER_100_PAISE",
         isSecret: false,
         label: "SMS price per 100 messages (paise)",
+      },
+      {
+        key: "WHATSAPP_PRICE_PER_100_PAISE",
+        isSecret: false,
+        label: "WhatsApp price per 100 messages (paise)",
+        defaultValue: "10000",
       },
     ],
   },
@@ -166,9 +317,13 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
     id: "fcm",
     label: "Firebase Cloud Messaging",
     description:
-      "Push for Cullinos Guest (order status + marketing). Legacy server key required for device delivery.",
+      "Guest push uses Firebase Admin (HTTP v1) via FIREBASE_SERVICE_ACCOUNT_* on the API. FCM_SERVER_KEY is deprecated and ignored.",
     keys: [
-      { key: "FCM_SERVER_KEY", isSecret: true, label: "Legacy server key" },
+      {
+        key: "FCM_SERVER_KEY",
+        isSecret: true,
+        label: "Legacy server key (deprecated — unused)",
+      },
     ],
   },
   {

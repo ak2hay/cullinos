@@ -119,7 +119,7 @@ export function CustomersPage() {
         description="Customer list, marketing consent, export, and erasure (DPDP)."
       />
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="font-semibold">Add customer</h2>
         <p className="mt-1 text-xs text-text-muted">
           Personal data is collected to provide loyalty and order services. Marketing email
@@ -183,9 +183,9 @@ export function CustomersPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
-        <section className="overflow-hidden rounded-xl border border-white/5 bg-bg-card">
+        <section className="overflow-hidden rounded-xl border border-line-subtle bg-bg-card">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-white/5 bg-bg-elevated text-text-secondary">
+            <thead className="border-b border-line-subtle bg-bg-elevated text-text-secondary">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Phone</th>
@@ -212,7 +212,7 @@ export function CustomersPage() {
                 customers.map((customer) => (
                   <tr
                     key={customer.id}
-                    className={`cursor-pointer border-b border-white/5 last:border-0 hover:bg-white/[0.03] ${
+                    className={`cursor-pointer border-b border-line-subtle last:border-0 hover:bg-hover ${
                       selectedId === customer.id ? 'bg-brand-primary/10' : ''
                     }`}
                     onClick={() => setSelectedId(customer.id)}
@@ -272,7 +272,7 @@ export function CustomersPage() {
           </table>
         </section>
 
-        <aside className="rounded-xl border border-white/5 bg-bg-card p-5">
+        <aside className="rounded-xl border border-line-subtle bg-bg-card p-5">
           {!selectedId ? (
             <p className="text-sm text-text-muted">
               Select a customer to view details and redeem loyalty points at the counter.
@@ -316,7 +316,7 @@ export function CustomersPage() {
                 </div>
               </dl>
 
-              <section className="space-y-3 rounded-lg border border-white/10 bg-bg-elevated/50 p-3">
+              <section className="space-y-3 rounded-lg border border-line bg-bg-elevated/50 p-3">
                 <h3 className="text-sm font-medium">Redeem loyalty at counter</h3>
                 <p className="text-xs text-text-muted">
                   Min redeem {minRedeem} pts

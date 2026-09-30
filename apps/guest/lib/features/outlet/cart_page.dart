@@ -48,6 +48,42 @@ class _CartPageState extends ConsumerState<CartPage> {
     super.dispose();
   }
 
+  Future<void> _editLineNote(
+    BuildContext context,
+    CartState cart,
+    CartLine line,
+  ) async {
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final c = TextEditingController(text: line.notes ?? '');
+        return AlertDialog(
+          title: Text('Note for ${line.name}'),
+          content: TextField(
+            controller: c,
+            autofocus: true,
+            maxLines: 3,
+            maxLength: cartNoteMaxLength,
+            decoration: const InputDecoration(
+              hintText: 'E.g. no onion, extra cheese…',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, c.text),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    if (value != null) cart.setLineNotes(line.key, value);
+  }
+
   Future<void> _loadUpsell() async {
     try {
       final data = await ref
@@ -87,7 +123,7 @@ class _CartPageState extends ConsumerState<CartPage> {
     final total = cart.subtotal + packaging + taxes;
 
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       appBar: AppBar(
         leading: GuestBackButton(
           fallbackPath: '/o/${widget.orgSlug}/${widget.outletSlug}/menu',
@@ -97,10 +133,10 @@ class _CartPageState extends ConsumerState<CartPage> {
             const Text('Your Cart'),
             Text(
               '${cart.itemCount} items${cart.restaurantName != null ? ' • ${cart.restaurantName}' : ''}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: GuestColors.muted,
+                color: GuestColors.mutedOf(context),
               ),
             ),
           ],
@@ -170,9 +206,9 @@ class _CartPageState extends ConsumerState<CartPage> {
                                   ),
                                   Text(
                                     cart.restaurantLocation ?? '',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12,
-                                      color: GuestColors.muted,
+                                      color: GuestColors.mutedOf(context),
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -180,8 +216,8 @@ class _CartPageState extends ConsumerState<CartPage> {
                                 ],
                               ),
                             ),
-                            const Icon(Icons.chevron_right_rounded,
-                                color: GuestColors.muted),
+                            Icon(Icons.chevron_right_rounded,
+                                color: GuestColors.mutedOf(context)),
                           ],
                         ),
                       ),
@@ -245,15 +281,53 @@ class _CartPageState extends ConsumerState<CartPage> {
                                     if (line.variantLabel != null)
                                       Text(
                                         line.variantLabel!,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 12,
-                                          color: GuestColors.muted,
+                                          color: GuestColors.mutedOf(context),
                                         ),
                                       ),
                                     Text(
                                       formatInr(line.unitPrice),
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    InkWell(
+                                      onTap: () =>
+                                          _editLineNote(context, cart, line),
+                                      child: Padding(
+                                        padding:
+                                            const EdgeInsets.only(top: 4),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.edit_note_rounded,
+                                              size: 16,
+                                              color: GuestColors.primaryOf(
+                                                  context),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                line.notes ?? 'Add note',
+                                                maxLines: 2,
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontStyle: line.notes ==
+                                                          null
+                                                      ? FontStyle.normal
+                                                      : FontStyle.italic,
+                                                  color: line.notes == null
+                                                      ? GuestColors
+                                                          .primaryOf(context)
+                                                      : GuestColors.inkOf(context),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -270,10 +344,10 @@ class _CartPageState extends ConsumerState<CartPage> {
                                   IconButton(
                                     onPressed: () =>
                                         cart.removeByKey(line.key),
-                                    icon: const Icon(
+                                    icon: Icon(
                                       Icons.delete_outline_rounded,
                                       size: 18,
-                                      color: GuestColors.muted,
+                                      color: GuestColors.mutedOf(context),
                                     ),
                                     visualDensity: VisualDensity.compact,
                                   ),
@@ -332,13 +406,13 @@ class _CartPageState extends ConsumerState<CartPage> {
                               : _notes.text,
                           style: TextStyle(
                             color: _notes.text.isEmpty
-                                ? GuestColors.muted
-                                : GuestColors.ink,
+                                ? GuestColors.mutedOf(context)
+                                : GuestColors.inkOf(context),
                           ),
                         ),
                       ),
-                      const Icon(Icons.chevron_right_rounded,
-                          color: GuestColors.muted),
+                      Icon(Icons.chevron_right_rounded,
+                          color: GuestColors.mutedOf(context)),
                     ],
                   ),
                 ),
@@ -379,7 +453,7 @@ class _CartPageState extends ConsumerState<CartPage> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: GuestColors.borderLight,
+                    color: GuestColors.borderLightOf(context),
                     borderRadius:
                         BorderRadius.circular(GuestSpacing.radiusMd),
                   ),
@@ -456,7 +530,7 @@ class _CartPageState extends ConsumerState<CartPage> {
               label,
               style: TextStyle(
                 fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
-                color: bold ? GuestColors.ink : GuestColors.muted,
+                color: bold ? GuestColors.inkOf(context) : GuestColors.mutedOf(context),
               ),
             ),
           ),
@@ -488,7 +562,7 @@ class DashedDivider extends StatelessWidget {
             (_) => Container(
               width: dashWidth,
               height: 1,
-              color: GuestColors.border,
+              color: GuestColors.borderOf(context),
             ),
           ),
         );

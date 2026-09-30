@@ -63,8 +63,8 @@ export const MARKETING_PLANS: MarketingPlan[] = [
     key: 'STARTER',
     name: 'Starter',
     description: 'POS, Billing, KOT, Basic reports',
-    priceMonthly: 99900,
-    priceYearly: 999900,
+    priceMonthly: 149900,
+    priceYearly: 1499900,
     maxOutlets: 1,
     maxUsers: 5,
     maxTerminals: 2,
@@ -75,8 +75,8 @@ export const MARKETING_PLANS: MarketingPlan[] = [
     key: 'QSR',
     name: 'QSR / Food SMB',
     description: 'Cafes, food trucks, counter-service — POS, QR, pickup queue, loyalty',
-    priceMonthly: 149900,
-    priceYearly: 1499900,
+    priceMonthly: 249900,
+    priceYearly: 2499900,
     maxOutlets: 1,
     maxUsers: 8,
     maxTerminals: 3,
@@ -87,8 +87,8 @@ export const MARKETING_PLANS: MarketingPlan[] = [
     key: 'PROFESSIONAL',
     name: 'Professional',
     description: 'Full restaurant operations',
-    priceMonthly: 299900,
-    priceYearly: 2999900,
+    priceMonthly: 499900,
+    priceYearly: 4999900,
     maxOutlets: 3,
     maxUsers: 20,
     maxTerminals: 10,
@@ -99,9 +99,10 @@ export const MARKETING_PLANS: MarketingPlan[] = [
   {
     key: 'ENTERPRISE',
     name: 'Enterprise',
-    description: 'Multi-outlet and franchise',
-    priceMonthly: 999900,
-    priceYearly: 9999900,
+    description:
+      'Custom pricing based on outlets, POS terminals, users, integrations and requirements.',
+    priceMonthly: 0,
+    priceYearly: 0,
     maxOutlets: 50,
     maxUsers: 200,
     maxTerminals: 100,
@@ -111,9 +112,9 @@ export const MARKETING_PLANS: MarketingPlan[] = [
   {
     key: 'HOSPITALITY',
     name: 'Hospitality',
-    description: 'Hotel and resort restaurants',
-    priceMonthly: 1499900,
-    priceYearly: 14999900,
+    description: 'Custom pricing based on rooms, outlets, terminals and integrations.',
+    priceMonthly: 0,
+    priceYearly: 0,
     maxOutlets: 100,
     maxUsers: 500,
     maxTerminals: 200,
@@ -128,6 +129,16 @@ export function formatInr(paise: number): string {
     currency: 'INR',
     maximumFractionDigits: 0,
   }).format(paise / 100);
+}
+
+/** Contact-sales plans never show a numeric price, even if a stale CMS row still carries one. */
+export function isContactPricing(plan: { cta: string; priceMonthly: number }): boolean {
+  return plan.cta === 'contact' || plan.priceMonthly <= 0;
+}
+
+/** Yearly saving vs paying monthly for 12 months, in paise (0 when there is no saving). */
+export function yearlySavings(plan: { priceMonthly: number; priceYearly: number }): number {
+  return Math.max(0, plan.priceMonthly * 12 - plan.priceYearly);
 }
 
 export const NAV_LINKS = [
@@ -351,39 +362,50 @@ export const FEATURE_SECTIONS = [
 export const INTEGRATION_CATEGORIES = [
   {
     title: 'Hardware',
-    description: 'Connect printers, cash drawers, and scanners through the Local Gateway.',
+    description: 'Connect printers, cash drawers, scanners, and display boards through the Local Gateway.',
     status: 'available' as const,
-    items: ['Thermal receipt printers', 'Kitchen ticket printers', 'Cash drawer kick', 'Barcode scanners'],
+    items: [
+      'Thermal receipt printers',
+      'Kitchen ticket printers',
+      'Cash drawer kick',
+      'Barcode scanners',
+      'Digital menu / promo boards',
+    ],
   },
   {
     title: 'Payments',
-    description: 'Razorpay for online checkout, Guest app, and subscription collect.',
+    description: 'Razorpay for online checkout, Guest app, UPI QR, and subscription collect.',
     status: 'available' as const,
-    items: ['Razorpay UPI / cards / wallets', 'Payment intent & verify', 'Webhooks', 'Subscription collect'],
-  },
-  {
-    title: 'Messaging & push',
-    description: 'OTP, marketing SMS, email, and Guest app push.',
-    status: 'available' as const,
-    items: ['MSG91 phone OTP', 'MSG91 marketing SMS', 'Promo email (SMTP / Brevo)', 'Firebase FCM push'],
+    items: [
+      'Razorpay UPI / cards / wallets',
+      'UPI QR display at counter',
+      'Payment intent & verify',
+      'Webhooks',
+      'Subscription collect',
+    ],
   },
   {
     title: 'Delivery aggregators',
     description: 'Connect marketplace delivery channels alongside your own orders.',
     status: 'available' as const,
-    items: ['Swiggy connect & webhooks', 'Zomato connect & webhooks', 'Settlements / reconciliation'],
+    items: [
+      'Swiggy connect & webhooks',
+      'Zomato connect & webhooks',
+      'Delivery partner tablets',
+      'Settlements / reconciliation',
+    ],
+  },
+  {
+    title: 'Tax & compliance',
+    description: 'India GST-native billing with e-invoice readiness for growing operators.',
+    status: 'available' as const,
+    items: ['CGST / SGST / IGST on every bill', 'HSN / SAC on receipts', 'GST e-invoice readiness'],
   },
   {
     title: 'Hotel PMS',
     description: 'Post charges to guest folios and sync with property systems.',
     status: 'coming_soon' as const,
     items: ['Deeper folio sync', 'Banquet billing sync', 'Guest profile lookup'],
-  },
-  {
-    title: 'Accounting',
-    description: 'Export day-book data for your accountant or ERP.',
-    status: 'available' as const,
-    items: ['ERP day-book export'],
   },
 ] as const;
 

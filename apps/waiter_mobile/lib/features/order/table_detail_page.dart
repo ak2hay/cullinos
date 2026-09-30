@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:cullinos_waiter/core/api_client.dart';
 import 'package:cullinos_waiter/core/money.dart';
@@ -9,8 +10,11 @@ import 'package:cullinos_waiter/core/waiter_spacing.dart';
 import 'package:cullinos_waiter/data/waiter_api.dart';
 import 'package:cullinos_waiter/features/auth/auth_controller.dart';
 import 'package:cullinos_waiter/features/floor/floor_page.dart';
+import 'package:cullinos_waiter/features/floor/selected_table.dart';
+import 'package:cullinos_waiter/features/floor/table_action_mode.dart';
 import 'package:cullinos_waiter/features/order/collect_payment_sheet.dart';
 import 'package:cullinos_waiter/l10n/app_localizations.dart';
+import 'package:cullinos_waiter/widgets/waiter_motion.dart';
 import 'package:cullinos_waiter/widgets/waiter_section_header.dart';
 import 'package:cullinos_waiter/widgets/waiter_soft_card.dart';
 
@@ -405,7 +409,7 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
               children: [
                 Text(
                   'Let the customer scan to view the menu and place an order',
-                  style: const TextStyle(fontSize: 13, color: WaiterColors.muted),
+                  style: TextStyle(fontSize: 13, color: WaiterColors.mutedOf(context)),
                 ),
                 const SizedBox(height: 12),
                 if (url.isNotEmpty)
@@ -461,49 +465,28 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
     await _reload();
   }
 
-  Future<void> _transferOrMerge({required bool merge}) async {
+  /// Hands off to the floor grid with this table already picked as step 1.
+  void _transferOrMerge({required bool merge}) {
+    ref.read(tableActionProvider).start(
+          merge ? TableAction.merge : TableAction.transfer,
+          tableId: widget.tableId,
+          tableName: _table?['name']?.toString() ?? '',
+        );
+    if (!widget.embedded) Navigator.of(context).maybePop();
+  }
+
+  void _openTable(String id) {
+    ref.read(selectedTableProvider).select(id);
+    if (!widget.embedded) context.pushReplacement('/table/$id');
+  }
+
+  Future<void> _unmerge(String tableId) async {
     final outletId = ref.read(authControllerProvider).selectedOutletId;
     if (outletId == null) return;
-    final tables = await ref.read(waiterApiProvider).tables(outletId);
-    final others = tables
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .where((t) => t['id'] != widget.tableId)
-        .toList();
-    if (!mounted) return;
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: Text(merge
-            ? AppLocalizations.of(context).mergeTables
-            : AppLocalizations.of(context).transferTable),
-        children: others
-            .map(
-              (t) => SimpleDialogOption(
-                onPressed: () => Navigator.pop(ctx, t['id']?.toString()),
-                child: Text(t['name']?.toString() ?? ''),
-              ),
-            )
-            .toList(),
-      ),
-    );
-    if (selected == null) return;
     try {
-      final api = ref.read(waiterApiProvider);
-      if (merge) {
-        await api.mergeTables(
-          outletId,
-          primaryTableId: widget.tableId,
-          otherTableIds: [selected],
-        );
-      } else {
-        await api.transferTable(
-          outletId,
-          fromTableId: widget.tableId,
-          toTableId: selected,
-        );
-      }
-      await _reload();
+      await ref.read(waiterApiProvider).unmergeTable(outletId, tableId);
       ref.invalidate(tablesProvider);
+      await _reload();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -513,16 +496,72 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
     }
   }
 
+  Widget _mergedCard(AppLocalizations l10n, String primaryId, String primaryName) {
+    return WaiterSoftCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.link_rounded, color: WaiterColors.merged),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.mergedWith(primaryName),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: WaiterColors.merged,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            l10n.mergedTableHint(primaryName),
+            style: TextStyle(color: WaiterColors.mutedOf(context)),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => _openTable(primaryId),
+                  child: Text(l10n.openTable(primaryName)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _unmerge(widget.tableId),
+                  child: Text(l10n.unmerge),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        appBar: AppBar(),
+        body: const WaiterSkeletonList(rows: 4),
+      );
     }
     if (_error != null) {
       return Scaffold(
         appBar: AppBar(),
-        body: Center(child: Text(_error!)),
+        body: WaiterEmptyState(
+          icon: Icons.cloud_off_rounded,
+          message: _error!,
+          actionLabel: l10n.retry,
+          onAction: _reload,
+        ),
       );
     }
     final status = _table?['status']?.toString() ?? 'AVAILABLE';
@@ -532,6 +571,16 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
 
     final remaining = (_balance?['remaining'] as num?)?.toDouble() ?? 0;
     final unpaid = _order != null && remaining > 0.009;
+    final mergedIntoId = _table?['mergedIntoTableId']?.toString() ?? '';
+    final isMerged = mergedIntoId.isNotEmpty;
+    final mergedIds = (_table?['mergedTableIds'] as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        const <String>[];
+    final mergedNames = (_table?['mergedTableNames'] as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        const <String>[];
 
     return Scaffold(
       appBar: AppBar(
@@ -550,8 +599,10 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
               if (v == 'end') _endSession();
             },
             itemBuilder: (_) => [
-              PopupMenuItem(value: 'transfer', child: Text(l10n.transferTable)),
-              PopupMenuItem(value: 'merge', child: Text(l10n.mergeTables)),
+              if (!isMerged) ...[
+                PopupMenuItem(value: 'transfer', child: Text(l10n.transferTable)),
+                PopupMenuItem(value: 'merge', child: Text(l10n.mergeTables)),
+              ],
               if (_session != null)
                 PopupMenuItem(value: 'end', child: Text(l10n.endSession)),
             ],
@@ -586,25 +637,60 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _startQr,
-                  icon: const Icon(Icons.qr_code_2_rounded),
-                  label: Text(l10n.showQr),
+          if (isMerged)
+            _mergedCard(
+              l10n,
+              mergedIntoId,
+              _table?['mergedIntoTableName']?.toString() ?? '',
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _startQr,
+                    icon: const Icon(Icons.qr_code_2_rounded),
+                    label: Text(l10n.showQr),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _transferOrMerge(merge: false),
-                  icon: const Icon(Icons.swap_horiz),
-                  label: Text(l10n.transferTable),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _transferOrMerge(merge: false),
+                    icon: const Icon(Icons.swap_horiz),
+                    label: Text(l10n.transferTable),
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _transferOrMerge(merge: true),
+                    icon: const Icon(Icons.call_merge_rounded),
+                    label: Text(l10n.mergeTables),
+                  ),
+                ),
+              ],
+            ),
+          if (mergedIds.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Icon(Icons.link_rounded, color: WaiterColors.merged),
+                for (var i = 0; i < mergedIds.length; i++)
+                  InputChip(
+                    label: Text(
+                      i < mergedNames.length ? mergedNames[i] : mergedIds[i],
+                    ),
+                    deleteIcon: const Icon(Icons.link_off_rounded, size: 18),
+                    deleteButtonTooltipMessage: l10n.unmerge,
+                    onDeleted: () => _unmerge(mergedIds[i]),
+                  ),
+              ],
+            ),
+          ],
           if (unpaid) ...[
             const SizedBox(height: 12),
             WaiterSoftCard(
@@ -673,8 +759,8 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
                   if (!unpaid && _balance != null)
                     Text(
                       l10n.paidInFull,
-                      style: const TextStyle(
-                        color: WaiterColors.primary,
+                      style: TextStyle(
+                        color: WaiterColors.primaryOf(context),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -799,7 +885,7 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
               subtitle: Text(formatInr(item['price'] as num?)),
               trailing: IconButton(
                 icon: const Icon(Icons.add_circle),
-                color: WaiterColors.primary,
+                color: WaiterColors.primaryOf(context),
                 onPressed: () {
                   if (hasOpts) {
                     _customizeAndAdd(item);

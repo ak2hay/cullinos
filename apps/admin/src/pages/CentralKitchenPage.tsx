@@ -37,7 +37,7 @@ export function CentralKitchenPage() {
   });
   const inventoryQuery = useQuery({
     queryKey: ['inventory', 'items'],
-    queryFn: inventoryApi.listItems,
+    queryFn: () => inventoryApi.listItems(),
   });
 
   const createCkMutation = useMutation({
@@ -125,7 +125,7 @@ export function CentralKitchenPage() {
       ) : null}
 
       {showCkForm ? (
-        <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
           <h2 className="font-medium">Register central kitchen hub</h2>
           <form
             className="mt-4 grid gap-4 sm:grid-cols-2"
@@ -164,7 +164,7 @@ export function CentralKitchenPage() {
       ) : null}
 
       {showIndentForm ? (
-        <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
           <h2 className="font-medium">Stock indent request</h2>
           <form
             className="mt-4 grid gap-4 sm:grid-cols-2"

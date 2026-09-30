@@ -2,12 +2,12 @@ import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
 import { PricingTable } from '@/components/marketing/PricingTable';
+import { formatInr, MARKETING_PLANS } from '@cullinos/shared';
 import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
   title: 'Pricing',
-  description:
-    'Cullinos pricing from ₹999/month. Compare Starter, Professional, Enterprise, and Hospitality plans.',
+  description: `Cullinos pricing from ${formatInr(MARKETING_PLANS[0].priceMonthly)}/month. Compare Starter, QSR / Food SMB, Professional, Enterprise, and Hospitality plans.`,
   path: '/pricing',
 });
 

@@ -9,6 +9,7 @@ import { RecipesModule } from "../recipes/recipes.module";
 import { MailModule } from "../mail/mail.module";
 import { SmsModule } from "../sms/sms.module";
 import { FeedbackModule } from "../feedback/feedback.module";
+import { WalletModule } from "../wallet/wallet.module";
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { FeedbackModule } from "../feedback/feedback.module";
     MailModule,
     SmsModule,
     FeedbackModule,
+    WalletModule,
   ],
   controllers: [OrdersController, PublicOrdersController],
   providers: [OrdersService],

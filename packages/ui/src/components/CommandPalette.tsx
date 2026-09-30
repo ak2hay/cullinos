@@ -83,16 +83,16 @@ export function CommandPalette({
       <button
         type="button"
         aria-label="Close command palette"
-        className="absolute inset-0 bg-black/65 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-scrim backdrop-blur-[2px]"
         onClick={onClose}
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
-        className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-bg-secondary shadow-lg"
+        className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-line bg-bg-secondary shadow-lg"
       >
-        <div className="border-b border-white/5 px-4 py-3">
+        <div className="border-b border-line-subtle px-4 py-3">
           <input
             ref={inputRef}
             value={query}
@@ -115,7 +115,7 @@ export function CommandPalette({
                     'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition',
                     index === activeIndex
                       ? 'bg-brand-primary/15 text-brand-primary'
-                      : 'text-text-secondary hover:bg-white/5 hover:text-text-primary',
+                      : 'text-text-secondary hover:bg-hover hover:text-text-primary',
                   )}
                   onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => {
@@ -133,7 +133,7 @@ export function CommandPalette({
             ))
           )}
         </ul>
-        <p className="border-t border-white/5 px-4 py-2 text-[11px] text-text-muted">
+        <p className="border-t border-line-subtle px-4 py-2 text-[11px] text-text-muted">
           ↑↓ navigate · Enter open · Esc close
         </p>
       </div>

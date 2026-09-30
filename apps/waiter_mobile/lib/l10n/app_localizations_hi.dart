@@ -299,4 +299,93 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get allFloors => 'All floors';
+
+  @override
+  String get portalDisabledTitle => 'वेटर ऐप बंद है';
+
+  @override
+  String get portalDisabledBody =>
+      'Cullinos ने वेटर ऐप को अस्थायी रूप से बंद कर दिया है। कृपया अपने मैनेजर से संपर्क करें या एडमिन पोर्टल का उपयोग करें।';
+
+  @override
+  String get portalMaintenanceLabel => 'MAINTENANCE';
+
+  @override
+  String get portalMaintenanceTitle => 'Waiter app is under maintenance';
+
+  @override
+  String get portalMaintenanceBody =>
+      'Cullinos is performing maintenance on the waiter app. Please try again shortly.';
+
+  @override
+  String get checkAgain => 'फिर से जाँचें';
+
+  @override
+  String get mergeStepPrimary => 'स्टेप 1/2: मुख्य टेबल चुनें';
+
+  @override
+  String mergeStepSecondary(String table) {
+    return 'स्टेप 2/2: वह टेबल चुनें जिसे $table में मर्ज करना है';
+  }
+
+  @override
+  String get transferStepSource =>
+      'स्टेप 1/2: जिस टेबल को शिफ्ट करना है उसे चुनें';
+
+  @override
+  String transferStepTarget(String table) {
+    return 'स्टेप 2/2: $table के लिए खाली टेबल चुनें';
+  }
+
+  @override
+  String mergedWith(String table) {
+    return '$table के साथ मर्ज';
+  }
+
+  @override
+  String get primaryTag => 'मुख्य';
+
+  @override
+  String get fromTag => 'से';
+
+  @override
+  String confirmMerge(String secondary, String primary) {
+    return '$secondary को $primary में मर्ज करें?';
+  }
+
+  @override
+  String confirmTransfer(String from, String to) {
+    return '$from को $to पर शिफ्ट करें?';
+  }
+
+  @override
+  String get confirm => 'कन्फर्म';
+
+  @override
+  String get unmerge => 'अनमर्ज';
+
+  @override
+  String openTable(String table) {
+    return '$table खोलें';
+  }
+
+  @override
+  String mergedTableHint(String table) {
+    return 'इस टेबल का ऑर्डर और बिल $table पर है।';
+  }
+
+  @override
+  String get appearance => 'दिखावट';
+
+  @override
+  String get themeLight => 'लाइट';
+
+  @override
+  String get themeDark => 'डार्क';
+
+  @override
+  String get themeSystem => 'सिस्टम';
+
+  @override
+  String get retry => 'फिर से कोशिश करें';
 }

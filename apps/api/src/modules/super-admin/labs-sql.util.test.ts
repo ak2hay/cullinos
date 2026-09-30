@@ -35,4 +35,15 @@ describe("assertSelectOnlySql", () => {
     );
     expect(() => assertSelectOnlySql("DROP TABLE organizations")).toThrow(/SELECT/);
   });
+
+  it("treats tagged dollar-quoted strings as literals", () => {
+    const sql = "SELECT $note$ delete me $note$ AS label";
+    expect(assertSelectOnlySql(sql)).toBe(sql);
+  });
+
+  it("still rejects keywords outside tagged dollar quotes", () => {
+    expect(() =>
+      assertSelectOnlySql("SELECT $a$x$a$ AS l, (SELECT 1) INTO tmp FROM organizations"),
+    ).toThrow(/disallowed/);
+  });
 });

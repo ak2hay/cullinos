@@ -69,7 +69,7 @@ export function EventsPage() {
         onChange={(e) => setOutletId(e.target.value)}
       />
 
-      <div className="grid gap-3 rounded-xl border border-white/5 bg-bg-card p-4 sm:grid-cols-2">
+      <div className="grid gap-3 rounded-xl border border-line-subtle bg-bg-card p-4 sm:grid-cols-2">
         <Input label="Event name" placeholder="Weekend market" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <Input label="Location" placeholder="BKC, Mumbai" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
         <Input label="Event date" type="date" value={form.eventDate} onChange={(e) => setForm({ ...form, eventDate: e.target.value })} />
@@ -95,7 +95,7 @@ export function EventsPage() {
           <p className="text-sm text-text-muted">No events scheduled yet.</p>
         ) : (
           (eventsQuery.data ?? []).map((event) => (
-            <div key={String(event.id)} className="rounded-lg border border-white/5 bg-bg-card p-4">
+            <div key={String(event.id)} className="rounded-lg border border-line-subtle bg-bg-card p-4">
               <p className="font-medium">{String(event.name)}</p>
               <p className="text-sm text-text-muted">{String(event.location ?? '')}</p>
               <p className="text-xs text-text-muted">

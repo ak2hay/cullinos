@@ -7,7 +7,9 @@ import {
   ALL_COMPARISON_FEATURES,
   FEATURE_LABELS,
   formatInr,
+  isContactPricing,
   MARKETING_PLANS,
+  yearlySavings,
   type MarketingPlan,
 } from '@cullinos/shared';
 import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
@@ -118,9 +120,16 @@ function PricingCard({
   yearly: boolean;
   registerUrl: string;
 }) {
+  const contactPricing = isContactPricing(plan);
   const price = yearly ? plan.priceYearly : plan.priceMonthly;
   const period = yearly ? '/year' : '/month';
+  const savings = yearly && !contactPricing ? yearlySavings(plan) : 0;
   const ctaHref = plan.cta === 'register' ? registerUrl : '/contact?plan=' + plan.key.toLowerCase();
+  const ctaLabel = contactPricing
+    ? 'Contact us for pricing'
+    : plan.cta === 'register'
+      ? 'Start free trial'
+      : 'Contact sales';
 
   return (
     <article
@@ -138,9 +147,20 @@ function PricingCard({
       <h3 className="font-serif text-lg font-medium">{plan.name}</h3>
       <p className="mt-1 text-sm text-text-secondary">{plan.description}</p>
       <p className="mt-4 font-serif text-3xl font-medium">
-        {formatInr(price)}
-        <span className="text-sm font-normal text-text-muted">{period}</span>
+        {contactPricing ? (
+          'Contact us'
+        ) : (
+          <>
+            {formatInr(price)}
+            <span className="text-sm font-normal text-text-muted">{period}</span>
+          </>
+        )}
       </p>
+      {savings > 0 ? (
+        <p className="mt-1 text-xs font-medium text-status-success">
+          Save {formatInr(savings)} a year
+        </p>
+      ) : null}
       <ul className="mt-4 space-y-2 text-sm text-text-secondary">
         <li>
           {plan.maxOutlets} outlet{plan.maxOutlets > 1 ? 's' : ''}
@@ -152,7 +172,7 @@ function PricingCard({
         href={ctaHref}
         className={`mt-6 block text-center ${plan.highlighted ? 'btn-pill-filled btn-pill' : 'btn-pill'}`}
       >
-        {plan.cta === 'register' ? 'Start free trial' : 'Contact sales'}
+        {ctaLabel}
       </Link>
     </article>
   );
@@ -168,6 +188,7 @@ export function PricingTeaser() {
       id: p.key,
       name: p.name,
       priceMonthly: p.priceMonthly,
+      cta: p.cta as string,
       sortOrder: i,
     }));
   }, [cms.pricingCards]);
@@ -178,8 +199,14 @@ export function PricingTeaser() {
         <div key={plan.id} className="rounded-2xl border border-border-light bg-bg-card p-5 shadow-card">
           <h3 className="font-serif font-medium">{plan.name}</h3>
           <p className="mt-2 font-serif text-2xl font-medium text-brand-gold">
-            {formatInr(plan.priceMonthly)}
-            <span className="text-sm font-normal text-text-muted">/mo</span>
+            {isContactPricing(plan) ? (
+              'Contact us'
+            ) : (
+              <>
+                {formatInr(plan.priceMonthly)}
+                <span className="text-sm font-normal text-text-muted">/mo</span>
+              </>
+            )}
           </p>
         </div>
       ))}

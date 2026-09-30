@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '@/components/auth/AuthLayout';
-import { Button, Input, PasswordInput } from '@cullinos/ui';
+import { Button, Input, PasswordInput, Turnstile, isTurnstileEnabled } from '@cullinos/ui';
 import { authApi } from '@/lib/api';
+import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
 
 type Step = 'email' | 'reset';
 
@@ -16,18 +17,29 @@ export function ForgotPasswordPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaKey, setCaptchaKey] = useState(0);
+  const turnstileOn = isTurnstileEnabled(TURNSTILE_SITE_KEY);
+  const onCaptchaToken = useCallback((token: string) => setCaptchaToken(token), []);
+  const onCaptchaExpire = useCallback(() => setCaptchaToken(''), []);
 
   async function handleRequestCode(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setMessage('');
+    if (turnstileOn && !captchaToken) {
+      setError('Complete the security check');
+      return;
+    }
     setLoading(true);
     try {
-      await authApi.forgotPassword({ email });
+      await authApi.forgotPassword({ email, captchaToken: captchaToken || undefined });
       setMessage('If an account exists for that email, a reset code has been sent.');
       setStep('reset');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Request failed');
+      setCaptchaToken('');
+      setCaptchaKey((k) => k + 1);
     } finally {
       setLoading(false);
     }
@@ -59,7 +71,7 @@ export function ForgotPasswordPage() {
       >
         <form onSubmit={handleReset} className="space-y-5">
           {message ? (
-            <div className="rounded-lg border border-white/10 bg-bg-card px-4 py-3 text-sm text-text-secondary">
+            <div className="rounded-lg border border-line bg-bg-card px-4 py-3 text-sm text-text-secondary">
               {message}
             </div>
           ) : null}
@@ -128,6 +140,15 @@ export function ForgotPasswordPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
+
+        {turnstileOn ? (
+          <Turnstile
+            key={captchaKey}
+            siteKey={TURNSTILE_SITE_KEY}
+            onToken={onCaptchaToken}
+            onExpire={onCaptchaExpire}
+          />
+        ) : null}
 
         <Button type="submit" className="w-full" loading={loading}>
           Send reset code

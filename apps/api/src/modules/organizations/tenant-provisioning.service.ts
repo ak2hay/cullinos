@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { hashPassword } from "@cullinos/auth";
+import { ensureBarStations } from "../../common/kitchen-stations.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import { OrgRolesService } from "./org-roles.service";
 
@@ -100,6 +101,10 @@ export class TenantProvisioningService {
         mustChangePassword: input.mustChangePassword !== false,
       },
     });
+
+    if (org.businessType === "bar") {
+      await ensureBarStations(this.prisma, org.id);
+    }
 
     await this.orgRoles.assignRole(owner.id, org.id, "owner");
     await this.orgRoles.assignOutlets(owner.id, [outlet.id]);

@@ -10,6 +10,7 @@ import {
 import { createHmac, timingSafeEqual } from "crypto";
 import Razorpay from "razorpay";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
+import { razorpayMessageLooksMissing } from "./razorpay-missing.util";
 
 export type RazorpayNotes = Record<string, string>;
 
@@ -146,6 +147,25 @@ export class RazorpayClient implements OnModuleInit, OnModuleDestroy {
     return String(err);
   }
 
+  private razorpayStatus(err: unknown): number | undefined {
+    if (typeof err !== "object" || !err) return undefined;
+    if ("statusCode" in err) return Number((err as { statusCode?: number }).statusCode);
+    if ("status" in err) return Number((err as { status?: number }).status);
+    return undefined;
+  }
+
+  /** 404 or Razorpay missing/invalid id — treat as absent for validate-or-recreate. */
+  private isMissingResource(err: unknown): boolean {
+    const status = this.razorpayStatus(err);
+    if (status === 404) return true;
+    const message = this.extractRazorpayMessage(err);
+    // Razorpay often returns 400 (not 404) for unknown plan/customer/subscription ids.
+    return (
+      razorpayMessageLooksMissing(message) &&
+      (status === undefined || status === 400 || status === 422)
+    );
+  }
+
   private mapRazorpayError(err: unknown, action: string): never {
     if (
       err instanceof BadRequestException ||
@@ -155,12 +175,7 @@ export class RazorpayClient implements OnModuleInit, OnModuleDestroy {
       throw err;
     }
 
-    const status =
-      typeof err === "object" && err && "statusCode" in err
-        ? Number((err as { statusCode?: number }).statusCode)
-        : typeof err === "object" && err && "status" in err
-          ? Number((err as { status?: number }).status)
-          : undefined;
+    const status = this.razorpayStatus(err);
     const message = this.extractRazorpayMessage(err);
 
     this.logger.error(`Razorpay ${action} failed (${status ?? "n/a"}): ${message}`);
@@ -255,19 +270,70 @@ export class RazorpayClient implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async fetchOrder(orderId: string): Promise<{ id: string; amount: number; currency: string; status: string }> {
+  async fetchPlan(planId: string): Promise<{ id: string } | null> {
+    try {
+      const plan = (await this.getInstance().plans.fetch(planId)) as { id: string };
+      return { id: plan.id };
+    } catch (err) {
+      if (this.isMissingResource(err)) return null;
+      return this.mapRazorpayError(err, "fetch plan");
+    }
+  }
+
+  async fetchCustomer(customerId: string): Promise<{ id: string } | null> {
+    try {
+      const customer = (await this.getInstance().customers.fetch(customerId)) as { id: string };
+      return { id: customer.id };
+    } catch (err) {
+      if (this.isMissingResource(err)) return null;
+      return this.mapRazorpayError(err, "fetch customer");
+    }
+  }
+
+  async fetchSubscription(
+    subscriptionId: string,
+  ): Promise<{ id: string; status: string; short_url?: string } | null> {
+    try {
+      const sub = (await this.getInstance().subscriptions.fetch(subscriptionId)) as {
+        id: string;
+        status: string;
+        short_url?: string;
+      };
+      return {
+        id: sub.id,
+        status: sub.status,
+        short_url: sub.short_url,
+      };
+    } catch (err) {
+      if (this.isMissingResource(err)) return null;
+      return this.mapRazorpayError(err, "fetch subscription");
+    }
+  }
+
+  async fetchOrder(orderId: string): Promise<{
+    id: string;
+    amount: number;
+    currency: string;
+    status: string;
+    notes: Record<string, string>;
+  }> {
     try {
       const order = (await this.getInstance().orders.fetch(orderId)) as {
         id: string;
         amount: number;
         currency: string;
         status: string;
+        notes?: Record<string, string> | unknown[];
       };
       return {
         id: order.id,
         amount: Number(order.amount),
         currency: order.currency,
         status: order.status,
+        notes:
+          order.notes && !Array.isArray(order.notes)
+            ? (order.notes as Record<string, string>)
+            : {},
       };
     } catch (err) {
       return this.mapRazorpayError(err, "fetch order");

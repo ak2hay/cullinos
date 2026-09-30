@@ -1,6 +1,7 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PhoneField } from '@cullinos/ui';
 import {
   BUSINESS_TYPE_PARENT_LABELS,
   BUSINESS_TYPE_PARENTS,
@@ -10,6 +11,7 @@ import {
   RESTAURANT_SIZE_LABELS,
   RESTAURANT_SIZES,
   getBusinessTypeParent,
+  getBusinessTypeRules,
   getFeaturesForProfile,
   resolveBusinessTypeFromParent,
   type BusinessType,
@@ -18,7 +20,9 @@ import {
   type QsrSubtype,
   type RestaurantSize,
 } from '@cullinos/shared';
-import { outletsApi, settingsApi } from '@/lib/api';
+import { CatalogPickerDrawer } from '@/features/menu/CatalogPickerDrawer';
+import { organizationsApi, outletsApi, settingsApi } from '@/lib/api';
+import { isValidMobile } from '@/lib/format';
 
 const TIMEZONES = [
   'Asia/Kolkata',
@@ -50,16 +54,37 @@ export function OnboardingWizard() {
   const [qsrSubtype, setQsrSubtype] = useState<QsrSubtype>('cafe');
   const [restaurantSize, setRestaurantSize] = useState<RestaurantSize>('medium');
   const [businessName, setBusinessName] = useState('');
+  const [phone, setPhone] = useState('');
   const [gstin, setGstin] = useState('');
   const [timezone, setTimezone] = useState<string>('Asia/Kolkata');
   const [currency, setCurrency] = useState<string>('INR');
+  const [servesAlcohol, setServesAlcohol] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [importedCount, setImportedCount] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const orgQuery = useQuery({
+    queryKey: ['organizations', 'current'],
+    queryFn: organizationsApi.current,
+  });
+  const prefilled = useRef(false);
+  useEffect(() => {
+    const org = orgQuery.data;
+    if (!org || prefilled.current) return;
+    prefilled.current = true;
+    setBusinessName((prev) => prev || org.name || '');
+    setPhone((prev) => prev || org.phone || '');
+    setGstin((prev) => prev || org.gstin || '');
+  }, [orgQuery.data]);
 
   const businessType: BusinessType = useMemo(
     () => resolveBusinessTypeFromParent(parentType, qsrSubtype),
     [parentType, qsrSubtype],
   );
+
+  const businessRules = getBusinessTypeRules(businessType);
+  const alcoholEnabled = businessRules.alcoholAlwaysOn || (businessRules.alcoholToggle && servesAlcohol);
 
   const sizeForProfile = parentType === 'restaurant' ? restaurantSize : null;
   const profile = useMemo(
@@ -78,15 +103,38 @@ export function OnboardingWizard() {
     }
   }
 
-  function goNext() {
+  async function goNext() {
     if (currentStep === 'business_info' && !businessName.trim()) {
       setSaveError('Business name is required.');
+      return;
+    }
+    if (currentStep === 'business_info' && !isValidMobile(phone)) {
+      setSaveError('A valid business mobile number is required.');
       return;
     }
     setSaveError(null);
     if (isLast) {
       void handleComplete();
       return;
+    }
+    if (currentStep === 'business_info') {
+      // The menu catalog step filters by the saved business type and alcohol setting.
+      setSaving(true);
+      try {
+        await settingsApi.update({
+          businessType,
+          restaurantSize: parentType === 'restaurant' ? restaurantSize : null,
+          name: businessName.trim(),
+          phone,
+          servesAlcohol: alcoholEnabled,
+        });
+        await queryClient.invalidateQueries({ queryKey: ['menu', 'catalog'] });
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : 'Failed to save business details.');
+        return;
+      } finally {
+        setSaving(false);
+      }
     }
     setStepIndex((i) => Math.min(i + 1, steps.length - 1));
   }
@@ -104,12 +152,14 @@ export function OnboardingWizard() {
         businessType,
         restaurantSize: parentType === 'restaurant' ? restaurantSize : null,
         name: businessName.trim(),
+        phone,
         gstin: gstin.trim() || undefined,
         timezone,
         currency,
         operatingMode: profile.operatingMode,
         enabledOrderTypes: profile.enabledOrderTypes,
         sampleCategories: profile.sampleCategories,
+        servesAlcohol: alcoholEnabled,
         setupCompleted: true,
       });
 
@@ -139,13 +189,13 @@ export function OnboardingWizard() {
           {steps.map((s, i) => (
             <div
               key={s}
-              className={`h-1.5 flex-1 rounded-full ${i <= stepIndex ? 'bg-brand-primary' : 'bg-white/10'}`}
+              className={`h-1.5 flex-1 rounded-full ${i <= stepIndex ? 'bg-brand-primary' : 'bg-hover-strong'}`}
             />
           ))}
         </div>
       </div>
 
-      <div className="space-y-4 rounded-xl border border-white/5 bg-bg-card p-5 sm:p-8">
+      <div className="space-y-4 rounded-xl border border-line-subtle bg-bg-card p-5 sm:p-8">
         {currentStep === 'business_info' ? (
           <>
             <label className="block">
@@ -153,7 +203,7 @@ export function OnboardingWizard() {
               <select
                 value={parentType}
                 onChange={(e) => handleParentChange(e.target.value as BusinessTypeParent)}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                className="mt-1 w-full rounded-lg border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
               >
                 {BUSINESS_TYPE_PARENTS.map((parent) => (
                   <option key={parent} value={parent}>
@@ -169,7 +219,7 @@ export function OnboardingWizard() {
                 <select
                   value={restaurantSize}
                   onChange={(e) => setRestaurantSize(e.target.value as RestaurantSize)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                 >
                   {RESTAURANT_SIZES.map((size) => (
                     <option key={size} value={size}>
@@ -186,7 +236,7 @@ export function OnboardingWizard() {
                 <select
                   value={qsrSubtype}
                   onChange={(e) => setQsrSubtype(e.target.value as QsrSubtype)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                 >
                   {QSR_SUBTYPES.map((sub) => (
                     <option key={sub} value={sub}>
@@ -197,6 +247,23 @@ export function OnboardingWizard() {
               </label>
             ) : null}
 
+            {businessRules.alcoholToggle ? (
+              <label className="flex items-start gap-3 rounded-lg border border-line bg-bg-primary px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={servesAlcohol}
+                  onChange={(e) => setServesAlcohol(e.target.checked)}
+                />
+                <span>
+                  <span className="block text-sm font-medium">Serves alcohol</span>
+                  <span className="block text-xs text-text-secondary">
+                    Adds whisky, beer, wine and cocktail brands to your menu catalog.
+                  </span>
+                </span>
+              </label>
+            ) : null}
+
             <label className="block">
               <span className="text-sm text-text-secondary">Business name</span>
               <input
@@ -204,9 +271,16 @@ export function OnboardingWizard() {
                 placeholder="Business name"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                className="mt-1 w-full rounded-lg border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
               />
             </label>
+
+            <PhoneField
+              label="Business mobile number"
+              required
+              value={phone}
+              onChange={setPhone}
+            />
 
             <label className="block">
               <span className="text-sm text-text-secondary">GSTIN (optional)</span>
@@ -214,7 +288,7 @@ export function OnboardingWizard() {
                 placeholder="GSTIN"
                 value={gstin}
                 onChange={(e) => setGstin(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                className="mt-1 w-full rounded-lg border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
               />
             </label>
 
@@ -224,7 +298,7 @@ export function OnboardingWizard() {
                 <select
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                 >
                   {TIMEZONES.map((tz) => (
                     <option key={tz} value={tz}>
@@ -238,7 +312,7 @@ export function OnboardingWizard() {
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-primary px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                 >
                   {CURRENCIES.map((code) => (
                     <option key={code} value={code}>
@@ -262,7 +336,7 @@ export function OnboardingWizard() {
               {profile.features.map((f) => (
                 <li
                   key={f}
-                  className="rounded-lg border border-white/10 bg-bg-primary px-3 py-1.5 text-xs text-text-secondary"
+                  className="rounded-lg border border-line bg-bg-primary px-3 py-1.5 text-xs text-text-secondary"
                 >
                   {FEATURE_LABELS[f] ?? f}
                 </li>
@@ -272,15 +346,42 @@ export function OnboardingWizard() {
         ) : null}
 
         {currentStep === 'menu_setup' ? (
-          <div className="space-y-2">
-            <p className="text-sm text-text-secondary">
-              We will seed these sample categories after setup. You can edit them anytime in Menu.
-            </p>
-            <ul className="list-inside list-disc text-sm text-text-primary">
-              {profile.sampleCategories.map((c) => (
-                <li key={c}>{c}</li>
-              ))}
-            </ul>
+          <div className="space-y-4">
+            <div className="space-y-2 rounded-lg border border-brand-primary/30 bg-brand-primary/5 p-4">
+              <p className="text-sm font-medium text-text-primary">Start from our menu catalog</p>
+              <p className="text-sm text-text-secondary">
+                Pick ready-made {profile.label.toLowerCase()} dishes
+                {alcoholEnabled ? ' and liquor brands' : ''} with suggested prices. Change names and
+                prices now, upload photos later.
+              </p>
+              <button
+                type="button"
+                onClick={() => setCatalogOpen(true)}
+                className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-on-brand"
+              >
+                Pick from catalog
+              </button>
+              {importedCount > 0 ? (
+                <p className="text-xs text-text-secondary">
+                  {importedCount} item(s) added to your menu so far.
+                </p>
+              ) : null}
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-text-secondary">
+                We will also seed these sample categories after setup. You can edit them anytime in Menu.
+              </p>
+              <ul className="list-inside list-disc text-sm text-text-primary">
+                {profile.sampleCategories.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+            </div>
+            <CatalogPickerDrawer
+              open={catalogOpen}
+              onClose={() => setCatalogOpen(false)}
+              onImported={(result) => setImportedCount((n) => n + result.created.length)}
+            />
           </div>
         ) : null}
 
@@ -294,6 +395,9 @@ export function OnboardingWizard() {
           <p className="text-sm text-text-secondary">
             GSTIN is saved with your business. Configure tax groups later in Settings if needed.
             {gstin ? ` Current GSTIN: ${gstin}` : ' You can add a GSTIN on the previous step.'}
+            {businessType === 'bar'
+              ? ' For liquor, use "Seed India presets" in Settings → Tax to add the "State Excise (alcohol)" group, set your state rate, and assign it to liquor items instead of a GST group.'
+              : null}
           </p>
         ) : null}
 
@@ -305,7 +409,9 @@ export function OnboardingWizard() {
 
         {currentStep === 'recipes' ? (
           <p className="text-sm text-text-secondary">
-            Bakery and production recipes can be managed under Recipes / Production after setup.
+            {businessType === 'bar'
+              ? 'Brands added from the catalog already deduct 30 ml per peg (60 ml pegs and bottles use the variant stock ×) from bottle stock. Set opening stock in Inventory, and adjust pour sizes under Recipes if yours differ.'
+              : 'Bakery and production recipes can be managed under Recipes / Production after setup.'}
           </p>
         ) : null}
 
@@ -324,7 +430,7 @@ export function OnboardingWizard() {
             type="button"
             onClick={goBack}
             disabled={stepIndex === 0 || saving}
-            className="rounded-lg border border-white/10 px-4 py-2.5 text-sm disabled:opacity-40"
+            className="rounded-lg border border-line px-4 py-2.5 text-sm disabled:opacity-40"
           >
             Back
           </button>
@@ -332,7 +438,7 @@ export function OnboardingWizard() {
             type="button"
             onClick={goNext}
             disabled={saving}
-            className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-bg-primary disabled:opacity-50"
+            className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-on-brand disabled:opacity-50"
           >
             {saving ? 'Saving…' : isLast ? 'Complete setup' : 'Continue'}
           </button>

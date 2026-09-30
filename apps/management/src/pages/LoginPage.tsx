@@ -12,7 +12,9 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(
+    () => localStorage.getItem(MANAGEMENT_REMEMBER_KEY) === 'true',
+  );
   const [captchaToken, setCaptchaToken] = useState('');
   const turnstileOn = isTurnstileEnabled(TURNSTILE_SITE_KEY);
   const onCaptchaToken = useCallback((token: string) => setCaptchaToken(token), []);
@@ -50,9 +52,9 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-primary px-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-bg-secondary p-8">
+      <div className="w-full max-w-md rounded-2xl border border-line bg-bg-secondary p-8">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-primary font-mono text-xl font-bold text-bg-primary">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-primary font-mono text-xl font-bold text-on-brand">
             M
           </div>
           <h1 className="text-2xl font-semibold">Management Console</h1>

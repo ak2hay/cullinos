@@ -1,9 +1,11 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import type { JwtPayload } from "@cullinos/auth";
 import { CurrentUser, OrgId } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { CustomersService } from "./customers.service";
 
 @Controller("customers")
+@RequirePermissions("customer:read")
 export class CustomersController {
   constructor(private service: CustomersService) {}
 
@@ -18,6 +20,7 @@ export class CustomersController {
   }
 
   @Post()
+  @RequirePermissions("customer:create")
   create(
     @OrgId() orgId: string,
     @CurrentUser() user: JwtPayload,
@@ -27,6 +30,7 @@ export class CustomersController {
   }
 
   @Patch(":id")
+  @RequirePermissions("customer:update")
   update(
     @OrgId() orgId: string,
     @CurrentUser() user: JwtPayload,

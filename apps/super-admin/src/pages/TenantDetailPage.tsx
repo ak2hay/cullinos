@@ -2,10 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { superAdminApi } from '@/lib/api';
+import { useCan } from '@/lib/permissions';
+import { openRazorpaySubscriptionCheckout } from '@/lib/razorpay-subscription-checkout';
 
 export function TenantDetailPage() {
   const { id = '' } = useParams();
   const queryClient = useQueryClient();
+  const can = useCan();
+  const canManageUsers = can('tenant_users.manage');
   const [suspendReason, setSuspendReason] = useState('');
   const [showSuspend, setShowSuspend] = useState(false);
   const [resetResult, setResetResult] = useState<{
@@ -57,14 +61,29 @@ export function TenantDetailPage() {
 
   const collectMutation = useMutation({
     mutationFn: () => superAdminApi.collectSubscription(id),
-    onSuccess: (result) => {
-      setMessage(
-        result.shortUrl
-          ? `Checkout ready: ${result.shortUrl}`
-          : 'Razorpay subscription created.',
-      );
-      if (result.shortUrl) window.open(result.shortUrl, '_blank', 'noopener,noreferrer');
+    onSuccess: async (result) => {
       invalidate();
+      if (result.keyId && result.razorpaySubId) {
+        try {
+          setMessage('Opening Razorpay Checkout…');
+          await openRazorpaySubscriptionCheckout({
+            keyId: result.keyId,
+            subscriptionId: result.razorpaySubId,
+            description: 'Cullinos subscription',
+            prefill: result.prefill,
+          });
+          setMessage('Payment submitted. Subscription will activate when Razorpay confirms.');
+        } catch (err) {
+          setMessage(err instanceof Error ? err.message : 'Checkout failed');
+        }
+        return;
+      }
+      if (result.shortUrl) {
+        setMessage(`Checkout ready: ${result.shortUrl}`);
+        window.open(result.shortUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      setMessage('Razorpay subscription created but no checkout method was returned.');
     },
     onError: (err: Error) => setMessage(err.message),
   });
@@ -83,9 +102,10 @@ export function TenantDetailPage() {
   });
 
   const deactivateUserMutation = useMutation({
-    mutationFn: (userId: string) => superAdminApi.deactivateOrganizationUser(id, userId),
+    mutationFn: ({ userId, reason }: { userId: string; reason?: string }) =>
+      superAdminApi.deactivateOrganizationUser(id, userId, reason),
     onSuccess: () => {
-      setMessage('User deactivated.');
+      setMessage('User suspended.');
       usersQuery.refetch();
     },
     onError: (err: Error) => setMessage(err.message),
@@ -169,35 +189,44 @@ export function TenantDetailPage() {
             >
               {org.environmentClass === 0 ? 'Sandbox' : 'Live'}
             </span>
+            {org.environmentClass !== 0 ? (
+              <span className="text-xs text-text-muted">
+                Live tenants always require OTP (Sandbox Labs toggles do not apply).
+              </span>
+            ) : null}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              const reason = window.prompt(
-                'Support reason for impersonation (required, min 8 characters):',
-              );
-              if (!reason || reason.trim().length < 8) {
-                setMessage('Impersonation cancelled — a support reason is required.');
-                return;
-              }
-              impersonateMutation.mutate(reason.trim());
-            }}
-            disabled={impersonateMutation.isPending || !isActive}
-            className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary disabled:opacity-60"
-          >
-            {impersonateMutation.isPending ? 'Opening…' : 'Open as tenant'}
-          </button>
-          <button
-            type="button"
-            onClick={() => collectMutation.mutate()}
-            disabled={collectMutation.isPending}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
-          >
-            Collect payment
-          </button>
-          {isActive ? (
+          {can('tenants.impersonate') ? (
+            <button
+              type="button"
+              onClick={() => {
+                const reason = window.prompt(
+                  'Support reason for impersonation (required, min 8 characters):',
+                );
+                if (!reason || reason.trim().length < 8) {
+                  setMessage('Impersonation cancelled — a support reason is required.');
+                  return;
+                }
+                impersonateMutation.mutate(reason.trim());
+              }}
+              disabled={impersonateMutation.isPending || !isActive}
+              className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand disabled:opacity-60"
+            >
+              {impersonateMutation.isPending ? 'Opening…' : 'Open as tenant'}
+            </button>
+          ) : null}
+          {can('subscriptions.manage') ? (
+            <button
+              type="button"
+              onClick={() => collectMutation.mutate()}
+              disabled={collectMutation.isPending}
+              className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
+            >
+              Collect payment
+            </button>
+          ) : null}
+          {!can('tenants.suspend') ? null : isActive ? (
             <button
               type="button"
               onClick={() => setShowSuspend(true)}
@@ -219,7 +248,7 @@ export function TenantDetailPage() {
       </div>
 
       {message ? (
-        <div className="rounded-xl border border-white/10 bg-bg-card px-4 py-3 text-sm text-text-secondary">
+        <div className="rounded-xl border border-line bg-bg-card px-4 py-3 text-sm text-text-secondary">
           {message}
           <button type="button" className="ml-3 text-xs underline" onClick={() => setMessage(null)}>
             Dismiss
@@ -245,7 +274,7 @@ export function TenantDetailPage() {
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <section className="rounded-xl border border-white/5 bg-bg-card p-5 lg:col-span-2">
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-5 lg:col-span-2">
           <h2 className="font-medium">Profile</h2>
           <dl className="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
             <div>
@@ -279,7 +308,7 @@ export function TenantDetailPage() {
           </dl>
         </section>
 
-        <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
           <h2 className="font-medium">Counts</h2>
           <dl className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between">
@@ -298,7 +327,7 @@ export function TenantDetailPage() {
         </section>
       </div>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="font-medium">Portal wallet (SMS addon)</h2>
         <p className="mt-1 text-sm text-text-muted">
           Manual credit/debit. SMS rate is set under Platform Settings → Portal wallet &amp; SMS
@@ -328,78 +357,80 @@ export function TenantDetailPage() {
             </div>
           </dl>
         )}
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <label className="text-sm">
-            <span className="mb-1 block text-text-muted">Amount (₹)</span>
-            <input
-              type="number"
-              step="0.01"
-              value={walletAmountRupees}
-              onChange={(e) => setWalletAmountRupees(e.target.value)}
-              className="h-10 w-32 rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm"
-            />
-          </label>
-          <label className="min-w-48 flex-1 text-sm">
-            <span className="mb-1 block text-text-muted">Note (required)</span>
-            <input
-              type="text"
-              value={walletNote}
-              onChange={(e) => setWalletNote(e.target.value)}
-              placeholder="Support credit / correction"
-              className="h-10 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm"
-            />
-          </label>
-          <button
-            type="button"
-            disabled={walletAdjustMutation.isPending}
-            className="h-10 rounded-lg bg-brand-primary px-4 text-sm font-medium text-bg-primary disabled:opacity-60"
-            onClick={() => {
-              const rupees = Math.abs(Number(walletAmountRupees));
-              if (!Number.isFinite(rupees) || rupees === 0) {
-                setWalletError('Enter a positive amount in rupees.');
-                return;
-              }
-              if (!walletNote.trim()) {
-                setWalletError('Note is required.');
-                return;
-              }
-              walletAdjustMutation.mutate({
-                amountPaise: Math.round(rupees * 100),
-                note: walletNote.trim(),
-              });
-            }}
-          >
-            {walletAdjustMutation.isPending ? 'Saving…' : 'Credit'}
-          </button>
-          <button
-            type="button"
-            disabled={walletAdjustMutation.isPending}
-            className="h-10 rounded-lg border border-white/10 px-4 text-sm hover:bg-white/5 disabled:opacity-60"
-            onClick={() => {
-              const rupees = Math.abs(Number(walletAmountRupees));
-              if (!Number.isFinite(rupees) || rupees === 0) {
-                setWalletError('Enter a positive amount in rupees.');
-                return;
-              }
-              if (!walletNote.trim()) {
-                setWalletError('Note is required.');
-                return;
-              }
-              walletAdjustMutation.mutate({
-                amountPaise: -Math.round(rupees * 100),
-                note: walletNote.trim(),
-              });
-            }}
-          >
-            Debit
-          </button>
-        </div>
+        {can('wallet.manage') ? (
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <label className="text-sm">
+              <span className="mb-1 block text-text-muted">Amount (₹)</span>
+              <input
+                type="number"
+                step="0.01"
+                value={walletAmountRupees}
+                onChange={(e) => setWalletAmountRupees(e.target.value)}
+                className="h-10 w-32 rounded-lg border border-line bg-bg-elevated px-3 text-sm"
+              />
+            </label>
+            <label className="min-w-48 flex-1 text-sm">
+              <span className="mb-1 block text-text-muted">Note (required)</span>
+              <input
+                type="text"
+                value={walletNote}
+                onChange={(e) => setWalletNote(e.target.value)}
+                placeholder="Support credit / correction"
+                className="h-10 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={walletAdjustMutation.isPending}
+              className="h-10 rounded-lg bg-brand-primary px-4 text-sm font-medium text-on-brand disabled:opacity-60"
+              onClick={() => {
+                const rupees = Math.abs(Number(walletAmountRupees));
+                if (!Number.isFinite(rupees) || rupees === 0) {
+                  setWalletError('Enter a positive amount in rupees.');
+                  return;
+                }
+                if (!walletNote.trim()) {
+                  setWalletError('Note is required.');
+                  return;
+                }
+                walletAdjustMutation.mutate({
+                  amountPaise: Math.round(rupees * 100),
+                  note: walletNote.trim(),
+                });
+              }}
+            >
+              {walletAdjustMutation.isPending ? 'Saving…' : 'Credit'}
+            </button>
+            <button
+              type="button"
+              disabled={walletAdjustMutation.isPending}
+              className="h-10 rounded-lg border border-line px-4 text-sm hover:bg-hover disabled:opacity-60"
+              onClick={() => {
+                const rupees = Math.abs(Number(walletAmountRupees));
+                if (!Number.isFinite(rupees) || rupees === 0) {
+                  setWalletError('Enter a positive amount in rupees.');
+                  return;
+                }
+                if (!walletNote.trim()) {
+                  setWalletError('Note is required.');
+                  return;
+                }
+                walletAdjustMutation.mutate({
+                  amountPaise: -Math.round(rupees * 100),
+                  note: walletNote.trim(),
+                });
+              }}
+            >
+              Debit
+            </button>
+          </div>
+        ) : null}
         {walletError ? (
           <p className="mt-2 text-sm text-status-error">{walletError}</p>
         ) : null}
       </section>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="font-medium">Subscription</h2>
         {org.subscription ? (
           <dl className="mt-4 grid gap-3 sm:grid-cols-3 text-sm">
@@ -445,29 +476,29 @@ export function TenantDetailPage() {
         )}
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-white/5 bg-bg-card">
-        <div className="border-b border-white/5 px-4 py-3">
+      <section className="overflow-hidden rounded-xl border border-line-subtle bg-bg-card">
+        <div className="border-b border-line-subtle px-4 py-3">
           <h2 className="font-medium">Users</h2>
         </div>
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-white/5 bg-bg-secondary text-text-muted">
+            <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Roles</th>
               <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
+              {canManageUsers ? <th className="px-4 py-3 font-medium">Actions</th> : null}
             </tr>
           </thead>
           <tbody>
             {usersQuery.isLoading ? (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-text-muted">
+                <td colSpan={canManageUsers ? 4 : 3} className="px-4 py-6 text-center text-text-muted">
                   Loading…
                 </td>
               </tr>
             ) : (
               (usersQuery.data ?? []).map((user) => (
-                <tr key={user.id} className="border-b border-white/5">
+                <tr key={user.id} className="border-b border-line-subtle">
                   <td className="px-4 py-3">
                     <p className="font-medium">{user.name}</p>
                     <p className="text-xs text-text-muted">{user.email}</p>
@@ -476,44 +507,51 @@ export function TenantDetailPage() {
                     {user.roles.map((r) => r.name).join(', ') || '—'}
                   </td>
                   <td className="px-4 py-3 capitalize">{user.status}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        type="button"
-                        onClick={() => resetMutation.mutate(user.id)}
-                        disabled={resetMutation.isPending}
-                        className="text-xs text-brand-primary hover:underline disabled:opacity-60"
-                      >
-                        Reset password
-                      </button>
-                      {user.status === 'inactive' ? (
+                  {canManageUsers ? (
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-3">
                         <button
                           type="button"
-                          onClick={() => activateUserMutation.mutate(user.id)}
-                          disabled={activateUserMutation.isPending}
+                          onClick={() => resetMutation.mutate(user.id)}
+                          disabled={resetMutation.isPending}
                           className="text-xs text-brand-primary hover:underline disabled:opacity-60"
                         >
-                          Activate
+                          Reset password
                         </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const isOwner = user.roles.some((r) => r.slug === 'owner');
-                            const label = isOwner
-                              ? `Deactivate owner "${user.name}"? They will not be able to sign in. (Blocked if this is the last active owner.)`
-                              : `Deactivate "${user.name}"? They will not be able to sign in.`;
-                            if (!window.confirm(label)) return;
-                            deactivateUserMutation.mutate(user.id);
-                          }}
-                          disabled={deactivateUserMutation.isPending}
-                          className="text-xs text-status-error hover:underline disabled:opacity-60"
-                        >
-                          Deactivate
-                        </button>
-                      )}
-                    </div>
-                  </td>
+                        {user.status === 'inactive' ? (
+                          <button
+                            type="button"
+                            onClick={() => activateUserMutation.mutate(user.id)}
+                            disabled={activateUserMutation.isPending}
+                            className="text-xs text-brand-primary hover:underline disabled:opacity-60"
+                          >
+                            Unsuspend
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const isOwner = user.roles.some((r) => r.slug === 'owner');
+                              const label = isOwner
+                                ? `Suspend owner "${user.name}"? They will not be able to sign in. (Blocked if this is the last active owner.)`
+                                : `Suspend "${user.name}"? They will not be able to sign in.`;
+                              if (!window.confirm(label)) return;
+                              const reason = window.prompt('Optional suspend reason (shown in audit):');
+                              if (reason === null) return;
+                              deactivateUserMutation.mutate({
+                                userId: user.id,
+                                reason: reason.trim() || undefined,
+                              });
+                            }}
+                            disabled={deactivateUserMutation.isPending}
+                            className="text-xs text-status-error hover:underline disabled:opacity-60"
+                          >
+                            Suspend
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  ) : null}
                 </tr>
               ))
             )}
@@ -521,13 +559,13 @@ export function TenantDetailPage() {
         </table>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-white/5 bg-bg-card">
-        <div className="border-b border-white/5 px-4 py-3">
+      <section className="overflow-hidden rounded-xl border border-line-subtle bg-bg-card">
+        <div className="border-b border-line-subtle px-4 py-3">
           <h2 className="font-medium">Recent audit</h2>
         </div>
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-white/5 bg-bg-secondary text-text-muted">
+            <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
               <th className="px-4 py-3 font-medium">Action</th>
               <th className="px-4 py-3 font-medium">Entity</th>
               <th className="px-4 py-3 font-medium">User</th>
@@ -543,7 +581,7 @@ export function TenantDetailPage() {
               </tr>
             ) : (
               org.recentAudit.map((a) => (
-                <tr key={a.id} className="border-b border-white/5">
+                <tr key={a.id} className="border-b border-line-subtle">
                   <td className="px-4 py-3 font-mono text-xs">{a.action}</td>
                   <td className="px-4 py-3">
                     {a.entityType}
@@ -563,21 +601,21 @@ export function TenantDetailPage() {
       </section>
 
       {showSuspend ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-bg-secondary p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4">
+          <div className="w-full max-w-md rounded-xl border border-line bg-bg-secondary p-6">
             <h2 className="text-lg font-medium">Suspend organization</h2>
             <textarea
               value={suspendReason}
               onChange={(e) => setSuspendReason(e.target.value)}
               rows={3}
-              className="mt-4 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
+              className="mt-4 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
               placeholder="Reason for suspension"
             />
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowSuspend(false)}
-                className="rounded-lg px-4 py-2 text-sm hover:bg-white/5"
+                className="rounded-lg px-4 py-2 text-sm hover:bg-hover"
               >
                 Cancel
               </button>

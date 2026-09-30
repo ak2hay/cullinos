@@ -7,7 +7,6 @@ const SECTION_LINKS = [
   { to: '/guest-ops/discover', label: 'Discover', desc: 'Home screen sections and curation' },
   { to: '/guest-ops/banners', label: 'Banners', desc: 'Platform and org carousel slides' },
   { to: '/guest-ops/push', label: 'Push', desc: 'Draft, schedule, and send campaigns' },
-  { to: '/guest-ops/offers', label: 'Offers', desc: 'Cross-tenant coupon oversight' },
   { to: '/guest-ops/reviews', label: 'Reviews', desc: 'Moderate guest outlet reviews' },
   { to: '/guest-ops/users', label: 'Users', desc: 'Search, export, and erase guest accounts' },
   { to: '/guest-ops/analytics', label: 'Analytics', desc: '30-day marketplace metrics' },
@@ -16,7 +15,7 @@ const SECTION_LINKS = [
 
 function KpiCard({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
   return (
-    <div className="rounded-xl border border-white/5 bg-bg-card p-4">
+    <div className="rounded-xl border border-line-subtle bg-bg-card p-4">
       <p className="text-sm text-text-secondary">{label}</p>
       <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
       {hint ? <p className="mt-1 text-xs text-text-muted">{hint}</p> : null}
@@ -76,14 +75,14 @@ export function GuestOpsOverviewPage() {
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="text-lg font-medium">Sections</h2>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">
           {SECTION_LINKS.map((s) => (
             <li key={s.to}>
               <Link
                 to={s.to}
-                className="block rounded-lg border border-white/5 p-3 transition hover:border-brand-primary/30 hover:bg-white/5"
+                className="block rounded-lg border border-line-subtle p-3 transition hover:border-brand-primary/30 hover:bg-hover"
               >
                 <p className="font-medium text-brand-primary">{s.label}</p>
                 <p className="text-sm text-text-secondary">{s.desc}</p>

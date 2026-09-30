@@ -25,11 +25,11 @@ class LegalWebPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       appBar: AppBar(
         title: Text(title),
-        backgroundColor: GuestColors.scaffold,
-        foregroundColor: GuestColors.ink,
+        backgroundColor: GuestColors.scaffoldOf(context),
+        foregroundColor: GuestColors.inkOf(context),
         elevation: 0,
         leading: const GuestBackButton(fallbackPath: '/profile'),
       ),
@@ -50,14 +50,14 @@ class LegalWebPage extends StatelessWidget {
               Text(
                 'View the full document on cullinos.com.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: GuestColors.muted,
+                      color: GuestColors.mutedOf(context),
                     ),
               ),
               const SizedBox(height: 20),
               FilledButton(
                 onPressed: _open,
                 style: FilledButton.styleFrom(
-                  backgroundColor: GuestColors.violet,
+                  backgroundColor: GuestColors.primaryOf(context),
                   minimumSize: const Size.fromHeight(48),
                   shape: const StadiumBorder(),
                 ),

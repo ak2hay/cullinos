@@ -28,8 +28,8 @@ async function main() {
       key: 'STARTER',
       name: 'Starter',
       description: 'POS, Billing, KOT, Basic reports',
-      priceMonthly: 99900,
-      priceYearly: 999900,
+      priceMonthly: 149900,
+      priceYearly: 1499900,
       maxOutlets: 1,
       maxUsers: 5,
       maxTerminals: 2,
@@ -39,8 +39,8 @@ async function main() {
       key: 'PROFESSIONAL',
       name: 'Professional',
       description: 'Full restaurant operations',
-      priceMonthly: 299900,
-      priceYearly: 2999900,
+      priceMonthly: 499900,
+      priceYearly: 4999900,
       maxOutlets: 3,
       maxUsers: 20,
       maxTerminals: 10,
@@ -50,8 +50,8 @@ async function main() {
       key: 'ENTERPRISE',
       name: 'Enterprise',
       description: 'Multi-outlet and franchise',
-      priceMonthly: 999900,
-      priceYearly: 9999900,
+      priceMonthly: 0,
+      priceYearly: 0,
       maxOutlets: 50,
       maxUsers: 200,
       maxTerminals: 100,
@@ -61,8 +61,8 @@ async function main() {
       key: 'HOSPITALITY',
       name: 'Hospitality',
       description: 'Hotel and resort restaurants',
-      priceMonthly: 1499900,
-      priceYearly: 14999900,
+      priceMonthly: 0,
+      priceYearly: 0,
       maxOutlets: 100,
       maxUsers: 500,
       maxTerminals: 200,
@@ -104,7 +104,10 @@ async function main() {
   }
 
   // Seed super admin
-  const superAdminPassword = await bcrypt.hash('Missyou@1', 12);
+  const superAdminPassword = await bcrypt.hash(
+    process.env.SEED_SUPER_ADMIN_PASSWORD || require('node:crypto').randomBytes(24).toString('base64url'),
+    12,
+  );
   await prisma.superAdmin.upsert({
     where: { email: 'akshrkd@gmail.com' },
     update: {},

@@ -1,9 +1,11 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
+import { RedisService } from "../../common/redis/redis.service";
 import { CustomerPrivacyService } from "./customer-privacy.service";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6 hours
+const RETENTION_LOCK_KEY = "job-lock:privacy-retention";
 
 @Injectable()
 export class PrivacyRetentionService implements OnModuleInit, OnModuleDestroy {
@@ -13,20 +15,29 @@ export class PrivacyRetentionService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private prisma: PrismaService,
     private customerPrivacy: CustomerPrivacyService,
+    @Optional() private redis?: RedisService,
   ) {}
 
   onModuleInit() {
     // Stagger first run slightly after boot.
     setTimeout(() => {
-      void this.runRetentionPass();
+      void this.runScheduledPass();
     }, 30_000);
     this.timer = setInterval(() => {
-      void this.runRetentionPass();
+      void this.runScheduledPass();
     }, INTERVAL_MS);
   }
 
   onModuleDestroy() {
     if (this.timer) clearInterval(this.timer);
+  }
+
+  private async runScheduledPass() {
+    // One replica per interval; the lease outlives the pass and expires before the next one.
+    const leased = await (this.redis?.acquireLock(RETENTION_LOCK_KEY, INTERVAL_MS - 60_000) ??
+      Promise.resolve(true)).catch(() => false);
+    if (!leased) return null;
+    return this.runRetentionPass();
   }
 
   async runRetentionPass() {

@@ -1,19 +1,23 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
 import { OrgId, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { RecipesService } from "./recipes.service";
 
 @Controller("recipes")
+@RequirePermissions("menu:update", "inventory:adjust")
 export class RecipesController {
   constructor(private service: RecipesService) {}
 
   @Get()
   @RequireModule("inventory")
+  @RequirePermissions("inventory:read", "menu:update")
   list(@OrgId() orgId: string) {
     return this.service.list(orgId);
   }
 
   @Get(":id")
   @RequireModule("inventory")
+  @RequirePermissions("inventory:read", "menu:update")
   get(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.get(orgId, id);
   }

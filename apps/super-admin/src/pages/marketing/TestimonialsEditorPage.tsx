@@ -87,7 +87,7 @@ export function TestimonialsEditorPage() {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as 'draft' | 'published')}
-            className="rounded-lg border border-white/10 bg-bg-card px-3 py-2 text-sm"
+            className="rounded-lg border border-line bg-bg-card px-3 py-2 text-sm"
           >
             <option value="draft">Draft</option>
             <option value="published">Published</option>
@@ -99,7 +99,7 @@ export function TestimonialsEditorPage() {
               setEditing(null);
               setDraft({ quote: '', author: '', role: '', sortOrder: '0' });
             }}
-            className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary"
+            className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand"
           >
             Add testimonial
           </button>
@@ -117,7 +117,7 @@ export function TestimonialsEditorPage() {
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
-            <div key={item.id} className="rounded-xl border border-white/5 bg-bg-card p-5">
+            <div key={item.id} className="rounded-xl border border-line-subtle bg-bg-card p-5">
               <p className="text-sm italic text-text-secondary">&ldquo;{item.quote}&rdquo;</p>
               <p className="mt-2 text-sm font-medium">
                 {item.author}
@@ -150,8 +150,8 @@ export function TestimonialsEditorPage() {
       )}
 
       {creating || editing ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-lg rounded-xl border border-white/10 bg-bg-secondary p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4">
+          <div className="w-full max-w-lg rounded-xl border border-line bg-bg-secondary p-6">
             <h2 className="text-lg font-medium">
               {editing ? 'Edit testimonial' : 'New testimonial'}
             </h2>
@@ -162,7 +162,7 @@ export function TestimonialsEditorPage() {
                   value={draft.quote}
                   onChange={(e) => setDraft({ ...draft, quote: e.target.value })}
                   rows={4}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
                 />
               </label>
               <label className="block text-sm">
@@ -170,7 +170,7 @@ export function TestimonialsEditorPage() {
                 <input
                   value={draft.author}
                   onChange={(e) => setDraft({ ...draft, author: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
                 />
               </label>
               <label className="block text-sm">
@@ -178,7 +178,7 @@ export function TestimonialsEditorPage() {
                 <input
                   value={draft.role}
                   onChange={(e) => setDraft({ ...draft, role: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
                 />
               </label>
               <label className="block text-sm">
@@ -187,7 +187,7 @@ export function TestimonialsEditorPage() {
                   type="number"
                   value={draft.sortOrder}
                   onChange={(e) => setDraft({ ...draft, sortOrder: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
                 />
               </label>
             </div>
@@ -198,7 +198,7 @@ export function TestimonialsEditorPage() {
                   setCreating(false);
                   setEditing(null);
                 }}
-                className="rounded-lg px-4 py-2 text-sm hover:bg-white/5"
+                className="rounded-lg px-4 py-2 text-sm hover:bg-hover"
               >
                 Cancel
               </button>
@@ -211,7 +211,7 @@ export function TestimonialsEditorPage() {
                   updateMutation.isPending
                 }
                 onClick={() => (editing ? updateMutation.mutate() : createMutation.mutate())}
-                className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary disabled:opacity-60"
+                className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand disabled:opacity-60"
               >
                 Save
               </button>

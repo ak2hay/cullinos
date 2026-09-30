@@ -27,6 +27,9 @@ export interface ApiStaffLoginResponse {
     organizationName: string;
     organizationSlug?: string;
     isSuperAdmin: boolean;
+    /** Platform staff role and permissions; only for super-admin sessions. */
+    platformRole?: string;
+    platformPermissions?: string[];
     mustChangePassword?: boolean;
     firstName?: string;
     lastName?: string;

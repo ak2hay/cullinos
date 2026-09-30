@@ -14,14 +14,19 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
 
-import { OrgId, Public, RequireModule } from "../../common/decorators";
+import type { JwtPayload } from "@cullinos/auth";
+import { CurrentUser, OrgId, Public, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import {
   MARKETING_UPLOAD_MAX_BYTES,
   MarketingUploadService,
+  marketingImageFileFilter,
+  uploadMaxBytesFor,
 } from "../marketing/marketing-upload.service";
 import { PromoDisplayService, type SlideInput } from "./promo-display.service";
 
 @Controller("promo-display")
+@RequirePermissions("settings:update")
 export class PromoDisplayController {
   constructor(
     private service: PromoDisplayService,
@@ -30,6 +35,7 @@ export class PromoDisplayController {
 
   @Get()
   @RequireModule("settings")
+  @RequirePermissions("settings:read")
   list(@OrgId() orgId: string, @Query("outletId") outletId: string) {
     return this.service.list(orgId, outletId);
   }
@@ -40,17 +46,23 @@ export class PromoDisplayController {
     FileInterceptor("file", {
       storage: memoryStorage(),
       limits: { fileSize: MARKETING_UPLOAD_MAX_BYTES },
+      fileFilter: marketingImageFileFilter,
     }),
   )
   async uploadSlideImage(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file?.buffer) throw new BadRequestException("No file uploaded.");
     const result = await this.uploadService.saveUploadedFile(
       file,
-      `promo-slide-${orgId}-${Date.now()}`,
-      "promoSlide",
+      {
+        scope: "org",
+        orgId,
+        imageSlot: "promoSlide",
+      },
+      uploadMaxBytesFor(user),
     );
     return { imageUrl: result.url };
   }

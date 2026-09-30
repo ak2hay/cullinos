@@ -19,7 +19,7 @@ export function BarChart({
 
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-white/5 bg-bg-card p-8 text-center text-sm text-text-muted">
+      <div className="rounded-xl border border-line-subtle bg-bg-card p-8 text-center text-sm text-text-muted">
         No data to display
       </div>
     );

@@ -41,7 +41,7 @@ export function BrandsPage() {
         </ErrorBanner>
       ) : null}
 
-      <div className="grid gap-3 rounded-xl border border-white/5 bg-bg-card p-4 sm:grid-cols-3">
+      <div className="grid gap-3 rounded-xl border border-line-subtle bg-bg-card p-4 sm:grid-cols-3">
         <Input
           label="Brand name"
           placeholder="Bowl & Co"

@@ -26,7 +26,7 @@ export function BrandWordmark({
       {showMark ? (
         <span
           className={cn(
-            'inline-flex items-center justify-center rounded-lg bg-brand-primary font-display font-extrabold tracking-tight text-bg-primary shadow-sm',
+            'inline-flex items-center justify-center rounded-lg bg-brand-primary font-display font-extrabold tracking-tight text-on-brand shadow-sm',
             s.mark,
             markClassName,
           )}

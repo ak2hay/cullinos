@@ -6,8 +6,18 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
-import { MarketingUploadService } from "../marketing/marketing-upload.service";
+import {
+  MarketingUploadService,
+  type ManagedUrlScope,
+} from "../marketing/marketing-upload.service";
 import { GuestPushService } from "./guest-push.service";
+
+export function uploadScopeOf(row: {
+  scope?: string | null;
+  organizationId?: string | null;
+}): ManagedUrlScope {
+  return row.organizationId ? { orgId: row.organizationId } : "platform";
+}
 
 export type BannerInput = {
   title?: string;
@@ -128,7 +138,7 @@ export class GuestMarketingService {
       body.imageUrl !== undefined &&
       (body.imageUrl?.trim() || null) !== row.imageUrl
     ) {
-      await this.upload.deleteManagedUrl(row.imageUrl);
+      await this.upload.deleteManagedUrl(row.imageUrl, uploadScopeOf(row));
     }
     return this.prisma.guestBanner.update({
       where: { id },
@@ -168,7 +178,7 @@ export class GuestMarketingService {
     if (opts.orgId && row.organizationId !== opts.orgId) {
       throw new ForbiddenException("Banner belongs to another organization");
     }
-    await this.upload.deleteManagedUrl(row.imageUrl);
+    await this.upload.deleteManagedUrl(row.imageUrl, uploadScopeOf(row));
     await this.prisma.guestBanner.delete({ where: { id } });
     return { success: true };
   }
@@ -213,9 +223,9 @@ export class GuestMarketingService {
         title,
         body: text,
         data: {
+          ...(body.data ?? {}),
           type: "marketing_org",
           organizationId: orgId,
-          ...(body.data ?? {}),
         },
       });
       sent += result.sent;
@@ -227,7 +237,7 @@ export class GuestMarketingService {
         organizationId: orgId,
         title,
         body: text,
-        data: { type: "marketing_org", ...(body.data ?? {}) },
+        data: { ...(body.data ?? {}), type: "marketing_org", organizationId: orgId },
         audience: "org_members",
         status: "sent",
         sentCount: sent,
@@ -258,7 +268,7 @@ export class GuestMarketingService {
       const result = await this.push.notifyGuestUser(g.id, {
         title,
         body: text,
-        data: { type: "marketing_platform", ...(body.data ?? {}) },
+        data: { ...(body.data ?? {}), type: "marketing_platform" },
       });
       sent += result.sent;
     }
@@ -268,7 +278,7 @@ export class GuestMarketingService {
         scope: "platform",
         title,
         body: text,
-        data: { type: "marketing_platform", ...(body.data ?? {}) },
+        data: { ...(body.data ?? {}), type: "marketing_platform" },
         audience: "all",
         status: "sent",
         sentCount: sent,
@@ -411,7 +421,9 @@ export class GuestMarketingService {
       data.imageUrl !== undefined &&
       (data.imageUrl?.trim() || null) !== existing.imageUrl
     ) {
-      await this.upload.deleteManagedUrl(existing.imageUrl);
+      await this.upload.deleteManagedUrl(existing.imageUrl, {
+        orgId: existing.organizationId,
+      });
     }
     const row = await this.prisma.coupon.update({
       where: { id },
@@ -465,7 +477,7 @@ export class GuestMarketingService {
         "Coupon has been used and cannot be deleted. Deactivate it instead.",
       );
     }
-    await this.upload.deleteManagedUrl(row.imageUrl);
+    await this.upload.deleteManagedUrl(row.imageUrl, { orgId: row.organizationId });
     await this.prisma.coupon.delete({ where: { id } });
     return { success: true, id };
   }

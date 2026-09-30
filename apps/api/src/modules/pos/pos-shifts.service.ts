@@ -5,6 +5,24 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 
+/** Legacy shifts also logged the opening float as a cash_in movement; count the float once. */
+const LEGACY_OPENING_FLOAT_REASON = "Opening float";
+
+export function expectedDrawerCash(
+  openingCash: number,
+  movements: Array<{ type: string; amount: unknown; reason?: string | null }>,
+): number {
+  const sum = (types: string[]) =>
+    movements
+      .filter(
+        (m) =>
+          types.includes(m.type) &&
+          !(m.type === "cash_in" && m.reason === LEGACY_OPENING_FLOAT_REASON),
+      )
+      .reduce((s, m) => s + Number(m.amount), 0);
+  return Math.round((openingCash + sum(["sale", "cash_in"]) - sum(["cash_out", "drop"])) * 100) / 100;
+}
+
 @Injectable()
 export class PosShiftsService {
   constructor(private prisma: PrismaService) {}
@@ -50,13 +68,6 @@ export class PosShiftsService {
         userId,
         status: "open",
         openingCash: Math.max(0, Number(openingCash) || 0),
-        cashMovements: {
-          create: {
-            type: "cash_in",
-            amount: Math.max(0, Number(openingCash) || 0),
-            reason: "Opening float",
-          },
-        },
       },
       include: { cashMovements: true },
     });
@@ -74,14 +85,7 @@ export class PosShiftsService {
     });
     if (!shift) throw new NotFoundException("Open shift not found");
 
-    const expected =
-      Number(shift.openingCash) +
-      shift.cashMovements
-        .filter((m) => m.type === "sale" || m.type === "cash_in")
-        .reduce((s, m) => s + Number(m.amount), 0) -
-      shift.cashMovements
-        .filter((m) => m.type === "cash_out" || m.type === "drop")
-        .reduce((s, m) => s + Number(m.amount), 0);
+    const expected = expectedDrawerCash(Number(shift.openingCash), shift.cashMovements);
 
     const closing =
       closingCash != null && Number.isFinite(closingCash)

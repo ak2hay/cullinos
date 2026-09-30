@@ -52,7 +52,7 @@ class GuestFloatingNav extends StatelessWidget {
                 height: GuestSpacing.navHeight,
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 decoration: BoxDecoration(
-                  color: GuestColors.surface,
+                  color: GuestColors.surfaceOf(context),
                   borderRadius: BorderRadius.circular(GuestSpacing.radiusLg),
                   boxShadow: GuestSpacing.navShadow,
                 ),
@@ -120,7 +120,7 @@ class _ScanFab extends StatelessWidget {
                 offset: const Offset(0, 6),
               ),
             ],
-            border: Border.all(color: GuestColors.surface, width: 4),
+            border: Border.all(color: GuestColors.surfaceOf(context), width: 4),
           ),
           child: Icon(
             selected ? item.activeIcon : item.icon,
@@ -163,7 +163,7 @@ class _NavButton extends StatelessWidget {
             ),
             child: Icon(
               selected ? item.activeIcon : item.icon,
-              color: selected ? GuestColors.primaryOf(context) : GuestColors.muted,
+              color: selected ? GuestColors.primaryOf(context) : GuestColors.mutedOf(context),
               size: 22,
             ),
           ),
@@ -173,7 +173,7 @@ class _NavButton extends StatelessWidget {
             style: TextStyle(
               fontSize: 10,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: selected ? GuestColors.primaryOf(context) : GuestColors.muted,
+              color: selected ? GuestColors.primaryOf(context) : GuestColors.mutedOf(context),
             ),
             child: Text(item.label),
           ),

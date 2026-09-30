@@ -35,11 +35,11 @@ function loadRuntimeEnv(): RuntimeEnv {
 const runtime = loadRuntimeEnv();
 
 export const e2eEnv = {
-  apiUrl: process.env.E2E_API_URL ?? 'https://api.cullinos.com',
-  webUrl: process.env.E2E_WEB_URL ?? 'https://cullinos.com',
-  adminUrl: process.env.E2E_ADMIN_URL ?? 'https://admin.cullinos.com',
-  managementUrl: process.env.E2E_MANAGEMENT_URL ?? 'https://manage.cullinos.com',
-  superAdminUrl: process.env.E2E_SUPER_ADMIN_URL ?? 'https://platform.cullinos.com',
+  apiUrl: optional(process.env.E2E_API_URL, 'https://api.cullinos.com'),
+  webUrl: optional(process.env.E2E_WEB_URL, 'https://cullinos.com'),
+  adminUrl: optional(process.env.E2E_ADMIN_URL, 'https://admin.cullinos.com'),
+  managementUrl: optional(process.env.E2E_MANAGEMENT_URL, 'https://manage.cullinos.com'),
+  superAdminUrl: optional(process.env.E2E_SUPER_ADMIN_URL, 'https://platform.cullinos.com'),
   posUrl: process.env.E2E_POS_URL ?? '',
   kdsUrl: process.env.E2E_KDS_URL ?? '',
 
@@ -47,10 +47,10 @@ export const e2eEnv = {
   outletSlug: (runtime.outletSlug ?? process.env.E2E_OUTLET_SLUG?.trim()) || 'main-outlet',
   outletId: runtime.outletId ?? process.env.E2E_OUTLET_ID ?? '',
 
-  ownerEmail: runtime.ownerEmail ?? process.env.E2E_OWNER_EMAIL ?? 'e2e-owner@cullinos.com',
-  ownerPassword: runtime.ownerPassword ?? process.env.E2E_OWNER_PASSWORD ?? 'E2eTestOwner123!',
-  superAdminEmail: process.env.E2E_SUPER_ADMIN_EMAIL ?? 'akshrkd@gmail.com',
-  superAdminPassword: process.env.E2E_SUPER_ADMIN_PASSWORD ?? 'Missyou@1',
+  ownerEmail: runtime.ownerEmail ?? optional(process.env.E2E_OWNER_EMAIL, 'e2e-owner@cullinos.com'),
+  ownerPassword: runtime.ownerPassword ?? optional(process.env.E2E_OWNER_PASSWORD, 'E2eTestOwner123!'),
+  superAdminEmail: optional(process.env.E2E_SUPER_ADMIN_EMAIL, 'akshrkd@gmail.com'),
+  superAdminPassword: process.env.E2E_SUPER_ADMIN_PASSWORD ?? '',
 
   waiterEmail: optional(process.env.E2E_WAITER_EMAIL, runtime.ownerEmail ?? process.env.E2E_OWNER_EMAIL ?? 'e2e-owner@cullinos.com'),
   waiterPassword: optional(process.env.E2E_WAITER_PASSWORD, runtime.ownerPassword ?? process.env.E2E_OWNER_PASSWORD ?? 'E2eTestOwner123!'),

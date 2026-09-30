@@ -148,7 +148,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
                 style: TextButton.styleFrom(
-                  foregroundColor: GuestColors.muted,
+                  foregroundColor: GuestColors.mutedOf(context),
                 ),
                 child: const Text('Later'),
               ),
@@ -161,7 +161,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
                     );
                   },
                   style: FilledButton.styleFrom(
-                    backgroundColor: GuestColors.primary,
+                    backgroundColor: GuestColors.primaryOf(context),
                   ),
                   child: const Text('Update'),
                 ),
@@ -183,7 +183,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
     // ── Blocked (maintenance / force update) ─────────────────────────────
     if (_blockMessage != null) {
       return Scaffold(
-        backgroundColor: GuestColors.scaffold,
+        backgroundColor: GuestColors.scaffoldOf(context),
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(GuestSpacing.page),
@@ -222,7 +222,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
 
     // ── Splash loading ────────────────────────────────────────────────────
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       body: Center(
         child: FadeTransition(
           opacity: _fade,
@@ -239,7 +239,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
                     gradient: GuestColors.heroTeal,
                     borderRadius: BorderRadius.circular(30),
                     boxShadow: GuestSpacing.softShadow(
-                      color: GuestColors.primary,
+                      color: GuestColors.primaryOf(context),
                     ),
                   ),
                   alignment: Alignment.center,
@@ -258,18 +258,18 @@ class _SplashPageState extends ConsumerState<SplashPage>
                 Text(
                   AppConfig.current.appName,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: GuestColors.muted,
+                        color: GuestColors.mutedOf(context),
                         fontWeight: FontWeight.w500,
                       ),
                 ),
                 const SizedBox(height: 32),
-                const SizedBox(
+                SizedBox(
                   width: 28,
                   height: 28,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.6,
-                    color: GuestColors.primary,
-                    backgroundColor: GuestColors.primarySoft,
+                    color: GuestColors.primaryOf(context),
+                    backgroundColor: GuestColors.primarySoftOf(context),
                   ),
                 ),
               ],

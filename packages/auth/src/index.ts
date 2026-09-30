@@ -13,6 +13,11 @@ export type JwtPayload = {
   impersonation?: boolean;
   impersonatedBy?: string;
   permissions?: string[];
+  /** Platform staff role and its permissions; only on super-admin tokens. */
+  platformRole?: string;
+  platformPermissions?: string[];
+  /** Client portal the session was opened from (e.g. "management", "waiter"). */
+  portal?: string;
 };
 
 function assertPasswordLength(password: string): void {

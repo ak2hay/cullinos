@@ -5,7 +5,15 @@ metadata:
   labels:
     app: api
 spec:
-  replicas: 1
+  # Rate limits, device pairing, login backoff, WebSocket fan-out and job leases live in
+  # Redis, so replicas share state. marketing-uploads is ReadWriteOnce: on single-node
+  # k3s (local-path) both pods mount it; on multi-node clusters move uploads to R2 first.
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: api
@@ -18,6 +26,16 @@ spec:
         prometheus.io/port: "3000"
         prometheus.io/path: "/api/v1/health"
     spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: api
           image: ghcr.io/ak2hay/cullinos-api:latest
@@ -36,10 +54,19 @@ spec:
                 secretKeyRef:
                   name: cullinos-secrets
                   key: DATABASE_URL
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cullinos-secrets
+                  key: REDIS_PASSWORD
             - name: REDIS_URL
-              value: redis://redis:6379
+              value: redis://:$(REDIS_PASSWORD)@redis:6379
             - name: PORT
               value: "3000"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           volumeMounts:
             - name: uploads
               mountPath: /data/marketing-uploads
@@ -52,10 +79,11 @@ spec:
               memory: 768Mi
           readinessProbe:
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/health/db
               port: http
             initialDelaySeconds: 15
             periodSeconds: 10
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /api/v1/health
@@ -66,6 +94,16 @@ spec:
         - name: uploads
           persistentVolumeClaim:
             claimName: marketing-uploads
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: api
 ---
 apiVersion: v1
 kind: Service

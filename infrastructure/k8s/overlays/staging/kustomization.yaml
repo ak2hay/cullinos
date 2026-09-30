@@ -23,9 +23,13 @@ images:
     newTag: staging
   - name: ghcr.io/ak2hay/cullinos-spa-super-admin
     newTag: staging
+  - name: ghcr.io/ak2hay/cullinos-spa-app-ops
+    newTag: staging
   - name: ghcr.io/ak2hay/cullinos-spa-pos
     newTag: staging
   - name: ghcr.io/ak2hay/cullinos-spa-kds
+    newTag: staging
+  - name: ghcr.io/ak2hay/cullinos-spa-kiosk
     newTag: staging
   - name: ghcr.io/ak2hay/cullinos-spa-guest-landing
     newTag: staging

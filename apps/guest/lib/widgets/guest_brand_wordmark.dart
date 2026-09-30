@@ -17,7 +17,7 @@ class GuestBrandWordmark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = color ?? GuestColors.ink;
+    final ink = color ?? GuestColors.inkOf(context);
     final size = compact ? 20.0 : 28.0;
     return Text.rich(
       TextSpan(

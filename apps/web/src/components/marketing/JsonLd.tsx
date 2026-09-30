@@ -1,4 +1,4 @@
-import { CULLINOS_BRAND } from '@cullinos/shared';
+import { CULLINOS_BRAND, MARKETING_PLANS } from '@cullinos/shared';
 import { BUSINESS_ADDRESS_LINE, BUSINESS_NAP } from '@/lib/business';
 import { getSiteUrl } from '@/lib/urls';
 
@@ -9,6 +9,9 @@ export function OrganizationJsonLd() {
     name: BUSINESS_NAP.legalName,
     url: getSiteUrl(),
     email: BUSINESS_NAP.email,
+    ...(BUSINESS_NAP.telephone
+      ? { telephone: BUSINESS_NAP.telephone.replace(/\s/g, '') }
+      : {}),
     address: {
       '@type': 'PostalAddress',
       addressLocality: BUSINESS_NAP.addressLocality,
@@ -42,7 +45,7 @@ export function SoftwareApplicationJsonLd() {
     offers: {
       '@type': 'Offer',
       priceCurrency: 'INR',
-      price: '999',
+      price: String(MARKETING_PLANS[0].priceMonthly / 100),
     },
     provider: {
       '@type': 'Organization',

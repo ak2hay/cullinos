@@ -1,8 +1,10 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import { OrgId, RequireModule } from "../../common/decorators";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { AnalyticsService } from "./analytics.service";
 
 @Controller("analytics")
+@RequirePermissions("reports:read")
 export class AnalyticsController {
   constructor(private service: AnalyticsService) {}
 

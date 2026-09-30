@@ -6,7 +6,7 @@ import {
   MinLength,
 } from "class-validator";
 import type { JwtPayload } from "@cullinos/auth";
-import { CurrentUser } from "../../common/decorators";
+import { CurrentUser, RequirePlatformPermission } from "../../common/decorators";
 import { SuperAdminGuard } from "../marketing/guards/super-admin.guard";
 import { PromoService } from "./promo.service";
 
@@ -27,6 +27,7 @@ class SendOwnerCampaignDto {
 
 @Controller("super-admin/promo")
 @UseGuards(SuperAdminGuard)
+@RequirePlatformPermission("promo.send")
 export class SuperAdminPromoController {
   constructor(private service: PromoService) {}
 

@@ -33,8 +33,8 @@ export default function AboutPage() {
             channel, flows through one engine.
           </p>
           <p>
-            We built India-first: GST billing, INR pricing, Asia/Kolkata defaults, and offline POS via the Local
-            Gateway because connectivity isn't guaranteed in every outlet.
+            We built India-first: configurable GST tax groups on bills, INR pricing, Asia/Kolkata defaults, and
+            offline POS via the Local Gateway because connectivity isn&apos;t guaranteed in every outlet.
           </p>
         </div>
       </Section>

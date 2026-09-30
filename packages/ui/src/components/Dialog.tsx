@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { usePresence } from '../use-presence';
 import { cn } from '../utils';
 
 export interface DialogProps {
@@ -42,14 +43,27 @@ export function Dialog({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  const { mounted, state } = usePresence(open, 160);
+  if (!mounted) return null;
+  const closing = state === 'closing';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center" role="presentation">
+    <div
+      className={cn(
+        'fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center',
+        closing && 'pointer-events-none',
+      )}
+      role="presentation"
+    >
       <button
         type="button"
         aria-label="Close dialog"
-        className="absolute inset-0 bg-black/65 backdrop-blur-[2px] transition-opacity"
+        className={cn(
+          'absolute inset-0 bg-scrim backdrop-blur-[2px]',
+          closing
+            ? 'animate-[ui-fade-out_160ms_ease_both]'
+            : 'animate-[ui-fade-in_var(--duration-normal)_var(--ease-out)_both]',
+        )}
         onClick={onClose}
       />
       <div
@@ -57,14 +71,16 @@ export function Dialog({
         aria-modal="true"
         aria-labelledby={title ? 'ui-dialog-title' : undefined}
         className={cn(
-          'relative z-10 w-full rounded-2xl border border-white/10 bg-bg-secondary shadow-lg',
-          'animate-[ui-fade-in_var(--duration-normal)_var(--ease-out)]',
+          'relative z-10 w-full rounded-2xl border border-line bg-bg-secondary shadow-lg',
+          closing
+            ? 'animate-[ui-scale-out_160ms_ease_both]'
+            : 'animate-[ui-scale-in_var(--duration-normal)_var(--ease-out)_both]',
           sizeMap[size],
           className,
         )}
       >
         {(title || description) && (
-          <div className="border-b border-white/5 px-5 py-4">
+          <div className="border-b border-line-subtle px-5 py-4">
             {title ? (
               <h2 id="ui-dialog-title" className="font-display text-lg font-semibold tracking-tight">
                 {title}
@@ -75,7 +91,7 @@ export function Dialog({
         )}
         <div className="px-5 py-4">{children}</div>
         {footer ? (
-          <div className="flex flex-wrap justify-end gap-2 border-t border-white/5 px-5 py-4">{footer}</div>
+          <div className="flex flex-wrap justify-end gap-2 border-t border-line-subtle px-5 py-4">{footer}</div>
         ) : null}
       </div>
     </div>

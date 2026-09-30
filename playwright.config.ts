@@ -5,13 +5,14 @@ import path from 'path';
 dotenv.config({ path: path.join(process.cwd(), 'e2e', '.env.local') });
 dotenv.config({ path: path.join(process.cwd(), 'e2e', '.env.example') });
 
-const apiUrl = process.env.E2E_API_URL ?? 'https://api.cullinos.com';
-const webUrl = process.env.E2E_WEB_URL ?? 'https://cullinos.com';
-const adminUrl = process.env.E2E_ADMIN_URL ?? 'https://admin.cullinos.com';
-const managementUrl = process.env.E2E_MANAGEMENT_URL ?? 'https://manage.cullinos.com';
-const superAdminUrl = process.env.E2E_SUPER_ADMIN_URL ?? 'https://platform.cullinos.com';
-const posUrl = process.env.E2E_POS_URL ?? 'https://pos.cullinos.com';
-const kdsUrl = process.env.E2E_KDS_URL ?? 'https://kds.cullinos.com';
+// `||`, not `??`: unset GitHub secrets arrive as empty strings
+const apiUrl = process.env.E2E_API_URL || 'https://api.cullinos.com';
+const webUrl = process.env.E2E_WEB_URL || 'https://cullinos.com';
+const adminUrl = process.env.E2E_ADMIN_URL || 'https://admin.cullinos.com';
+const managementUrl = process.env.E2E_MANAGEMENT_URL || 'https://manage.cullinos.com';
+const superAdminUrl = process.env.E2E_SUPER_ADMIN_URL || 'https://platform.cullinos.com';
+const posUrl = process.env.E2E_POS_URL || 'https://pos.cullinos.com';
+const kdsUrl = process.env.E2E_KDS_URL || 'https://kds.cullinos.com';
 
 export default defineConfig({
   testDir: './e2e',

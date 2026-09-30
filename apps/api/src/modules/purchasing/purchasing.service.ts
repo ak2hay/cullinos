@@ -127,6 +127,7 @@ export class PurchasingService {
         throw new BadRequestException("Item unit price must be non-negative");
       }
     }
+    await this.assertOwnedInventoryItems(orgId, data.items.map((i) => i.inventoryItemId));
 
     const total = data.items.reduce(
       (sum, item) => sum + item.quantity * item.unitPrice,
@@ -189,6 +190,15 @@ export class PurchasingService {
     if (!data.items?.length) {
       throw new BadRequestException("At least one GRN line is required");
     }
+    for (const item of data.items) {
+      if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+        throw new BadRequestException("GRN quantity must be positive");
+      }
+      if (!Number.isFinite(item.unitPrice) || item.unitPrice < 0) {
+        throw new BadRequestException("GRN unit price must be non-negative");
+      }
+    }
+    await this.assertOwnedInventoryItems(orgId, data.items.map((i) => i.inventoryItemId));
 
     const grnNumber = await this.nextGrnNumber(orgId);
 
@@ -228,13 +238,22 @@ export class PurchasingService {
     const receivedAt = new Date();
 
     await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.gRN.updateMany({
+        where: { id: grnId, status: "draft" },
+        data: { status: "confirmed", receivedAt },
+      });
+      if (claimed.count !== 1) {
+        throw new BadRequestException("GRN already confirmed or cancelled");
+      }
+
       for (const line of grn.items) {
         if (!line.inventoryItemId) continue;
         const qty = Number(line.quantity);
         const unitCost = Number(line.unitPrice);
+        if (!Number.isFinite(qty) || qty <= 0) continue;
 
-        const item = await tx.inventoryItem.findUnique({
-          where: { id: line.inventoryItemId },
+        const item = await tx.inventoryItem.findFirst({
+          where: { id: line.inventoryItemId, organizationId: orgId },
           select: { currentStock: true, costPerUnit: true, expiryDate: true },
         });
         if (!item) continue;
@@ -276,11 +295,6 @@ export class PurchasingService {
         });
       }
 
-      await tx.gRN.update({
-        where: { id: grnId },
-        data: { status: "confirmed", receivedAt },
-      });
-
       if (grn.purchaseOrderId) {
         await tx.purchaseOrder.update({
           where: { id: grn.purchaseOrderId },
@@ -293,6 +307,15 @@ export class PurchasingService {
       where: { id: grnId },
       include: { items: true, purchaseOrder: true },
     });
+  }
+
+  private async assertOwnedInventoryItems(orgId: string, ids: Array<string | null | undefined>) {
+    const unique = [...new Set(ids.filter((id): id is string => typeof id === "string" && id.length > 0))];
+    if (unique.length === 0) return;
+    const count = await this.prisma.inventoryItem.count({
+      where: { id: { in: unique }, organizationId: orgId },
+    });
+    if (count !== unique.length) throw new BadRequestException("Invalid inventoryItemId");
   }
 
   private async nextPoNumber(orgId: string): Promise<string> {

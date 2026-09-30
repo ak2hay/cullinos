@@ -1,22 +1,45 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Optional,
+  PayloadTooLargeException,
+} from "@nestjs/common";
 import * as fs from "fs";
 import * as path from "path";
 import { randomUUID } from "crypto";
+import type { Request } from "express";
+import sharp from "sharp";
+import { PrismaService } from "../../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { resolveMarketingPublicBaseUrl } from "../../common/public-asset-url.util";
 
-const ALLOWED_MIMES = new Set([
+export const ALLOWED_IMAGE_MIMES = new Set([
   "image/png",
   "image/jpeg",
   "image/webp",
 ]);
 
-/** Platform-wide max for image uploads (multer + service + client). */
+const ALLOWED_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
+
+/** Platform-wide max for image uploads (multer ceiling; super admins). */
 export const MARKETING_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
+/** Max for tenant (restaurant) accounts. Super admins and impersonation sessions are exempt. */
+export const TENANT_UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
 const MAX_BYTES = MARKETING_UPLOAD_MAX_BYTES;
+
+export type UploadActor =
+  | { isSuperAdmin?: boolean | null; impersonatedBy?: string | null }
+  | null
+  | undefined;
+
+/** Byte limit for the authenticated uploader. */
+export function uploadMaxBytesFor(actor: UploadActor): number {
+  if (actor?.isSuperAdmin || actor?.impersonatedBy) return MARKETING_UPLOAD_MAX_BYTES;
+  return TENANT_UPLOAD_MAX_BYTES;
+}
 /** Reject camera dumps larger than this on the longest side. */
 export const MARKETING_UPLOAD_MAX_PIXELS = 4096;
-const MARKETING_PREFIX = "marketing";
+export const MARKETING_PREFIX = "marketing";
 
 export type ImageSlot =
   | "banner"
@@ -24,7 +47,10 @@ export type ImageSlot =
   | "coupon"
   | "menuItem"
   | "outletCover"
-  | "outletGallery";
+  | "outletGallery"
+  | "notification"
+  | "orgLogo"
+  | "avatar";
 
 export type ImageSlotSpec = {
   slot: ImageSlot;
@@ -85,7 +111,160 @@ export const IMAGE_SLOT_SPECS: Record<ImageSlot, ImageSlotSpec> = {
     targetHeight: 900,
     maxBytes: MAX_BYTES,
   },
+  notification: {
+    slot: "notification",
+    label: "Push notification hero",
+    ratio: 2 / 1,
+    targetWidth: 1200,
+    targetHeight: 600,
+    maxBytes: MAX_BYTES,
+  },
+  orgLogo: {
+    slot: "orgLogo",
+    label: "Organization logo",
+    ratio: 1,
+    targetWidth: 512,
+    targetHeight: 512,
+    maxBytes: MAX_BYTES,
+  },
+  avatar: {
+    slot: "avatar",
+    label: "Profile photo",
+    ratio: 1,
+    targetWidth: 512,
+    targetHeight: 512,
+    maxBytes: MAX_BYTES,
+  },
 };
+
+/** Path context for hierarchical R2 / local keys under `marketing/`. */
+export type UploadPathContext = {
+  scope: "org" | "platform";
+  /** Required when scope is `org`. */
+  orgId?: string;
+  outletId?: string;
+  /** Entity id used as leaf (menu item id) or ignored when leafName set. */
+  entityId?: string;
+  /**
+   * Stable leaf filename without extension.
+   * When omitted, a UUID is used (except outletCover → `cover`).
+   */
+  leafName?: string;
+  /** Platform area: CMS website assets vs guest-ops banners/push. */
+  platformArea?: "cms" | "guest-ops" | "avatars";
+  imageSlot?: ImageSlot;
+};
+
+/** Sniff image MIME from magic bytes (PNG / JPEG / WebP only). */
+export function sniffImageMime(buffer: Buffer): string | null {
+  if (!buffer || buffer.length < 12) return null;
+  if (
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47
+  ) {
+    return "image/png";
+  }
+  if (buffer[0] === 0xff && buffer[1] === 0xd8) {
+    return "image/jpeg";
+  }
+  if (
+    buffer.toString("ascii", 0, 4) === "RIFF" &&
+    buffer.toString("ascii", 8, 12) === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
+/**
+ * Multer fileFilter: reject by declared MIME + extension before buffering completes.
+ * Magic-byte check still runs in validateFile after upload.
+ */
+export function marketingImageFileFilter(
+  _req: Request,
+  file: Express.Multer.File,
+  cb: (error: Error | null, acceptFile: boolean) => void,
+) {
+  const ext = path.extname(file.originalname || "").toLowerCase();
+  if (!ALLOWED_IMAGE_MIMES.has(file.mimetype) || (ext && !ALLOWED_EXTENSIONS.has(ext))) {
+    cb(
+      new BadRequestException("Unsupported file type. Use PNG, JPG, or WebP."),
+      false,
+    );
+    return;
+  }
+  cb(null, true);
+}
+
+/** Sanitize a path segment (ids / leaf names) — alphanumeric, dash, underscore only. */
+export function sanitizePathSegment(raw: string, fallback = "x"): string {
+  const cleaned = raw.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 128);
+  return cleaned || fallback;
+}
+
+/**
+ * Build object key relative to bucket (includes `marketing/` prefix).
+ * Also used as relative path under local cms upload dir.
+ */
+export function buildStorageKey(ctx: UploadPathContext, ext: string): string {
+  const safeExt = ALLOWED_EXTENSIONS.has(ext.toLowerCase())
+    ? ext.toLowerCase()
+    : ".bin";
+  const rawLeaf = ctx.leafName ?? ctx.entityId ?? randomUUID();
+  const leaf = sanitizePathSegment(rawLeaf, randomUUID()) + safeExt;
+
+  if (ctx.scope === "platform") {
+    const area = ctx.platformArea ?? "cms";
+    if (area === "guest-ops") {
+      const folder =
+        ctx.imageSlot === "notification" ? "push" : "banners";
+      return `${MARKETING_PREFIX}/platform/guest-ops/${folder}/${leaf}`;
+    }
+    if (area === "avatars") return `${MARKETING_PREFIX}/platform/avatars/${leaf}`;
+    return `${MARKETING_PREFIX}/platform/cms/${leaf}`;
+  }
+
+  const orgId = sanitizePathSegment(ctx.orgId ?? "", "");
+  if (!orgId) {
+    throw new BadRequestException("Organization id is required for org uploads.");
+  }
+
+  switch (ctx.imageSlot) {
+    case "menuItem":
+      return `${MARKETING_PREFIX}/orgs/${orgId}/menu/${leaf}`;
+    case "outletCover": {
+      const outletId = sanitizePathSegment(ctx.outletId ?? "", "");
+      if (!outletId) {
+        throw new BadRequestException("Outlet id is required for cover uploads.");
+      }
+      const coverLeaf = sanitizePathSegment(ctx.leafName ?? "cover", "cover") + safeExt;
+      return `${MARKETING_PREFIX}/orgs/${orgId}/outlets/${outletId}/${coverLeaf}`;
+    }
+    case "outletGallery": {
+      const outletId = sanitizePathSegment(ctx.outletId ?? "", "");
+      if (!outletId) {
+        throw new BadRequestException("Outlet id is required for gallery uploads.");
+      }
+      return `${MARKETING_PREFIX}/orgs/${orgId}/outlets/${outletId}/gallery/${leaf}`;
+    }
+    case "coupon":
+      return `${MARKETING_PREFIX}/orgs/${orgId}/coupons/${leaf}`;
+    case "banner":
+      return `${MARKETING_PREFIX}/orgs/${orgId}/banners/${leaf}`;
+    case "promoSlide":
+      return `${MARKETING_PREFIX}/orgs/${orgId}/promo/${leaf}`;
+    case "notification":
+      return `${MARKETING_PREFIX}/orgs/${orgId}/push/${leaf}`;
+    case "orgLogo":
+      return `${MARKETING_PREFIX}/orgs/${orgId}/logo/${leaf}`;
+    case "avatar":
+      return `${MARKETING_PREFIX}/orgs/${orgId}/avatars/${leaf}`;
+    default:
+      return `${MARKETING_PREFIX}/orgs/${orgId}/misc/${leaf}`;
+  }
+}
 
 /** Read width/height from PNG / JPEG / WebP buffers without native deps. */
 export function probeImageDimensions(
@@ -166,12 +345,50 @@ export function probeImageDimensions(
   return null;
 }
 
+function extFromMime(mime: string) {
+  if (mime === "image/png") return ".png";
+  if (mime === "image/jpeg") return ".jpg";
+  if (mime === "image/webp") return ".webp";
+  return ".bin";
+}
+
+function mimeFromExt(ext: string) {
+  if (ext === ".png") return "image/png";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".webp") return "image/webp";
+  return "application/octet-stream";
+}
+
+const DEFAULT_ORG_STORAGE_QUOTA_MB = 500;
+
+function orgStorageQuotaBytes(): number {
+  const mb = Number(process.env.ORG_STORAGE_QUOTA_MB);
+  return (Number.isFinite(mb) && mb > 0 ? mb : DEFAULT_ORG_STORAGE_QUOTA_MB) * 1024 * 1024;
+}
+
+/**
+ * Decode and re-encode uploads: drops EXIF (GPS, device serials) and any payload hidden
+ * after the image data, and applies EXIF orientation before it is stripped.
+ */
+export async function reencodeImage(buffer: Buffer, mime: string): Promise<Buffer> {
+  const image = sharp(buffer, {
+    limitInputPixels: MARKETING_UPLOAD_MAX_PIXELS * MARKETING_UPLOAD_MAX_PIXELS,
+    failOn: "error",
+  }).rotate();
+  if (mime === "image/png") return image.png({ compressionLevel: 9 }).toBuffer();
+  if (mime === "image/webp") return image.webp({ quality: 85 }).toBuffer();
+  return image.jpeg({ quality: 85, mozjpeg: true }).toBuffer();
+}
+
 @Injectable()
 export class MarketingUploadService {
   private uploadDir: string;
   private publicBaseUrl: string;
 
-  constructor(private readonly storage: StorageService) {
+  constructor(
+    private readonly storage: StorageService,
+    @Optional() private readonly prisma?: PrismaService,
+  ) {
     this.uploadDir =
       process.env.MARKETING_UPLOAD_DIR ||
       path.resolve(process.cwd(), "../web/public/cms");
@@ -202,9 +419,21 @@ export class MarketingUploadService {
     if (!file?.buffer) {
       throw new BadRequestException("No file uploaded.");
     }
-    if (!ALLOWED_MIMES.has(file.mimetype)) {
+    const sniffed = sniffImageMime(file.buffer);
+    if (!sniffed || !ALLOWED_IMAGE_MIMES.has(sniffed)) {
       throw new BadRequestException(
         "Unsupported file type. Use PNG, JPG, or WebP.",
+      );
+    }
+    // Client MIME must match sniff when present (blocks MIME spoofing).
+    if (file.mimetype && !ALLOWED_IMAGE_MIMES.has(file.mimetype)) {
+      throw new BadRequestException(
+        "Unsupported file type. Use PNG, JPG, or WebP.",
+      );
+    }
+    if (file.mimetype && file.mimetype !== sniffed) {
+      throw new BadRequestException(
+        "File content does not match declared type. Use PNG, JPG, or WebP.",
       );
     }
     if (file.size > maxBytes) {
@@ -212,15 +441,16 @@ export class MarketingUploadService {
         `File too large. Maximum size is ${Math.round(maxBytes / (1024 * 1024) * 10) / 10}MB.`,
       );
     }
+    return sniffed;
   }
 
   /**
-   * Slot validation: MIME + size + readable dims + max pixel bound.
+   * Slot validation: magic MIME + size + readable dims + max pixel bound.
    * Recommended aspect ratios are UI hints only — not hard-rejected.
    */
-  validateSlot(file: Express.Multer.File, slot: ImageSlot) {
+  validateSlot(file: Express.Multer.File, slot: ImageSlot, maxBytes = MAX_BYTES) {
     const spec = IMAGE_SLOT_SPECS[slot];
-    this.validateFile(file, spec.maxBytes);
+    this.validateFile(file, Math.min(spec.maxBytes, maxBytes));
     const dims = probeImageDimensions(file.buffer);
     if (!dims || dims.width < 1 || dims.height < 1) {
       throw new BadRequestException(
@@ -240,146 +470,197 @@ export class MarketingUploadService {
 
   async saveUploadedFile(
     file: Express.Multer.File,
-    slotKey?: string,
-    imageSlot?: ImageSlot,
+    pathCtx: UploadPathContext,
+    maxBytes = MAX_BYTES,
   ) {
     if (!file?.buffer) {
       throw new BadRequestException("No file uploaded.");
     }
-    if (imageSlot) {
-      this.validateSlot(file, imageSlot);
+    if (pathCtx.imageSlot) {
+      this.validateSlot(file, pathCtx.imageSlot, maxBytes);
     } else {
-      this.validateFile(file);
+      this.validateFile(file, maxBytes);
     }
-    const ext = path.extname(file.originalname) || this.extFromMime(file.mimetype);
-    const filename = slotKey ? `${slotKey}${ext}` : `${randomUUID()}${ext}`;
 
+    const sniffed = sniffImageMime(file.buffer) ?? "image/jpeg";
+    const ext =
+      extFromMime(sniffed) ||
+      path.extname(file.originalname).toLowerCase() ||
+      ".bin";
+    const key = buildStorageKey(pathCtx, ext);
+    // Relative path under marketing/ for DB filename field (keeps nested structure).
+    const relativePath = key.startsWith(`${MARKETING_PREFIX}/`)
+      ? key.slice(MARKETING_PREFIX.length + 1)
+      : key;
+
+    let body: Buffer;
+    try {
+      body = await reencodeImage(file.buffer, sniffed);
+    } catch {
+      throw new BadRequestException("Could not process image. Use a valid PNG, JPG, or WebP.");
+    }
+    const orgId = pathCtx.scope === "org" ? pathCtx.orgId : undefined;
+    if (orgId) await this.assertOrgQuota(orgId, key, body.length);
+
+    let url: string;
     if (this.storage.isCloudEnabled()) {
-      const key = `${MARKETING_PREFIX}/${filename}`;
-      const saved = await this.storage.putObject({
-        key,
-        body: file.buffer,
-        contentType: file.mimetype,
-      });
-      return {
-        filename,
-        url: saved.url,
-        mimeType: file.mimetype,
-        sizeBytes: file.size,
-      };
+      const saved = await this.storage.putObject({ key, body, contentType: sniffed });
+      url = saved.url;
+    } else {
+      const base = this.publicBaseUrl.replace(/\/$/, "");
+      if (process.env.NODE_ENV === "production" && !/^https?:\/\//i.test(base)) {
+        throw new BadRequestException(
+          "Image storage is not configured for production. Set R2_* + R2_PUBLIC_URL, or an absolute MARKETING_PUBLIC_URL / API_PUBLIC_URL.",
+        );
+      }
+      const root = path.resolve(this.uploadDir);
+      const dest = path.resolve(root, relativePath);
+      if (!dest.startsWith(root + path.sep)) {
+        throw new BadRequestException("Invalid upload path.");
+      }
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.writeFileSync(dest, body);
+      url = `${base}/${relativePath}`;
     }
 
-    const dest = path.join(this.uploadDir, filename);
-    fs.writeFileSync(dest, file.buffer);
-    const base = this.publicBaseUrl.replace(/\/$/, "");
-    if (
-      process.env.NODE_ENV === "production" &&
-      !/^https?:\/\//i.test(base)
-    ) {
-      throw new BadRequestException(
-        "Image storage is not configured for production. Set R2_* + R2_PUBLIC_URL, or an absolute MARKETING_PUBLIC_URL / API_PUBLIC_URL.",
-      );
+    if (orgId && this.prisma) {
+      await this.prisma.storedObject.upsert({
+        where: { key },
+        create: { organizationId: orgId, key, sizeBytes: body.length },
+        update: { sizeBytes: body.length },
+      });
     }
     return {
-      filename,
-      url: `${base}/${filename}`,
-      mimeType: file.mimetype,
-      sizeBytes: file.size,
+      filename: relativePath,
+      url,
+      mimeType: sniffed,
+      sizeBytes: body.length,
     };
+  }
+
+  /** Per-org storage cap; replacing an existing object only counts the size difference. */
+  private async assertOrgQuota(orgId: string, key: string, newBytes: number) {
+    if (!this.prisma) return;
+    const [used, existing] = await Promise.all([
+      this.prisma.storedObject.aggregate({
+        where: { organizationId: orgId },
+        _sum: { sizeBytes: true },
+      }),
+      this.prisma.storedObject.findUnique({ where: { key }, select: { sizeBytes: true } }),
+    ]);
+    const quota = orgStorageQuotaBytes();
+    const projected = (used._sum.sizeBytes ?? 0) - (existing?.sizeBytes ?? 0) + newBytes;
+    if (projected > quota) {
+      throw new PayloadTooLargeException(
+        `Storage limit reached (${Math.round(quota / (1024 * 1024))} MB). Delete unused images and try again.`,
+      );
+    }
   }
 
   async copyFromPublicImages(sourceDir: string, slotKey: string, filename: string) {
     const src = path.join(sourceDir, filename);
     if (!fs.existsSync(src)) return null;
-    const destName = `${slotKey}${path.extname(filename)}`;
-    const mimeType = this.mimeFromExt(path.extname(filename));
+    const ext = path.extname(filename);
+    const mimeType = mimeFromExt(ext);
     const body = fs.readFileSync(src);
+    const key = buildStorageKey(
+      {
+        scope: "platform",
+        platformArea: "cms",
+        leafName: slotKey,
+      },
+      ext || ".png",
+    );
+    const relativePath = key.startsWith(`${MARKETING_PREFIX}/`)
+      ? key.slice(MARKETING_PREFIX.length + 1)
+      : key;
 
     if (this.storage.isCloudEnabled()) {
-      const key = `${MARKETING_PREFIX}/${destName}`;
       const saved = await this.storage.putObject({
         key,
         body,
         contentType: mimeType,
       });
       return {
-        filename: destName,
+        filename: relativePath,
         url: saved.url,
         mimeType,
         sizeBytes: body.length,
       };
     }
 
-    const dest = path.join(this.uploadDir, destName);
+    const dest = path.join(this.uploadDir, relativePath);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.writeFileSync(dest, body);
     const stat = fs.statSync(dest);
     const base = this.publicBaseUrl.replace(/\/$/, "");
     return {
-      filename: destName,
-      url: `${base}/${destName}`,
+      filename: relativePath,
+      url: `${base}/${relativePath}`,
       mimeType,
       sizeBytes: stat.size,
     };
   }
 
-  /** Delete only URLs we host (R2 marketing/ or local /cms/). No-op for external URLs. */
-  async deleteManagedUrl(url: string | null | undefined) {
+  /**
+   * Delete only URLs we host, and only inside the caller's own storage prefix
+   * (`marketing/orgs/<orgId>/` or `marketing/platform/`). No-op for anything else,
+   * so a tenant can never delete another tenant's (or platform) objects by URL.
+   */
+  async deleteManagedUrl(url: string | null | undefined, scope: ManagedUrlScope) {
     if (!url?.trim()) return;
-    const trimmed = url.trim();
     try {
-      if (this.storage.isCloudEnabled()) {
-        const key = this.storage.keyFromPublicUrl(trimmed);
-        if (!key || !key.startsWith(`${MARKETING_PREFIX}/`)) return;
-        await this.storage.deleteObject(key);
-        return;
-      }
-      const base = this.publicBaseUrl.replace(/\/$/, "");
-      if (
-        !trimmed.startsWith(base) &&
-        !trimmed.includes("/cms/") &&
-        !trimmed.endsWith("/cms")
-      ) {
-        return;
-      }
-      await this.deleteByUrl(trimmed);
+      const key = this.managedKeyFromUrl(url.trim());
+      if (!key || !isKeyInScope(key, scope)) return;
+      await this.deleteKey(key);
     } catch {
       // Best-effort cleanup — don't fail the parent delete.
     }
   }
 
+  /** Platform CMS asset delete (super-admin only callers). */
   async deleteByUrl(url: string) {
+    await this.deleteManagedUrl(url, "platform");
+  }
+
+  private managedKeyFromUrl(url: string): string | null {
+    let key: string | null;
     if (this.storage.isCloudEnabled()) {
-      const key = this.storage.keyFromPublicUrl(url);
-      if (key) {
-        await this.storage.deleteObject(key);
-      }
-      return;
-    }
-
-    const base = this.publicBaseUrl.replace(/\/$/, "");
-    let filename: string | null = null;
-    if (url.startsWith(base + "/")) {
-      filename = url.slice(base.length + 1);
+      key = this.storage.keyFromPublicUrl(url);
     } else {
-      const idx = url.indexOf("/cms/");
-      if (idx >= 0) filename = url.slice(idx + "/cms/".length);
+      const base = this.publicBaseUrl.replace(/\/$/, "");
+      let relative: string | null = null;
+      if (url.startsWith(base + "/")) {
+        relative = url.slice(base.length + 1);
+      } else {
+        const idx = url.indexOf("/cms/");
+        if (idx >= 0) relative = url.slice(idx + "/cms/".length);
+      }
+      key = relative ? `${MARKETING_PREFIX}/${relative}` : null;
     }
-    if (!filename || filename.includes("..")) return;
-    const filePath = path.join(this.uploadDir, filename);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    if (!key || key.includes("..") || key.includes("\\")) return null;
+    return key;
   }
 
-  private extFromMime(mime: string) {
-    if (mime === "image/png") return ".png";
-    if (mime === "image/jpeg") return ".jpg";
-    if (mime === "image/webp") return ".webp";
-    return ".bin";
+  private async deleteKey(key: string) {
+    if (this.storage.isCloudEnabled()) {
+      await this.storage.deleteObject(key);
+    } else {
+      const relative = key.slice(MARKETING_PREFIX.length + 1);
+      const filePath = path.join(this.uploadDir, relative);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+    await this.prisma?.storedObject.deleteMany({ where: { key } });
   }
+}
 
-  private mimeFromExt(ext: string) {
-    if (ext === ".png") return "image/png";
-    if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
-    if (ext === ".webp") return "image/webp";
-    return "application/octet-stream";
-  }
+export type ManagedUrlScope = { orgId: string } | "platform";
+
+/** Platform scope covers every managed key outside tenant folders (incl. legacy flat CMS files). */
+export function isKeyInScope(key: string, scope: ManagedUrlScope): boolean {
+  if (!key.startsWith(`${MARKETING_PREFIX}/`)) return false;
+  if (scope === "platform") return !key.startsWith(`${MARKETING_PREFIX}/orgs/`);
+  const orgId = sanitizePathSegment(scope.orgId ?? "", "");
+  if (!orgId || orgId !== scope.orgId) return false;
+  return key.startsWith(`${MARKETING_PREFIX}/orgs/${orgId}/`);
 }
