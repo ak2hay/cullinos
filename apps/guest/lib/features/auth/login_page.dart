@@ -586,7 +586,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         if (!didPop) _handleBack();
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: GuestColors.surfaceOf(context),
         body: SingleChildScrollView(
           child: Stack(
             children: [
@@ -605,7 +605,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               child: Container(
                 padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: GuestColors.surfaceOf(context),
                   borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(
@@ -633,17 +633,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 26,
                           fontWeight: FontWeight.w800,
-                          color: GuestColors.ink,
+                          color: GuestColors.inkOf(context),
                           letterSpacing: -0.5,
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
+                      Text(
                         'Discover great restaurants, order your favorite food '
                         'and enjoy a seamless dining experience.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: GuestColors.muted,
+                          color: GuestColors.mutedOf(context),
                           fontSize: 13.5,
                           height: 1.4,
                         ),
@@ -669,7 +669,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         children: [
                           Expanded(
                             child: Divider(
-                              color: GuestColors.muted.withValues(alpha: 0.3),
+                              color: GuestColors.mutedOf(context).withValues(alpha: 0.3),
                             ),
                           ),
                           Padding(
@@ -680,12 +680,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
-                                  ?.copyWith(color: GuestColors.muted),
+                                  ?.copyWith(color: GuestColors.mutedOf(context)),
                             ),
                           ),
                           Expanded(
                             child: Divider(
-                              color: GuestColors.muted.withValues(alpha: 0.3),
+                              color: GuestColors.mutedOf(context).withValues(alpha: 0.3),
                             ),
                           ),
                         ],
@@ -715,9 +715,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             setState(() => _staySignedIn = v ?? true),
                         controlAffinity: ListTileControlAffinity.leading,
                         activeColor: GuestColors.primaryOf(context),
-                        title: const Text(
+                        title: Text(
                           'Stay signed in',
-                          style: TextStyle(fontSize: 14, color: GuestColors.ink),
+                          style: TextStyle(fontSize: 14, color: GuestColors.inkOf(context)),
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -780,7 +780,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         onChanged: (v) =>
                             setState(() => _staySignedIn = v ?? true),
                         controlAffinity: ListTileControlAffinity.leading,
-                        activeColor: GuestColors.primary,
+                        activeColor: GuestColors.primaryOf(context),
                         title: Text(
                           'Stay signed in',
                           style: Theme.of(context).textTheme.bodySmall,
@@ -805,7 +805,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           _error = null;
                         }),
                         style: TextButton.styleFrom(
-                          foregroundColor: GuestColors.primary,
+                          foregroundColor: GuestColors.primaryOf(context),
                         ),
                         child: Text(
                           _step == _AuthStep.email
@@ -826,7 +826,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
-                            ?.copyWith(color: GuestColors.muted),
+                            ?.copyWith(color: GuestColors.mutedOf(context)),
                       ),
                       const SizedBox(height: 16),
                       GuestPillButton(
@@ -847,7 +847,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           _error = null;
                         }),
                         style: TextButton.styleFrom(
-                          foregroundColor: GuestColors.primary,
+                          foregroundColor: GuestColors.primaryOf(context),
                         ),
                         child: const Text('Change number'),
                       ),
@@ -866,7 +866,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
-                            ?.copyWith(color: GuestColors.muted),
+                            ?.copyWith(color: GuestColors.mutedOf(context)),
                       ),
                       if (!_exists) ...[
                         const SizedBox(height: 12),
@@ -908,7 +908,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               ? null
                               : () => _requestOtp(resend: true),
                           style: TextButton.styleFrom(
-                            foregroundColor: GuestColors.primary,
+                            foregroundColor: GuestColors.primaryOf(context),
                           ),
                           child: const Text('Resend OTP'),
                         ),
@@ -928,7 +928,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
-                            ?.copyWith(color: GuestColors.muted),
+                            ?.copyWith(color: GuestColors.mutedOf(context)),
                       ),
                       if (_name.text.isEmpty &&
                           (_pendingGuest?['name'] == null)) ...[
@@ -1000,17 +1000,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         onChanged: (v) =>
                             setState(() => _acceptedTerms = v ?? false),
                         controlAffinity: ListTileControlAffinity.leading,
-                        activeColor: GuestColors.primary,
+                        activeColor: GuestColors.primaryOf(context),
                         title: Wrap(
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             const Text('I agree to the '),
                             GestureDetector(
                               onTap: () => context.push('/privacy'),
-                              child: const Text(
+                              child: Text(
                                 'Privacy Policy',
                                 style: TextStyle(
-                                  color: GuestColors.primary,
+                                  color: GuestColors.primaryOf(context),
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -1018,10 +1018,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             const Text(' and '),
                             GestureDetector(
                               onTap: () => context.push('/terms'),
-                              child: const Text(
+                              child: Text(
                                 'Terms',
                                 style: TextStyle(
-                                  color: GuestColors.primary,
+                                  color: GuestColors.primaryOf(context),
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -1086,7 +1086,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           _error = null;
                         }),
                         style: TextButton.styleFrom(
-                          foregroundColor: GuestColors.primary,
+                          foregroundColor: GuestColors.primaryOf(context),
                         ),
                         child: const Text('Other options'),
                       ),
@@ -1230,12 +1230,12 @@ class _LoginHeroState extends State<_LoginHero> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Good Food Brings\nPeople Together.',
                   style: TextStyle(
                     fontSize: 16,
                     height: 1.3,
-                    color: GuestColors.ink,
+                    color: GuestColors.inkOf(context),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1258,7 +1258,7 @@ class _LoginHeroState extends State<_LoginHero> {
                               Icon(
                                 _features[i].$1,
                                 size: 22,
-                                color: i == _active ? primary : GuestColors.ink,
+                                color: i == _active ? primary : GuestColors.inkOf(context),
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -1266,7 +1266,7 @@ class _LoginHeroState extends State<_LoginHero> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: i == _active ? FontWeight.w700 : FontWeight.w500,
-                                  color: i == _active ? primary : GuestColors.ink,
+                                  color: i == _active ? primary : GuestColors.inkOf(context),
                                 ),
                               ),
                             ],
@@ -1285,7 +1285,7 @@ class _LoginHeroState extends State<_LoginHero> {
                         width: i == _active ? 30 : 22,
                         height: 5,
                         decoration: BoxDecoration(
-                          color: i == _active ? primary : GuestColors.border,
+                          color: i == _active ? primary : GuestColors.borderOf(context),
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),
@@ -1313,8 +1313,8 @@ class _GoogleButton extends StatelessWidget {
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.white,
-          side: const BorderSide(color: GuestColors.border),
+          backgroundColor: GuestColors.surfaceOf(context),
+          side: BorderSide(color: GuestColors.borderOf(context)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         child: loading
@@ -1328,12 +1328,12 @@ class _GoogleButton extends StatelessWidget {
                 children: [
                   const GoogleGLogo(size: 22),
                   const SizedBox(width: 12),
-                  const Text(
+                  Text(
                     'Continue with Google',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: GuestColors.ink,
+                      color: GuestColors.inkOf(context),
                     ),
                   ),
                 ],
@@ -1436,15 +1436,15 @@ class _TermsLine extends StatelessWidget {
       alignment: WrapAlignment.center,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        const Text(
+        Text(
           'By continuing, you agree to our ',
-          style: TextStyle(fontSize: 12, color: GuestColors.muted),
+          style: TextStyle(fontSize: 12, color: GuestColors.mutedOf(context)),
         ),
         GestureDetector(
           onTap: onTerms,
           child: Text('Terms of Service', style: link.copyWith(fontSize: 12)),
         ),
-        const Text(' and ', style: TextStyle(fontSize: 12, color: GuestColors.muted)),
+        Text(' and ', style: TextStyle(fontSize: 12, color: GuestColors.mutedOf(context))),
         GestureDetector(
           onTap: onPrivacy,
           child: Text('Privacy Policy', style: link.copyWith(fontSize: 12)),

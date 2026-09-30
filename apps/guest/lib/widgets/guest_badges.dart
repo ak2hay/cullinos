@@ -25,7 +25,7 @@ class GuestBadge extends StatelessWidget {
       GuestBadgeTone.popular => (GuestColors.popularRed, Colors.white),
       GuestBadgeTone.soft => (GuestColors.primarySoftOf(context), GuestColors.primaryDeepOf(context)),
       GuestBadgeTone.dark => (Colors.black.withValues(alpha: 0.72), Colors.white),
-      GuestBadgeTone.warning => (GuestColors.coralSoft, GuestColors.coralDeep),
+      GuestBadgeTone.warning => (GuestColors.coralSoftOf(context), GuestColors.coralDeep),
     };
 
     return Container(
@@ -108,7 +108,7 @@ class GuestOpenNowDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = label ?? (open ? 'Open Now' : 'Closed');
-    final color = open ? GuestColors.primaryOf(context) : GuestColors.muted;
+    final color = open ? GuestColors.primaryOf(context) : GuestColors.mutedOf(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

@@ -372,4 +372,19 @@ class AppLocalizationsGu extends AppLocalizations {
   String mergedTableHint(String table) {
     return 'આ ટેબલનો ઓર્ડર અને બિલ $table પર છે.';
   }
+
+  @override
+  String get appearance => 'દેખાવ';
+
+  @override
+  String get themeLight => 'લાઇટ';
+
+  @override
+  String get themeDark => 'ડાર્ક';
+
+  @override
+  String get themeSystem => 'સિસ્ટમ';
+
+  @override
+  String get retry => 'ફરી પ્રયાસ કરો';
 }

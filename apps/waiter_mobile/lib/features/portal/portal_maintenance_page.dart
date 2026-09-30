@@ -34,7 +34,7 @@ class PortalMaintenancePage extends ConsumerWidget {
                         ),
                   ),
                   const SizedBox(height: 12),
-                  Icon(Icons.construction_rounded, size: 56, color: WaiterColors.amber),
+                  const Icon(Icons.construction_rounded, size: 56, color: WaiterColors.amber),
                   const SizedBox(height: 16),
                   Text(
                     l10n.portalMaintenanceTitle,

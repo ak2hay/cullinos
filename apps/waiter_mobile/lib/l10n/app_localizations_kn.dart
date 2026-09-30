@@ -373,4 +373,19 @@ class AppLocalizationsKn extends AppLocalizations {
   String mergedTableHint(String table) {
     return 'Orders and bill for this table are on $table.';
   }
+
+  @override
+  String get appearance => 'ಗೋಚರತೆ';
+
+  @override
+  String get themeLight => 'ಲೈಟ್';
+
+  @override
+  String get themeDark => 'ಡಾರ್ಕ್';
+
+  @override
+  String get themeSystem => 'ಸಿಸ್ಟಮ್';
+
+  @override
+  String get retry => 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ';
 }

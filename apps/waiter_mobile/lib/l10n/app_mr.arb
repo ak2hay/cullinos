@@ -115,5 +115,10 @@
   "confirm": "कन्फर्म",
   "unmerge": "अनमर्ज",
   "openTable": "{table} उघडा",
-  "mergedTableHint": "या टेबलची ऑर्डर आणि बिल {table} वर आहे."
+  "mergedTableHint": "या टेबलची ऑर्डर आणि बिल {table} वर आहे.",
+  "appearance": "स्वरूप",
+  "themeLight": "लाइट",
+  "themeDark": "डार्क",
+  "themeSystem": "सिस्टम",
+  "retry": "पुन्हा प्रयत्न करा"
 }

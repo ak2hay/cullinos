@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cullinos_waiter/core/waiter_colors.dart';
 import 'package:cullinos_waiter/core/waiter_spacing.dart';
+import 'package:cullinos_waiter/widgets/waiter_motion.dart';
 
 class WaiterSoftCard extends StatelessWidget {
   const WaiterSoftCard({
@@ -24,18 +25,21 @@ class WaiterSoftCard extends StatelessWidget {
       margin: margin,
       padding: padding ?? const EdgeInsets.all(WaiterSpacing.cardPad),
       decoration: BoxDecoration(
-        color: color ?? WaiterColors.surface,
+        color: color ?? WaiterColors.surfaceOf(context),
         borderRadius: BorderRadius.circular(WaiterSpacing.radiusMd),
         boxShadow: WaiterSpacing.softShadow(),
-        border: Border.all(color: WaiterColors.borderLight),
+        border: Border.all(color: WaiterColors.borderLightOf(context)),
       ),
       child: child,
     );
     if (onTap == null) return card;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(WaiterSpacing.radiusMd),
-      child: card,
+    return WaiterPressable(
+      scale: 0.98,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(WaiterSpacing.radiusMd),
+        child: card,
+      ),
     );
   }
 }

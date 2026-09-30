@@ -115,5 +115,10 @@
   "confirm": "Confirm",
   "unmerge": "Unmerge",
   "openTable": "Open {table}",
-  "mergedTableHint": "Orders and bill for this table are on {table}."
+  "mergedTableHint": "Orders and bill for this table are on {table}.",
+  "appearance": "రూపం",
+  "themeLight": "లైట్",
+  "themeDark": "డార్క్",
+  "themeSystem": "సిస్టమ్",
+  "retry": "మళ్లీ ప్రయత్నించండి"
 }

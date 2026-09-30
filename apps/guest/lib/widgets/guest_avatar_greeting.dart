@@ -82,7 +82,7 @@ class GuestAvatarGreeting extends StatelessWidget {
                             color: GuestColors.primaryOf(context),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: GuestColors.scaffold,
+                              color: GuestColors.scaffoldOf(context),
                               width: 2,
                             ),
                           ),
@@ -121,7 +121,7 @@ class GuestAvatarGreeting extends StatelessWidget {
               Text(
                 'Hello,',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: GuestColors.muted,
+                      color: GuestColors.mutedOf(context),
                       fontWeight: FontWeight.w500,
                     ),
               ),

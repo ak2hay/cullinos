@@ -37,6 +37,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   List<dynamic> _favorites = [];
   List<dynamic> _memberships = [];
   bool _loading = true;
+
   /// Soft refresh while keeping chrome/list visible (filter apply, pull-to-refresh).
   bool _refreshing = false;
   String? _error;
@@ -135,7 +136,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
         veg: _veg ? true : null,
         offersOnly: _offersOnly ? true : null,
       );
-      final nearbyOutlets = List<dynamic>.from(nearby['outlets'] as List? ?? []);
+      final nearbyOutlets =
+          List<dynamic>.from(nearby['outlets'] as List? ?? []);
       final offers = await api.offers(lat: lat, lng: lng);
       List<Map<String, dynamic>> specials = [];
       try {
@@ -259,10 +261,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
           .toList();
     }
     if (type == 'manual_outlets') {
-      final ids = (payload['outletIds'] as List?)
-              ?.map((e) => e.toString())
-              .toSet() ??
-          <String>{};
+      final ids =
+          (payload['outletIds'] as List?)?.map((e) => e.toString()).toSet() ??
+              <String>{};
       if (ids.isEmpty) return all.take(8).toList();
       return all
           .where((o) => ids.contains(o['id']?.toString()))
@@ -307,7 +308,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
-      backgroundColor: GuestColors.surface,
+      backgroundColor: GuestColors.surfaceOf(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -364,7 +365,12 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
   }
 
   bool get _hasActiveFilters =>
-      _dineIn || _takeaway || _delivery || _offersOnly || _veg || _radiusKm != 10.0;
+      _dineIn ||
+      _takeaway ||
+      _delivery ||
+      _offersOnly ||
+      _veg ||
+      _radiusKm != 10.0;
 
   // ─── Build ─────────────────────────────────────────────────────────────────
 
@@ -373,123 +379,134 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     final auth = ref.watch(authControllerProvider);
 
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       body: SafeArea(
-        child: _loading
-            ? const GuestLoading()
-            : _error != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(GuestSpacing.page),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(_error!, textAlign: TextAlign.center),
-                          const SizedBox(height: 12),
-                          TextButton(
-                              onPressed: () => _load(),
-                              child: const Text('Retry')),
-                        ],
-                      ),
-                    ),
-                  )
-                : Stack(
-                    children: [
-                      RefreshIndicator(
-                        color: GuestColors.primary,
-                        onRefresh: () => _load(soft: true),
-                        child: CustomScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          slivers: [
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                    GuestSpacing.page, 16, GuestSpacing.page, 0),
-                                child: _buildTopHeader(auth),
-                              ),
-                            ),
-                            SliverPadding(
-                              padding: const EdgeInsets.fromLTRB(
-                                  GuestSpacing.page, 16, GuestSpacing.page, 110),
-                              sliver: SliverList(
-                                delegate: SliverChildListDelegate([
-                                  _buildSearchRow(),
-                                  if (_search.text.trim().length >= 2)
-                                    _buildSearchSuggestions(),
-                                  if (_resultSummary != null) ...[
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      _resultSummary!,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: GuestColors.muted,
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 20),
-                                  _buildCategorySquares(),
-                                  const SizedBox(height: 20),
-                                  _buildPromo(),
-                                  if (_filteredOutlets.isNotEmpty) ...[
-                                    const SizedBox(height: 24),
-                                    _buildPopularNearYou(),
-                                  ],
-                                  if (_specials.isNotEmpty) ...[
-                                    const SizedBox(height: 24),
-                                    _buildSpecialDishes(),
-                                  ],
-                                  if (_uniqueCuisines.isNotEmpty) ...[
-                                    const SizedBox(height: 24),
-                                    _buildCuisinesForMood(),
-                                  ],
-                                  for (final section in _sections)
-                                    Builder(builder: (ctx) {
-                                      final items = _outletsForSection(section);
-                                      if (items.isEmpty) {
-                                        return const SizedBox.shrink();
-                                      }
-                                      return _buildSectionRow(section, items);
-                                    }),
-                                  if (auth.isAuthenticated) ...[
-                                    if (_recentOrders.isNotEmpty) ...[
-                                      const SizedBox(height: 24),
-                                      _buildRecentOrders(),
-                                    ],
-                                    if (_favorites.isNotEmpty) ...[
-                                      const SizedBox(height: 16),
-                                      _buildFavorites(),
-                                    ],
-                                    const SizedBox(height: 16),
-                                    _buildLoyalty(),
-                                  ],
-                                ]),
-                              ),
-                            ),
-                            if (_outlets.isEmpty)
-                              SliverFillRemaining(
-                                hasScrollBody: false,
-                                child: GuestEmptyState(
-                                  message: _search.text.trim().length >= 2
-                                      ? 'No restaurants match "${_search.text.trim()}".'
-                                      : 'No listed outlets nearby yet. Scan a table QR to order.',
-                                ),
-                              ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          switchInCurve: Curves.easeOutCubic,
+          child: _loading
+              ? const GuestLoading()
+              : _error != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(GuestSpacing.page),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(_error!, textAlign: TextAlign.center),
+                            const SizedBox(height: 12),
+                            TextButton(
+                                onPressed: () => _load(),
+                                child: const Text('Retry')),
                           ],
                         ),
                       ),
-                      if (_refreshing)
-                        const Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          child: LinearProgressIndicator(
-                            minHeight: 2,
-                            color: GuestColors.primary,
+                    )
+                  : Stack(
+                      children: [
+                        RefreshIndicator(
+                          color: GuestColors.primaryOf(context),
+                          onRefresh: () => _load(soft: true),
+                          child: CustomScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            slivers: [
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                      GuestSpacing.page,
+                                      16,
+                                      GuestSpacing.page,
+                                      0),
+                                  child: _buildTopHeader(auth),
+                                ),
+                              ),
+                              SliverPadding(
+                                padding: const EdgeInsets.fromLTRB(
+                                    GuestSpacing.page,
+                                    16,
+                                    GuestSpacing.page,
+                                    110),
+                                sliver: SliverList(
+                                  delegate: SliverChildListDelegate([
+                                    _buildSearchRow(),
+                                    if (_search.text.trim().length >= 2)
+                                      _buildSearchSuggestions(),
+                                    if (_resultSummary != null) ...[
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        _resultSummary!,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: GuestColors.mutedOf(context),
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 20),
+                                    _buildCategorySquares(),
+                                    const SizedBox(height: 20),
+                                    _buildPromo(),
+                                    if (_filteredOutlets.isNotEmpty) ...[
+                                      const SizedBox(height: 24),
+                                      _buildPopularNearYou(),
+                                    ],
+                                    if (_specials.isNotEmpty) ...[
+                                      const SizedBox(height: 24),
+                                      _buildSpecialDishes(),
+                                    ],
+                                    if (_uniqueCuisines.isNotEmpty) ...[
+                                      const SizedBox(height: 24),
+                                      _buildCuisinesForMood(),
+                                    ],
+                                    for (final section in _sections)
+                                      Builder(builder: (ctx) {
+                                        final items =
+                                            _outletsForSection(section);
+                                        if (items.isEmpty) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        return _buildSectionRow(section, items);
+                                      }),
+                                    if (auth.isAuthenticated) ...[
+                                      if (_recentOrders.isNotEmpty) ...[
+                                        const SizedBox(height: 24),
+                                        _buildRecentOrders(),
+                                      ],
+                                      if (_favorites.isNotEmpty) ...[
+                                        const SizedBox(height: 16),
+                                        _buildFavorites(),
+                                      ],
+                                      const SizedBox(height: 16),
+                                      _buildLoyalty(),
+                                    ],
+                                  ]),
+                                ),
+                              ),
+                              if (_outlets.isEmpty)
+                                SliverFillRemaining(
+                                  hasScrollBody: false,
+                                  child: GuestEmptyState(
+                                    message: _search.text.trim().length >= 2
+                                        ? 'No restaurants match "${_search.text.trim()}".'
+                                        : 'No listed outlets nearby yet. Scan a table QR to order.',
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                    ],
-                  ),
+                        if (_refreshing)
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            child: LinearProgressIndicator(
+                              minHeight: 2,
+                              color: GuestColors.primaryOf(context),
+                            ),
+                          ),
+                      ],
+                    ),
+        ),
       ),
     );
   }
@@ -513,30 +530,30 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
           ],
         ),
         const SizedBox(height: 3),
-        const Text(
+        Text(
           'Good Food. Great People.',
           style: TextStyle(
             fontSize: 12,
-            color: GuestColors.muted,
+            color: GuestColors.mutedOf(context),
             fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 18),
-        const Text(
+        Text(
           'Explore',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w900,
-            color: GuestColors.ink,
+            color: GuestColors.inkOf(context),
             letterSpacing: -0.5,
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           'Discover great food around you',
           style: TextStyle(
             fontSize: 14,
-            color: GuestColors.muted,
+            color: GuestColors.mutedOf(context),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -561,25 +578,25 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
             decoration: InputDecoration(
               hintText: 'Search restaurants, cuisine…',
               hintStyle:
-                  const TextStyle(color: GuestColors.muted, fontSize: 14),
-              prefixIcon: const Icon(Icons.search_rounded,
-                  color: GuestColors.muted, size: 22),
+                  TextStyle(color: GuestColors.mutedOf(context), fontSize: 14),
+              prefixIcon: Icon(Icons.search_rounded,
+                  color: GuestColors.mutedOf(context), size: 22),
               filled: true,
-              fillColor: GuestColors.surface,
+              fillColor: GuestColors.surfaceOf(context),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
-                borderSide: const BorderSide(color: GuestColors.border),
+                borderSide: BorderSide(color: GuestColors.borderOf(context)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
-                borderSide: const BorderSide(color: GuestColors.border),
+                borderSide: BorderSide(color: GuestColors.borderOf(context)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
-                borderSide:
-                    const BorderSide(color: GuestColors.primary, width: 1.5),
+                borderSide: BorderSide(
+                    color: GuestColors.primaryOf(context), width: 1.5),
               ),
             ),
           ),
@@ -600,8 +617,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                 child: Container(
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(
-                    color: GuestColors.primary,
+                  decoration: BoxDecoration(
+                    color: GuestColors.primaryOf(context),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -619,17 +636,18 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Material(
-        color: GuestColors.surface,
+        color: GuestColors.surfaceOf(context),
         elevation: 2,
         borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
         child: Column(
           children: [
             for (var i = 0; i < items.length; i++) ...[
-              if (i > 0) const Divider(height: 1, color: GuestColors.borderLight),
+              if (i > 0)
+                Divider(height: 1, color: GuestColors.borderLightOf(context)),
               ListTile(
                 dense: true,
-                leading: const Icon(Icons.storefront_outlined,
-                    color: GuestColors.primary),
+                leading: Icon(Icons.storefront_outlined,
+                    color: GuestColors.primaryOf(context)),
                 title: Text(
                   items[i].name,
                   maxLines: 1,
@@ -706,7 +724,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
 
   Widget _buildCategorySquares() {
     final cats = <(String, IconData, Color)>[
-      ('All', Icons.grid_view_rounded, GuestColors.primary),
+      ('All', Icons.grid_view_rounded, GuestColors.primaryOf(context)),
       ('Indian', Icons.soup_kitchen_outlined, const Color(0xFFE85D04)),
       ('Chinese', Icons.ramen_dining_rounded, const Color(0xFFDC2626)),
       ('Fast Food', Icons.lunch_dining_rounded, const Color(0xFFF59E0B)),
@@ -733,10 +751,12 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
               width: 72,
               padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: BoxDecoration(
-                color: selected ? color.withValues(alpha: 0.12) : GuestColors.surface,
+                color: selected
+                    ? color.withValues(alpha: 0.12)
+                    : GuestColors.surfaceOf(context),
                 borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
                 border: Border.all(
-                  color: selected ? color : GuestColors.border,
+                  color: selected ? color : GuestColors.borderOf(context),
                   width: selected ? 1.5 : 1,
                 ),
                 boxShadow: selected ? [] : GuestSpacing.cardShadow,
@@ -760,7 +780,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
-                      color: selected ? color : GuestColors.ink,
+                      color: selected ? color : GuestColors.inkOf(context),
                     ),
                   ),
                 ],
@@ -780,9 +800,10 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
         : Container(
             padding: const EdgeInsets.all(GuestSpacing.cardPad),
             decoration: BoxDecoration(
-              color: GuestColors.primaryDeep,
+              color: GuestColors.primaryDeepOf(context),
               borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
-              boxShadow: GuestSpacing.softShadow(color: GuestColors.primary),
+              boxShadow: GuestSpacing.softShadow(
+                  color: GuestColors.primaryOf(context)),
             ),
             child: Stack(
               clipBehavior: Clip.none,
@@ -822,21 +843,21 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                     GestureDetector(
                       onTap: () => context.go('/offers'),
                       child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Text(
-                        'View Offers',
-                        style: TextStyle(
-                          color: GuestColors.primaryDeep,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          'View Offers',
+                          style: TextStyle(
+                            color: GuestColors.primaryDeepOf(context),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
-                    ),
                     ),
                   ],
                 ),
@@ -861,18 +882,17 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                 width: 200,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: GuestColors.primarySoft,
-                  borderRadius:
-                      BorderRadius.circular(GuestSpacing.radiusMd),
+                  color: GuestColors.primarySoftOf(context),
+                  borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       o['code']?.toString() ?? 'Offer',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        color: GuestColors.primaryDeep,
+                        color: GuestColors.primaryDeepOf(context),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -882,9 +902,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                           'Special deal',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: GuestColors.muted,
+                        color: GuestColors.mutedOf(context),
                       ),
                     ),
                   ],
@@ -927,8 +947,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
               padding: const EdgeInsets.only(bottom: 12),
               child: GuestRestaurantCardHorizontal(
                 name: o['name']?.toString() ?? '',
-                imageUrl: o['coverImageUrl']?.toString() ??
-                    o['imageUrl']?.toString(),
+                imageUrl:
+                    o['coverImageUrl']?.toString() ?? o['imageUrl']?.toString(),
                 cuisines: cuisineTags,
                 distanceKm: (o['distanceKm'] as num?)?.toDouble(),
                 rating: (o['averageRating'] as num?)?.toDouble(),
@@ -1006,9 +1026,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
               final itemId = item['id']?.toString();
               return GestureDetector(
                 onTap: () {
-                  if (orgSlug != null &&
-                      outletSlug != null &&
-                      itemId != null) {
+                  if (orgSlug != null && outletSlug != null && itemId != null) {
                     context.push('/o/$orgSlug/$outletSlug/item/$itemId');
                   } else if (orgSlug != null && outletSlug != null) {
                     context.push('/o/$orgSlug/$outletSlug');
@@ -1018,9 +1036,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                   width: 200,
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: GuestColors.surface,
-                    borderRadius:
-                        BorderRadius.circular(GuestSpacing.radiusMd),
+                    color: GuestColors.surfaceOf(context),
+                    borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
                     boxShadow: GuestSpacing.cardShadow,
                   ),
                   child: Row(
@@ -1059,9 +1076,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                                   '',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
-                                color: GuestColors.muted,
+                                color: GuestColors.mutedOf(context),
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -1151,13 +1168,11 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
               final prep = o['averagePrepMinutes'];
               return GuestRestaurantCardHorizontal(
                 name: o['name']?.toString() ?? '',
-                imageUrl: o['coverImageUrl']?.toString() ??
-                    o['imageUrl']?.toString(),
+                imageUrl:
+                    o['coverImageUrl']?.toString() ?? o['imageUrl']?.toString(),
                 cuisines: cuisineTags,
-                rating:
-                    rating != null ? (rating as num).toDouble() : null,
-                distanceKm:
-                    dist != null ? (dist as num).toDouble() : null,
+                rating: rating != null ? (rating as num).toDouble() : null,
+                distanceKm: dist != null ? (dist as num).toDouble() : null,
                 etaMinutes: prep != null ? '~$prep min' : null,
                 onTap: () {
                   final orgSlug = org['slug']?.toString();
@@ -1229,12 +1244,12 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: GuestColors.primarySoft,
+                      color: GuestColors.primarySoftOf(context),
                       borderRadius:
                           BorderRadius.circular(GuestSpacing.radiusSm),
                     ),
-                    child: const Icon(Icons.receipt_long_rounded,
-                        color: GuestColors.primary, size: 20),
+                    child: Icon(Icons.receipt_long_rounded,
+                        color: GuestColors.primaryOf(context), size: 20),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -1248,15 +1263,15 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                           style: const TextStyle(
                               fontWeight: FontWeight.w800, fontSize: 13),
                         ),
-                        if (outletName != null &&
-                            outletName != placeName) ...[
+                        if (outletName != null && outletName != placeName) ...[
                           const SizedBox(height: 1),
                           Text(
                             outletName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 11, color: GuestColors.muted),
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: GuestColors.mutedOf(context)),
                           ),
                         ],
                         const SizedBox(height: 4),
@@ -1268,8 +1283,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                               : '#${o['orderNumber'] ?? o['id']}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 12, color: GuestColors.ink),
+                          style: TextStyle(
+                              fontSize: 12, color: GuestColors.inkOf(context)),
                         ),
                         const SizedBox(height: 4),
                         Row(
@@ -1278,15 +1293,15 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: GuestColors.primarySoft,
+                                color: GuestColors.primarySoftOf(context),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
                                 status.isEmpty ? 'ORDER' : status,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
-                                  color: GuestColors.primaryDeep,
+                                  color: GuestColors.primaryDeepOf(context),
                                 ),
                               ),
                             ),
@@ -1300,8 +1315,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                               const SizedBox(width: 8),
                               Text(
                                 dateLabel,
-                                style: const TextStyle(
-                                    fontSize: 11, color: GuestColors.muted),
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: GuestColors.mutedOf(context)),
                               ),
                             ],
                           ],
@@ -1309,7 +1325,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right, color: GuestColors.muted),
+                  Icon(Icons.chevron_right,
+                      color: GuestColors.mutedOf(context)),
                 ],
               ),
             ),
@@ -1339,13 +1356,12 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
             separatorBuilder: (_, __) => const SizedBox(width: 10),
             itemBuilder: (_, i) {
               final f = Map<String, dynamic>.from(_favorites[i] as Map);
-              final outlet =
-                  Map<String, dynamic>.from(f['outlet'] as Map);
-              final org = Map<String, dynamic>.from(
-                  outlet['organization'] as Map);
+              final outlet = Map<String, dynamic>.from(f['outlet'] as Map);
+              final org =
+                  Map<String, dynamic>.from(outlet['organization'] as Map);
               return GuestSoftCard(
-                onTap: () => context.push(
-                    '/o/${org['slug']}/${outlet['slug']}'),
+                onTap: () =>
+                    context.push('/o/${org['slug']}/${outlet['slug']}'),
                 padding: const EdgeInsets.all(12),
                 child: SizedBox(
                   width: 130,
@@ -1374,8 +1390,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                         org['name']?.toString() ?? '',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 11, color: GuestColors.muted),
+                        style: TextStyle(
+                            fontSize: 11, color: GuestColors.mutedOf(context)),
                       ),
                     ],
                   ),
@@ -1404,17 +1420,18 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
           GuestSoftCard(
             onTap: () => context.push('/wallets'),
             padding: const EdgeInsets.all(12),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.card_giftcard_rounded, color: GuestColors.primary),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
+                Icon(Icons.card_giftcard_rounded,
+                    color: GuestColors.primaryOf(context)),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: const Text(
                     'Earn points at Cullinos partners — open Rewards',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                   ),
                 ),
-                Icon(Icons.chevron_right, color: GuestColors.muted),
+                Icon(Icons.chevron_right, color: GuestColors.mutedOf(context)),
               ],
             ),
           )
@@ -1426,12 +1443,12 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
               children: [
                 for (var i = 0; i < preview.length; i++) ...[
                   if (i > 0)
-                    const Divider(height: 14, color: GuestColors.borderLight),
+                    Divider(
+                        height: 14, color: GuestColors.borderLightOf(context)),
                   Builder(builder: (_) {
-                    final r =
-                        Map<String, dynamic>.from(preview[i] as Map);
-                    final org = Map<String, dynamic>.from(
-                        r['organization'] as Map);
+                    final r = Map<String, dynamic>.from(preview[i] as Map);
+                    final org =
+                        Map<String, dynamic>.from(r['organization'] as Map);
                     final pts = r['loyaltyPoints'] ?? 0;
                     return Row(
                       children: [
@@ -1439,11 +1456,11 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: GuestColors.primarySoft,
+                            color: GuestColors.primarySoftOf(context),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.storefront_rounded,
-                              size: 16, color: GuestColors.primary),
+                          child: Icon(Icons.storefront_rounded,
+                              size: 16, color: GuestColors.primaryOf(context)),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -1457,10 +1474,10 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                         ),
                         Text(
                           '$pts pts',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 12,
-                            color: GuestColors.primaryDeep,
+                            color: GuestColors.primaryDeepOf(context),
                           ),
                         ),
                       ],
@@ -1473,10 +1490,10 @@ class _ExplorePageState extends ConsumerState<ExplorePage> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'View all ${_memberships.length} restaurants →',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 12,
-                        color: GuestColors.primary,
+                        color: GuestColors.primaryOf(context),
                       ),
                     ),
                   ),
@@ -1573,161 +1590,186 @@ class _FilterSheetState extends State<_FilterSheet> {
           maxHeight: MediaQuery.sizeOf(context).height * 0.92,
         ),
         child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: GuestColors.border,
-                  borderRadius: BorderRadius.circular(2),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: GuestColors.borderOf(context),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Filter',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Order Mode',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _modeChip(
+                            'Dine In',
+                            Icons.restaurant_rounded,
+                            _dineIn,
+                            () => setState(() {
+                                  _dineIn = !_dineIn;
+                                  if (_dineIn) {
+                                    _takeaway = false;
+                                    _delivery = false;
+                                  }
+                                })),
+                        _modeChip(
+                            'Takeaway',
+                            Icons.shopping_bag_outlined,
+                            _takeaway,
+                            () => setState(() {
+                                  _takeaway = !_takeaway;
+                                  if (_takeaway) {
+                                    _dineIn = false;
+                                    _delivery = false;
+                                  }
+                                })),
+                        _modeChip(
+                            'Delivery',
+                            Icons.delivery_dining_rounded,
+                            _delivery,
+                            () => setState(() {
+                                  _delivery = !_delivery;
+                                  if (_delivery) {
+                                    _dineIn = false;
+                                    _takeaway = false;
+                                  }
+                                })),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Divider(color: GuestColors.borderLightOf(context)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Veg Only',
+                                  style:
+                                      const TextStyle(fontWeight: FontWeight.w700)),
+                              Text('Show vegetarian restaurants',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: GuestColors.mutedOf(context))),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: _veg,
+                          activeColor: GuestColors.primaryOf(context),
+                          onChanged: (v) => setState(() => _veg = v),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Offers Only',
+                                  style:
+                                      const TextStyle(fontWeight: FontWeight.w700)),
+                              Text('Show places with active deals',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: GuestColors.mutedOf(context))),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: _offersOnly,
+                          activeColor: GuestColors.primaryOf(context),
+                          onChanged: (v) => setState(() => _offersOnly = v),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Divider(color: GuestColors.borderLightOf(context)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Text('Radius',
+                            style: TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(width: 8),
+                        Text('${_radiusKm.toInt()} km',
+                            style: TextStyle(
+                                color: GuestColors.primaryOf(context),
+                                fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [5.0, 10.0, 15.0, 25.0].map((km) {
+                        final sel = _radiusKm == km;
+                        return ChoiceChip(
+                          label: Text('${km.toInt()} km'),
+                          selected: sel,
+                          selectedColor: GuestColors.primarySoftOf(context),
+                          onSelected: (_) => setState(() => _radiusKm = km),
+                          labelStyle: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: sel
+                                ? GuestColors.primaryDeepOf(context)
+                                : GuestColors.inkOf(context),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Filter',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Order Mode',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _modeChip(
-                    'Dine In', Icons.restaurant_rounded, _dineIn,
-                    () => setState(() {
-                          _dineIn = !_dineIn;
-                          if (_dineIn) { _takeaway = false; _delivery = false; }
-                        })),
-                _modeChip(
-                    'Takeaway', Icons.shopping_bag_outlined, _takeaway,
-                    () => setState(() {
-                          _takeaway = !_takeaway;
-                          if (_takeaway) { _dineIn = false; _delivery = false; }
-                        })),
-                _modeChip(
-                    'Delivery', Icons.delivery_dining_rounded, _delivery,
-                    () => setState(() {
-                          _delivery = !_delivery;
-                          if (_delivery) { _dineIn = false; _takeaway = false; }
-                        })),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Divider(color: GuestColors.borderLight),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Veg Only',
-                          style: TextStyle(fontWeight: FontWeight.w700)),
-                      Text('Show vegetarian restaurants',
-                          style: TextStyle(
-                              fontSize: 12, color: GuestColors.muted)),
-                    ],
+            Padding(
+              padding: EdgeInsets.fromLTRB(20, 8, 20, 16 + safeBottom),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _apply,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: GuestColors.primaryOf(context),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(GuestSpacing.radiusMd),
+                    ),
                   ),
-                ),
-                Switch(
-                  value: _veg,
-                  activeColor: GuestColors.primary,
-                  onChanged: (v) => setState(() => _veg = v),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Offers Only',
-                          style: TextStyle(fontWeight: FontWeight.w700)),
-                      Text('Show places with active deals',
-                          style: TextStyle(
-                              fontSize: 12, color: GuestColors.muted)),
-                    ],
+                  child: const Text(
+                    'Apply Filters',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                   ),
-                ),
-                Switch(
-                  value: _offersOnly,
-                  activeColor: GuestColors.primary,
-                  onChanged: (v) => setState(() => _offersOnly = v),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Divider(color: GuestColors.borderLight),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Text('Radius',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(width: 8),
-                Text('${_radiusKm.toInt()} km',
-                    style: const TextStyle(color: GuestColors.primary, fontWeight: FontWeight.w700)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [5.0, 10.0, 15.0, 25.0].map((km) {
-                final sel = _radiusKm == km;
-                return ChoiceChip(
-                  label: Text('${km.toInt()} km'),
-                  selected: sel,
-                  selectedColor: GuestColors.primarySoft,
-                  onSelected: (_) => setState(() => _radiusKm = km),
-                  labelStyle: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: sel ? GuestColors.primaryDeep : GuestColors.ink,
-                  ),
-                );
-              }).toList(),
-            ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(20, 8, 20, 16 + safeBottom),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _apply,
-                style: FilledButton.styleFrom(
-                  backgroundColor: GuestColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(GuestSpacing.radiusMd),
-                  ),
-                ),
-                child: const Text(
-                  'Apply Filters',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
@@ -1738,13 +1780,16 @@ class _FilterSheetState extends State<_FilterSheet> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? GuestColors.primarySoft : GuestColors.surface,
+          color: selected
+              ? GuestColors.primarySoftOf(context)
+              : GuestColors.surfaceOf(context),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: selected ? GuestColors.primary : GuestColors.border,
+            color: selected
+                ? GuestColors.primaryOf(context)
+                : GuestColors.borderOf(context),
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -1753,8 +1798,9 @@ class _FilterSheetState extends State<_FilterSheet> {
           children: [
             Icon(icon,
                 size: 16,
-                color:
-                    selected ? GuestColors.primary : GuestColors.muted),
+                color: selected
+                    ? GuestColors.primaryOf(context)
+                    : GuestColors.mutedOf(context)),
             const SizedBox(width: 6),
             Text(
               label,
@@ -1764,8 +1810,8 @@ class _FilterSheetState extends State<_FilterSheet> {
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
                 color: selected
-                    ? GuestColors.primaryDeep
-                    : GuestColors.ink,
+                    ? GuestColors.primaryDeepOf(context)
+                    : GuestColors.inkOf(context),
               ),
             ),
           ],
@@ -1797,12 +1843,16 @@ class _RoundIconButton extends StatelessWidget {
         height: 44,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: active ? GuestColors.primarySoft : GuestColors.surface,
+          color: active
+              ? GuestColors.primarySoftOf(context)
+              : GuestColors.surfaceOf(context),
           boxShadow: GuestSpacing.softShadow(),
         ),
         child: Icon(
           icon,
-          color: active ? GuestColors.primary : GuestColors.ink,
+          color: active
+              ? GuestColors.primaryOf(context)
+              : GuestColors.inkOf(context),
           size: 22,
         ),
       ),

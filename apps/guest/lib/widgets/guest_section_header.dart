@@ -40,7 +40,7 @@ class GuestSectionHeader extends StatelessWidget {
                         text: title,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w800,
-                              color: GuestColors.ink,
+                              color: GuestColors.inkOf(context),
                             ),
                       ),
                     ],
@@ -51,7 +51,7 @@ class GuestSectionHeader extends StatelessWidget {
                   Text(
                     subtitle!,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: GuestColors.muted,
+                          color: GuestColors.mutedOf(context),
                         ),
                   ),
                 ],

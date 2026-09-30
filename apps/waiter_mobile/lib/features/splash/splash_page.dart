@@ -42,7 +42,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -52,11 +52,11 @@ class _SplashPageState extends ConsumerState<SplashPage> {
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w900,
-                color: WaiterColors.primary,
+                color: WaiterColors.primaryOf(context),
               ),
             ),
-            SizedBox(height: 16),
-            CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            const CircularProgressIndicator(),
           ],
         ),
       ),

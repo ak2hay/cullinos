@@ -372,4 +372,19 @@ class AppLocalizationsTa extends AppLocalizations {
   String mergedTableHint(String table) {
     return 'இந்த மேசையின் ஆர்டர் மற்றும் பில் $table இல் உள்ளது.';
   }
+
+  @override
+  String get appearance => 'தோற்றம்';
+
+  @override
+  String get themeLight => 'லைட்';
+
+  @override
+  String get themeDark => 'டார்க்';
+
+  @override
+  String get themeSystem => 'சிஸ்டம்';
+
+  @override
+  String get retry => 'மீண்டும் முயற்சிக்கவும்';
 }

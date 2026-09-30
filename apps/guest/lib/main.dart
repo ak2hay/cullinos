@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cullinos_guest/app.dart';
 import 'package:cullinos_guest/core/config.dart';
 import 'package:cullinos_guest/core/firebase/firebase_options.dart';
+import 'package:cullinos_guest/core/theme_mode_controller.dart';
 
 Future<void> bootstrapGuestApp(AppConfig config) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,5 +12,15 @@ Future<void> bootstrapGuestApp(AppConfig config) async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const ProviderScope(child: CullinosGuestApp()));
+  final themeMode = await GuestThemeModeController.load();
+  runApp(
+    ProviderScope(
+      overrides: [
+        themeModeProvider.overrideWith(
+          (ref) => GuestThemeModeController(themeMode),
+        ),
+      ],
+      child: const CullinosGuestApp(),
+    ),
+  );
 }

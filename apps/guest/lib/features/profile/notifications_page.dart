@@ -12,18 +12,23 @@ import 'package:cullinos_guest/widgets/guest_back_button.dart';
 import 'package:cullinos_guest/widgets/guest_empty_state.dart';
 import 'package:cullinos_guest/widgets/guest_soft_card.dart';
 
-TextStyle _fontFor(String? family, {double? size, FontWeight? weight, Color? color}) {
+TextStyle _fontFor(String? family,
+    {double? size, FontWeight? weight, Color? color}) {
   final name = (family ?? 'Inter').trim();
   switch (name) {
     case 'Poppins':
-      return GoogleFonts.poppins(fontSize: size, fontWeight: weight, color: color);
+      return GoogleFonts.poppins(
+          fontSize: size, fontWeight: weight, color: color);
     case 'Montserrat':
-      return GoogleFonts.montserrat(fontSize: size, fontWeight: weight, color: color);
+      return GoogleFonts.montserrat(
+          fontSize: size, fontWeight: weight, color: color);
     case 'Playfair Display':
-      return GoogleFonts.playfairDisplay(fontSize: size, fontWeight: weight, color: color);
+      return GoogleFonts.playfairDisplay(
+          fontSize: size, fontWeight: weight, color: color);
     case 'Inter':
     default:
-      return GoogleFonts.inter(fontSize: size, fontWeight: weight, color: color);
+      return GoogleFonts.inter(
+          fontSize: size, fontWeight: weight, color: color);
   }
 }
 
@@ -51,12 +56,17 @@ Map<String, dynamic> _creativeFromData(Map<String, dynamic> data) {
     } catch (_) {}
   }
   return {
-    if (data['creative_titleColor'] != null) 'titleColor': data['creative_titleColor'],
-    if (data['creative_bodyColor'] != null) 'bodyColor': data['creative_bodyColor'],
+    if (data['creative_titleColor'] != null)
+      'titleColor': data['creative_titleColor'],
+    if (data['creative_bodyColor'] != null)
+      'bodyColor': data['creative_bodyColor'],
     if (data['creative_bgColor'] != null) 'bgColor': data['creative_bgColor'],
-    if (data['creative_accentColor'] != null) 'accentColor': data['creative_accentColor'],
-    if (data['creative_fontFamily'] != null) 'fontFamily': data['creative_fontFamily'],
-    if (data['creative_ctaLabel'] != null) 'ctaLabel': data['creative_ctaLabel'],
+    if (data['creative_accentColor'] != null)
+      'accentColor': data['creative_accentColor'],
+    if (data['creative_fontFamily'] != null)
+      'fontFamily': data['creative_fontFamily'],
+    if (data['creative_ctaLabel'] != null)
+      'ctaLabel': data['creative_ctaLabel'],
   };
 }
 
@@ -98,7 +108,8 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     if (!mounted) return;
     setState(() {
       _rows = _rows
-          .where((r) => Map<String, dynamic>.from(r as Map)['id']?.toString() != id)
+          .where((r) =>
+              Map<String, dynamic>.from(r as Map)['id']?.toString() != id)
           .toList();
     });
     final data = n['data'] is Map
@@ -123,10 +134,10 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     }).length;
 
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       appBar: AppBar(
-        backgroundColor: GuestColors.scaffold,
-        foregroundColor: GuestColors.ink,
+        backgroundColor: GuestColors.scaffoldOf(context),
+        foregroundColor: GuestColors.inkOf(context),
         elevation: 0,
         leading: const GuestBackButton(fallbackPath: '/profile'),
         title: Column(
@@ -139,9 +150,9 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
             if (unreadCount > 0)
               Text(
                 '$unreadCount unread',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: GuestColors.primary,
+                  color: GuestColors.primaryOf(context),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -159,101 +170,109 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                 icon: const Icon(Icons.done_all_rounded, size: 18),
                 label: const Text('All read'),
                 style: TextButton.styleFrom(
-                  foregroundColor: GuestColors.primary,
+                  foregroundColor: GuestColors.primaryOf(context),
                 ),
               ),
             ),
         ],
       ),
-      body: _loading
-          ? const GuestLoading()
-          : _rows.isEmpty
-              ? const GuestEmptyState(
-                  message: 'No notifications yet.',
-                  icon: Icons.notifications_none_rounded,
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(GuestSpacing.page),
-                  itemCount: _rows.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) {
-                    final n = Map<String, dynamic>.from(_rows[i] as Map);
-                    final unread = n['readAt'] == null;
-                    final data = n['data'] is Map
-                        ? Map<String, dynamic>.from(n['data'] as Map)
-                        : <String, dynamic>{};
-                    final creative = _creativeFromData(data);
-                    final imageUrl = (data['imageUrl'] ?? creative['imageUrl'])
-                        ?.toString();
-                    final hasRich = (imageUrl != null && imageUrl.isNotEmpty) ||
-                        creative.isNotEmpty;
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 280),
+        switchInCurve: Curves.easeOutCubic,
+        child: _loading
+            ? const GuestLoading()
+            : _rows.isEmpty
+                ? const GuestEmptyState(
+                    message: 'No notifications yet.',
+                    icon: Icons.notifications_none_rounded,
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.all(GuestSpacing.page),
+                    itemCount: _rows.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) {
+                      final n = Map<String, dynamic>.from(_rows[i] as Map);
+                      final unread = n['readAt'] == null;
+                      final data = n['data'] is Map
+                          ? Map<String, dynamic>.from(n['data'] as Map)
+                          : <String, dynamic>{};
+                      final creative = _creativeFromData(data);
+                      final imageUrl =
+                          (data['imageUrl'] ?? creative['imageUrl'])
+                              ?.toString();
+                      final hasRich =
+                          (imageUrl != null && imageUrl.isNotEmpty) ||
+                              creative.isNotEmpty;
 
-                    if (hasRich) {
-                      return _RichNotificationCard(
-                        title: n['title']?.toString() ?? '',
-                        body: n['body']?.toString() ?? '',
-                        unread: unread,
-                        imageUrl: imageUrl,
-                        creative: creative,
+                      if (hasRich) {
+                        return _RichNotificationCard(
+                          title: n['title']?.toString() ?? '',
+                          body: n['body']?.toString() ?? '',
+                          unread: unread,
+                          imageUrl: imageUrl,
+                          creative: creative,
+                          onTap: () => _openNotification(n),
+                        );
+                      }
+
+                      return GuestSoftCard(
+                        color: unread
+                            ? GuestColors.primarySoftOf(context)
+                            : GuestColors.surfaceOf(context),
                         onTap: () => _openNotification(n),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: unread
+                                    ? GuestColors.primaryOf(context)
+                                    : GuestColors.borderLightOf(context),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                unread
+                                    ? Icons.notifications_active_rounded
+                                    : Icons.notifications_outlined,
+                                size: 18,
+                                color: unread
+                                    ? Colors.white
+                                    : GuestColors.mutedOf(context),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    n['title']?.toString() ?? '',
+                                    style: TextStyle(
+                                      fontWeight: unread
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
+                                      color: GuestColors.inkOf(context),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    n['body']?.toString() ?? '',
+                                    style: TextStyle(
+                                      color: GuestColors.mutedOf(context),
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       );
-                    }
-
-                    return GuestSoftCard(
-                      color: unread
-                          ? GuestColors.primarySoft
-                          : GuestColors.surface,
-                      onTap: () => _openNotification(n),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: unread
-                                  ? GuestColors.primary
-                                  : GuestColors.borderLight,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              unread
-                                  ? Icons.notifications_active_rounded
-                                  : Icons.notifications_outlined,
-                              size: 18,
-                              color: unread ? Colors.white : GuestColors.muted,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  n['title']?.toString() ?? '',
-                                  style: TextStyle(
-                                    fontWeight: unread
-                                        ? FontWeight.w800
-                                        : FontWeight.w600,
-                                    color: GuestColors.ink,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  n['body']?.toString() ?? '',
-                                  style: const TextStyle(
-                                    color: GuestColors.muted,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                    },
+                  ),
+      ),
     );
   }
 }
@@ -277,10 +296,14 @@ class _RichNotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = _parseColor(creative['bgColor']) ?? GuestColors.surface;
-    final titleColor = _parseColor(creative['titleColor']) ?? GuestColors.ink;
-    final bodyColor = _parseColor(creative['bodyColor']) ?? GuestColors.muted;
-    final accent = _parseColor(creative['accentColor']) ?? GuestColors.primary;
+    final bg =
+        _parseColor(creative['bgColor']) ?? GuestColors.surfaceOf(context);
+    final titleColor =
+        _parseColor(creative['titleColor']) ?? GuestColors.inkOf(context);
+    final bodyColor =
+        _parseColor(creative['bodyColor']) ?? GuestColors.mutedOf(context);
+    final accent =
+        _parseColor(creative['accentColor']) ?? GuestColors.primaryOf(context);
     final font = creative['fontFamily']?.toString();
     final cta = creative['ctaLabel']?.toString() ?? 'Open';
     final headlineSize =
@@ -302,7 +325,7 @@ class _RichNotificationCard extends StatelessWidget {
                   imageUrl!,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
-                    color: GuestColors.borderLight,
+                    color: GuestColors.borderLightOf(context),
                     alignment: Alignment.center,
                     child: const Icon(Icons.image_not_supported_outlined),
                   ),

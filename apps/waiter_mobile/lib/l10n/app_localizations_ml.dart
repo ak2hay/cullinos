@@ -373,4 +373,19 @@ class AppLocalizationsMl extends AppLocalizations {
   String mergedTableHint(String table) {
     return 'Orders and bill for this table are on $table.';
   }
+
+  @override
+  String get appearance => 'രൂപഭാവം';
+
+  @override
+  String get themeLight => 'ലൈറ്റ്';
+
+  @override
+  String get themeDark => 'ഡാർക്ക്';
+
+  @override
+  String get themeSystem => 'സിസ്റ്റം';
+
+  @override
+  String get retry => 'വീണ്ടും ശ്രമിക്കുക';
 }

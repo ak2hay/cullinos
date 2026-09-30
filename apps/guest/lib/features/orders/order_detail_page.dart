@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cullinos_guest/core/friendly_api_error.dart';
 import 'package:cullinos_guest/core/guest_colors.dart';
 import 'package:cullinos_guest/core/guest_spacing.dart';
 import 'package:cullinos_guest/data/guest_api.dart';
@@ -43,11 +45,20 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   Future<void> _load() async {
     try {
       final order = await ref.read(guestApiProvider).order(widget.orderId);
-      setState(() => _order = order);
+      if (!mounted) return;
+      setState(() {
+        _order = order;
+        _error = null;
+      });
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (!mounted) return;
+      final notFound = e is DioException && e.response?.statusCode == 404;
+      setState(() => _error = notFound
+          ? 'Your order was received, but we couldn’t load its details '
+              'on this account. Please ask the restaurant staff for its status.'
+          : friendlyApiError(e, fallback: 'Could not load this order.'));
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -102,7 +113,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$unavailableCount item(s) are currently unavailable.'),
-            backgroundColor: GuestColors.primary,
+            backgroundColor: GuestColors.primaryOf(context),
           ),
         );
       }
@@ -125,7 +136,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: GuestColors.surface,
+        backgroundColor: GuestColors.surfaceOf(context),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(GuestSpacing.radiusMd),
         ),
@@ -169,7 +180,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
-              backgroundColor: GuestColors.primary,
+              backgroundColor: GuestColors.primaryOf(context),
             ),
             child: const Text('Submit'),
           ),
@@ -185,9 +196,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Thanks for your review! 🌟'),
-          backgroundColor: GuestColors.primary,
+        SnackBar(
+          content: const Text('Thanks for your review! 🌟'),
+          backgroundColor: GuestColors.primaryOf(context),
         ),
       );
     }
@@ -197,9 +208,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        backgroundColor: GuestColors.scaffold,
+        backgroundColor: GuestColors.scaffoldOf(context),
         appBar: AppBar(
-          backgroundColor: GuestColors.scaffold,
+          backgroundColor: GuestColors.scaffoldOf(context),
           elevation: 0,
           leading: const GuestBackButton(fallbackPath: '/orders'),
         ),
@@ -208,13 +219,36 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     }
     if (_error != null || _order == null) {
       return Scaffold(
-        backgroundColor: GuestColors.scaffold,
+        backgroundColor: GuestColors.scaffoldOf(context),
         appBar: AppBar(
-          backgroundColor: GuestColors.scaffold,
+          backgroundColor: GuestColors.scaffoldOf(context),
           elevation: 0,
           leading: const GuestBackButton(fallbackPath: '/orders'),
         ),
-        body: Center(child: Text(_error ?? 'Not found')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(GuestSpacing.page),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.receipt_long_outlined,
+                    size: 48, color: GuestColors.mutedOf(context)),
+                const SizedBox(height: 12),
+                Text(
+                  _error ?? 'Order not found.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: GuestColors.inkOf(context), fontSize: 15),
+                ),
+                const SizedBox(height: 16),
+                GuestPillButton(
+                  label: 'My orders',
+                  icon: Icons.list_alt_rounded,
+                  onPressed: () => context.go('/orders'),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
     final o = _order!;
@@ -231,10 +265,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     final isCancelled = step == -1;
 
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       appBar: AppBar(
-        backgroundColor: GuestColors.scaffold,
-        foregroundColor: GuestColors.ink,
+        backgroundColor: GuestColors.scaffoldOf(context),
+        foregroundColor: GuestColors.inkOf(context),
         elevation: 0,
         leading: const GuestBackButton(fallbackPath: '/orders'),
         title: const Text(
@@ -243,7 +277,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         ),
       ),
       body: RefreshIndicator(
-        color: GuestColors.primary,
+        color: GuestColors.primaryOf(context),
         onRefresh: _load,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
@@ -391,8 +425,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: done
-                              ? GuestColors.primary
-                              : GuestColors.borderLight,
+                              ? GuestColors.primaryOf(context)
+                              : GuestColors.borderLightOf(context),
                         ),
                         child: Icon(
                           done
@@ -400,7 +434,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                               : Icons.circle_outlined,
                           size: 16,
                           color:
-                              done ? Colors.white : GuestColors.muted,
+                              done ? Colors.white : GuestColors.mutedOf(context),
                         ),
                       ),
                       title: Text(
@@ -410,15 +444,15 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                               ? FontWeight.w700
                               : FontWeight.w500,
                           color:
-                              done ? GuestColors.ink : GuestColors.muted,
+                              done ? GuestColors.inkOf(context) : GuestColors.mutedOf(context),
                         ),
                       ),
                       subtitle: Text(
                         hint,
                         style: TextStyle(
                           color: current
-                              ? GuestColors.primaryDeep
-                              : GuestColors.muted,
+                              ? GuestColors.primaryDeepOf(context)
+                              : GuestColors.mutedOf(context),
                           fontSize: 12,
                         ),
                       ),
@@ -437,7 +471,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFE4E6),
+                        color: GuestColors.popularSoftOf(context),
                         borderRadius:
                             BorderRadius.circular(GuestSpacing.radiusSm),
                       ),
@@ -462,8 +496,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               GuestSoftCard(
                 child: Row(
                   children: [
-                    const Icon(Icons.delivery_dining_rounded,
-                        color: GuestColors.primary),
+                    Icon(Icons.delivery_dining_rounded,
+                        color: GuestColors.primaryOf(context)),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -477,8 +511,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                           if (delivery['address'] != null)
                             Text(
                               delivery['address'].toString(),
-                              style: const TextStyle(
-                                  color: GuestColors.muted, fontSize: 12),
+                              style: TextStyle(
+                                  color: GuestColors.mutedOf(context), fontSize: 12),
                             ),
                         ],
                       ),
@@ -504,17 +538,17 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                           width: 28,
                           height: 28,
                           decoration: BoxDecoration(
-                            color: GuestColors.primarySoft,
+                            color: GuestColors.primarySoftOf(context),
                             borderRadius:
                                 BorderRadius.circular(GuestSpacing.radiusSm),
                           ),
                           alignment: Alignment.center,
                           child: Text(
                             '×${item['quantity']}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              color: GuestColors.primaryDeep,
+                              color: GuestColors.primaryDeepOf(context),
                             ),
                           ),
                         ),
@@ -529,9 +563,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                         if (item['totalPrice'] != null)
                           Text(
                             '₹${item['totalPrice']}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w700,
-                              color: GuestColors.ink,
+                              color: GuestColors.inkOf(context),
                             ),
                           ),
                       ],

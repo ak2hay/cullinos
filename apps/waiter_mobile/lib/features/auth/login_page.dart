@@ -288,7 +288,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final l10n = AppLocalizations.of(context);
     final width = MediaQuery.sizeOf(context).width;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: WaiterColors.surfaceOf(context),
       body: SingleChildScrollView(
         child: Stack(
           children: [
@@ -317,7 +317,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 26, 22, 18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: WaiterColors.surfaceOf(context),
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
@@ -331,9 +331,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
+          Text(
             'Welcome to',
-            style: TextStyle(fontSize: 16, color: WaiterColors.muted),
+            style: TextStyle(fontSize: 16, color: WaiterColors.mutedOf(context)),
           ),
           const SizedBox(height: 2),
           Text(
@@ -341,7 +341,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: WaiterColors.ink,
+              color: WaiterColors.inkOf(context),
               letterSpacing: -0.5,
             ),
           ),
@@ -352,7 +352,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ? 'Enter the SMS code we sent to your phone'
                     : 'Enter the code we emailed you')
                 : 'Sign in to continue',
-            style: const TextStyle(fontSize: 14, color: WaiterColors.muted),
+            style: TextStyle(fontSize: 14, color: WaiterColors.mutedOf(context)),
           ),
           const SizedBox(height: 22),
           if (_msg91ReqId != null || _challengeToken != null)
@@ -382,9 +382,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           onSubmitted: (_) => _requestPhoneOtp(),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'We will send a one-time code by SMS to this number.',
-          style: TextStyle(fontSize: 12, color: WaiterColors.muted),
+          style: TextStyle(fontSize: 12, color: WaiterColors.mutedOf(context)),
         ),
         ..._captcha(),
         const SizedBox(height: 6),
@@ -427,9 +427,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'After password, we email a one-time code to this address (not SMS).',
-          style: TextStyle(fontSize: 12, color: WaiterColors.muted),
+          style: TextStyle(fontSize: 12, color: WaiterColors.mutedOf(context)),
         ),
         ..._captcha(),
         const SizedBox(height: 6),
@@ -506,14 +506,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       children: [
         Switch.adaptive(
           value: _remember,
-          activeTrackColor: WaiterColors.primary,
+          activeTrackColor: WaiterColors.primaryOf(context),
           onChanged: (v) => setState(() => _remember = v),
         ),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
             l10n.keepSignedIn,
-            style: const TextStyle(fontSize: 14, color: WaiterColors.ink),
+            style: TextStyle(fontSize: 14, color: WaiterColors.inkOf(context)),
           ),
         ),
       ],
@@ -524,15 +524,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final radius = BorderRadius.circular(14);
     return InputDecoration(
       hintText: hint,
-      prefixIcon: Icon(icon, color: WaiterColors.primary, size: 20),
+      prefixIcon: Icon(icon, color: WaiterColors.primaryOf(context), size: 20),
       contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       enabledBorder: OutlineInputBorder(
         borderRadius: radius,
-        borderSide: const BorderSide(color: WaiterColors.border),
+        borderSide: BorderSide(color: WaiterColors.borderOf(context)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: radius,
-        borderSide: const BorderSide(color: WaiterColors.primary, width: 1.6),
+        borderSide: BorderSide(color: WaiterColors.primaryOf(context), width: 1.6),
       ),
       border: OutlineInputBorder(borderRadius: radius),
     );
@@ -558,7 +558,7 @@ class _Hero extends StatelessWidget {
             'assets/images/login_hero.jpg',
             fit: BoxFit.cover,
             alignment: Alignment.centerRight,
-            errorBuilder: (_, __, ___) => Container(color: WaiterColors.primarySoft),
+            errorBuilder: (_, __, ___) => Container(color: WaiterColors.primarySoftOf(context)),
           ),
           DecoratedBox(
             decoration: BoxDecoration(
@@ -566,9 +566,9 @@ class _Hero extends StatelessWidget {
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.92),
-                  Colors.white.withValues(alpha: 0.55),
-                  Colors.white.withValues(alpha: 0.0),
+                  WaiterColors.surfaceOf(context).withValues(alpha: 0.92),
+                  WaiterColors.surfaceOf(context).withValues(alpha: 0.55),
+                  WaiterColors.surfaceOf(context).withValues(alpha: 0.0),
                 ],
                 stops: const [0.0, 0.5, 0.85],
               ),
@@ -581,7 +581,7 @@ class _Hero extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const ChefHatLogo(size: 58, color: WaiterColors.primaryDeep),
+                    ChefHatLogo(size: 58, color: WaiterColors.primaryDeepOf(context)),
                     const SizedBox(width: 10),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -592,15 +592,15 @@ class _Hero extends StatelessWidget {
                             fontSize: 32,
                             height: 1.0,
                             fontWeight: FontWeight.w800,
-                            color: WaiterColors.primaryDeep,
+                            color: WaiterColors.primaryDeepOf(context),
                             letterSpacing: -0.8,
                           ),
                         ),
-                        const Text(
+                        Text(
                           'Waiter App',
                           style: TextStyle(
                             fontSize: 17,
-                            color: WaiterColors.ink,
+                            color: WaiterColors.inkOf(context),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -609,12 +609,12 @@ class _Hero extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 14),
-                const Text(
+                Text(
                   'Faster service.\nHappier guests.',
                   style: TextStyle(
                     fontSize: 16,
                     height: 1.35,
-                    color: WaiterColors.ink,
+                    color: WaiterColors.inkOf(context),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -623,7 +623,7 @@ class _Hero extends StatelessWidget {
                   width: 44,
                   height: 3,
                   decoration: BoxDecoration(
-                    color: WaiterColors.primaryBright,
+                    color: WaiterColors.primaryBrightOf(context),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -654,8 +654,8 @@ class _PrimaryButton extends StatelessWidget {
       child: FilledButton(
         onPressed: loading ? null : onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: WaiterColors.primaryDeep,
-          disabledBackgroundColor: WaiterColors.primaryDeep.withValues(alpha: 0.6),
+          backgroundColor: WaiterColors.primaryDeepOf(context),
+          disabledBackgroundColor: WaiterColors.primaryDeepOf(context).withValues(alpha: 0.6),
           shape: const StadiumBorder(),
           padding: const EdgeInsets.symmetric(horizontal: 10),
         ),
@@ -716,18 +716,18 @@ class _OutlineButton extends StatelessWidget {
       height: 54,
       child: OutlinedButton.icon(
         onPressed: onPressed,
-        icon: Icon(icon, color: WaiterColors.primaryDeep),
+        icon: Icon(icon, color: WaiterColors.primaryDeepOf(context)),
         label: Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: WaiterColors.primaryDeep,
+            color: WaiterColors.primaryDeepOf(context),
           ),
         ),
         style: OutlinedButton.styleFrom(
-          backgroundColor: WaiterColors.primarySoft.withValues(alpha: 0.5),
-          side: const BorderSide(color: WaiterColors.primary, width: 1.2),
+          backgroundColor: WaiterColors.primarySoftOf(context).withValues(alpha: 0.5),
+          side: BorderSide(color: WaiterColors.primaryOf(context), width: 1.2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
       ),
@@ -740,14 +740,14 @@ class _OrDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
-        Expanded(child: Divider(color: WaiterColors.border)),
+        Expanded(child: Divider(color: WaiterColors.borderOf(context))),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14),
-          child: Text('or', style: TextStyle(color: WaiterColors.muted)),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Text('or', style: TextStyle(color: WaiterColors.mutedOf(context))),
         ),
-        Expanded(child: Divider(color: WaiterColors.border)),
+        Expanded(child: Divider(color: WaiterColors.borderOf(context))),
       ],
     );
   }
@@ -761,10 +761,12 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = WaiterColors.isDark(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFDECEC),
+        color: WaiterColors.softOf(
+            context, const Color(0xFFFDECEC), const Color(0xFFD32F2F)),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -778,13 +780,19 @@ class _ErrorBanner extends StatelessWidget {
               children: [
                 Text(
                   message,
-                  style: const TextStyle(color: Color(0xFFC62828), fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: dark ? const Color(0xFFFCA5A5) : const Color(0xFFC62828),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 if (hint != null) ...[
                   const SizedBox(height: 4),
                   Text(
                     hint!,
-                    style: const TextStyle(color: Color(0xFF8E3B3B), fontSize: 12.5),
+                    style: TextStyle(
+                      color: dark ? const Color(0xFFF1B4B4) : const Color(0xFF8E3B3B),
+                      fontSize: 12.5,
+                    ),
                   ),
                 ],
               ],
@@ -801,7 +809,7 @@ class _FooterIllustration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = WaiterColors.primary.withValues(alpha: 0.22);
+    final c = WaiterColors.primaryOf(context).withValues(alpha: 0.22);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -817,7 +825,7 @@ class _FooterIllustration extends StatelessWidget {
           style: GoogleFonts.caveat(
             fontSize: 17,
             height: 1.05,
-            color: WaiterColors.primary.withValues(alpha: 0.45),
+            color: WaiterColors.primaryOf(context).withValues(alpha: 0.45),
           ),
         ),
       ],

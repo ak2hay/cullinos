@@ -65,11 +65,11 @@ class _OffersPageState extends ConsumerState<OffersPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: GuestColors.scaffold,
+      backgroundColor: GuestColors.scaffoldOf(context),
       body: SafeArea(
         child: _loading
-            ? const Center(
-                child: CircularProgressIndicator(color: GuestColors.primary),
+            ? Center(
+                child: CircularProgressIndicator(color: GuestColors.primaryOf(context)),
               )
             : _error != null
                 ? Center(
@@ -89,7 +89,7 @@ class _OffersPageState extends ConsumerState<OffersPage> {
                     ),
                   )
                 : RefreshIndicator(
-                    color: GuestColors.primary,
+                    color: GuestColors.primaryOf(context),
                     onRefresh: _load,
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(
@@ -107,10 +107,10 @@ class _OffersPageState extends ConsumerState<OffersPage> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Deals near you from Cullinos partners',
                           style: TextStyle(
-                            color: GuestColors.muted,
+                            color: GuestColors.mutedOf(context),
                             fontSize: 13,
                           ),
                         ),
@@ -136,7 +136,7 @@ class _OffersPageState extends ConsumerState<OffersPage> {
                                 return Container(
                                   width: 260,
                                   decoration: BoxDecoration(
-                                    color: GuestColors.primaryDeep,
+                                    color: GuestColors.primaryDeepOf(context),
                                     borderRadius: BorderRadius.circular(
                                       GuestSpacing.radiusMd,
                                     ),
@@ -240,14 +240,14 @@ class _OffersPageState extends ConsumerState<OffersPage> {
                                       width: 48,
                                       height: 48,
                                       decoration: BoxDecoration(
-                                        color: GuestColors.primarySoft,
+                                        color: GuestColors.primarySoftOf(context),
                                         borderRadius: BorderRadius.circular(
                                           GuestSpacing.radiusSm,
                                         ),
                                       ),
-                                      child: const Icon(
+                                      child: Icon(
                                         Icons.local_offer_rounded,
-                                        color: GuestColors.primary,
+                                        color: GuestColors.primaryOf(context),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
@@ -269,8 +269,8 @@ class _OffersPageState extends ConsumerState<OffersPage> {
                                               desc,
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: GuestColors.muted,
+                                              style: TextStyle(
+                                                color: GuestColors.mutedOf(context),
                                                 fontSize: 12,
                                               ),
                                             ),
@@ -285,14 +285,14 @@ class _OffersPageState extends ConsumerState<OffersPage> {
                                                 vertical: 3,
                                               ),
                                               decoration: BoxDecoration(
-                                                color: GuestColors.primarySoft,
+                                                color: GuestColors.primarySoftOf(context),
                                                 borderRadius:
                                                     BorderRadius.circular(6),
                                               ),
                                               child: Text(
                                                 code,
-                                                style: const TextStyle(
-                                                  color: GuestColors.primaryDeep,
+                                                style: TextStyle(
+                                                  color: GuestColors.primaryDeepOf(context),
                                                   fontWeight: FontWeight.w800,
                                                   fontSize: 11,
                                                   letterSpacing: 0.4,
@@ -303,9 +303,9 @@ class _OffersPageState extends ConsumerState<OffersPage> {
                                         ],
                                       ),
                                     ),
-                                    const Icon(
+                                    Icon(
                                       Icons.chevron_right_rounded,
-                                      color: GuestColors.muted,
+                                      color: GuestColors.mutedOf(context),
                                     ),
                                   ],
                                 ),

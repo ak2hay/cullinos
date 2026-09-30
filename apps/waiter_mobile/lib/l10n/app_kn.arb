@@ -115,5 +115,10 @@
   "confirm": "Confirm",
   "unmerge": "Unmerge",
   "openTable": "Open {table}",
-  "mergedTableHint": "Orders and bill for this table are on {table}."
+  "mergedTableHint": "Orders and bill for this table are on {table}.",
+  "appearance": "ಗೋಚರತೆ",
+  "themeLight": "ಲೈಟ್",
+  "themeDark": "ಡಾರ್ಕ್",
+  "themeSystem": "ಸಿಸ್ಟಮ್",
+  "retry": "ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ"
 }

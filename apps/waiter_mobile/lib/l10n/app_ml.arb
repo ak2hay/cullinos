@@ -115,5 +115,10 @@
   "confirm": "Confirm",
   "unmerge": "Unmerge",
   "openTable": "Open {table}",
-  "mergedTableHint": "Orders and bill for this table are on {table}."
+  "mergedTableHint": "Orders and bill for this table are on {table}.",
+  "appearance": "രൂപഭാവം",
+  "themeLight": "ലൈറ്റ്",
+  "themeDark": "ഡാർക്ക്",
+  "themeSystem": "സിസ്റ്റം",
+  "retry": "വീണ്ടും ശ്രമിക്കുക"
 }

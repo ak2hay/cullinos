@@ -115,7 +115,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
       return GuestColors.popularRed;
     }
     if (s.contains('complet') || s.contains('deliver')) {
-      return GuestColors.primary;
+      return GuestColors.primaryOf(context);
     }
     return GuestColors.coral;
   }
@@ -150,115 +150,122 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
         if (!didPop) _handleBack();
       },
       child: Scaffold(
-      backgroundColor: GuestColors.scaffold,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                GuestSpacing.page - 8,
-                8,
-                GuestSpacing.page,
-                0,
+        backgroundColor: GuestColors.scaffoldOf(context),
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  GuestSpacing.page - 8,
+                  8,
+                  GuestSpacing.page,
+                  0,
+                ),
+                child: Row(
+                  children: [
+                    GuestBackButton(fallbackPath: fallback),
+                    const Expanded(
+                      child: GuestSectionHeader(title: 'Orders', emoji: '🧾'),
+                    ),
+                  ],
+                ),
               ),
-              child: Row(
-                children: [
-                  GuestBackButton(fallbackPath: fallback),
-                  const Expanded(
-                    child: GuestSectionHeader(title: 'Orders', emoji: '🧾'),
-                  ),
+              const SizedBox(height: 4),
+              TabBar(
+                controller: _tabs,
+                labelColor: GuestColors.primaryOf(context),
+                unselectedLabelColor: GuestColors.mutedOf(context),
+                indicatorColor: GuestColors.primaryOf(context),
+                indicatorSize: TabBarIndicatorSize.label,
+                labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+                tabs: const [
+                  Tab(text: 'Active'),
+                  Tab(text: 'Completed'),
+                  Tab(text: 'Cancelled'),
                 ],
               ),
-            ),
-            const SizedBox(height: 4),
-            TabBar(
-              controller: _tabs,
-              labelColor: GuestColors.primary,
-              unselectedLabelColor: GuestColors.muted,
-              indicatorColor: GuestColors.primary,
-              indicatorSize: TabBarIndicatorSize.label,
-              labelStyle:
-                  const TextStyle(fontWeight: FontWeight.w700),
-              tabs: const [
-                Tab(text: 'Active'),
-                Tab(text: 'Completed'),
-                Tab(text: 'Cancelled'),
-              ],
-            ),
-            Expanded(
-              child: _loading
-                  ? const GuestLoading()
-                  : _error != null
-                      ? Center(child: Text(_error!))
-                      : TabBarView(
-                          controller: _tabs,
-                          children: List.generate(3, (tabIndex) {
-                            final rows = _filter(tabIndex);
-                            return RefreshIndicator(
-                              color: GuestColors.primary,
-                              onRefresh: _load,
-                              child: rows.isEmpty
-                                  ? ListView(
-                                      children: [
-                                        const SizedBox(height: 40),
-                                        GuestEmptyState(
-                                          message: tabIndex == 0
-                                              ? 'No active orders right now.'
-                                              : 'No orders in this tab.',
-                                          icon:
-                                              Icons.receipt_long_outlined,
-                                        ),
-                                        const SizedBox(height: 20),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: GuestSpacing.page),
-                                          child: Column(
-                                            children: [
-                                              OutlinedButton.icon(
-                                                onPressed: () =>
-                                                    context.go('/explore'),
-                                                icon: const Icon(
-                                                    Icons.explore_rounded),
-                                                label:
-                                                    const Text('Explore restaurants'),
-                                                style:
-                                                    OutlinedButton.styleFrom(
-                                                  foregroundColor:
-                                                      GuestColors.primary,
-                                                  side: const BorderSide(
-                                                      color:
-                                                          GuestColors.primary),
-                                                ),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 280),
+                  switchInCurve: Curves.easeOutCubic,
+                  child: _loading
+                      ? const GuestLoading()
+                      : _error != null
+                          ? Center(child: Text(_error!))
+                          : TabBarView(
+                              controller: _tabs,
+                              children: List.generate(3, (tabIndex) {
+                                final rows = _filter(tabIndex);
+                                return RefreshIndicator(
+                                  color: GuestColors.primaryOf(context),
+                                  onRefresh: _load,
+                                  child: rows.isEmpty
+                                      ? ListView(
+                                          children: [
+                                            const SizedBox(height: 40),
+                                            GuestEmptyState(
+                                              message: tabIndex == 0
+                                                  ? 'No active orders right now.'
+                                                  : 'No orders in this tab.',
+                                              icon: Icons.receipt_long_outlined,
+                                            ),
+                                            const SizedBox(height: 20),
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal:
+                                                          GuestSpacing.page),
+                                              child: Column(
+                                                children: [
+                                                  OutlinedButton.icon(
+                                                    onPressed: () =>
+                                                        context.go('/explore'),
+                                                    icon: const Icon(
+                                                        Icons.explore_rounded),
+                                                    label: const Text(
+                                                        'Explore restaurants'),
+                                                    style: OutlinedButton
+                                                        .styleFrom(
+                                                      foregroundColor:
+                                                          GuestColors.primaryOf(
+                                                              context),
+                                                      side: BorderSide(
+                                                          color: GuestColors
+                                                              .primaryOf(
+                                                                  context)),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 10),
+                                                  OutlinedButton.icon(
+                                                    onPressed: () =>
+                                                        context.push('/scan'),
+                                                    icon: const Icon(Icons
+                                                        .qr_code_scanner_rounded),
+                                                    label: const Text(
+                                                        'Scan a table QR'),
+                                                    style: OutlinedButton
+                                                        .styleFrom(
+                                                      foregroundColor:
+                                                          GuestColors.mutedOf(
+                                                              context),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                              const SizedBox(height: 10),
-                                              OutlinedButton.icon(
-                                                onPressed: () =>
-                                                    context.push('/scan'),
-                                                icon: const Icon(
-                                                    Icons.qr_code_scanner_rounded),
-                                                label:
-                                                    const Text('Scan a table QR'),
-                                                style:
-                                                    OutlinedButton.styleFrom(
-                                                  foregroundColor:
-                                                      GuestColors.muted,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                  : _buildGroupedList(rows),
-                            );
-                          }),
-                        ),
-            ),
-          ],
+                                            ),
+                                          ],
+                                        )
+                                      : _buildGroupedList(rows),
+                                );
+                              }),
+                            ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -280,15 +287,15 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
               padding: const EdgeInsets.only(top: 8, bottom: 6),
               child: Row(
                 children: [
-                  const Icon(Icons.storefront_rounded,
-                      size: 15, color: GuestColors.muted),
+                  Icon(Icons.storefront_rounded,
+                      size: 15, color: GuestColors.mutedOf(context)),
                   const SizedBox(width: 6),
                   Text(
                     entry.key,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
-                      color: GuestColors.muted,
+                      color: GuestColors.mutedOf(context),
                     ),
                   ),
                 ],
@@ -328,11 +335,11 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: GuestColors.primarySoft,
+              color: GuestColors.primarySoftOf(context),
               borderRadius: BorderRadius.circular(GuestSpacing.radiusSm),
             ),
-            child: const Icon(Icons.receipt_long_rounded,
-                color: GuestColors.primary, size: 20),
+            child: Icon(Icons.receipt_long_rounded,
+                color: GuestColors.primaryOf(context), size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -347,8 +354,8 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
                 if (outlet?['name'] != null)
                   Text(
                     outlet!['name'].toString(),
-                    style: const TextStyle(
-                        color: GuestColors.muted, fontSize: 12),
+                    style: TextStyle(
+                        color: GuestColors.mutedOf(context), fontSize: 12),
                   ),
                 const SizedBox(height: 4),
                 _StatusChip(status: status, color: _statusColor(status)),
@@ -369,14 +376,14 @@ class _OrdersPageState extends ConsumerState<OrdersPage>
               if (date.isNotEmpty)
                 Text(
                   date,
-                  style: const TextStyle(
-                      fontSize: 11, color: GuestColors.muted),
+                  style: TextStyle(
+                      fontSize: 11, color: GuestColors.mutedOf(context)),
                 ),
               if (type != null)
                 Text(
                   type,
-                  style: const TextStyle(
-                      fontSize: 11, color: GuestColors.muted),
+                  style: TextStyle(
+                      fontSize: 11, color: GuestColors.mutedOf(context)),
                 ),
             ],
           ),

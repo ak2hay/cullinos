@@ -177,6 +177,8 @@ class GuestPaletteScope extends InheritedWidget {
 /// Prefer [primaryOf] / Theme [ColorScheme] under restaurant routes so outlet
 /// presets apply. Static consts remain Cullinos marketplace green.
 abstract final class GuestColors {
+  /// Light-mode neutrals. Widgets should read the `*Of(context)` variants so
+  /// dark mode applies; these consts back the light [GuestNeutrals] set.
   static const scaffold = Color(0xFFF8F9FA);
   static const surface = Color(0xFFFFFFFF);
   static const ink = Color(0xFF1A1C29);
@@ -188,33 +190,51 @@ abstract final class GuestColors {
   static const primaryDeep = Color(0xFF004D40);
   static const primarySoft = Color(0xFFE6F4F1);
 
-  /// Resolve against ambient restaurant palette / theme extension when present.
+  static GuestNeutrals _neutrals(BuildContext context) =>
+      Theme.of(context).extension<GuestNeutrals>() ?? GuestNeutrals.light;
+
+  static Color scaffoldOf(BuildContext context) => _neutrals(context).scaffold;
+  static Color surfaceOf(BuildContext context) => _neutrals(context).surface;
+  static Color inkOf(BuildContext context) => _neutrals(context).ink;
+  static Color mutedOf(BuildContext context) => _neutrals(context).muted;
+  static Color borderOf(BuildContext context) => _neutrals(context).border;
+  static Color borderLightOf(BuildContext context) =>
+      _neutrals(context).borderLight;
+  static Color coralSoftOf(BuildContext context) =>
+      _neutrals(context).coralSoft;
+  static Color popularSoftOf(BuildContext context) =>
+      _neutrals(context).popularSoft;
+
+  static bool isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  /// Pastel badge background that stays readable in dark mode.
+  static Color softOf(BuildContext context, Color light, Color accent) =>
+      isDark(context)
+          ? Color.alphaBlend(accent.withValues(alpha: 0.2), surfaceOf(context))
+          : light;
+
+  /// Resolve against the active theme (already restaurant- and brightness-aware).
   static Color primaryOf(BuildContext context) {
-    final scoped = GuestPaletteScope.maybeOf(context);
-    if (scoped != null) return scoped.primary;
     final ext = Theme.of(context).extension<GuestBrandColorsMarker>();
-    return ext?.primary ?? primary;
+    return ext?.primary ?? GuestPaletteScope.maybeOf(context)?.primary ?? primary;
   }
 
   static Color primaryBrightOf(BuildContext context) {
-    final scoped = GuestPaletteScope.maybeOf(context);
-    if (scoped != null) return scoped.bright;
-    return Theme.of(context).extension<GuestBrandColorsMarker>()?.bright ??
+    final ext = Theme.of(context).extension<GuestBrandColorsMarker>();
+    return ext?.bright ??
+        GuestPaletteScope.maybeOf(context)?.bright ??
         primaryBright;
   }
 
   static Color primaryDeepOf(BuildContext context) {
-    final scoped = GuestPaletteScope.maybeOf(context);
-    if (scoped != null) return scoped.deep;
-    return Theme.of(context).extension<GuestBrandColorsMarker>()?.deep ??
-        primaryDeep;
+    final ext = Theme.of(context).extension<GuestBrandColorsMarker>();
+    return ext?.deep ?? GuestPaletteScope.maybeOf(context)?.deep ?? primaryDeep;
   }
 
   static Color primarySoftOf(BuildContext context) {
-    final scoped = GuestPaletteScope.maybeOf(context);
-    if (scoped != null) return scoped.soft;
-    return Theme.of(context).extension<GuestBrandColorsMarker>()?.soft ??
-        primarySoft;
+    final ext = Theme.of(context).extension<GuestBrandColorsMarker>();
+    return ext?.soft ?? GuestPaletteScope.maybeOf(context)?.soft ?? primarySoft;
   }
 
   /// Legacy aliases — map old teal tokens to primary.
@@ -291,6 +311,107 @@ abstract final class GuestColors {
     cardCoral,
     cardPink,
   ];
+}
+
+/// Surface / text / border colors that flip between light and dark mode.
+@immutable
+class GuestNeutrals extends ThemeExtension<GuestNeutrals> {
+  const GuestNeutrals({
+    required this.scaffold,
+    required this.surface,
+    required this.surfaceRaised,
+    required this.ink,
+    required this.muted,
+    required this.border,
+    required this.borderLight,
+    required this.coralSoft,
+    required this.popularSoft,
+    required this.shadow,
+  });
+
+  final Color scaffold;
+  final Color surface;
+  final Color surfaceRaised;
+  final Color ink;
+  final Color muted;
+  final Color border;
+  final Color borderLight;
+  final Color coralSoft;
+  final Color popularSoft;
+  final Color shadow;
+
+  static const light = GuestNeutrals(
+    scaffold: GuestColors.scaffold,
+    surface: GuestColors.surface,
+    surfaceRaised: Color(0xFFFFFFFF),
+    ink: GuestColors.ink,
+    muted: GuestColors.muted,
+    border: GuestColors.border,
+    borderLight: GuestColors.borderLight,
+    coralSoft: GuestColors.coralSoft,
+    popularSoft: GuestColors.popularSoft,
+    shadow: Color(0x14000000),
+  );
+
+  static const dark = GuestNeutrals(
+    scaffold: Color(0xFF0F1115),
+    surface: Color(0xFF181B22),
+    surfaceRaised: Color(0xFF20242D),
+    ink: Color(0xFFF2F4F7),
+    muted: Color(0xFF9AA3B2),
+    border: Color(0xFF2A2F3A),
+    borderLight: Color(0xFF22262F),
+    coralSoft: Color(0xFF3A2E14),
+    popularSoft: Color(0xFF3B1A22),
+    shadow: Color(0x66000000),
+  );
+
+  static GuestNeutrals of(Brightness brightness) =>
+      brightness == Brightness.dark ? dark : light;
+
+  @override
+  GuestNeutrals copyWith({
+    Color? scaffold,
+    Color? surface,
+    Color? surfaceRaised,
+    Color? ink,
+    Color? muted,
+    Color? border,
+    Color? borderLight,
+    Color? coralSoft,
+    Color? popularSoft,
+    Color? shadow,
+  }) {
+    return GuestNeutrals(
+      scaffold: scaffold ?? this.scaffold,
+      surface: surface ?? this.surface,
+      surfaceRaised: surfaceRaised ?? this.surfaceRaised,
+      ink: ink ?? this.ink,
+      muted: muted ?? this.muted,
+      border: border ?? this.border,
+      borderLight: borderLight ?? this.borderLight,
+      coralSoft: coralSoft ?? this.coralSoft,
+      popularSoft: popularSoft ?? this.popularSoft,
+      shadow: shadow ?? this.shadow,
+    );
+  }
+
+  @override
+  GuestNeutrals lerp(ThemeExtension<GuestNeutrals>? other, double t) {
+    if (other is! GuestNeutrals) return this;
+    return GuestNeutrals(
+      scaffold: Color.lerp(scaffold, other.scaffold, t)!,
+      surface: Color.lerp(surface, other.surface, t)!,
+      surfaceRaised: Color.lerp(surfaceRaised, other.surfaceRaised, t)!,
+      ink: Color.lerp(ink, other.ink, t)!,
+      muted: Color.lerp(muted, other.muted, t)!,
+      border: Color.lerp(border, other.border, t)!,
+      borderLight: Color.lerp(borderLight, other.borderLight, t)!,
+      coralSoft: Color.lerp(coralSoft, other.coralSoft, t)!,
+      popularSoft: Color.lerp(popularSoft, other.popularSoft, t)!,
+      shadow: Color.lerp(shadow, other.shadow, t)!,
+    );
+  }
 }
 
 /// Lightweight marker so [GuestColors.primaryOf] can read theme extension

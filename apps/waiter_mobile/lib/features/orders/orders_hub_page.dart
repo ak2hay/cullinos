@@ -9,6 +9,7 @@ import 'package:cullinos_waiter/core/waiter_spacing.dart';
 import 'package:cullinos_waiter/data/waiter_api.dart';
 import 'package:cullinos_waiter/features/auth/auth_controller.dart';
 import 'package:cullinos_waiter/l10n/app_localizations.dart';
+import 'package:cullinos_waiter/widgets/waiter_motion.dart';
 import 'package:cullinos_waiter/widgets/waiter_soft_card.dart';
 
 enum _OrderFilter { all, preparing, ready, draft }
@@ -45,14 +46,16 @@ class _OrdersHubPageState extends ConsumerState<OrdersHubPage> {
   Color _statusColor(String status) {
     switch (status.toUpperCase()) {
       case 'READY':
-        return WaiterColors.primary;
+        return WaiterColors.primaryOf(context);
       case 'PREPARING':
       case 'CONFIRMED':
-        return const Color(0xFFE67E22);
+        return WaiterColors.isDark(context)
+            ? const Color(0xFFF5A35C)
+            : const Color(0xFFE67E22);
       case 'DRAFT':
-        return WaiterColors.muted;
+        return WaiterColors.mutedOf(context);
       default:
-        return WaiterColors.ink;
+        return WaiterColors.inkOf(context);
     }
   }
 
@@ -61,15 +64,20 @@ class _OrdersHubPageState extends ConsumerState<OrdersHubPage> {
     final l10n = AppLocalizations.of(context);
     final async = ref.watch(openOrdersProvider);
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: WaiterColors.scaffoldOf(context),
       appBar: AppBar(
         title: Text(l10n.orders),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text(friendlyDioError(e))),
+        loading: () => const WaiterSkeletonList(),
+        error: (e, _) => WaiterEmptyState(
+          icon: Icons.cloud_off_rounded,
+          message: friendlyDioError(e),
+          actionLabel: l10n.retry,
+          onAction: () => ref.invalidate(openOrdersProvider),
+        ),
         data: (orders) {
           final filtered = orders.where((o) {
             final s = (o['status']?.toString() ?? '').toUpperCase();
@@ -110,117 +118,129 @@ class _OrdersHubPageState extends ConsumerState<OrdersHubPage> {
               ),
               Expanded(
                 child: filtered.isEmpty
-                    ? Center(child: Text(l10n.emptyOrders))
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(WaiterSpacing.page),
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (_, i) {
-                          final o = filtered[i];
-                          final tableId = o['tableId']?.toString();
-                          final status =
-                              (o['status']?.toString() ?? '').toUpperCase();
-                          final tableName =
-                              o['tableName']?.toString() ?? '—';
-                          return WaiterSoftCard(
-                            onTap: tableId == null
-                                ? null
-                                : () => context.push('/table/$tableId'),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                    ? WaiterEmptyState(
+                        icon: Icons.receipt_long_outlined,
+                        message: l10n.emptyOrders,
+                        actionLabel: l10n.retry,
+                        onAction: () => ref.invalidate(openOrdersProvider),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: () => ref.refresh(openOrdersProvider.future),
+                        child: ListView.separated(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(WaiterSpacing.page),
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (_, i) {
+                            final o = filtered[i];
+                            final tableId = o['tableId']?.toString();
+                            final status =
+                                (o['status']?.toString() ?? '').toUpperCase();
+                            final tableName = o['tableName']?.toString() ?? '—';
+                            return WaiterSoftCard(
+                              onTap: tableId == null
+                                  ? null
+                                  : () => context.push('/table/$tableId'),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '#${o['orderNumber'] ?? o['id']} · Table $tableName',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _fmtTime(o['createdAt']?.toString()),
+                                          style: TextStyle(
+                                            color:
+                                                WaiterColors.mutedOf(context),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: _statusColor(status)
+                                                .withValues(alpha: 0.12),
+                                            borderRadius:
+                                                BorderRadius.circular(999),
+                                          ),
+                                          child: Text(
+                                            status,
+                                            style: TextStyle(
+                                              color: _statusColor(status),
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Text(
-                                        '#${o['orderNumber'] ?? o['id']} · Table $tableName',
+                                        formatInr(o['subtotal'] as num?),
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w800,
                                           fontSize: 16,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _fmtTime(o['createdAt']?.toString()),
-                                        style: const TextStyle(
-                                          color: WaiterColors.muted,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: _statusColor(status)
-                                              .withValues(alpha: 0.12),
-                                          borderRadius:
-                                              BorderRadius.circular(999),
-                                        ),
-                                        child: Text(
-                                          status,
-                                          style: TextStyle(
-                                            color: _statusColor(status),
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 11,
+                                      if (status == 'READY') ...[
+                                        const SizedBox(height: 8),
+                                        FilledButton(
+                                          style: FilledButton.styleFrom(
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12),
                                           ),
+                                          onPressed: () async {
+                                            try {
+                                              await ref
+                                                  .read(waiterApiProvider)
+                                                  .updateOrderStatus(
+                                                    o['id'].toString(),
+                                                    'SERVED',
+                                                  );
+                                              ref.invalidate(
+                                                  openOrdersProvider);
+                                            } catch (e) {
+                                              if (context.mounted) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                        friendlyDioError(e)),
+                                                  ),
+                                                );
+                                              }
+                                            }
+                                          },
+                                          child: const Text('Served'),
                                         ),
-                                      ),
+                                      ] else
+                                        Icon(Icons.chevron_right,
+                                            color:
+                                                WaiterColors.mutedOf(context)),
                                     ],
                                   ),
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      formatInr(o['subtotal'] as num?),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    if (status == 'READY') ...[
-                                      const SizedBox(height: 8),
-                                      FilledButton(
-                                        style: FilledButton.styleFrom(
-                                          visualDensity: VisualDensity.compact,
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 12),
-                                        ),
-                                        onPressed: () async {
-                                          try {
-                                            await ref
-                                                .read(waiterApiProvider)
-                                                .updateOrderStatus(
-                                                  o['id'].toString(),
-                                                  'SERVED',
-                                                );
-                                            ref.invalidate(openOrdersProvider);
-                                          } catch (e) {
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                      friendlyDioError(e)),
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        },
-                                        child: const Text('Served'),
-                                      ),
-                                    ] else
-                                      const Icon(Icons.chevron_right,
-                                          color: WaiterColors.muted),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                       ),
               ),
             ],
