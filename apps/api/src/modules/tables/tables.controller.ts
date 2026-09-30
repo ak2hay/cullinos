@@ -1,6 +1,19 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
 import type { JwtPayload } from "@cullinos/auth";
 import { CurrentUser, OrgId, Public, RequireModule } from "../../common/decorators";
+import { provePublicCustomerId } from "../../common/public-customer.util";
+import { PrismaService } from "../../prisma/prisma.service";
 import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { MergeTablesDto, TransferTableDto } from "./dto/tables.dto";
 import { ServiceRequestsService } from "./service-requests.service";
@@ -280,6 +293,8 @@ export class PublicSessionsController {
   constructor(
     private sessions: TableSessionsService,
     private serviceRequests: ServiceRequestsService,
+    private jwt: JwtService,
+    private prisma: PrismaService,
   ) {}
 
   @Public()
@@ -290,15 +305,25 @@ export class PublicSessionsController {
 
   @Public()
   @Post(":token/items")
-  addItems(
+  async addItems(
     @Param("token") token: string,
     @Body() body: Record<string, unknown>,
+    @Headers("authorization") authorization?: string,
   ) {
     const items = (body.items ?? []) as never[];
+    const orgId = await this.sessions.organizationIdForToken(token);
+    const customerId = await provePublicCustomerId(
+      this.jwt,
+      this.prisma,
+      orgId,
+      typeof body.customerId === "string" ? body.customerId : undefined,
+      authorization,
+    );
     return this.sessions.addItemsToSession(token, items, {
       customerName: body.customerName as string | undefined,
       notes: body.notes as string | undefined,
       ageConfirmed: body.ageConfirmed === true,
+      customerId,
     });
   }
 

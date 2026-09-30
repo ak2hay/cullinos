@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Query } from "@nestjs/common";
 import { OrgId } from "../../common/decorators";
 import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { KitchenService } from "./kitchen.service";
@@ -15,8 +15,12 @@ export class KitchenController {
   }
 
   @Get("outlets/:outletId/display")
-  getOutletDisplay(@OrgId() orgId: string, @Param("outletId") outletId: string) {
-    return this.service.getOutletDisplay(orgId, outletId);
+  getOutletDisplay(
+    @OrgId() orgId: string,
+    @Param("outletId") outletId: string,
+    @Query("stationId") stationId?: string,
+  ) {
+    return this.service.getOutletDisplay(orgId, outletId, stationId || undefined);
   }
 
   @Patch("items/:id/status")

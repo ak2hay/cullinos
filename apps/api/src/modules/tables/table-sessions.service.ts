@@ -532,7 +532,13 @@ export class TableSessionsService {
   async addItemsToSession(
     token: string,
     items: IncomingOrderItem[],
-    meta?: { customerName?: string; notes?: string; ageConfirmed?: boolean },
+    meta?: {
+      customerName?: string;
+      notes?: string;
+      ageConfirmed?: boolean;
+      /** Must already be ownership-verified by the caller. */
+      customerId?: string;
+    },
   ) {
     const session = await this.getActiveSessionByToken(token);
     const outlet = session.table.section.floor.outlet;
@@ -549,12 +555,14 @@ export class TableSessionsService {
         customerOrder: true,
         ageConfirmed: meta?.ageConfirmed === true,
       });
-      if (meta?.customerName || meta?.notes) {
+      const linkCustomer = !existingOrder.customerId && !!meta?.customerId;
+      if (meta?.customerName || meta?.notes || linkCustomer) {
         await this.prisma.order.update({
           where: { id: existingOrder.id },
           data: {
-            customerName: meta.customerName ?? existingOrder.customerName,
-            notes: meta.notes ?? existingOrder.notes,
+            customerName: meta?.customerName ?? existingOrder.customerName,
+            notes: meta?.notes ?? existingOrder.notes,
+            ...(linkCustomer ? { customerId: meta!.customerId } : {}),
           },
         });
       }
@@ -566,6 +574,7 @@ export class TableSessionsService {
       source: "QR",
       tableId: session.tableId,
       tableSessionId: session.id,
+      customerId: meta?.customerId,
       customerName: meta?.customerName,
       notes: meta?.notes,
       items,
@@ -594,6 +603,11 @@ export class TableSessionsService {
     }
 
     return this.ordersService.get(orgId, order.id);
+  }
+
+  async organizationIdForToken(token: string): Promise<string> {
+    const session = await this.getActiveSessionByToken(token);
+    return session.table.section.floor.outlet.organizationId;
   }
 
   private async getActiveSessionByToken(token: string) {

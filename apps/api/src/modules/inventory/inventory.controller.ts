@@ -16,8 +16,15 @@ export class InventoryController {
   @Get("items")
   @RequireModule("inventory")
   @RequirePermissions("inventory:read")
-  listItems(@OrgId() orgId: string) {
-    return this.service.listItems(orgId);
+  listItems(@OrgId() orgId: string, @Query("outletId") outletId?: string) {
+    return this.service.listItems(orgId, outletId || undefined);
+  }
+
+  @Get("outlet-stock")
+  @RequireModule("inventory")
+  @RequirePermissions("inventory:read")
+  outletStock(@OrgId() orgId: string) {
+    return this.service.outletStock(orgId);
   }
 
   @Get("items/:id/lots")
@@ -43,8 +50,8 @@ export class InventoryController {
   @Get("low-stock")
   @RequireModule("inventory")
   @RequirePermissions("inventory:read")
-  lowStock(@OrgId() orgId: string) {
-    return this.service.lowStock(orgId);
+  lowStock(@OrgId() orgId: string, @Query("outletId") outletId?: string) {
+    return this.service.lowStock(orgId, outletId || undefined);
   }
 
   @Post("items")

@@ -4,13 +4,15 @@ import { BAR_STATION } from "../../common/kitchen-stations.util";
 export type KotRoutableItem = { id: string; stationCode: string | null };
 
 /**
- * Station code for an order item: the category's explicit code wins; otherwise
- * alcohol items fall back to the Bar station.
+ * Station code for an order item: the item's own code wins, then its category's;
+ * otherwise alcohol items fall back to the Bar station.
  */
 export function stationCodeFor(
   categoryStationCode: string | null | undefined,
   productType: string | null | undefined,
+  itemStationCode?: string | null,
 ): string | null {
+  if (itemStationCode?.trim()) return itemStationCode;
   if (categoryStationCode?.trim()) return categoryStationCode;
   return isAlcoholProductType(productType) ? BAR_STATION.code : null;
 }

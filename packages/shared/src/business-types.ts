@@ -324,7 +324,8 @@ export const ADMIN_NAV_FEATURE_MAP: Record<string, FeatureKey> = {
   '/kds': FEATURES.KDS,
   '/cds': FEATURES.KDS,
   '/kiosk': FEATURES.QR_ORDERING,
-  '/recipes': FEATURES.RECIPES,
+  // Recipes drive stock deduction, so they follow inventory visibility.
+  '/recipes': FEATURES.INVENTORY,
   '/purchasing': FEATURES.PURCHASING,
   '/suppliers': FEATURES.PURCHASING,
   '/central-kitchen': FEATURES.MULTI_OUTLET,
@@ -356,6 +357,12 @@ export const ADMIN_NAV_PLAN_MODULE_MAP: Record<string, string> = {
   '/coupons': 'loyalty',
   '/central-kitchen': 'management',
 };
+
+/**
+ * Plan modules that, when the subscription includes them, show their pages
+ * even if the business-type profile would hide them (a paid entitlement wins).
+ */
+const PLAN_MODULES_OVERRIDING_BUSINESS_TYPE: ReadonlySet<string> = new Set(['inventory']);
 
 export interface ProfileFeatures {
   features: FeatureKey[];
@@ -463,6 +470,13 @@ export function isAdminNavPathVisible(
   const planModule = ADMIN_NAV_PLAN_MODULE_MAP[path];
   if (planModule && enabledModules && !enabledModules.includes(planModule)) {
     return false;
+  }
+  if (
+    planModule &&
+    enabledModules?.includes(planModule) &&
+    PLAN_MODULES_OVERRIDING_BUSINESS_TYPE.has(planModule)
+  ) {
+    return true;
   }
   const feature = ADMIN_NAV_FEATURE_MAP[path];
   if (!feature) return true;

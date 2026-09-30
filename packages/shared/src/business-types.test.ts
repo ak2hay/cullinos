@@ -97,4 +97,18 @@ describe('isAdminNavPathVisible plan modules', () => {
   it('still applies business-type visibility when the plan allows the module', () => {
     expect(isAdminNavPathVisible('food_truck', '/tables', null, ['tables'])).toBe(false);
   });
+
+  it('shows stock pages whenever the plan includes inventory', () => {
+    for (const path of ['/inventory', '/recipes', '/purchasing', '/suppliers']) {
+      expect(isAdminNavPathVisible('restaurant', path, 'small', ['inventory']), path).toBe(true);
+      expect(isAdminNavPathVisible('food_truck', path, null, ['inventory']), path).toBe(true);
+    }
+  });
+
+  it('shows recipes to every type that tracks inventory', () => {
+    for (const type of BUSINESS_TYPES) {
+      if (!getFeaturesForProfile(type).features.includes(FEATURES.INVENTORY)) continue;
+      expect(isAdminNavPathVisible(type, '/recipes'), type).toBe(true);
+    }
+  });
 });

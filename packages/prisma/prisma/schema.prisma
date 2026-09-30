@@ -552,6 +552,7 @@ model User {
   passwordHash   String     @map("password_hash")
   name           String
   phone          String?
+  avatarUrl          String?    @map("avatar_url")
   status             UserStatus @default(active)
   isSuperAdmin       Boolean    @default(false) @map("is_super_admin")
   platformRole       PlatformRole? @map("platform_role")
@@ -877,6 +878,10 @@ model MenuItem {
   packagingCharge Decimal @default(0) @map("packaging_charge") @db.Decimal(12, 2)
   onlineAvailable Boolean @default(true) @map("online_available")
   stockBasedAvailability Boolean @default(false) @map("stock_based_availability")
+  /// Overrides the category's station code for KOT routing (e.g. TANDOOR).
+  kitchenStationCode String? @map("kitchen_station_code")
+  /// Nil-rated / GST-exempt item: no tax group applies, even the org default.
+  isTaxExempt    Boolean  @default(false) @map("is_tax_exempt")
   /// Universal menu catalog id this item was imported from (idempotent re-import).
   catalogItemId  String?  @map("catalog_item_id")
   createdAt      DateTime @default(now()) @map("created_at")
@@ -1045,6 +1050,8 @@ model KitchenStation {
   name     String
   code     String
   sortOrder Int   @default(0) @map("sort_order")
+  /// Inactive stations stop receiving new tickets; their items fall back to the default ticket.
+  isActive Boolean @default(true) @map("is_active")
 
   outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
   kots   KOT[]

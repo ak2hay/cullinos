@@ -12,6 +12,7 @@ AI teammates for Cullinos that behave like Rkyves employees. You assign work fro
 | [ROUTINES.md](./ROUTINES.md) | Schedules (daily brief, security, QA, …) |
 | [HANDOFF.md](./HANDOFF.md) | Ticket format + board paths |
 | [COMPUTER_SETUP.md](./COMPUTER_SETUP.md) | Clone repo, GitHub, skills on cloud computer |
+| [PLATFORM_STAFF.md](./PLATFORM_STAFF.md) | Human employee Super Admin roles, onboarding and offboarding |
 | [PLAYBOOKS/](./PLAYBOOKS/) | Feature, bug, release, campaign, incident |
 
 Skills live in [`.grok/skills/`](../../.grok/skills/). Cursor IDE rules: [`.cursor/rules/`](../../.cursor/rules/). Company pointer: [`AGENTS.md`](../../AGENTS.md).

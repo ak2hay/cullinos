@@ -50,6 +50,48 @@ export class MenuController {
     return this.service.listKitchenStations(orgId);
   }
 
+  @Get("kitchen-stations/outlets")
+  @RequireModule("menu")
+  listOutletStations(@OrgId() orgId: string) {
+    return this.service.listOutletStations(orgId);
+  }
+
+  @Post("kitchen-stations")
+  @RequireModule("menu")
+  @RequirePermissions("menu:update")
+  createKitchenStation(@OrgId() orgId: string, @Body() body: Record<string, unknown>) {
+    return this.service.createKitchenStation(orgId, {
+      name: typeof body.name === "string" ? body.name : undefined,
+      code: typeof body.code === "string" ? body.code : undefined,
+      outletIds: Array.isArray(body.outletIds)
+        ? body.outletIds.filter((v): v is string => typeof v === "string")
+        : undefined,
+      sortOrder: typeof body.sortOrder === "number" ? body.sortOrder : undefined,
+    });
+  }
+
+  @Patch("kitchen-stations/:id")
+  @RequireModule("menu")
+  @RequirePermissions("menu:update")
+  updateKitchenStation(
+    @OrgId() orgId: string,
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.service.updateKitchenStation(orgId, id, {
+      name: typeof body.name === "string" ? body.name : undefined,
+      sortOrder: typeof body.sortOrder === "number" ? body.sortOrder : undefined,
+      isActive: typeof body.isActive === "boolean" ? body.isActive : undefined,
+    });
+  }
+
+  @Delete("kitchen-stations/:id")
+  @RequireModule("menu")
+  @RequirePermissions("menu:update")
+  deleteKitchenStation(@OrgId() orgId: string, @Param("id") id: string) {
+    return this.service.deleteKitchenStation(orgId, id);
+  }
+
   @Post("categories")
   @RequireModule("menu")
   @RequirePermissions("menu:create")
@@ -80,6 +122,13 @@ export class MenuController {
   @RequireModule("menu")
   listItems(@OrgId() orgId: string) {
     return this.service.listItems(orgId);
+  }
+
+  @Post("items/bulk-tax")
+  @RequireModule("menu")
+  @RequirePermissions("menu:update")
+  bulkUpdateTax(@OrgId() orgId: string, @Body() body: Record<string, unknown>) {
+    return this.service.bulkUpdateTax(orgId, body);
   }
 
   @Get("items/:id")

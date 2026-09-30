@@ -207,6 +207,95 @@ export class MenuService {
     return [...byCode.values()];
   }
 
+  /** Every station row per outlet, for the station management screen. */
+  async listOutletStations(orgId: string) {
+    const rows = await this.prisma.kitchenStation.findMany({
+      where: { outlet: { organizationId: orgId } },
+      include: { outlet: { select: { id: true, name: true } } },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    });
+    return rows.map((s) => ({
+      id: s.id,
+      outletId: s.outletId,
+      outletName: s.outlet.name,
+      name: s.name,
+      code: s.code,
+      sortOrder: s.sortOrder,
+      isActive: s.isActive,
+    }));
+  }
+
+  /**
+   * Create (or re-activate) a station with the same code at the chosen outlets —
+   * all outlets when none are given — since categories and items route by code.
+   */
+  async createKitchenStation(
+    orgId: string,
+    data: { name?: string; code?: string; outletIds?: string[]; sortOrder?: number },
+  ) {
+    const name = data.name?.trim();
+    if (!name) throw new BadRequestException("Station name is required");
+    const code = normalizeStationCode(
+      data.code?.trim() || name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 20),
+    );
+    if (!code) throw new BadRequestException("Station code is required");
+
+    const outlets = await this.prisma.outlet.findMany({
+      where: {
+        organizationId: orgId,
+        ...(data.outletIds?.length ? { id: { in: data.outletIds } } : {}),
+      },
+      select: { id: true },
+    });
+    if (!outlets.length || (data.outletIds?.length && outlets.length !== data.outletIds.length)) {
+      throw new BadRequestException("Invalid outletIds");
+    }
+    const sortOrder = typeof data.sortOrder === "number" ? data.sortOrder : 0;
+    for (const outlet of outlets) {
+      await this.prisma.kitchenStation.upsert({
+        where: { outletId_code: { outletId: outlet.id, code } },
+        update: { name, isActive: true },
+        create: { outletId: outlet.id, code, name, sortOrder },
+      });
+    }
+    return this.listOutletStations(orgId);
+  }
+
+  async updateKitchenStation(
+    orgId: string,
+    id: string,
+    data: { name?: string; sortOrder?: number; isActive?: boolean },
+  ) {
+    const station = await this.prisma.kitchenStation.findFirst({
+      where: { id, outlet: { organizationId: orgId } },
+      select: { id: true },
+    });
+    if (!station) throw new NotFoundException("Station not found");
+    await this.prisma.kitchenStation.update({
+      where: { id },
+      data: {
+        ...(typeof data.name === "string" && data.name.trim() ? { name: data.name.trim() } : {}),
+        ...(typeof data.sortOrder === "number" ? { sortOrder: data.sortOrder } : {}),
+        ...(typeof data.isActive === "boolean" ? { isActive: data.isActive } : {}),
+      },
+    });
+    return this.listOutletStations(orgId);
+  }
+
+  /** Past tickets keep their lines; their station link is cleared. */
+  async deleteKitchenStation(orgId: string, id: string) {
+    const station = await this.prisma.kitchenStation.findFirst({
+      where: { id, outlet: { organizationId: orgId } },
+      select: { id: true },
+    });
+    if (!station) throw new NotFoundException("Station not found");
+    await this.prisma.$transaction([
+      this.prisma.kOT.updateMany({ where: { kitchenStationId: id }, data: { kitchenStationId: null } }),
+      this.prisma.kitchenStation.delete({ where: { id } }),
+    ]);
+    return this.listOutletStations(orgId);
+  }
+
   async deleteCategory(orgId: string, id: string) {
     const existing = await this.prisma.menuCategory.findFirst({
       where: { id, organizationId: orgId },
@@ -324,6 +413,8 @@ export class MenuService {
       stockBasedAvailability?: boolean;
       taxGroupId?: string | null;
       hsnCode?: string | null;
+      isTaxExempt?: boolean;
+      kitchenStationCode?: string | null;
       variants?: VariantInput[];
       modifierGroups?: ModifierGroupInput[];
     },
@@ -360,8 +451,10 @@ export class MenuService {
         packagingCharge: toRupees(data.packagingCharge ?? 0),
         onlineAvailable: data.onlineAvailable ?? true,
         stockBasedAvailability: data.stockBasedAvailability ?? false,
-        taxGroupId: data.taxGroupId || null,
+        taxGroupId: data.isTaxExempt === true ? null : data.taxGroupId || null,
         hsnCode: data.hsnCode?.trim() || null,
+        isTaxExempt: data.isTaxExempt === true,
+        kitchenStationCode: normalizeStationCode(data.kitchenStationCode),
       },
     });
 
@@ -390,6 +483,8 @@ export class MenuService {
       categoryId: string;
       taxGroupId: string | null;
       hsnCode: string | null;
+      isTaxExempt: boolean;
+      kitchenStationCode: string | null;
       variants: VariantInput[];
       modifierGroups: ModifierGroupInput[];
     }>,
@@ -443,6 +538,13 @@ export class MenuService {
     if (data.taxGroupId !== undefined) {
       update.taxGroupId = data.taxGroupId || null;
     }
+    if (typeof data.isTaxExempt === "boolean") {
+      update.isTaxExempt = data.isTaxExempt;
+      if (data.isTaxExempt) update.taxGroupId = null;
+    }
+    if (data.kitchenStationCode !== undefined) {
+      update.kitchenStationCode = normalizeStationCode(data.kitchenStationCode);
+    }
     if (data.productType !== undefined) {
       update.productType = normalizeProductType(data.productType);
     }
@@ -459,6 +561,44 @@ export class MenuService {
     await this.syncModifierGroups(orgId, id, modifierGroups);
 
     return this.getItem(orgId, id);
+  }
+
+  /** Mark many items taxable / GST-exempt, or move them to one tax group. */
+  async bulkUpdateTax(
+    orgId: string,
+    data: { itemIds?: unknown; isTaxExempt?: unknown; taxGroupId?: unknown },
+  ) {
+    const itemIds = Array.isArray(data.itemIds)
+      ? [...new Set(data.itemIds.filter((v): v is string => typeof v === "string" && v.length > 0))]
+      : [];
+    if (!itemIds.length) throw new BadRequestException("Select at least one item");
+    if (itemIds.length > 500) throw new BadRequestException("Update at most 500 items at a time");
+
+    const update: { isTaxExempt?: boolean; taxGroupId?: string | null } = {};
+    if (data.isTaxExempt === true) {
+      update.isTaxExempt = true;
+      update.taxGroupId = null;
+    } else {
+      if (data.isTaxExempt === false) update.isTaxExempt = false;
+      if (data.taxGroupId !== undefined) {
+        const taxGroupId = typeof data.taxGroupId === "string" && data.taxGroupId ? data.taxGroupId : null;
+        if (taxGroupId) {
+          const group = await this.prisma.taxGroup.findFirst({
+            where: { id: taxGroupId, organizationId: orgId },
+            select: { id: true },
+          });
+          if (!group) throw new BadRequestException("Invalid taxGroupId");
+        }
+        update.taxGroupId = taxGroupId;
+      }
+    }
+    if (!Object.keys(update).length) throw new BadRequestException("Nothing to update");
+
+    const result = await this.prisma.menuItem.updateMany({
+      where: { id: { in: itemIds }, organizationId: orgId },
+      data: update,
+    });
+    return { updated: result.count };
   }
 
   async setItemImageUrl(orgId: string, id: string, imageUrl: string) {

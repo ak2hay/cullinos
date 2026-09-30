@@ -594,6 +594,7 @@ export class ReportsService {
             menuItem: {
               select: {
                 taxGroupId: true,
+                isTaxExempt: true,
                 taxGroup: { select: { id: true, name: true } },
               },
             },
@@ -613,9 +614,12 @@ export class ReportsService {
 
     for (const order of orders) {
       for (const item of order.items) {
-        const groupId = item.menuItem?.taxGroupId ?? null;
-        const groupName = item.menuItem?.taxGroup?.name ?? "Unassigned";
-        const key = groupId ?? "unassigned";
+        const exempt = item.menuItem?.isTaxExempt === true;
+        const groupId = exempt ? null : (item.menuItem?.taxGroupId ?? null);
+        const groupName = exempt
+          ? "GST exempt (nil-rated)"
+          : (item.menuItem?.taxGroup?.name ?? "Unassigned");
+        const key = exempt ? "exempt" : (groupId ?? "unassigned");
         let row = map.get(key);
         if (!row) {
           row = {

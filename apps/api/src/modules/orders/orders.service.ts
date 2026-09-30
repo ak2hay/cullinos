@@ -40,6 +40,7 @@ import { LoyaltyService } from "../loyalty/loyalty.service";
 import { GuestPushService } from "../guest/guest-push.service";
 import { RecipesService } from "../recipes/recipes.service";
 import { splitStockMetadata } from "../../common/recipe-stock.util";
+import { stockDeductionTrigger } from "../../common/stock-deduction.util";
 import {
   canTransitionOrder,
   reverseOrderIncentives,
@@ -168,10 +169,11 @@ export class OrdersService {
 
     const inclusiveFlags: boolean[] = [];
     const taxable = resolvedItems.map((item) => {
-      const group =
-        (item.taxGroupId ? groupById.get(item.taxGroupId) : undefined) ??
-        defaultGroup ??
-        null;
+      const group = item.isTaxExempt
+        ? null
+        : ((item.taxGroupId ? groupById.get(item.taxGroupId) : undefined) ??
+          defaultGroup ??
+          null);
       inclusiveFlags.push(Boolean(group?.isInclusive && group.rates.length));
       const rates: TaxLineInput[] = (group?.rates ?? []).map((r) => ({
         name: r.name,
@@ -208,7 +210,7 @@ export class OrdersService {
 
     const allItems = await this.prisma.orderItem.findMany({
       where: { orderId },
-      include: { menuItem: { select: { taxGroupId: true } } },
+      include: { menuItem: { select: { taxGroupId: true, isTaxExempt: true } } },
       orderBy: { id: "asc" },
     });
     const tax = await this.computeTax(
@@ -222,6 +224,7 @@ export class OrdersService {
         notes: i.notes,
         modifiers: null,
         taxGroupId: i.menuItem?.taxGroupId ?? null,
+        isTaxExempt: i.menuItem?.isTaxExempt ?? false,
       })),
     );
 
@@ -1486,20 +1489,25 @@ export class OrdersService {
           menuItem: {
             select: {
               productType: true,
+              kitchenStationCode: true,
               category: { select: { kitchenStationCode: true } },
             },
           },
         },
       }),
       this.prisma.kitchenStation.findMany({
-        where: { outletId: order.outletId },
+        where: { outletId: order.outletId, isActive: true },
         select: { id: true, code: true },
       }),
     ]);
     const codeById = new Map(
       rows.map((r) => [
         r.id,
-        stationCodeFor(r.menuItem?.category?.kitchenStationCode, r.menuItem?.productType),
+        stationCodeFor(
+          r.menuItem?.category?.kitchenStationCode,
+          r.menuItem?.productType,
+          r.menuItem?.kitchenStationCode,
+        ),
       ]),
     );
     const groups = groupItemsByStation(
@@ -1527,7 +1535,22 @@ export class OrdersService {
         }),
       );
     }
+    if (kots.length) await this.deductStockOnKotIfConfigured(order.id);
     return kots;
+  }
+
+  private async deductStockOnKotIfConfigured(orderId: string) {
+    if (!this.recipes) return;
+    const row = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        organizationId: true,
+        organization: { select: { settings: { select: { settings: true } } } },
+      },
+    });
+    if (!row || stockDeductionTrigger(row.organization?.settings?.settings) !== "kot") return;
+    const started = await this.recipes.deductForOrder(row.organizationId, orderId);
+    if (!started) await this.recipes.deductNewOrderItems(row.organizationId, orderId);
   }
 
   /** Runs `create` with a fresh order number / pickup code, retrying on unique collisions. */

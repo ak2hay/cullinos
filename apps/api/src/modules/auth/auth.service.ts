@@ -602,6 +602,7 @@ export class AuthService {
       email: string;
       name: string;
       phone: string | null;
+      avatarUrl?: string | null;
       organizationId: string;
       isSuperAdmin: boolean;
       lastLoginAt: Date | null;
@@ -647,7 +648,7 @@ export class AuthService {
         firstName: nameParts[0] ?? "",
         lastName: nameParts.slice(1).join(" ") || "",
         phone: user.phone,
-        avatarUrl: null,
+        avatarUrl: user.avatarUrl ?? null,
         isActive: true,
         lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
         createdAt: user.createdAt.toISOString(),
@@ -669,6 +670,7 @@ export class AuthService {
       email: string;
       name: string;
       phone: string | null;
+      avatarUrl?: string | null;
       organizationId: string;
       isSuperAdmin: boolean;
       platformRole?: string | null;
@@ -784,7 +786,7 @@ export class AuthService {
         firstName: nameParts[0] ?? "",
         lastName: nameParts.slice(1).join(" ") || "",
         phone: user.phone,
-        avatarUrl: null,
+        avatarUrl: user.avatarUrl ?? null,
         isActive: true,
         lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
         createdAt: user.createdAt.toISOString(),

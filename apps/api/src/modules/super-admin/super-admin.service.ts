@@ -111,6 +111,7 @@ export class SuperAdminService implements OnModuleDestroy {
       email: string;
       firstName: string;
       lastName: string;
+      avatarUrl?: string | null;
       isSuperAdmin?: boolean;
       mustChangePassword?: boolean;
       platformRole?: string;
@@ -129,6 +130,7 @@ export class SuperAdminService implements OnModuleDestroy {
         id: result.user.id,
         email: result.user.email,
         name: name || result.user.email,
+        avatarUrl: result.user.avatarUrl ?? null,
         mustChangePassword: result.user.mustChangePassword ?? false,
         platformRole: result.user.platformRole ?? "viewer",
         platformPermissions: result.user.platformPermissions ?? [],

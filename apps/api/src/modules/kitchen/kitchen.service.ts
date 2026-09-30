@@ -130,7 +130,11 @@ export class KitchenService {
     };
   }
 
-  async getOutletDisplay(orgId: string, outletId: string) {
+  /**
+   * `stationId` narrows tickets to one station screen; `"default"` means tickets
+   * not routed to any station (the main kitchen ticket).
+   */
+  async getOutletDisplay(orgId: string, outletId: string, stationId?: string) {
     const outlet = await this.prisma.outlet.findFirst({
       where: { id: outletId, organizationId: orgId },
     });
@@ -138,15 +142,22 @@ export class KitchenService {
 
     const READY_TTL_MS = 10 * 60 * 1000;
     const readyCutoff = new Date(Date.now() - READY_TTL_MS);
+    const stationFilter =
+      stationId === "default"
+        ? { kitchenStationId: null }
+        : stationId
+          ? { kitchenStationId: stationId }
+          : {};
 
     const [stations, kitchenOrders, pickupOrders] = await Promise.all([
       this.prisma.kitchenStation.findMany({
         where: { outletId },
-        orderBy: { sortOrder: "asc" },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
         take: 50,
       }),
       this.prisma.kOT.findMany({
         where: {
+          ...stationFilter,
           order: {
             outletId,
             organizationId: orgId,
@@ -207,7 +218,7 @@ export class KitchenService {
               id: kot.kitchenStation.id,
               name: kot.kitchenStation.name,
               code: kot.kitchenStation.code,
-              isActive: true,
+              isActive: kot.kitchenStation.isActive,
             }
           : null,
       }),
@@ -218,7 +229,7 @@ export class KitchenService {
         id: station.id,
         name: station.name,
         code: station.code,
-        isActive: true,
+        isActive: station.isActive,
       },
       kots: allKots.filter(
         (k) =>
