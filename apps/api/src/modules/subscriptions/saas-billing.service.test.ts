@@ -7,7 +7,7 @@ function makePlan(overrides: Record<string, unknown> = {}) {
     slug: "starter",
     name: "Starter",
     description: "Starter plan",
-    priceMonthly: 2999,
+    priceMonthly: 1499,
     razorpayPlanIdMonthly: "plan_stale",
     ...overrides,
   };
@@ -219,8 +219,8 @@ describe("SaasBillingService plan visibility", () => {
             slug: "starter",
             name: "Starter",
             description: null,
-            priceMonthly: 999,
-            priceYearly: 9990,
+            priceMonthly: 1499,
+            priceYearly: 14999,
             maxOutlets: 1,
             maxTerminals: 2,
             maxUsers: 5,
@@ -238,7 +238,7 @@ describe("SaasBillingService plan visibility", () => {
     );
     expect(plans).toHaveLength(1);
     expect(plans[0].slug).toBe("starter");
-    expect(plans[0].priceMonthly).toBe(999);
+    expect(plans[0].priceMonthly).toBe(1499);
   });
 
   it("activatePlan rejects private plans", async () => {
@@ -291,6 +291,64 @@ describe("SaasBillingService plan visibility", () => {
       where: { id: "sub_1" },
       data: { pendingPlanId: "plan_pro", pendingRazorpaySubId: "sub_rzp_new" },
     });
+  });
+
+  it("activatePlan rejects contact-sales plans", async () => {
+    const prisma = {
+      plan: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "p_ent",
+          slug: "enterprise",
+          name: "Enterprise",
+          isActive: true,
+          visibility: "public",
+        }),
+      },
+      subscription: { findFirst: vi.fn() },
+    };
+    const service = new SaasBillingService(prisma as never, {} as never);
+
+    await expect(service.activatePlan("org_1", "enterprise")).rejects.toMatchObject({
+      status: 400,
+    });
+    expect(prisma.subscription.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("collectPayment rejects a zero-priced plan instead of creating a Razorpay plan", async () => {
+    const plan = makePlan({ slug: "enterprise", name: "Enterprise", priceMonthly: 0, razorpayPlanIdMonthly: null });
+    const prisma = {
+      organization: { findUnique: vi.fn().mockResolvedValue(makeOrg({ razorpayCustomerId: "cust_ok" })) },
+      subscription: { findFirst: vi.fn().mockResolvedValue(makeSubscription({ plan })), update: vi.fn() },
+      plan: { update: vi.fn() },
+    };
+    const razorpay = {
+      requireConfigured: vi.fn(),
+      fetchCustomer: vi.fn().mockResolvedValue({ id: "cust_ok" }),
+      createPlan: vi.fn(),
+      createSubscription: vi.fn(),
+    };
+    const service = new SaasBillingService(prisma as never, razorpay as never);
+
+    await expect(service.collectPayment("org_1")).rejects.toMatchObject({ status: 400 });
+    expect(razorpay.createPlan).not.toHaveBeenCalled();
+    expect(razorpay.createSubscription).not.toHaveBeenCalled();
+  });
+
+  it("syncPlansToRazorpay skips zero-priced plans", async () => {
+    const paid = makePlan({ razorpayPlanIdMonthly: "rzp_plan_starter" });
+    const custom = makePlan({ id: "plan_ent", slug: "enterprise", priceMonthly: 0, razorpayPlanIdMonthly: null });
+    const prisma = { plan: { findMany: vi.fn().mockResolvedValue([paid, custom]), update: vi.fn() } };
+    const razorpay = {
+      isConfigured: vi.fn().mockReturnValue(true),
+      fetchPlan: vi.fn().mockResolvedValue({ id: "rzp_plan_starter" }),
+      createPlan: vi.fn(),
+    };
+    const service = new SaasBillingService(prisma as never, razorpay as never);
+
+    const synced = await service.syncPlansToRazorpay();
+
+    expect(synced).toEqual(["starter"]);
+    expect(razorpay.createPlan).not.toHaveBeenCalled();
   });
 
   it("activatePlan rejects inactive public plans", async () => {

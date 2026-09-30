@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import {
   PUBLIC_PLAN_CATALOG,
+  isContactSalesPlanSlug,
   modulesForPublicPlanSlug,
   type PublicPlanSlug,
 } from "@cullinos/shared";
@@ -50,17 +51,20 @@ export class PlanBootstrapService implements OnModuleInit {
       const catalog = PUBLIC_PLAN_CATALOG[slug];
       const modules = modulesForPublicPlanSlug(slug);
 
+      // Contact-sales rows keep their stored price so existing subscribers can still be billed.
+      const syncPrice = !isContactSalesPlanSlug(slug);
       const existing = await this.prisma.plan.findUnique({ where: { slug } });
       const priceChanged =
-        existing != null && Number(existing.priceMonthly) !== catalog.priceMonthly;
+        syncPrice && existing != null && Number(existing.priceMonthly) !== catalog.priceMonthly;
 
       const record = await this.prisma.plan.upsert({
         where: { slug },
         update: {
           name: catalog.name,
           description: catalog.description,
-          priceMonthly: catalog.priceMonthly,
-          priceYearly: catalog.priceYearly,
+          ...(syncPrice
+            ? { priceMonthly: catalog.priceMonthly, priceYearly: catalog.priceYearly }
+            : {}),
           maxOutlets: catalog.maxOutlets,
           maxTerminals: catalog.maxTerminals,
           maxUsers: catalog.maxUsers,

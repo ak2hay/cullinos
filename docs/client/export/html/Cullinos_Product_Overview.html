@@ -155,6 +155,73 @@ table.pretty tr:nth-child(even) td { background: var(--card); }
 .plan .price span { font-size: 9pt; color: var(--muted); font-family: 'DM Sans', sans-serif; }
 .plan ul { margin: 8px 0 0; padding-left: 16px; font-size: 9pt; color: var(--muted); }
 
+.plan-kicker {
+  font-size: 8pt; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--gold-dim);
+}
+.tag {
+  display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px;
+  background: var(--gold); color: var(--ink);
+  font-family: 'DM Sans', sans-serif; font-size: 7pt; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; vertical-align: middle;
+}
+
+.plan-hero {
+  background:
+    radial-gradient(ellipse 70% 80% at 100% 0%, rgba(212,160,23,0.25), transparent 60%),
+    linear-gradient(160deg, #0F0F1A 0%, #1a1a28 60%, #12121c 100%);
+  color: #f5f2ea; border-radius: 16px; padding: 20px 24px;
+  page-break-inside: avoid;
+}
+.plan-hero-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.mark.mark-sm { width: 34px; height: 34px; border-radius: 9px; font-size: 17pt; }
+.plan-hero-body { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
+.plan-hero h1 { color: #f5f2ea; font-size: 26pt; margin: 0 0 6px; }
+.plan-hero .tagline { font-size: 10.5pt; max-width: 400px; }
+.price-block { text-align: right; flex-shrink: 0; }
+.price-main { font-family: 'Fraunces', Georgia, serif; font-size: 26pt; color: var(--gold-bright); line-height: 1.1; }
+.price-main span { font-family: 'DM Sans', sans-serif; font-size: 10pt; color: rgba(245,242,234,0.7); }
+.price-alt { font-size: 9.5pt; color: #f5f2ea; margin-top: 4px; }
+.price-note { font-size: 8pt; color: rgba(245,242,234,0.55); margin-top: 2px; }
+
+.limits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+.limits > div {
+  border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+  padding: 10px 14px; display: flex; align-items: baseline; gap: 8px;
+}
+.limits strong { font-family: 'Fraunces', Georgia, serif; font-size: 18pt; font-weight: 600; color: var(--ink); }
+.limits span { font-size: 9pt; color: var(--muted); }
+
+.feature-grid { margin-top: 10px; }
+.feature-card { padding: 12px 14px; }
+ul.check { list-style: none; padding: 0; margin: 0; font-size: 9pt; color: var(--ink-soft); }
+ul.check li { position: relative; padding-left: 16px; margin-bottom: 3px; line-height: 1.35; }
+ul.check li::before { content: '✓'; position: absolute; left: 0; color: var(--gold-dim); font-weight: 700; }
+.upgrade {
+  border-left: 3px solid var(--gold); background: var(--card);
+  padding: 8px 12px; border-radius: 0 8px 8px 0; color: var(--ink-soft);
+}
+
+table.matrix {
+  width: 100%; border-collapse: collapse; margin: 10px 0 12px;
+  font-size: 8.5pt; page-break-inside: avoid;
+}
+table.matrix th {
+  background: var(--ink); color: var(--gold); padding: 7px 6px;
+  font-weight: 600; text-align: center; font-size: 8.5pt;
+}
+table.matrix th:first-child, table.matrix td:first-child { text-align: left; padding-left: 10px; }
+table.matrix th.featured { background: var(--gold); color: var(--ink); }
+table.matrix td { padding: 3px 6px; border-bottom: 1px solid var(--line); text-align: center; }
+table.matrix td.featured { background: #fffaeb; }
+table.matrix tr.group td {
+  background: var(--cream); font-weight: 700; font-size: 7.5pt;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--gold-dim);
+}
+table.matrix .yes { color: var(--gold-dim); font-weight: 700; }
+table.matrix .no { color: #c4c0b6; }
+table.matrix tr.key td { font-weight: 600; }
+
 .footer-bar {
   margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line);
   font-size: 8.5pt; color: var(--muted);
@@ -206,7 +273,7 @@ table.pretty tr:nth-child(even) td { background: var(--card); }
       <tr><td><strong>Admin</strong><br/><span class="small muted">admin.cullinos.com</span></td><td>Owner / manager</td><td>Menu, staff, inventory, purchasing, central kitchen, loyalty, delivery, aggregators, reservations, Guest app marketing, reports, billing, Portal POS</td></tr>
       <tr><td><strong>POS</strong><br/><span class="small muted">pos.cullinos.com</span></td><td>Cashier</td><td>Counter &amp; takeaway billing, holds, shifts, GST receipts, payments (browser + Windows desktop)</td></tr>
       <tr><td><strong>KDS</strong><br/><span class="small muted">kds.cullinos.com</span></td><td>Kitchen</td><td>Live kitchen tickets; Order Display (CDS), promo playlist, receipt modes (browser + desktop)</td></tr>
-      <tr><td><strong>Waiter</strong><br/><span class="small muted">Cullinos Waiter Android</span></td><td>Floor staff</td><td>Table map, table-side orders, QR guest sessions</td></tr>
+      <tr><td><strong>Waiter</strong><br/><span class="small muted">Cullinos Waiter (Android)</span></td><td>Floor staff</td><td>Table map, table-side orders, QR guest sessions</td></tr>
       <tr><td><strong>Customer</strong><br/><span class="small muted">order.cullinos.com</span></td><td>Guests (web)</td><td>QR dine-in, online storefront, kiosk (guest checkout; optional OTP login)</td></tr>
       <tr><td><strong>Guest app</strong><br/><span class="small muted">Android · guest.cullinos.com</span></td><td>Consumers</td><td>Marketplace discover, outlet order, reorder, push, loyalty wallets</td></tr>
       <tr><td><strong>Management</strong><br/><span class="small muted">manage.cullinos.com</span></td><td>Multi-outlet ops</td><td>Network KPIs, outlet comparison, stock transfer, franchise</td></tr>
@@ -308,15 +375,15 @@ table.pretty tr:nth-child(even) td { background: var(--card); }
   </table>
 
   <h2>Plans &amp; offerings</h2>
-  <p class="muted small">List prices for India (INR). Custom enterprise quotes available.</p>
+  <p class="muted small">List prices for India (INR). Taxes as applicable. Custom enterprise quotes available.</p>
   <table class="pretty">
     <thead><tr><th>Plan</th><th>From</th><th>Best for</th><th>Highlights</th></tr></thead>
     <tbody>
-      <tr><td><strong>Starter</strong></td><td>₹999/mo</td><td>Single outlet launch</td><td>POS, KDS, tables, QR + online ordering, reports</td></tr>
-      <tr><td><strong>QSR / Food SMB</strong></td><td>₹1,499/mo</td><td>Cafes, trucks, counters</td><td>+ counter mode, pickup queue, loyalty, production</td></tr>
-      <tr><td><strong>Professional</strong></td><td>₹2,999/mo</td><td>Growing restaurants</td><td>+ inventory, CRM, delivery, up to 3 outlets</td></tr>
-      <tr><td><strong>Enterprise</strong></td><td>₹9,999/mo</td><td>Chains &amp; franchise</td><td>+ multi-outlet, multi-brand, franchise, analytics, API</td></tr>
-      <tr><td><strong>Hospitality</strong></td><td>₹14,999/mo</td><td>Hotels &amp; resorts</td><td>+ room service, room posting, banquet, PMS-ready</td></tr>
+      <tr><td><strong>Starter</strong></td><td>₹1,499/mo</td><td>Single outlet launch</td><td>POS, KDS, tables, QR + online ordering, reports</td></tr>
+      <tr><td><strong>QSR / Food SMB</strong></td><td>₹2,499/mo</td><td>Cafes, trucks, counters</td><td>+ counter mode, pickup queue, loyalty, inventory, production</td></tr>
+      <tr><td><strong>Professional</strong></td><td>₹4,999/mo</td><td>Growing restaurants</td><td>+ inventory, purchasing, CRM, delivery, Waiter app, up to 3 outlets</td></tr>
+      <tr><td><strong>Enterprise</strong></td><td>Contact us</td><td>Chains &amp; franchise</td><td>+ multi-outlet, multi-brand, franchise, analytics, API</td></tr>
+      <tr><td><strong>Hospitality</strong></td><td>Contact us</td><td>Hotels &amp; resorts</td><td>+ room service, room posting, banquet, PMS-ready</td></tr>
     </tbody>
   </table>
 

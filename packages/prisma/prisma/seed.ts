@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import {
   PUBLIC_PLAN_CATALOG,
+  isContactSalesPlanSlug,
   modulesForPublicPlanSlug,
   type PublicPlanSlug,
 } from "@cullinos/shared";
@@ -398,8 +399,9 @@ async function seedPlans() {
       update: {
         name: catalog.name,
         description: catalog.description,
-        priceMonthly: catalog.priceMonthly,
-        priceYearly: catalog.priceYearly,
+        ...(isContactSalesPlanSlug(slug)
+          ? {}
+          : { priceMonthly: catalog.priceMonthly, priceYearly: catalog.priceYearly }),
         maxOutlets: catalog.maxOutlets,
         maxTerminals: catalog.maxTerminals,
         maxUsers: catalog.maxUsers,

@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import type { Plan, Subscription, SubscriptionStatus } from "@prisma/client";
+import { isContactSalesPlanSlug } from "@cullinos/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { RazorpayClient } from "../payments/razorpay.client";
 
@@ -50,6 +51,7 @@ export class SaasBillingService {
     const plans = await this.prisma.plan.findMany({ where: { isActive: true } });
     const synced: string[] = [];
     for (const plan of plans) {
+      if (Number(plan.priceMonthly) <= 0) continue;
       await this.ensureRazorpayPlan(plan);
       synced.push(plan.slug);
     }
@@ -57,6 +59,11 @@ export class SaasBillingService {
   }
 
   async ensureRazorpayPlan(plan: Plan) {
+    if (Number(plan.priceMonthly) <= 0) {
+      throw new BadRequestException(
+        `${plan.name} is custom-priced. Contact us for pricing to activate billing.`,
+      );
+    }
     if (plan.razorpayPlanIdMonthly) {
       const existing = await this.razorpay.fetchPlan(plan.razorpayPlanIdMonthly);
       if (existing) return existing.id;
@@ -221,6 +228,11 @@ export class SaasBillingService {
     const plan = await this.prisma.plan.findUnique({ where: { slug: planSlug } });
     if (!plan || !plan.isActive || plan.visibility !== "public") {
       throw new NotFoundException("Plan not found");
+    }
+    if (isContactSalesPlanSlug(plan.slug)) {
+      throw new BadRequestException(
+        `${plan.name} is custom-priced. Contact us for pricing to switch to this plan.`,
+      );
     }
 
     const subscription = await this.prisma.subscription.findFirst({
