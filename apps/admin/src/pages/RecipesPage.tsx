@@ -4,36 +4,22 @@ import {
   Button,
   DataTable,
   ErrorBanner,
-  Input,
   PageHeader,
   Select,
   useToast,
 } from '@cullinos/ui';
+import { RecipeEditor } from '@/components/recipes/RecipeEditor';
+import { StockDeductionSetting } from '@/components/recipes/StockDeductionSetting';
 import { inventoryApi, menuApi, recipesApi, type RecipeRow } from '@/lib/api';
-import { formatPackDefinition, formatServesPerPack } from '@/lib/inventory-packs';
-
-type IngredientLine = {
-  kind: 'inventory' | 'subRecipe';
-  inventoryItemId: string;
-  subRecipeId: string;
-  quantity: string;
-};
-
-const emptyLine = (): IngredientLine => ({
-  kind: 'inventory',
-  inventoryItemId: '',
-  subRecipeId: '',
-  quantity: '1',
-});
+import { formatServesPerPack } from '@/lib/inventory-packs';
 
 export function RecipesPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<RecipeRow | null>(null);
   const [menuItemId, setMenuItemId] = useState('');
-  const [yieldQty, setYieldQty] = useState('1');
-  const [ingredients, setIngredients] = useState<IngredientLine[]>([emptyLine()]);
+  const [missingOnly, setMissingOnly] = useState(false);
 
   const recipesQuery = useQuery({
     queryKey: ['recipes'],
@@ -45,28 +31,7 @@ export function RecipesPage() {
   });
   const inventoryQuery = useQuery({
     queryKey: ['inventory', 'items'],
-    queryFn: inventoryApi.listItems,
-  });
-
-  const createMutation = useMutation({
-    mutationFn: recipesApi.create,
-    onSuccess: () => {
-      toast.success('Recipe created.');
-      resetForm();
-      queryClient.invalidateQueries({ queryKey: ['recipes'] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof recipesApi.update>[1] }) =>
-      recipesApi.update(id, payload),
-    onSuccess: () => {
-      toast.success('Recipe updated.');
-      resetForm();
-      queryClient.invalidateQueries({ queryKey: ['recipes'] });
-    },
-    onError: (err: Error) => toast.error(err.message),
+    queryFn: () => inventoryApi.listItems(),
   });
 
   const deleteMutation = useMutation({
@@ -80,44 +45,20 @@ export function RecipesPage() {
 
   function resetForm() {
     setShowForm(false);
-    setEditingId(null);
+    setEditing(null);
     setMenuItemId('');
-    setYieldQty('1');
-    setIngredients([emptyLine()]);
   }
 
   function startEdit(recipe: RecipeRow) {
-    setEditingId(recipe.id);
-    setShowForm(true);
+    setEditing(recipe);
     setMenuItemId(recipe.menuItemId);
-    setYieldQty(String(Number(recipe.yield)));
-    setIngredients(
-      recipe.ingredients?.length
-        ? recipe.ingredients.map((ing) => ({
-            kind: ing.subRecipeId ? ('subRecipe' as const) : ('inventory' as const),
-            inventoryItemId: ing.inventoryItemId ?? ing.inventoryItem?.id ?? '',
-            subRecipeId: ing.subRecipeId ?? ing.subRecipe?.id ?? '',
-            quantity: String(Number(ing.quantity)),
-          }))
-        : [emptyLine()],
-    );
+    setShowForm(true);
   }
 
-  function parseIngredients() {
-    const parsed = ingredients
-      .filter((line) =>
-        line.kind === 'inventory' ? Boolean(line.inventoryItemId) : Boolean(line.subRecipeId),
-      )
-      .map((line) =>
-        line.kind === 'inventory'
-          ? { inventoryItemId: line.inventoryItemId, quantity: Number(line.quantity) || 0 }
-          : { subRecipeId: line.subRecipeId, quantity: Number(line.quantity) || 0 },
-      );
-    if (!parsed.length) {
-      toast.error('Add at least one ingredient.');
-      return null;
-    }
-    return parsed;
+  function startNew(forMenuItemId = '') {
+    setEditing(null);
+    setMenuItemId(forMenuItemId);
+    setShowForm(true);
   }
 
   const recipes = recipesQuery.data ?? [];
@@ -125,29 +66,29 @@ export function RecipesPage() {
   const inventoryItems = inventoryQuery.data ?? [];
   const inventoryById = new Map(inventoryItems.map((item) => [item.id, item]));
   const canCreate = menuItems.length > 0 && (inventoryItems.length > 0 || recipes.length > 0);
-  const subRecipeOptions = recipes.filter((r) => r.id !== editingId);
+  const linkedMenuIds = new Set(recipes.map((r) => r.menuItemId));
+  const unlinkedMenuItems = menuItems.filter((m) => !linkedMenuIds.has(m.id));
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Recipes"
-        description="Link menu items to inventory ingredients or sub-recipes. Stock deducts automatically when orders are served or completed."
+        description="Connect each menu item to the inventory it uses. When the item is sold, those ingredients are deducted from the selling outlet's stock."
         actions={
           canCreate ? (
             <Button
               onClick={() => {
-                if (showForm && !editingId) resetForm();
-                else {
-                  setEditingId(null);
-                  setShowForm((v) => !v);
-                }
+                if (showForm && !editing) resetForm();
+                else startNew();
               }}
             >
-              {showForm ? 'Cancel' : 'Add recipe'}
+              {showForm && !editing ? 'Cancel' : 'Add recipe'}
             </Button>
           ) : undefined
         }
       />
+
+      <StockDeductionSetting />
 
       {recipesQuery.error ? (
         <ErrorBanner>
@@ -158,7 +99,7 @@ export function RecipesPage() {
       ) : null}
 
       {!canCreate ? (
-        <div className="rounded-xl border border-dashed border-white/10 bg-bg-card/60 px-6 py-8 text-center space-y-2">
+        <div className="rounded-xl border border-dashed border-line bg-bg-card/60 px-6 py-8 text-center space-y-2">
           <p className="font-medium text-text-secondary">Prerequisites needed</p>
           <p className="text-sm text-text-muted">
             Recipes link menu items to inventory stock so counts deduct automatically on each sale.
@@ -174,38 +115,18 @@ export function RecipesPage() {
       ) : null}
 
       {showForm && canCreate ? (
-        <section className="rounded-xl border border-white/5 bg-bg-card p-6">
-          <h2 className="font-medium">{editingId ? 'Edit recipe' : 'New recipe'}</h2>
-          <form
-            className="mt-4 space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const parsed = parseIngredients();
-              if (!parsed) return;
-
-              if (editingId) {
-                updateMutation.mutate({
-                  id: editingId,
-                  payload: {
-                    yieldQty: Number(yieldQty) || 1,
-                    ingredients: parsed,
-                  },
-                });
-              } else {
-                if (!menuItemId) {
-                  toast.error('Select a menu item.');
-                  return;
-                }
-                createMutation.mutate({
-                  menuItemId,
-                  yieldQty: Number(yieldQty) || 1,
-                  ingredients: parsed,
-                });
-              }
-            }}
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              {editingId ? (
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
+          <h2 className="mb-4 font-medium">{editing ? 'Edit recipe' : 'New recipe'}</h2>
+          <RecipeEditor
+            key={editing?.id ?? `new-${menuItemId}`}
+            menuItemId={menuItemId}
+            recipe={editing}
+            allRecipes={recipes}
+            inventoryItems={inventoryItems}
+            onSaved={resetForm}
+            onCancel={resetForm}
+            header={
+              editing ? (
                 <div className="text-sm">
                   <span className="text-text-secondary">Menu item</span>
                   <p className="mt-1 font-medium">
@@ -217,206 +138,128 @@ export function RecipesPage() {
                   label="Menu item"
                   options={[
                     { value: '', label: 'Select…' },
-                    ...menuItems.map((item) => ({ value: item.id, label: item.name })),
+                    ...unlinkedMenuItems.map((item) => ({ value: item.id, label: item.name })),
                   ]}
                   value={menuItemId}
                   onChange={(e) => setMenuItemId(e.target.value)}
                   required
                 />
-              )}
-              <Input
-                label="Yield quantity"
-                type="number"
-                min={0.01}
-                step="any"
-                value={yieldQty}
-                onChange={(e) => setYieldQty(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-text-secondary">Ingredients</p>
-              {ingredients.map((line, idx) => (
-                <div key={idx} className="grid gap-3 sm:grid-cols-[140px_1fr_120px_auto]">
-                  <Select
-                    label={idx === 0 ? 'Type' : ' '}
-                    options={[
-                      { value: 'inventory', label: 'Inventory' },
-                      { value: 'subRecipe', label: 'Sub-recipe' },
-                    ]}
-                    value={line.kind}
-                    onChange={(e) => {
-                      const next = [...ingredients];
-                      next[idx] = {
-                        ...next[idx],
-                        kind: e.target.value as 'inventory' | 'subRecipe',
-                        inventoryItemId: '',
-                        subRecipeId: '',
-                      };
-                      setIngredients(next);
-                    }}
-                  />
-                  {line.kind === 'inventory' ? (
-                    <Select
-                      label={idx === 0 ? 'Inventory item' : ' '}
-                      options={[
-                        { value: '', label: 'Select…' },
-                        ...inventoryItems.map((item) => ({
-                          value: item.id,
-                          label: `${item.name} (${item.unit})`,
-                        })),
-                      ]}
-                      value={line.inventoryItemId}
-                      onChange={(e) => {
-                        const next = [...ingredients];
-                        next[idx] = { ...next[idx], inventoryItemId: e.target.value };
-                        setIngredients(next);
-                      }}
-                    />
-                  ) : (
-                    <Select
-                      label={idx === 0 ? 'Sub-recipe' : ' '}
-                      options={[
-                        { value: '', label: 'Select…' },
-                        ...subRecipeOptions.map((r) => ({
-                          value: r.id,
-                          label: r.menuItem?.name ?? r.menuItemId,
-                        })),
-                      ]}
-                      value={line.subRecipeId}
-                      onChange={(e) => {
-                        const next = [...ingredients];
-                        next[idx] = { ...next[idx], subRecipeId: e.target.value };
-                        setIngredients(next);
-                      }}
-                    />
-                  )}
-                  <Input
-                    label={idx === 0 ? 'Qty' : ' '}
-                    type="number"
-                    min={0.001}
-                    step="any"
-                    value={line.quantity}
-                    onChange={(e) => {
-                      const next = [...ingredients];
-                      next[idx] = { ...next[idx], quantity: e.target.value };
-                      setIngredients(next);
-                    }}
-                  />
-                  {ingredients.length > 1 ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="self-end"
-                      onClick={() => setIngredients(ingredients.filter((_, i) => i !== idx))}
-                    >
-                      Remove
-                    </Button>
-                  ) : null}
-                  {(() => {
-                    if (line.kind !== 'inventory') return null;
-                    const inv = inventoryById.get(line.inventoryItemId);
-                    if (!inv) return null;
-                    const perServe = (Number(line.quantity) || 0) / (Number(yieldQty) > 0 ? Number(yieldQty) : 1);
-                    const serves = formatServesPerPack(inv, perServe);
-                    const definition = formatPackDefinition(inv);
-                    if (!serves && !definition) return null;
-                    return (
-                      <p className="text-xs text-text-muted sm:col-span-4">
-                        {[definition, serves].filter(Boolean).join(' · ')}
-                      </p>
-                    );
-                  })()}
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setIngredients([...ingredients, emptyLine()])}
-              >
-                Add ingredient
-              </Button>
-            </div>
-
-            <Button
-              type="submit"
-              loading={createMutation.isPending || updateMutation.isPending}
-            >
-              {editingId ? 'Save changes' : 'Create recipe'}
-            </Button>
-          </form>
+              )
+            }
+          />
         </section>
       ) : null}
 
-      <DataTable
-        columns={[
-          {
-            key: 'menu',
-            header: 'Menu item',
-            cell: (recipe) => (
-              <span className="font-medium">
-                {recipe.menuItem?.name ?? recipe.menuItemId}
-              </span>
-            ),
-          },
-          {
-            key: 'yield',
-            header: 'Yield',
-            cell: (recipe) => Number(recipe.yield),
-          },
-          {
-            key: 'ingredients',
-            header: 'Ingredients',
-            cell: (recipe) => (
-              <ul className="text-text-secondary">
-                {(recipe.ingredients ?? []).map((ing) => (
-                  <li key={ing.id}>
-                    {ing.subRecipeId
-                      ? `Sub: ${ing.subRecipe?.menuItem?.name ?? ing.subRecipeId}`
-                      : (ing.inventoryItem?.name ?? 'Item')}{' '}
-                    — {Number(ing.quantity)}{' '}
-                    {ing.inventoryItem?.unit ?? ''}
-                    {(() => {
-                      const inv = ing.inventoryItemId ? inventoryById.get(ing.inventoryItemId) : undefined;
-                      const recipeYield = Number(recipe.yield) > 0 ? Number(recipe.yield) : 1;
-                      const serves = inv ? formatServesPerPack(inv, Number(ing.quantity) / recipeYield) : null;
-                      return serves ? <span className="text-text-muted"> ({serves})</span> : null;
-                    })()}
-                  </li>
-                ))}
-              </ul>
-            ),
-          },
-          {
-            key: 'actions',
-            header: '',
-            cell: (recipe) => (
-              <div className="flex gap-2">
-                <Button size="sm" variant="secondary" onClick={() => startEdit(recipe)}>
-                  Edit
+      {canCreate && unlinkedMenuItems.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-status-warning/30 bg-status-warning/10 px-4 py-3 text-sm">
+          <span>
+            <strong>{unlinkedMenuItems.length}</strong> of {menuItems.length} menu items have no
+            recipe, so selling them does not deduct any stock.
+          </span>
+          <label className="flex cursor-pointer items-center gap-2 text-text-secondary">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-brand-primary"
+              checked={missingOnly}
+              onChange={(e) => setMissingOnly(e.target.checked)}
+            />
+            Show items without a recipe
+          </label>
+        </div>
+      ) : null}
+
+      {missingOnly ? (
+        <DataTable
+          columns={[
+            {
+              key: 'menu',
+              header: 'Menu item',
+              cell: (item) => <span className="font-medium">{item.name}</span>,
+            },
+            {
+              key: 'actions',
+              header: '',
+              cell: (item) => (
+                <Button size="sm" variant="secondary" onClick={() => startNew(item.id)}>
+                  Add recipe
                 </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  loading={deleteMutation.isPending}
-                  onClick={() => {
-                    if (window.confirm('Delete this recipe?')) {
-                      deleteMutation.mutate(recipe.id);
-                    }
-                  }}
-                >
-                  Delete
-                </Button>
-              </div>
-            ),
-          },
-        ]}
-        rows={recipes}
-        getRowKey={(recipe) => recipe.id}
-        loading={recipesQuery.isLoading}
-        emptyMessage={canCreate ? 'No recipes yet — click "Add recipe" above to link your first menu item to ingredients.' : 'No recipes yet.'}
-      />
+              ),
+            },
+          ]}
+          rows={unlinkedMenuItems}
+          getRowKey={(item) => item.id}
+          emptyMessage="Every menu item has a recipe."
+        />
+      ) : (
+        <DataTable
+          columns={[
+            {
+              key: 'menu',
+              header: 'Menu item',
+              cell: (recipe) => (
+                <span className="font-medium">
+                  {recipe.menuItem?.name ?? recipe.menuItemId}
+                </span>
+              ),
+            },
+            {
+              key: 'yield',
+              header: 'Yield',
+              cell: (recipe) => Number(recipe.yield),
+            },
+            {
+              key: 'ingredients',
+              header: 'Ingredients',
+              cell: (recipe) => (
+                <ul className="text-text-secondary">
+                  {(recipe.ingredients ?? []).map((ing) => (
+                    <li key={ing.id}>
+                      {ing.subRecipeId
+                        ? `Sub: ${ing.subRecipe?.menuItem?.name ?? ing.subRecipeId}`
+                        : (ing.inventoryItem?.name ?? 'Item')}{' '}
+                      — {Number(ing.quantity)}{' '}
+                      {ing.inventoryItem?.unit ?? ''}
+                      {(() => {
+                        const inv = ing.inventoryItemId ? inventoryById.get(ing.inventoryItemId) : undefined;
+                        const recipeYield = Number(recipe.yield) > 0 ? Number(recipe.yield) : 1;
+                        const serves = inv ? formatServesPerPack(inv, Number(ing.quantity) / recipeYield) : null;
+                        return serves ? <span className="text-text-muted"> ({serves})</span> : null;
+                      })()}
+                    </li>
+                  ))}
+                </ul>
+              ),
+            },
+            {
+              key: 'actions',
+              header: '',
+              cell: (recipe) => (
+                <div className="flex gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => startEdit(recipe)}>
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    loading={deleteMutation.isPending}
+                    onClick={() => {
+                      if (window.confirm('Delete this recipe?')) {
+                        deleteMutation.mutate(recipe.id);
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              ),
+            },
+          ]}
+          rows={recipes}
+          getRowKey={(recipe) => recipe.id}
+          loading={recipesQuery.isLoading}
+          emptyMessage={canCreate ? 'No recipes yet — click "Add recipe" above to link your first menu item to ingredients.' : 'No recipes yet.'}
+        />
+      )}
     </div>
   );
 }

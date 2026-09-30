@@ -118,7 +118,7 @@ export function SmsCampaignsPage() {
         </p>
       </div>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-4 text-sm">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-4 text-sm">
         {walletQuery.isLoading && !estimateQuery.data ? (
           <p className="text-text-muted">Loading wallet…</p>
         ) : walletQuery.error && !estimateQuery.data ? (
@@ -143,7 +143,7 @@ export function SmsCampaignsPage() {
             </div>
             <Link
               to="/billing"
-              className="rounded-lg border border-white/10 px-3 py-1.5 text-sm hover:bg-white/5"
+              className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-hover"
             >
               Top up wallet
             </Link>
@@ -152,7 +152,7 @@ export function SmsCampaignsPage() {
       </section>
 
       {message ? (
-        <div className="rounded-lg border border-white/10 bg-bg-card px-4 py-3 text-sm text-text-secondary">
+        <div className="rounded-lg border border-line bg-bg-card px-4 py-3 text-sm text-text-secondary">
           {message}
         </div>
       ) : null}
@@ -163,7 +163,7 @@ export function SmsCampaignsPage() {
       ) : null}
 
       <form onSubmit={handleSend} className="grid gap-8 lg:grid-cols-2">
-        <section className="space-y-4 rounded-xl border border-white/5 bg-bg-card p-6">
+        <section className="space-y-4 rounded-xl border border-line-subtle bg-bg-card p-6">
           <h2 className="font-medium">Compose</h2>
           <label className="block">
             <span className="mb-1.5 block text-sm text-text-secondary">Message</span>
@@ -173,7 +173,7 @@ export function SmsCampaignsPage() {
               maxLength={160}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+              className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
             />
           </label>
           <p className="text-xs text-text-muted">{body.length}/160 characters</p>
@@ -189,7 +189,7 @@ export function SmsCampaignsPage() {
           </Button>
         </section>
 
-        <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
           <div className="flex items-center justify-between gap-4">
             <h2 className="font-medium">Recipients ({withPhone.length})</h2>
             <label className="flex items-center gap-2 text-sm text-text-secondary">
@@ -227,11 +227,11 @@ export function SmsCampaignsPage() {
         </section>
       </form>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
         <h2 className="font-medium">Recent campaigns</h2>
         <ul className="mt-4 space-y-3 text-sm">
           {campaigns.map((c) => (
-            <li key={c.id} className="border-b border-white/5 pb-3 last:border-0">
+            <li key={c.id} className="border-b border-line-subtle pb-3 last:border-0">
               <p className="font-medium capitalize">{c.status}</p>
               <p className="text-text-muted">
                 {c.sentCount}/{c.recipientCount} sent

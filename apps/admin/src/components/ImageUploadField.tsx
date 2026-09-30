@@ -119,6 +119,15 @@ export const IMAGE_SLOT_HINTS: Record<string, ImageSlotHint> = {
     maxMb: IMAGE_UPLOAD_MAX_MB,
     cropBeforeUpload: true,
   },
+  avatar: {
+    label: 'Profile photo',
+    ratioLabel: '1:1',
+    ratio: 1,
+    targetWidth: 512,
+    targetHeight: 512,
+    maxMb: IMAGE_UPLOAD_MAX_MB,
+    cropBeforeUpload: true,
+  },
 } as const;
 
 type SlotKey = keyof typeof IMAGE_SLOT_HINTS;
@@ -245,12 +254,12 @@ export function ImageUploadField({
           className="h-28 max-w-full rounded-lg object-cover"
         />
       ) : (
-        <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-white/20 text-xs text-text-muted">
+        <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-line-strong text-xs text-text-muted">
           No image
         </div>
       )}
       <div className="flex flex-wrap gap-2">
-        <label className="inline-flex cursor-pointer items-center rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm">
+        <label className="inline-flex cursor-pointer items-center rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm">
           {uploading ? 'Uploading…' : uploadLabel ?? 'Upload image'}
           <input
             ref={inputRef}
@@ -290,5 +299,5 @@ export function ImageUploadField({
     return <div className="space-y-2">{body}</div>;
   }
 
-  return <div className="space-y-2 rounded-lg border border-white/5 p-3">{body}</div>;
+  return <div className="space-y-2 rounded-lg border border-line-subtle p-3">{body}</div>;
 }

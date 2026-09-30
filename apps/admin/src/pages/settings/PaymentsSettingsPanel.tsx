@@ -148,7 +148,7 @@ export function PaymentsSettingsPanel() {
         ))}
       </div>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-4 space-y-4">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-4 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold">{PROVIDER_LABELS[activeProvider]} credentials</h2>
@@ -198,7 +198,7 @@ export function PaymentsSettingsPanel() {
             <label className="block text-sm space-y-1">
               <span className="text-text-muted">Mode</span>
               <select
-                className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2"
+                className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
                 value={mode}
                 onChange={(e) => setMode(e.target.value as 'sandbox' | 'production')}
               >
@@ -251,13 +251,13 @@ export function PaymentsSettingsPanel() {
         </Button>
       </section>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-4">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-4">
         <h2 className="font-semibold">Per-outlet overrides</h2>
         <p className="mt-1 text-sm text-text-secondary">
           Inherit organization credentials by default, or override with a separate merchant account
           per outlet.
         </p>
-        <ul className="mt-4 divide-y divide-white/5">
+        <ul className="mt-4 divide-y divide-line-subtle">
           {outlets.map((outlet) => {
             const cfg = outletConfigs[outlet.id];
             const isSelected = outlet.id === selectedOutletId;
@@ -284,7 +284,7 @@ export function PaymentsSettingsPanel() {
                   </Button>
                 </div>
                 {editing ? (
-                  <div className="rounded-lg border border-white/5 bg-bg-elevated p-3 space-y-3">
+                  <div className="rounded-lg border border-line-subtle bg-bg-elevated p-3 space-y-3">
                     <div className="flex flex-wrap gap-4 text-sm">
                       <label className="flex items-center gap-2">
                         <input
@@ -321,7 +321,7 @@ export function PaymentsSettingsPanel() {
                         />
                         {activeProvider === 'cashfree' ? (
                           <select
-                            className="rounded-lg border border-white/10 bg-bg-card px-3 py-2 text-sm"
+                            className="rounded-lg border border-line bg-bg-card px-3 py-2 text-sm"
                             value={outletMode}
                             onChange={(e) =>
                               setOutletMode(e.target.value as 'sandbox' | 'production')

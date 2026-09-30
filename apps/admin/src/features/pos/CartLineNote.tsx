@@ -55,7 +55,7 @@ export function CartLineNote({ notes, onSave }: CartLineNoteProps) {
           if (e.key === 'Escape') setEditing(false);
         }}
         placeholder="e.g. no onion, extra spicy"
-        className="min-w-0 flex-1 rounded-lg border border-white/10 bg-bg-primary px-2 py-1.5 text-xs outline-none focus:border-brand-primary"
+        className="min-w-0 flex-1 rounded-lg border border-line bg-bg-primary px-2 py-1.5 text-xs outline-none focus:border-brand-primary"
       />
       <button
         type="button"

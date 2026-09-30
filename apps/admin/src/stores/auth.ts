@@ -65,6 +65,7 @@ interface AuthState {
     impersonatedBy?: string | null;
   }) => void;
   setMustChangePassword: (value: boolean) => void;
+  updateUser: (patch: Partial<AuthUser>) => void;
   setSelectedOutlet: (outletId: string | null) => void;
   setPortalMode: (mode: PortalMode) => void;
   logout: () => void;
@@ -102,6 +103,8 @@ export const useAuthStore = create<AuthState>()(
         set((state) =>
           state.user ? { user: { ...state.user, mustChangePassword: value } } : state,
         ),
+      updateUser: (patch) =>
+        set((state) => (state.user ? { user: { ...state.user, ...patch } } : state)),
       setSelectedOutlet: (outletId) => set({ selectedOutletId: outletId }),
       setPortalMode: (mode) => set({ portalMode: mode }),
       logout: () =>

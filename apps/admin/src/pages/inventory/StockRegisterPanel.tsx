@@ -141,7 +141,7 @@ export function StockRegisterPanel({ outletId }: { outletId?: string | null }) {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-white/5 bg-bg-secondary text-text-muted">
+              <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
                 <th className="px-3 py-2 font-medium">Item</th>
                 <th className="px-3 py-2 font-medium">Unit</th>
                 <th className="px-3 py-2 text-right font-medium">Opening</th>
@@ -155,7 +155,7 @@ export function StockRegisterPanel({ outletId }: { outletId?: string | null }) {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.inventoryItemId} className="border-b border-white/5">
+                <tr key={r.inventoryItemId} className="border-b border-line-subtle">
                   <td className="px-3 py-2 font-medium">
                     {r.name}
                     {r.sku ? <span className="ml-2 text-xs text-text-muted">{r.sku}</span> : null}

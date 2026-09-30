@@ -119,7 +119,7 @@ export function LoyaltyPage() {
       />
 
       <RedeemPointsPanel settings={settingsQuery.data} />
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="font-semibold">Settings</h2>
         {settingsQuery.isLoading ? (
           <p className="mt-3 text-sm text-text-muted">Loading…</p>
@@ -180,13 +180,13 @@ export function LoyaltyPage() {
         )}
       </section>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="font-semibold">Tiers</h2>
         <ul className="mt-3 space-y-2 text-sm">
           {(tiersQuery.data ?? []).map((tier) => (
             <li
               key={tier.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/5 bg-bg-elevated/50 px-3 py-2"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line-subtle bg-bg-elevated/50 px-3 py-2"
             >
               <div className="text-text-secondary">
                 <span className="font-medium text-text-primary">{tier.name}</span>
@@ -240,7 +240,7 @@ export function LoyaltyPage() {
           </div>
         </form>
       </section>
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="font-semibold">Reward catalog</h2>
         <p className="mt-1 text-sm text-text-muted">
           Example: Free cold drink for 100 points. Customers redeem from POS or checkout.
@@ -249,7 +249,7 @@ export function LoyaltyPage() {
           {(rewardsQuery.data ?? []).map((reward) => (
             <li
               key={reward.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/5 bg-bg-elevated/50 px-3 py-2"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line-subtle bg-bg-elevated/50 px-3 py-2"
             >
               <div>
                 <span className="font-medium text-text-primary">{reward.name}</span>

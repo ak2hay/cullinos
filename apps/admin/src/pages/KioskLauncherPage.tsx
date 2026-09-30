@@ -98,7 +98,7 @@ export function KioskLauncherPage() {
 
       <div className="space-y-4">
         {links.map((link) => (
-          <section key={link.id} className="rounded-xl border border-white/5 bg-bg-card p-5">
+          <section key={link.id} className="rounded-xl border border-line-subtle bg-bg-card p-5">
             <h2 className="font-semibold">{link.title}</h2>
             <p className="mt-1 text-sm text-text-secondary">{link.description}</p>
             {!link.url ? (
@@ -109,7 +109,7 @@ export function KioskLauncherPage() {
               </p>
             ) : (
               <>
-                <code className="mt-3 block break-all rounded-lg border border-white/10 bg-bg-elevated p-3 text-sm text-brand-primary">
+                <code className="mt-3 block break-all rounded-lg border border-line bg-bg-elevated p-3 text-sm text-brand-primary">
                   {link.url}
                 </code>
                 <div className="mt-3 flex flex-wrap gap-2">

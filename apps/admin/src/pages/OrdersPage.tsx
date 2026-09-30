@@ -148,7 +148,7 @@ export function OrdersPage() {
             value={day}
             max={todayInputValue()}
             onChange={(e) => setDay(e.target.value || todayInputValue())}
-            className="h-9 rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+            className="h-9 rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
             aria-label={t('orders.day')}
           />
         ) : null}
@@ -167,15 +167,15 @@ export function OrdersPage() {
       ) : null}
 
       {!outletId ? (
-        <div className="rounded-xl border border-white/5 bg-bg-card px-4 py-8 text-center text-sm text-text-muted">
+        <div className="rounded-xl border border-line-subtle bg-bg-card px-4 py-8 text-center text-sm text-text-muted">
           {t('orders.selectOutlet')}
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
           <div className="space-y-3">
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-bg-card">
+            <div className="overflow-hidden rounded-xl border border-line-subtle bg-bg-card">
               <table className="w-full text-left text-sm">
-                <thead className="border-b border-white/5 bg-bg-elevated text-text-secondary">
+                <thead className="border-b border-line-subtle bg-bg-elevated text-text-secondary">
                   <tr>
                     <th className="px-4 py-3 font-medium">{t('orders.colOrder')}</th>
                     <th className="px-4 py-3 font-medium">{t('orders.colStatus')}</th>
@@ -202,8 +202,8 @@ export function OrdersPage() {
                       <tr
                         key={order.id}
                         onClick={() => setSelectedId(order.id)}
-                        className={`cursor-pointer border-b border-white/5 last:border-0 hover:bg-white/5 ${
-                          selectedId === order.id ? 'bg-white/5' : ''
+                        className={`cursor-pointer border-b border-line-subtle last:border-0 hover:bg-hover ${
+                          selectedId === order.id ? 'bg-hover' : ''
                         }`}
                       >
                         <td className="px-4 py-3 font-mono">
@@ -249,7 +249,7 @@ export function OrdersPage() {
             ) : null}
           </div>
 
-          <aside className="rounded-xl border border-white/5 bg-bg-card p-5">
+          <aside className="rounded-xl border border-line-subtle bg-bg-card p-5">
             {!selectedId ? (
               <p className="text-sm text-text-muted">{t('orders.selectOrder')}</p>
             ) : detailQuery.isLoading ? (
@@ -300,7 +300,7 @@ export function OrdersPage() {
                 </dl>
 
                 {(detail.items ?? []).length > 0 ? (
-                  <ul className="space-y-1 border-t border-white/5 pt-3 text-sm">
+                  <ul className="space-y-1 border-t border-line-subtle pt-3 text-sm">
                     {detail.items!.map((item) => (
                       <li key={item.id} className="flex justify-between gap-2 text-text-secondary">
                         <span>
@@ -366,7 +366,7 @@ function BillBreakdown({ order }: { order: Order }) {
     </div>
   );
   return (
-    <dl className="space-y-1 border-t border-white/5 pt-3 text-sm text-text-secondary">
+    <dl className="space-y-1 border-t border-line-subtle pt-3 text-sm text-text-secondary">
       {row(t('bill.subtotal'), order.subtotal)}
       {taxLines.length > 0
         ? taxLines.map((line, i) => (
@@ -382,7 +382,7 @@ function BillBreakdown({ order }: { order: Order }) {
       {row(
         t('bill.total'),
         order.totalAmount,
-        'border-t border-white/5 pt-1 font-semibold text-text-primary',
+        'border-t border-line-subtle pt-1 font-semibold text-text-primary',
       )}
     </dl>
   );

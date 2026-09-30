@@ -76,7 +76,7 @@ export function DeliveryPage() {
         </ErrorBanner>
       ) : null}
 
-      <div className="grid gap-3 rounded-xl border border-white/5 bg-bg-card p-4 sm:grid-cols-2">
+      <div className="grid gap-3 rounded-xl border border-line-subtle bg-bg-card p-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <Select
             label="Outlet"

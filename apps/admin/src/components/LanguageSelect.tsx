@@ -28,7 +28,7 @@ export function LanguageSelect({ className = '' }: { className?: string }) {
         onChange={(e) => {
           if (isLanguageCode(e.target.value)) void chooseLanguage(e.target.value);
         }}
-        className="rounded-md border border-white/10 bg-bg-elevated px-2 py-1 text-xs text-text-secondary focus:outline-none"
+        className="rounded-md border border-line bg-bg-elevated px-2 py-1 text-xs text-text-secondary focus:outline-none"
         aria-label={t('common.language')}
       >
         {SUPPORTED_LANGUAGES.map((lang) => (

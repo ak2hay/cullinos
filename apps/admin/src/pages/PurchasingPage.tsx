@@ -33,7 +33,7 @@ export function PurchasingPage() {
   });
   const inventoryQuery = useQuery({
     queryKey: ['inventory', 'items'],
-    queryFn: inventoryApi.listItems,
+    queryFn: () => inventoryApi.listItems(),
   });
 
   const createMutation = useMutation({
@@ -118,7 +118,7 @@ export function PurchasingPage() {
       ) : null}
 
       {showForm && suppliers.length > 0 ? (
-        <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
           <h2 className="font-medium">New purchase order</h2>
           <form
             className="mt-4 grid gap-4 sm:grid-cols-2"

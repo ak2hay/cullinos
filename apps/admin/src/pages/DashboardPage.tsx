@@ -1,11 +1,44 @@
 import { useQuery } from '@tanstack/react-query';
-import { useId, useState } from 'react';
-import { Card, PageShell } from '@cullinos/ui';
-import { analyticsApi, inventoryApi, outletsApi, reportsApi } from '@/lib/api';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, ClipboardCheck, Clock, IndianRupee, ReceiptText, TriangleAlert } from 'lucide-react';
+import {
+  BUSINESS_TYPES,
+  RESTAURANT_SIZES,
+  canAccessPortalMode,
+  isAdminNavPathVisible,
+  isErpNavPathAllowed,
+  type BusinessType,
+  type RestaurantSize,
+} from '@cullinos/shared';
+import { Card } from '@cullinos/ui';
+import { analyticsApi, organizationsApi, outletsApi, reportsApi } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
+import { useLowStock, useOpenOrders } from '@/lib/useShellAlerts';
 import { useAuthStore } from '@/stores/auth';
+import { KpiCard } from '@/features/dashboard/KpiCard';
+import { LiveOrders } from '@/features/dashboard/LiveOrders';
+import { QUICK_ACTIONS, QuickActions } from '@/features/dashboard/QuickActions';
+import { StatusDonut, type StatusCounts } from '@/features/dashboard/StatusDonut';
+import { TopItems, type TopItem } from '@/features/dashboard/TopItems';
+import { TrendChart } from '@/features/dashboard/TrendChart';
+import { localYmd, percentChange, shiftYmd } from '@/features/dashboard/chart-utils';
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+type Range = 'today' | 'week' | 'month' | 'custom';
+
+const RANGES: Array<{ id: Range; label: string }> = [
+  { id: 'today', label: 'Today' },
+  { id: 'week', label: 'This week' },
+  { id: 'month', label: 'This month' },
+  { id: 'custom', label: 'Custom' },
+];
+
+const COMPARE_LABEL: Record<Range, string> = {
+  today: 'vs yesterday',
+  week: 'vs previous week',
+  month: 'vs previous month',
+  custom: 'vs previous day',
+};
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -14,370 +47,434 @@ function getGreeting() {
   return 'evening';
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+/** Days elapsed in the range, today included (week starts Monday). */
+function rangeDays(range: Range): number {
+  const now = new Date();
+  if (range === 'week') return ((now.getDay() + 6) % 7) + 1;
+  if (range === 'month') return now.getDate();
+  return 1;
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────
+function parseEnum<T extends string>(value: string | null | undefined, all: readonly string[]): T | null {
+  return value && all.includes(value) ? (value as T) : null;
+}
 
-function KpiCard({
-  label,
-  value,
-  hint,
-  loading,
+function Panel({
+  title,
+  subtitle,
+  action,
+  children,
+  className = '',
+  style,
 }: {
-  label: string;
-  value: string;
-  hint?: string;
-  loading: boolean;
+  title: string;
+  subtitle?: string;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  style?: CSSProperties;
 }) {
   return (
-    <Card className="relative overflow-hidden">
-      <p className="text-sm text-text-secondary">{label}</p>
-      {loading ? (
-        <div className="mt-2 h-9 w-24 animate-pulse rounded bg-bg-elevated" />
-      ) : (
-        <p className="mt-2 font-mono text-3xl font-semibold text-brand-primary">{value}</p>
-      )}
-      {hint ? <p className="mt-2 text-xs text-text-muted">{hint}</p> : null}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-brand-primary/0 via-brand-primary/50 to-brand-primary/0" />
-    </Card>
+    <section
+      style={style}
+      className={`animate-slide-up rounded-2xl border border-line-subtle bg-bg-card p-5 shadow-sm ${className}`}
+    >
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-display text-base font-semibold tracking-tight text-text-primary">{title}</h2>
+          {subtitle ? <p className="mt-0.5 text-xs text-text-muted">{subtitle}</p> : null}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
   );
 }
 
-function TrendChart({
-  days,
-  loading,
-}: {
-  days: Array<{ date: string; revenue: number; orders: number }>;
-  loading: boolean;
-}) {
-  const [mode, setMode] = useState<'revenue' | 'orders'>('revenue');
-  const gradientId = `trend-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
-
-  const values = days.map((d) => (mode === 'revenue' ? d.revenue : d.orders));
-  const max = Math.max(...values, 1);
-  // x is centred in each day's column so points line up with the labels below.
-  const points = values.map((v, i) => ({
-    x: ((i + 0.5) / Math.max(days.length, 1)) * 100,
-    y: 95 - (v / max) * 85,
-  }));
-  const linePoints = points.map((p) => `${p.x},${p.y}`).join(' ');
-  const areaPoints = points.length
-    ? `${points[0].x},100 ${linePoints} ${points[points.length - 1].x},100`
-    : '';
-
-  if (loading) {
-    return (
-      <div className="mt-4 flex h-24 items-center">
-        <div className="h-0.5 w-full animate-pulse rounded bg-bg-elevated" />
-      </div>
-    );
-  }
-
+function ViewAll({ to }: { to: string }) {
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-text-muted uppercase tracking-wide">
-          {mode === 'revenue' ? 'Revenue trend' : 'Order count trend'}
-        </span>
-        <div className="flex gap-1 rounded-lg bg-bg-elevated p-1">
-          {(['revenue', 'orders'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              className={`rounded px-2.5 py-1 text-xs font-medium transition ${
-                mode === m
-                  ? 'bg-brand-primary/20 text-brand-primary'
-                  : 'text-text-muted hover:text-text-secondary'
-              }`}
-            >
-              {m === 'revenue' ? 'Revenue' : 'Orders'}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="mt-3" aria-label="trend chart">
-        <div className="relative h-24 text-brand-primary">
-          <svg
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            className="absolute inset-0 h-full w-full overflow-visible"
-            aria-hidden="true"
-          >
-            <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="currentColor" stopOpacity="0.35" />
-                <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            {points.length > 1 ? (
-              <polygon points={areaPoints} fill={`url(#${gradientId})`} />
-            ) : null}
-            <polyline
-              points={linePoints}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          </svg>
-          <div className="absolute inset-0 flex">
-            {days.map((d, i) => (
-              <div key={d.date} className="group relative h-full flex-1">
-                <span
-                  className="absolute left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-primary transition-transform group-hover:scale-[2]"
-                  style={{ top: `${points[i].y}%` }}
-                />
-                <div
-                  className="absolute left-1/2 z-10 mb-2 hidden -translate-x-1/2 -translate-y-full whitespace-nowrap rounded bg-bg-elevated px-2 py-1 text-xs text-text-primary shadow group-hover:block"
-                  style={{ top: `${points[i].y}%` }}
-                >
-                  {fmtDate(d.date)}:{' '}
-                  {mode === 'revenue'
-                    ? `₹${(d.revenue / 100).toFixed(0)}`
-                    : `${d.orders} orders`}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="mt-1 flex gap-1">
-          {days.map((d) => (
-            <span
-              key={`${d.date}-label`}
-              className="flex-1 text-center text-[9px] text-text-muted"
-            >
-              {fmtDate(d.date).split(' ')[0]}
-            </span>
-          ))}
-        </div>
-      </div>
+    <Link
+      to={to}
+      className="group inline-flex items-center gap-1 text-sm font-medium text-brand-primary hover:underline"
+    >
+      View all
+      <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+    </Link>
+  );
+}
+
+function Segmented<T extends string | number>({
+  options,
+  value,
+  onChange,
+  size = 'md',
+}: {
+  options: Array<{ id: T; label: string }>;
+  value: T;
+  onChange: (v: T) => void;
+  size?: 'sm' | 'md';
+}) {
+  return (
+    <div className="inline-flex gap-1 rounded-xl border border-line-subtle bg-bg-card p-1 shadow-sm">
+      {options.map((opt) => (
+        <button
+          key={String(opt.id)}
+          type="button"
+          onClick={() => onChange(opt.id)}
+          className={`rounded-lg font-medium transition-colors duration-150 ${
+            size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3.5 py-1.5 text-sm'
+          } ${
+            value === opt.id
+              ? 'bg-brand-primary text-on-brand shadow-sm'
+              : 'text-text-secondary hover:bg-hover hover:text-text-primary'
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
     </div>
   );
 }
 
-// ── Main page ───────────────────────────────────────────────────────────────
+const stagger = (i: number): CSSProperties => ({ animationDelay: `${i * 50}ms` });
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const outletId = useAuthStore((s) => s.selectedOutletId);
+  const permissions = useAuthStore((s) => s.permissions);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const [date, setDate] = useState(today);
-  const [trendDays, setTrendDays] = useState(7);
+  const today = localYmd();
+  const [range, setRange] = useState<Range>('today');
+  const [customDate, setCustomDate] = useState(today);
+  const [trendDays, setTrendDays] = useState<7 | 14 | 30>(7);
+  const [trendMode, setTrendMode] = useState<'revenue' | 'orders'>('revenue');
 
-  // Scope label for display
+  const dayDate = range === 'custom' ? customDate : today;
+  const days = rangeDays(range);
+  const scope = outletId ?? undefined;
+
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
+  const orgQuery = useQuery({ queryKey: ['organizations', 'current'], queryFn: organizationsApi.current });
   const selectedOutlet = outletsQuery.data?.find((o) => o.id === outletId);
-  const scopeLabel = selectedOutlet ? selectedOutlet.name : 'All outlets';
+  const scopeLabel = selectedOutlet ? selectedOutlet.name : 'all outlets';
 
-  // ── Queries ────────────────────────────────────────────────────
-  // Always fire (no enabled gate) — when outletId is null it returns org-wide data
-  const { data: dailyData, isLoading: dailyLoading, error: dailyError } = useQuery({
-    queryKey: ['analytics', 'daily', date, outletId],
-    queryFn: () => analyticsApi.daily({ date, outletId: outletId ?? undefined }),
+  const dailyQuery = useQuery({
+    queryKey: ['analytics', 'daily', dayDate, outletId],
+    queryFn: () => analyticsApi.daily({ date: dayDate, outletId: scope }),
   });
 
-  const { data: trendData, isLoading: trendLoading } = useQuery({
+  const prevDailyQuery = useQuery({
+    queryKey: ['analytics', 'daily', shiftYmd(customDate, -1), outletId],
+    queryFn: () => analyticsApi.daily({ date: shiftYmd(customDate, -1), outletId: scope }),
+    enabled: range === 'custom',
+  });
+
+  // Enough history for the current period, the comparison period and a 7-day sparkline.
+  const kpiTrendDays = Math.min(Math.max(days * 2, 7), 90);
+  const kpiTrendQuery = useQuery({
+    queryKey: ['analytics', 'trend', kpiTrendDays, outletId],
+    queryFn: () => analyticsApi.trend({ days: kpiTrendDays, outletId: scope }),
+  });
+
+  const chartQuery = useQuery({
     queryKey: ['analytics', 'trend', trendDays, outletId],
-    queryFn: () => analyticsApi.trend({ days: trendDays, outletId: outletId ?? undefined }),
+    queryFn: () => analyticsApi.trend({ days: trendDays, outletId: scope }),
   });
 
-  const { data: summaryData } = useQuery({
-    queryKey: ['reports', 'smb', date, outletId],
-    queryFn: () =>
-      reportsApi.smbSummary({ date, outletId: outletId ?? undefined }),
+  const summaryQuery = useQuery({
+    queryKey: ['reports', 'smb', dayDate, outletId],
+    queryFn: () => reportsApi.smbSummary({ date: dayDate, outletId: scope }),
   });
 
-  const { data: lowStockItems = [] } = useQuery({
-    queryKey: ['inventory', 'low-stock'],
-    queryFn: inventoryApi.listLowStock,
-  });
+  const openOrders = useOpenOrders();
+  const lowStock = useLowStock();
 
-  const summary = dailyData?.summary;
+  const summary = dailyQuery.data?.summary;
 
-  const kpis = [
-    {
-      label: 'Revenue',
-      value: summary ? formatMoney(summary.totalRevenue) : '—',
-      hint: `${scopeLabel} · ${date === today ? 'Today' : date}`,
-    },
-    {
-      label: 'Orders completed',
-      value: summary ? String(summary.totalOrders) : '—',
-      hint: `${summary?.cancelledOrders ?? 0} cancelled`,
-    },
-    {
-      label: 'Open orders',
-      value: summary ? String(summary.openOrders) : '—',
-      hint: 'In progress or held',
-    },
-    {
-      label: 'Avg order value',
-      value: summary ? formatMoney(summary.averageOrderValue) : '—',
-      hint: 'Per completed order',
-    },
-  ];
+  const kpis = useMemo(() => {
+    const trend = kpiTrendQuery.data?.days ?? [];
+    const spark = trend.slice(-7);
+    const sparkRevenue = spark.map((d) => d.revenue);
+    const sparkOrders = spark.map((d) => d.orders);
+    const sparkAov = spark.map((d) => (d.orders > 0 ? d.revenue / d.orders : 0));
 
-  const topItems = (summaryData?.topItems as Array<{ name: string; quantity: number }> | undefined) ?? [];
+    let revenue = 0;
+    let orders = 0;
+    let prevRevenue = 0;
+    let prevOrders = 0;
+
+    if (range === 'custom') {
+      const cur = dailyQuery.data?.summary;
+      const prev = prevDailyQuery.data?.summary;
+      const completed = (s: typeof cur) =>
+        s ? (s.completedOrders ?? Math.max(s.totalOrders - s.openOrders - s.cancelledOrders, 0)) : 0;
+      revenue = cur?.totalRevenue ?? 0;
+      orders = completed(cur);
+      prevRevenue = prev?.totalRevenue ?? 0;
+      prevOrders = completed(prev);
+    } else {
+      const current = trend.slice(-days);
+      const previous = trend.slice(-days * 2, -days);
+      revenue = current.reduce((s, d) => s + d.revenue, 0);
+      orders = current.reduce((s, d) => s + d.orders, 0);
+      prevRevenue = previous.reduce((s, d) => s + d.revenue, 0);
+      prevOrders = previous.reduce((s, d) => s + d.orders, 0);
+    }
+
+    const aov = orders > 0 ? revenue / orders : 0;
+    const prevAov = prevOrders > 0 ? prevRevenue / prevOrders : 0;
+
+    return {
+      revenue,
+      orders,
+      aov,
+      revenueDelta: percentChange(revenue, prevRevenue),
+      ordersDelta: percentChange(orders, prevOrders),
+      aovDelta: percentChange(aov, prevAov),
+      sparkRevenue,
+      sparkOrders,
+      sparkAov,
+    };
+  }, [kpiTrendQuery.data, dailyQuery.data, prevDailyQuery.data, range, days]);
+
+  const kpiLoading =
+    range === 'custom' ? dailyQuery.isLoading || prevDailyQuery.isLoading : kpiTrendQuery.isLoading;
+  const compare = COMPARE_LABEL[range];
+
+  const statusCounts: StatusCounts | null = useMemo(() => {
+    const data = dailyQuery.data;
+    if (!data) return null;
+    if (data.statusBreakdown) return data.statusBreakdown;
+    const s = data.summary;
+    return {
+      completed: s.completedOrders ?? Math.max(s.totalOrders - s.openOrders - s.cancelledOrders, 0),
+      open: s.openOrders,
+      preparing: 0,
+      cancelled: s.cancelledOrders,
+    };
+  }, [dailyQuery.data]);
+
+  const topItems = ((summaryQuery.data?.topItems as TopItem[] | undefined) ?? []).slice(0, 5);
+
+  const businessType = parseEnum<BusinessType>(orgQuery.data?.businessType, BUSINESS_TYPES);
+  const restaurantSize = parseEnum<RestaurantSize>(orgQuery.data?.restaurantSize, RESTAURANT_SIZES);
+  const quickActions = QUICK_ACTIONS.filter((action) =>
+    action.to === '/pos'
+      ? canAccessPortalMode(permissions, 'pos')
+      : isErpNavPathAllowed(permissions, action.to) &&
+        isAdminNavPathVisible(businessType, action.to, restaurantSize, orgQuery.data?.enabledModules),
+  );
+
+  const dayLabel =
+    dayDate === today
+      ? 'Today'
+      : new Date(`${dayDate}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
-    <PageShell
-      title={`Good ${getGreeting()}, ${user?.firstName}`}
-      description={`Performance overview · ${scopeLabel}`}
-      actions={
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="h-9 rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
-          />
+    <div className="mx-auto max-w-[1600px] space-y-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="animate-fade-in">
+          <h1 className="font-display text-2xl font-bold tracking-tight text-text-primary sm:text-3xl">
+            Good {getGreeting()}, {user?.firstName ?? 'there'}
+          </h1>
+          <p className="mt-1 text-sm text-text-secondary">
+            Here&apos;s what&apos;s happening at <span className="font-medium text-text-primary">{scopeLabel}</span>{' '}
+            {range === 'today' ? 'today' : range === 'custom' ? `on ${dayLabel}` : range === 'week' ? 'this week' : 'this month'}.
+          </p>
         </div>
-      }
-    >
-      {/* ── Error ── */}
-      {dailyError ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Segmented options={RANGES} value={range} onChange={setRange} />
+          {range === 'custom' ? (
+            <input
+              type="date"
+              value={customDate}
+              max={today}
+              onChange={(e) => setCustomDate(e.target.value || today)}
+              className="h-10 animate-fade-in rounded-xl border border-line bg-bg-card px-3 text-sm text-text-primary shadow-sm outline-none focus:border-brand-primary"
+            />
+          ) : null}
+        </div>
+      </div>
+
+      {dailyQuery.error ? (
         <div className="rounded-xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
-          {dailyError instanceof Error ? dailyError.message : 'Failed to load analytics'}
+          {dailyQuery.error instanceof Error ? dailyQuery.error.message : 'Failed to load analytics'}
         </div>
       ) : null}
 
-      {/* ── Org/outlet scope notice ── */}
       {!outletId ? (
         <div className="rounded-xl border border-brand-primary/20 bg-brand-primary/5 px-4 py-2 text-xs text-text-secondary">
-          Showing <span className="font-semibold text-brand-primary">organisation-wide</span> rollup.
-          Select an outlet from the top nav to scope to a single location.
+          Showing <span className="font-semibold text-brand-primary">organisation-wide</span> rollup. Select an
+          outlet from the top bar to scope to a single location.
         </div>
       ) : null}
 
-      {/* ── KPI cards ── */}
+      {/* KPI cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {kpis.map((kpi) => (
-          <KpiCard
-            key={kpi.label}
-            label={kpi.label}
-            value={kpi.value}
-            hint={kpi.hint}
-            loading={dailyLoading}
+        <KpiCard
+          style={stagger(0)}
+          label="Revenue"
+          value={kpis.revenue}
+          format={formatMoney}
+          icon={<IndianRupee size={22} />}
+          tone="success"
+          delta={kpis.revenueDelta}
+          hint={compare}
+          spark={kpis.sparkRevenue}
+          loading={kpiLoading}
+        />
+        <KpiCard
+          style={stagger(1)}
+          label="Orders completed"
+          value={kpis.orders}
+          format={(n) => Math.round(n).toLocaleString('en-IN')}
+          icon={<ClipboardCheck size={22} />}
+          tone="info"
+          delta={kpis.ordersDelta}
+          hint={compare}
+          spark={kpis.sparkOrders}
+          loading={kpiLoading}
+        />
+        <KpiCard
+          style={stagger(2)}
+          label="Open orders"
+          value={summary?.openOrders ?? 0}
+          format={(n) => Math.round(n).toLocaleString('en-IN')}
+          icon={<Clock size={22} />}
+          tone="warning"
+          live={dayDate === today}
+          hint="In progress or held"
+          loading={dailyQuery.isLoading}
+        />
+        <KpiCard
+          style={stagger(3)}
+          label="Avg order value"
+          value={kpis.aov}
+          format={formatMoney}
+          icon={<ReceiptText size={22} />}
+          tone="violet"
+          delta={kpis.aovDelta}
+          hint={compare}
+          spark={kpis.sparkAov}
+          loading={kpiLoading}
+        />
+      </div>
+
+      {/* Trend + status */}
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Panel
+          style={stagger(4)}
+          className="xl:col-span-2"
+          title="Revenue trend"
+          subtitle={trendMode === 'revenue' ? 'Daily revenue from completed orders' : 'Completed orders per day'}
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <Segmented
+                size="sm"
+                options={[
+                  { id: 'revenue' as const, label: 'Revenue' },
+                  { id: 'orders' as const, label: 'Orders' },
+                ]}
+                value={trendMode}
+                onChange={setTrendMode}
+              />
+              <Segmented
+                size="sm"
+                options={[
+                  { id: 7 as const, label: '7d' },
+                  { id: 14 as const, label: '14d' },
+                  { id: 30 as const, label: '30d' },
+                ]}
+                value={trendDays}
+                onChange={setTrendDays}
+              />
+            </div>
+          }
+        >
+          <TrendChart
+            days={chartQuery.data?.days ?? []}
+            mode={trendMode}
+            loading={chartQuery.isLoading}
+            formatMoney={formatMoney}
           />
-        ))}
+        </Panel>
+
+        <Panel style={stagger(5)} title="Order status" subtitle={dayLabel} action={<ViewAll to="/orders" />}>
+          <StatusDonut counts={statusCounts} loading={dailyQuery.isLoading} />
+        </Panel>
       </div>
 
-      {/* ── Trend chart + top items ── */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Trend chart */}
-        <Card className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="font-display text-base font-semibold tracking-tight">Trend</h2>
-            <div className="flex gap-1 rounded-lg bg-bg-elevated p-1">
-              {([7, 14, 30] as const).map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setTrendDays(d)}
-                  className={`rounded px-2.5 py-1 text-xs font-medium transition ${
-                    trendDays === d
-                      ? 'bg-brand-primary/20 text-brand-primary'
-                      : 'text-text-muted hover:text-text-secondary'
-                  }`}
-                >
-                  {d}d
-                </button>
-              ))}
-            </div>
-          </div>
-          <TrendChart days={trendData?.days ?? []} loading={trendLoading} />
-        </Card>
-
-        {/* Top items */}
-        <Card>
-          <h2 className="font-display text-base font-semibold tracking-tight">Top items</h2>
-          {topItems.length === 0 ? (
-            <p className="mt-3 text-sm text-text-muted">No data for this date.</p>
-          ) : (
-            <ol className="mt-3 space-y-2">
-              {topItems.slice(0, 8).map((item, i) => (
-                <li key={item.name} className="flex items-center gap-2 text-sm">
-                  <span className="w-5 shrink-0 text-right text-xs font-bold text-text-muted">
-                    {i + 1}
-                  </span>
-                  <span className="flex-1 truncate">{item.name}</span>
-                  <span className="shrink-0 font-mono text-xs text-text-secondary">
-                    ×{item.quantity}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </Card>
-      </div>
-
-      {/* ── Alerts row ── */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        {/* Open orders alert */}
-        {summary && summary.openOrders > 0 ? (
-          <div className="flex items-start gap-3 rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4">
-            <span className="text-2xl">🟡</span>
-            <div>
-              <p className="font-semibold text-brand-primary">
-                {summary.openOrders} open order{summary.openOrders === 1 ? '' : 's'}
-              </p>
-              <p className="text-sm text-text-secondary">In progress or being prepared right now.</p>
-            </div>
-          </div>
+      {/* Live orders, top items, quick actions */}
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        {openOrders.allowed ? (
+          <Panel
+            style={stagger(6)}
+            title="Live orders"
+            subtitle="Refreshes automatically"
+            action={<ViewAll to="/orders" />}
+          >
+            <LiveOrders orders={openOrders.orders} loading={openOrders.isLoading} />
+          </Panel>
         ) : null}
 
-        {/* Low-stock alert */}
-        {lowStockItems.length > 0 ? (
-          <div className="flex items-start gap-3 rounded-xl border border-status-warning/30 bg-status-warning/5 p-4">
-            <span className="text-2xl">⚠️</span>
-            <div>
-              <p className="font-semibold text-status-warning">
-                {lowStockItems.length} low-stock item{lowStockItems.length === 1 ? '' : 's'}
-              </p>
-              <p className="text-sm text-text-secondary">
-                {lowStockItems
-                  .slice(0, 3)
-                  .map((i) => i.name)
-                  .join(', ')}
-                {lowStockItems.length > 3 ? ` +${lowStockItems.length - 3} more` : ''}
-              </p>
-            </div>
-          </div>
-        ) : null}
+        <Panel style={stagger(7)} title="Top items" subtitle={dayLabel} action={<ViewAll to="/reports" />}>
+          <TopItems items={topItems} loading={summaryQuery.isLoading} />
+        </Panel>
+
+        <Panel style={stagger(8)} title="Quick actions">
+          <QuickActions actions={quickActions} />
+        </Panel>
       </div>
 
-      {/* ── Payment breakdown ── */}
-      {dailyData?.paymentBreakdown && dailyData.paymentBreakdown.length > 0 ? (
-        <Card>
-          <h2 className="font-display text-lg font-semibold tracking-tight">Payment breakdown</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {dailyData.paymentBreakdown.map((payment) => (
-              <div
-                key={payment.method}
-                className="rounded-lg border border-white/5 bg-bg-elevated px-4 py-3"
-              >
-                <p className="text-sm text-text-secondary capitalize">{payment.method}</p>
-                <p className="mt-1 font-mono text-lg font-semibold">
-                  {formatMoney(payment.amount)}
-                </p>
+      {/* Alerts */}
+      {lowStock.items.length > 0 ? (
+        <Link
+          to="/inventory"
+          className="group flex animate-slide-up items-start gap-3 rounded-2xl border border-status-warning/30 bg-status-warning/5 p-4 transition-colors hover:bg-status-warning/10"
+        >
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-status-warning/15 text-status-warning">
+            <TriangleAlert size={18} aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-status-warning">
+              {lowStock.items.length} low-stock item{lowStock.items.length === 1 ? '' : 's'}
+            </p>
+            <p className="truncate text-sm text-text-secondary">
+              {lowStock.items
+                .slice(0, 3)
+                .map((i) => i.name)
+                .join(', ')}
+              {lowStock.items.length > 3 ? ` +${lowStock.items.length - 3} more` : ''}
+            </p>
+          </div>
+          <ArrowRight
+            size={16}
+            className="mt-2 text-status-warning transition-transform group-hover:translate-x-0.5"
+            aria-hidden="true"
+          />
+        </Link>
+      ) : null}
+
+      {/* Payment breakdown */}
+      {dailyQuery.data?.paymentBreakdown && dailyQuery.data.paymentBreakdown.length > 0 ? (
+        <Panel title="Payment breakdown" subtitle={dayLabel}>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {dailyQuery.data.paymentBreakdown.map((payment) => (
+              <div key={payment.method} className="rounded-xl border border-line-subtle bg-bg-elevated px-4 py-3">
+                <p className="text-sm capitalize text-text-secondary">{payment.method}</p>
+                <p className="mt-1 font-mono text-lg font-semibold">{formatMoney(payment.amount)}</p>
                 <p className="text-xs text-text-muted">{payment.count} transactions</p>
               </div>
             ))}
           </div>
-        </Card>
+        </Panel>
       ) : null}
 
-      {/* ── Outlet comparison (multi-outlet) ── */}
       {!outletId && outletsQuery.data && outletsQuery.data.length > 1 ? (
-        <OutletComparisonCard date={date} />
+        <OutletComparisonCard date={dayDate} />
       ) : null}
-    </PageShell>
+    </div>
   );
 }
 
@@ -391,13 +488,13 @@ function OutletComparisonCard({ date }: { date: string }) {
   if (comparison.length === 0) return null;
 
   return (
-    <Card padding="none" className="overflow-hidden">
-      <div className="px-4 py-3 border-b border-white/5">
+    <Card padding="none" className="overflow-hidden rounded-2xl">
+      <div className="border-b border-line-subtle px-4 py-3">
         <h2 className="font-semibold">Outlet comparison — {date}</h2>
       </div>
-      <table className="w-full text-sm text-left">
+      <table className="w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-white/5 bg-bg-secondary text-text-muted">
+          <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
             <th className="px-4 py-3 font-medium">Outlet</th>
             <th className="px-4 py-3 font-medium">Revenue</th>
             <th className="px-4 py-3 font-medium">Orders</th>
@@ -406,7 +503,7 @@ function OutletComparisonCard({ date }: { date: string }) {
         </thead>
         <tbody>
           {comparison.map((row) => (
-            <tr key={row.outletId} className="border-b border-white/5">
+            <tr key={row.outletId} className="border-b border-line-subtle transition-colors hover:bg-hover">
               <td className="px-4 py-3 font-medium">{row.outletName}</td>
               <td className="px-4 py-3 font-mono">{formatMoney(row.revenue)}</td>
               <td className="px-4 py-3">{row.orders}</td>

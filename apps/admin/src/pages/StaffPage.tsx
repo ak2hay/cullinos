@@ -239,7 +239,7 @@ export function StaffPage() {
             <select
               value={roleSlug}
               onChange={(e) => setRoleSlug(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+              className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
             >
               {STAFF_ROLES.map((role) => (
                 <option key={role.slug} value={role.slug}>
@@ -362,7 +362,7 @@ export function StaffPage() {
                 <select
                   value={editRole}
                   onChange={(e) => setEditRole(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                 >
                   {editRole === '' ? <option value="">Keep current role</option> : null}
                   {STAFF_ROLES.map((role) => (
@@ -382,7 +382,7 @@ export function StaffPage() {
         <div className="overflow-x-auto">
         <table className="w-full min-w-[56rem] text-left text-sm">
           <thead>
-            <tr className="border-b border-white/5 bg-bg-secondary text-text-muted">
+            <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Phone</th>
               <th className="px-4 py-3 font-medium">Email</th>
@@ -406,7 +406,7 @@ export function StaffPage() {
                 const statusValue =
                   user.status === 'inactive' ? 'inactive' : 'active';
                 return (
-                  <tr key={user.id} className="border-b border-white/5">
+                  <tr key={user.id} className="border-b border-line-subtle">
                     <td className="px-4 py-3 font-medium">{user.name}</td>
                     <td className="px-4 py-3 text-text-secondary">{user.phone || '—'}</td>
                     <td className="px-4 py-3 text-text-secondary">{user.email}</td>
@@ -429,7 +429,7 @@ export function StaffPage() {
                           value={statusValue}
                           disabled={statusBusy}
                           onChange={(e) => handleStatusChange(user, e.target.value)}
-                          className="rounded-lg border border-white/10 bg-bg-elevated px-2 py-1.5 text-sm capitalize outline-none focus:border-brand-primary disabled:opacity-60"
+                          className="rounded-lg border border-line bg-bg-elevated px-2 py-1.5 text-sm capitalize outline-none focus:border-brand-primary disabled:opacity-60"
                         >
                           {STAFF_STATUSES.map((status) => (
                             <option key={status} value={status}>

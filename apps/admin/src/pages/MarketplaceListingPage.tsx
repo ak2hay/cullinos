@@ -283,7 +283,7 @@ export function MarketplaceListingPage() {
         </ErrorBanner>
       ) : null}
 
-      <div className="grid gap-3 rounded-xl border border-white/5 bg-bg-card p-4 sm:grid-cols-2">
+      <div className="grid gap-3 rounded-xl border border-line-subtle bg-bg-card p-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <Select
             label="Outlet"
@@ -307,7 +307,7 @@ export function MarketplaceListingPage() {
           <p className="text-xs text-status-warning sm:col-span-2">{listingBlockedReason}</p>
         ) : null}
 
-        <div className="sm:col-span-2 space-y-2 rounded-lg border border-white/5 bg-bg-elevated/40 p-3">
+        <div className="sm:col-span-2 space-y-2 rounded-lg border border-line-subtle bg-bg-elevated/40 p-3">
           <Select
             label="Guest app theme"
             options={GUEST_THEME_PRESET_LIST.map((p) => ({
@@ -369,7 +369,7 @@ export function MarketplaceListingPage() {
           />
         </div>
 
-        <div className="sm:col-span-2 space-y-3 rounded-lg border border-white/5 bg-bg-elevated/40 p-3">
+        <div className="sm:col-span-2 space-y-3 rounded-lg border border-line-subtle bg-bg-elevated/40 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-sm font-medium text-text-secondary">Restaurant photos</p>
@@ -460,7 +460,7 @@ export function MarketplaceListingPage() {
           )}
         </div>
 
-        <div className="sm:col-span-2 space-y-3 rounded-lg border border-white/5 p-3">
+        <div className="sm:col-span-2 space-y-3 rounded-lg border border-line-subtle p-3">
           <div>
             <p className="text-sm font-medium">Opening hours *</p>
             <p className="text-xs text-text-muted">
