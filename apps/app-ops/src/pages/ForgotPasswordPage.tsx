@@ -64,7 +64,7 @@ export function ForgotPasswordPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-primary px-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-bg-secondary p-8">
+      <div className="w-full max-w-md rounded-2xl border border-line bg-bg-secondary p-8">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-primary font-mono text-lg font-bold">
             R
@@ -88,7 +88,7 @@ export function ForgotPasswordPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
               />
             </label>
             {turnstileOn ? (
@@ -120,7 +120,7 @@ export function ForgotPasswordPage() {
         ) : (
           <form onSubmit={handleReset} className="space-y-4">
             {message ? (
-              <p className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm text-text-secondary">
+              <p className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm text-text-secondary">
                 {message}
               </p>
             ) : null}
@@ -138,7 +138,7 @@ export function ForgotPasswordPage() {
                 maxLength={6}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
               />
             </label>
             <PasswordInput

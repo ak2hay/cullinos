@@ -1,9 +1,18 @@
 import { createSessionRefresher, resolveViteApiBase, revokeSessionCookie } from '@cullinos/shared';
 import type { ApiError } from '@cullinos/shared';
-import { useAuthStore } from '../stores/auth';
+import { useAuthStore, type SuperAdminUser } from '../stores/auth';
 import { usePortalStore } from '../stores/portal';
 
 export const PORTAL_ID = 'app_ops';
+
+export const APP_OPS_PERMISSION = 'guest_ops.manage';
+
+export const APP_OPS_ACCESS_DENIED_MESSAGE =
+  'Your platform role does not include App Ops access. Ask a platform owner to assign the Support or Marketing role.';
+
+export function hasAppOpsAccess(permissions: readonly string[] | null | undefined): boolean {
+  return Array.isArray(permissions) && permissions.includes(APP_OPS_PERMISSION);
+}
 
 export const API_BASE = resolveViteApiBase({
   viteApiUrl: import.meta.env.VITE_API_URL,
@@ -15,9 +24,18 @@ const refreshSession = createSessionRefresher({
   portalId: PORTAL_ID,
   onRefreshed: (res) => {
     if (!res.user.isSuperAdmin) throw new Error('Not a platform session');
+    if (!hasAppOpsAccess(res.user.platformPermissions)) {
+      throw new Error(APP_OPS_ACCESS_DENIED_MESSAGE);
+    }
     useAuthStore.getState().setAuth({
       accessToken: res.accessToken ?? res.token,
-      admin: { id: res.user.id, email: res.user.email, name: res.user.name },
+      admin: {
+        id: res.user.id,
+        email: res.user.email,
+        name: res.user.name,
+        platformRole: res.user.platformRole,
+        platformPermissions: res.user.platformPermissions,
+      },
     });
   },
 });
@@ -141,24 +159,36 @@ export type LoginChallengeResponse = {
 
 export type LoginSuccessResponse = {
   accessToken: string;
-  admin: { id: string; email: string; name: string };
+  admin: SuperAdminUser;
 };
 
 export type LoginResponse = LoginChallengeResponse | LoginSuccessResponse;
 
+function assertAppOpsSession<T extends LoginResponse>(response: T): T {
+  if ('admin' in response && !hasAppOpsAccess(response.admin.platformPermissions)) {
+    revokeSessionCookie({ apiBase: API_BASE, portalId: PORTAL_ID });
+    throw new ApiRequestError(APP_OPS_ACCESS_DENIED_MESSAGE, 'PLATFORM_PERMISSION_DENIED', 403);
+  }
+  return response;
+}
+
 export const superAdminApi = {
-  login: (payload: LoginPayload) =>
-    apiRequest<LoginResponse>(
-      '/super-admin/login',
-      { method: 'POST', body: JSON.stringify(payload) },
-      false,
+  login: async (payload: LoginPayload) =>
+    assertAppOpsSession(
+      await apiRequest<LoginResponse>(
+        '/super-admin/login',
+        { method: 'POST', body: JSON.stringify(payload) },
+        false,
+      ),
     ),
 
-  verifyOtp: (payload: { challengeToken: string; otp: string }) =>
-    apiRequest<LoginSuccessResponse>(
-      '/super-admin/verify-otp',
-      { method: 'POST', body: JSON.stringify(payload) },
-      false,
+  verifyOtp: async (payload: { challengeToken: string; otp: string }) =>
+    assertAppOpsSession(
+      await apiRequest<LoginSuccessResponse>(
+        '/super-admin/verify-otp',
+        { method: 'POST', body: JSON.stringify(payload) },
+        false,
+      ),
     ),
 
   resendOtp: (payload: { challengeToken: string }) =>

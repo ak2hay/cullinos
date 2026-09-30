@@ -176,7 +176,7 @@ export function GuestOpsPushPage() {
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="text-lg font-medium">{editingId ? 'Edit campaign' : 'New campaign'}</h2>
         <form
           className="mt-4 grid gap-3 sm:grid-cols-2"
@@ -195,7 +195,7 @@ export function GuestOpsPushPage() {
           <label className="block text-sm sm:col-span-2">
             <span className="mb-1 block text-text-secondary">Body</span>
             <textarea
-              className="min-h-24 w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
+              className="min-h-24 w-full rounded-lg border border-line bg-bg-primary px-3 py-2"
               value={form.body}
               onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
               maxLength={240}
@@ -205,7 +205,7 @@ export function GuestOpsPushPage() {
           <label className="block text-sm">
             <span className="mb-1 block text-text-secondary">Audience</span>
             <select
-              className="w-full rounded-lg border border-white/10 bg-bg-primary px-3 py-2"
+              className="w-full rounded-lg border border-line bg-bg-primary px-3 py-2"
               value={form.audience}
               onChange={(e) =>
                 setForm((f) => ({ ...f, audience: e.target.value as FormState['audience'] }))
@@ -285,11 +285,11 @@ export function GuestOpsPushPage() {
         </form>
       </section>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-medium">Campaigns</h2>
           <select
-            className="rounded-lg border border-white/10 bg-bg-primary px-3 py-2 text-sm"
+            className="rounded-lg border border-line bg-bg-primary px-3 py-2 text-sm"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -305,7 +305,7 @@ export function GuestOpsPushPage() {
         ) : campaigns.length === 0 ? (
           <p className="mt-3 text-sm text-text-muted">No campaigns yet.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-white/5">
+          <ul className="mt-4 divide-y divide-line-subtle">
             {campaigns.map((c) => (
               <li key={c.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
                 <div>

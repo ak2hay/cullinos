@@ -23,7 +23,7 @@ export function NavigationEditorPage() {
         {items.map((item) => (
           <form
             key={String(item.id)}
-            className="flex flex-wrap items-end gap-3 rounded-xl border border-white/10 bg-bg-card p-4"
+            className="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-bg-card p-4"
             onSubmit={(e) => {
               e.preventDefault();
               const fd = new FormData(e.currentTarget);
@@ -35,17 +35,17 @@ export function NavigationEditorPage() {
           >
             <label className="flex-1 min-w-[120px]">
               <span className="text-xs text-text-muted">Label</span>
-              <input name="label" defaultValue={String(item.label)} className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm" />
+              <input name="label" defaultValue={String(item.label)} className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm" />
             </label>
             <label className="flex-[2] min-w-[160px]">
               <span className="text-xs text-text-muted">Href</span>
-              <input name="href" defaultValue={String(item.href)} className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm" />
+              <input name="href" defaultValue={String(item.href)} className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm" />
             </label>
             <label className="w-20">
               <span className="text-xs text-text-muted">Order</span>
-              <input name="sortOrder" type="number" defaultValue={Number(item.sortOrder)} className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm" />
+              <input name="sortOrder" type="number" defaultValue={Number(item.sortOrder)} className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm" />
             </label>
-            <button type="submit" className="rounded-lg border border-white/10 px-3 py-2 text-sm hover:bg-white/5">Save</button>
+            <button type="submit" className="rounded-lg border border-line px-3 py-2 text-sm hover:bg-hover">Save</button>
           </form>
         ))}
       </div>

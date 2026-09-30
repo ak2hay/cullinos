@@ -31,6 +31,7 @@ export interface SuperAdminUser {
   id: string;
   email: string;
   name: string;
+  avatarUrl?: string | null;
   platformRole?: PlatformRole;
   platformPermissions?: string[];
   mustChangePassword?: boolean;
@@ -40,6 +41,7 @@ interface AuthState {
   accessToken: string | null;
   admin: SuperAdminUser | null;
   setAuth: (payload: { accessToken: string; admin: SuperAdminUser }) => void;
+  updateAdmin: (patch: Partial<SuperAdminUser>) => void;
   logout: () => void;
 }
 
@@ -49,6 +51,8 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       admin: null,
       setAuth: ({ accessToken, admin }) => set({ accessToken, admin }),
+      updateAdmin: (patch) =>
+        set((state) => (state.admin ? { admin: { ...state.admin, ...patch } } : state)),
       logout: () => set({ accessToken: null, admin: null }),
     }),
     {

@@ -122,8 +122,8 @@ export function ImageCropModal({
   ]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-md space-y-4 rounded-xl border border-white/10 bg-bg-card p-5 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4">
+      <div className="w-full max-w-md space-y-4 rounded-xl border border-line bg-bg-card p-5 shadow-xl">
         <div>
           <h3 className="font-medium">Adjust photo</h3>
           <p className="mt-1 text-xs text-text-muted">
@@ -131,7 +131,7 @@ export function ImageCropModal({
           </p>
         </div>
         <div
-          className="relative mx-auto overflow-hidden rounded-lg border border-white/10 bg-black touch-none"
+          className="relative mx-auto overflow-hidden rounded-lg border border-line bg-black touch-none"
           style={{ width: viewW, height: viewH }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

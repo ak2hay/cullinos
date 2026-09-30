@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { ThemeToggle } from '@cullinos/ui';
 import { RKYVES_BRAND } from '@/lib/api';
 import { PLATFORM_ROLE_LABELS, useCan, type PlatformPermission } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/auth';
+import { UserAvatar, UserMenu } from './UserMenu';
 
 type NavChild = { to: string; label: string; permission: PlatformPermission };
 type NavItem = {
@@ -92,7 +94,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <>
-      <div className="border-b border-white/5 p-5">
+      <div className="border-b border-line-subtle p-5">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-primary font-mono text-sm font-bold text-text-primary">
             R
@@ -118,7 +120,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                   target="_blank"
                   rel="noreferrer"
                   onClick={onNavigate}
-                  className="block rounded-lg px-3 py-2.5 text-sm text-text-secondary transition hover:bg-white/5 hover:text-text-primary"
+                  className="block rounded-lg px-3 py-2.5 text-sm text-text-secondary transition hover:bg-hover hover:text-text-primary"
                 >
                   {item.label} ↗
                 </a>
@@ -136,14 +138,14 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                   `block rounded-lg px-3 py-2.5 text-sm transition ${
                     sectionOpen || (!item.children && isActive)
                       ? 'bg-brand-primary/15 font-medium text-brand-primary'
-                      : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
+                      : 'text-text-secondary hover:bg-hover hover:text-text-primary'
                   }`
                 }
               >
                 {item.label}
               </NavLink>
               {item.children && sectionOpen ? (
-                <div className="ml-3 mt-1 space-y-0.5 border-l border-white/10 pl-2">
+                <div className="ml-3 mt-1 space-y-0.5 border-l border-line pl-2">
                   {item.children.map((child) => {
                     const childActive = pathMatchesChild(
                       location.pathname,
@@ -159,7 +161,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                         className={() =>
                           `block rounded-md px-2 py-1.5 text-xs transition ${
                             childActive
-                              ? 'bg-white/5 font-medium text-brand-primary'
+                              ? 'bg-hover font-medium text-brand-primary'
                               : 'text-text-muted hover:text-text-primary'
                           }`
                         }
@@ -175,14 +177,28 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
 
-      <div className="border-t border-white/5 p-4">
-        <p className="truncate text-sm font-medium">{admin?.name ?? admin?.email}</p>
-        <p className="truncate text-xs text-text-muted">{admin?.email}</p>
+      <div className="border-t border-line-subtle p-4">
+        <NavLink
+          to="/profile"
+          onClick={onNavigate}
+          className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-hover"
+        >
+          <UserAvatar
+            name={admin?.name || admin?.email || ''}
+            avatarUrl={admin?.avatarUrl}
+            size={36}
+          />
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium">{admin?.name ?? admin?.email}</span>
+            <span className="block truncate text-xs text-text-muted">{admin?.email}</span>
+          </span>
+        </NavLink>
         {admin?.platformRole ? (
           <p className="mt-1 text-xs text-brand-primary">
             {PLATFORM_ROLE_LABELS[admin.platformRole]}
           </p>
         ) : null}
+        <ThemeToggle variant="segmented" className="mt-3" />
         <div className="mt-3 flex gap-4">
           <NavLink
             to="/change-password"
@@ -206,10 +222,11 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppShell() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <div className="flex min-h-screen bg-bg-primary">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-white/5 bg-bg-secondary lg:flex">
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-line-subtle bg-bg-secondary lg:flex">
         <SidebarNav />
       </aside>
 
@@ -218,21 +235,21 @@ export function AppShell() {
           <button
             type="button"
             aria-label="Close navigation"
-            className="absolute inset-0 bg-black/60"
+            className="absolute inset-0 animate-fade-in bg-scrim"
             onClick={() => setMobileNavOpen(false)}
           />
-          <aside className="relative flex h-full w-[min(18rem,85vw)] flex-col border-r border-white/5 bg-bg-secondary shadow-xl">
+          <aside className="relative flex h-full w-[min(18rem,85vw)] animate-slide-in-left flex-col border-r border-line-subtle bg-bg-secondary shadow-xl">
             <SidebarNav onNavigate={() => setMobileNavOpen(false)} />
           </aside>
         </div>
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center border-b border-white/5 px-4 lg:hidden">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line-subtle px-4 sm:px-6">
           <button
             type="button"
             aria-label="Open navigation"
-            className="rounded-lg border border-white/10 p-2 text-text-secondary"
+            className="rounded-lg border border-line p-2 text-text-secondary lg:hidden"
             onClick={() => setMobileNavOpen(true)}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -244,11 +261,17 @@ export function AppShell() {
               />
             </svg>
           </button>
-          <p className="ml-3 text-sm font-medium">Platform admin</p>
+          <p className="text-sm font-medium lg:hidden">Platform admin</p>
+          <div className="ml-auto flex items-center gap-3">
+            <ThemeToggle className="lg:hidden" />
+            <UserMenu />
+          </div>
         </header>
 
         <main className="flex-1 overflow-auto p-4 sm:p-6">
-          <Outlet />
+          <div key={location.pathname.split('/')[1]} className="animate-fade-in">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

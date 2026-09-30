@@ -48,14 +48,14 @@ export function DesignLabPage() {
           <button
             type="button"
             onClick={() => seedPresetsMutation.mutate()}
-            className="rounded-lg border border-white/10 px-3 py-1.5 text-sm hover:bg-white/5"
+            className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-hover"
           >
             Seed presets
           </button>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           {presets.map((preset) => (
-            <div key={String(preset.slug)} className="rounded-xl border border-white/10 bg-bg-card p-4">
+            <div key={String(preset.slug)} className="rounded-xl border border-line bg-bg-card p-4">
               <p className="font-medium">{String(preset.name)}</p>
               <p className="mt-1 text-sm text-text-secondary">{String(preset.description ?? '')}</p>
               <p className="mt-2 text-xs text-text-muted">Tone: {String(preset.copyTone)}</p>
@@ -72,26 +72,26 @@ export function DesignLabPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-white/10 bg-bg-card p-5 space-y-4">
+      <section className="rounded-xl border border-line bg-bg-card p-5 space-y-4">
         <h2 className="text-lg font-medium">Copy suggestions</h2>
         <div className="flex flex-wrap gap-3">
-          <select value={copyPage} onChange={(e) => setCopyPage(e.target.value)} className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm">
+          <select value={copyPage} onChange={(e) => setCopyPage(e.target.value)} className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm">
             <option value="home">Home</option>
             <option value="pricing">Pricing</option>
             <option value="features">Features</option>
           </select>
-          <select value={tone} onChange={(e) => setTone(e.target.value)} className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm">
+          <select value={tone} onChange={(e) => setTone(e.target.value)} className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm">
             <option value="friendly">Friendly</option>
             <option value="formal">Formal</option>
             <option value="enterprise">Enterprise</option>
           </select>
-          <button type="button" onClick={() => copyQuery.refetch()} className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5">
+          <button type="button" onClick={() => copyQuery.refetch()} className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover">
             Generate suggestions
           </button>
         </div>
         <div className="space-y-3">
           {(copyQuery.data ?? []).map((item) => (
-            <div key={String(item.id)} className="rounded-lg border border-white/5 bg-bg-elevated p-3 text-sm">
+            <div key={String(item.id)} className="rounded-lg border border-line-subtle bg-bg-elevated p-3 text-sm">
               <p className="font-medium">{String(item.headline)}</p>
               <p className="mt-1 text-text-secondary">{String(item.subline)}</p>
               <p className="mt-1 text-xs text-text-muted">CTA: {String(item.cta)}</p>
@@ -100,15 +100,15 @@ export function DesignLabPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-white/10 bg-bg-card p-5 space-y-4">
+      <section className="rounded-xl border border-line bg-bg-card p-5 space-y-4">
         <h2 className="text-lg font-medium">Image prompt</h2>
         <div className="flex flex-wrap gap-3">
-          <select value={slotKey} onChange={(e) => setSlotKey(e.target.value)} className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm">
+          <select value={slotKey} onChange={(e) => setSlotKey(e.target.value)} className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm">
             {MARKETING_IMAGE_SLOTS.map((slot) => (
               <option key={slot} value={slot}>{slot}</option>
             ))}
           </select>
-          <button type="button" onClick={() => promptQuery.refetch()} className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5">
+          <button type="button" onClick={() => promptQuery.refetch()} className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover">
             Get prompt
           </button>
         </div>
@@ -117,7 +117,7 @@ export function DesignLabPage() {
             readOnly
             value={String(promptQuery.data.prompt ?? '')}
             rows={4}
-            className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
           />
         ) : null}
       </section>

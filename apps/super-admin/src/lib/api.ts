@@ -22,6 +22,7 @@ export const refreshSession = createSessionRefresher({
         id: res.user.id,
         email: res.user.email,
         name: res.user.name,
+        avatarUrl: res.user.avatarUrl ?? null,
         platformRole: res.user.platformRole as PlatformRole | undefined,
         platformPermissions: res.user.platformPermissions ?? [],
         mustChangePassword: res.user.mustChangePassword === true,
@@ -111,6 +112,57 @@ export async function apiRequest<T>(
 
   return response.json() as Promise<T>;
 }
+
+/** Resolve relative upload URLs (e.g. `/cms/...`) against the API host. */
+export function resolveUploadUrl(url: string | null | undefined): string {
+  const trimmed = url?.trim() ?? '';
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith('/')) {
+    return `${API_BASE.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '')}${trimmed}`;
+  }
+  return '';
+}
+
+export type UserProfile = {
+  id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  avatarUrl: string | null;
+  isSuperAdmin: boolean;
+  platformRole: string | null;
+  roles: string[];
+  lastLoginAt: string | null;
+  createdAt: string;
+};
+
+export const profileApi = {
+  get: () => apiRequest<UserProfile>('/auth/me'),
+  update: (data: { name?: string; phone?: string | null }) =>
+    apiRequest<UserProfile>('/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
+  uploadAvatar: async (file: File, retried = false): Promise<UserProfile> => {
+    const form = new FormData();
+    form.append('file', file);
+    const headers = new Headers({ 'X-Cullinos-Portal': PORTAL_ID });
+    const token = useAuthStore.getState().accessToken;
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    const response = await fetch(`${API_BASE}/auth/me/avatar`, {
+      method: 'POST',
+      headers,
+      body: form,
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      if (response.status === 401 && !retried && (await refreshSession())) {
+        return profileApi.uploadAvatar(file, true);
+      }
+      throw await parseError(response);
+    }
+    return response.json() as Promise<UserProfile>;
+  },
+  removeAvatar: () => apiRequest<UserProfile>('/auth/me/avatar', { method: 'DELETE' }),
+};
 
 export interface LoginPayload {
   email: string;

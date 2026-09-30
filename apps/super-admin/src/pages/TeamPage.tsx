@@ -130,14 +130,14 @@ export function TeamPage() {
             setShowInvite(true);
             setInviteError(null);
           }}
-          className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary hover:bg-brand-primary-dark"
+          className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand hover:bg-brand-primary-dark"
         >
           Invite team member
         </button>
       </div>
 
       {message ? (
-        <div className="rounded-xl border border-white/10 bg-bg-card px-4 py-3 text-sm text-text-secondary">
+        <div className="rounded-xl border border-line bg-bg-card px-4 py-3 text-sm text-text-secondary">
           {message}
           <button type="button" className="ml-3 text-xs underline" onClick={() => setMessage(null)}>
             Dismiss
@@ -169,7 +169,7 @@ export function TeamPage() {
               <button
                 type="button"
                 onClick={() => setPasswordRevealed((v) => !v)}
-                className="rounded border border-white/10 px-2 py-0.5 text-[11px] hover:bg-white/5"
+                className="rounded border border-line px-2 py-0.5 text-[11px] hover:bg-hover"
               >
                 {passwordRevealed ? 'Hide' : 'Reveal once'}
               </button>
@@ -198,10 +198,10 @@ export function TeamPage() {
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-xl border border-white/5 bg-bg-card">
+      <div className="overflow-hidden rounded-xl border border-line-subtle bg-bg-card">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-white/5 bg-bg-secondary text-text-muted">
+            <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Role</th>
               <th className="px-4 py-3 font-medium">Status</th>
@@ -221,7 +221,7 @@ export function TeamPage() {
                 const isMe = member.id === me?.id;
                 const inactive = member.status !== 'active';
                 return (
-                  <tr key={member.id} className="border-b border-white/5">
+                  <tr key={member.id} className="border-b border-line-subtle">
                     <td className="px-4 py-3">
                       <p className="font-medium">
                         {member.name}
@@ -234,7 +234,7 @@ export function TeamPage() {
                         value={member.platformRole}
                         disabled={isMe || roleMutation.isPending}
                         onChange={(e) => handleRoleChange(member, e.target.value as PlatformRole)}
-                        className="rounded-lg border border-white/10 bg-bg-elevated px-2 py-1 text-sm outline-none focus:border-brand-accent disabled:opacity-60"
+                        className="rounded-lg border border-line bg-bg-elevated px-2 py-1 text-sm outline-none focus:border-brand-accent disabled:opacity-60"
                       >
                         {ROLE_ORDER.map((role) => (
                           <option key={role} value={role}>
@@ -311,7 +311,7 @@ export function TeamPage() {
         </table>
       </div>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <h2 className="font-medium">What each role can do</h2>
         <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
           {ROLE_ORDER.map((role) => (
@@ -324,8 +324,8 @@ export function TeamPage() {
       </section>
 
       {showInvite ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-bg-secondary p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4">
+          <div className="w-full max-w-md rounded-xl border border-line bg-bg-secondary p-6">
             <h2 className="text-lg font-medium">Invite team member</h2>
             <p className="mt-1 text-sm text-text-secondary">
               Use their Rkyves work email. A temporary password is emailed and must be changed on
@@ -345,7 +345,7 @@ export function TeamPage() {
                   minLength={2}
                   value={inviteName}
                   onChange={(e) => setInviteName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
                 />
               </label>
               <label className="block">
@@ -355,7 +355,7 @@ export function TeamPage() {
                   required
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
                 />
               </label>
               <label className="block">
@@ -363,7 +363,7 @@ export function TeamPage() {
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value as PlatformRole)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
                 >
                   {ROLE_ORDER.map((role) => (
                     <option key={role} value={role}>
@@ -380,14 +380,14 @@ export function TeamPage() {
                 <button
                   type="button"
                   onClick={() => setShowInvite(false)}
-                  className="rounded-lg px-4 py-2 text-sm hover:bg-white/5"
+                  className="rounded-lg px-4 py-2 text-sm hover:bg-hover"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={inviteMutation.isPending}
-                  className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary disabled:opacity-60"
+                  className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand disabled:opacity-60"
                 >
                   {inviteMutation.isPending ? 'Inviting…' : 'Send invite'}
                 </button>

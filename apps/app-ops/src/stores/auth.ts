@@ -30,6 +30,8 @@ export interface SuperAdminUser {
   id: string;
   email: string;
   name: string;
+  platformRole?: string;
+  platformPermissions?: string[];
 }
 
 interface AuthState {

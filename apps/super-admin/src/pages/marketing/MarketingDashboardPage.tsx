@@ -61,7 +61,7 @@ export function MarketingDashboardPage() {
           <Link
             key={item.to}
             to={item.to}
-            className="rounded-xl border border-white/10 bg-bg-card p-5 transition hover:border-white/20"
+            className="rounded-xl border border-line bg-bg-card p-5 transition hover:border-line-strong"
           >
             <p className="font-medium">{item.label}</p>
             <p className="mt-1 text-sm text-text-secondary">{item.desc}</p>
@@ -69,7 +69,7 @@ export function MarketingDashboardPage() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-white/10 bg-bg-card p-5">
+      <div className="rounded-xl border border-line bg-bg-card p-5">
         <p className="text-sm text-text-muted">
           Last published:{' '}
           {site?.lastPublishedAt
@@ -81,7 +81,7 @@ export function MarketingDashboardPage() {
             type="button"
             onClick={() => seedMutation.mutate()}
             disabled={seedMutation.isPending}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
+            className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
           >
             {seedMutation.isPending ? 'Importing…' : 'Import from codebase'}
           </button>
@@ -89,7 +89,7 @@ export function MarketingDashboardPage() {
             type="button"
             onClick={() => previewMutation.mutate()}
             disabled={previewMutation.isPending}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
+            className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
           >
             Preview draft site
           </button>

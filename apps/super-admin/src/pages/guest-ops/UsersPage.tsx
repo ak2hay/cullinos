@@ -99,7 +99,7 @@ export function GuestOpsUsersPage() {
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
         <form
           className="flex flex-wrap items-end gap-3"
           onSubmit={(e) => {
@@ -134,7 +134,7 @@ export function GuestOpsUsersPage() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
           <h2 className="text-lg font-medium">
             {searchQ ? 'Results' : 'Recent users'}
           </h2>
@@ -145,12 +145,12 @@ export function GuestOpsUsersPage() {
               {searchQ ? 'No users found.' : 'No guest users yet.'}
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-white/5">
+            <ul className="mt-4 divide-y divide-line-subtle">
               {users.map((u) => (
                 <li key={u.id}>
                   <button
                     type="button"
-                    className={`w-full py-3 text-left transition hover:bg-white/5 ${
+                    className={`w-full py-3 text-left transition hover:bg-hover ${
                       selectedId === u.id ? 'bg-brand-primary/10' : ''
                     }`}
                     onClick={() => selectUser(u)}
@@ -170,7 +170,7 @@ export function GuestOpsUsersPage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
           <h2 className="text-lg font-medium">Detail</h2>
           {!selectedId ? (
             <p className="mt-3 text-sm text-text-muted">Select a user from the list.</p>

@@ -178,7 +178,7 @@ export function TenantsPage() {
           <button
             type="button"
             onClick={() => setShowOnboard(true)}
-            className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary hover:bg-brand-primary-dark"
+            className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand hover:bg-brand-primary-dark"
           >
             Onboard restaurant
           </button>
@@ -202,7 +202,7 @@ export function TenantsPage() {
               <button
                 type="button"
                 onClick={() => copyText('email', credentials.ownerEmail)}
-                className="rounded border border-white/10 px-2 py-0.5 text-[11px] hover:bg-white/5"
+                className="rounded border border-line px-2 py-0.5 text-[11px] hover:bg-hover"
               >
                 {copiedField === 'email' ? 'Copied' : 'Copy'}
               </button>
@@ -217,7 +217,7 @@ export function TenantsPage() {
               <button
                 type="button"
                 onClick={() => setPasswordRevealed((v) => !v)}
-                className="rounded border border-white/10 px-2 py-0.5 text-[11px] hover:bg-white/5"
+                className="rounded border border-line px-2 py-0.5 text-[11px] hover:bg-hover"
               >
                 {passwordRevealed ? 'Hide' : 'Reveal once'}
               </button>
@@ -226,7 +226,7 @@ export function TenantsPage() {
                 onClick={() =>
                   copyText('password', credentials.temporaryPassword, { clearAfterMs: 30_000 })
                 }
-                className="rounded border border-white/10 px-2 py-0.5 text-[11px] hover:bg-white/5"
+                className="rounded border border-line px-2 py-0.5 text-[11px] hover:bg-hover"
               >
                 {copiedField === 'password' ? 'Copied' : 'Copy'}
               </button>
@@ -237,7 +237,7 @@ export function TenantsPage() {
               <button
                 type="button"
                 onClick={() => copyText('url', credentials.adminUrl)}
-                className="rounded border border-white/10 px-2 py-0.5 text-[11px] hover:bg-white/5"
+                className="rounded border border-line px-2 py-0.5 text-[11px] hover:bg-hover"
               >
                 {copiedField === 'url' ? 'Copied' : 'Copy'}
               </button>
@@ -264,7 +264,7 @@ export function TenantsPage() {
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Search name, slug, email…"
-          className="min-w-[14rem] flex-1 rounded-lg border border-white/10 bg-bg-card px-3 py-2 text-sm outline-none focus:border-brand-accent"
+          className="min-w-[14rem] flex-1 rounded-lg border border-line bg-bg-card px-3 py-2 text-sm outline-none focus:border-brand-accent"
         />
         <select
           value={statusFilter}
@@ -272,7 +272,7 @@ export function TenantsPage() {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="rounded-lg border border-white/10 bg-bg-card px-3 py-2 text-sm outline-none focus:border-brand-accent"
+          className="rounded-lg border border-line bg-bg-card px-3 py-2 text-sm outline-none focus:border-brand-accent"
         >
           <option value="">All statuses</option>
           <option value="active">Active</option>
@@ -286,7 +286,7 @@ export function TenantsPage() {
             setPlanFilter(e.target.value);
             setPage(1);
           }}
-          className="rounded-lg border border-white/10 bg-bg-card px-3 py-2 text-sm outline-none focus:border-brand-accent"
+          className="rounded-lg border border-line bg-bg-card px-3 py-2 text-sm outline-none focus:border-brand-accent"
         >
           <option value="">All plans</option>
           {plans.map((plan) => (
@@ -297,10 +297,10 @@ export function TenantsPage() {
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-white/5 bg-bg-card">
+      <div className="overflow-hidden rounded-xl border border-line-subtle bg-bg-card">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-white/5 bg-bg-secondary text-text-muted">
+            <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
               <th className="px-4 py-3 font-medium">Organization</th>
               <th className="px-4 py-3 font-medium">Plan</th>
               <th className="px-4 py-3 font-medium">Status</th>
@@ -324,7 +324,7 @@ export function TenantsPage() {
               </tr>
             ) : (
               (data?.data ?? []).map((tenant) => (
-                <tr key={tenant.id} className="border-b border-white/5">
+                <tr key={tenant.id} className="border-b border-line-subtle">
                   <td className="px-4 py-3">
                     <Link
                       to={`/tenants/${tenant.id}`}
@@ -401,15 +401,15 @@ export function TenantsPage() {
         <button
           type="button"
           onClick={() => setPage((p) => p + 1)}
-          className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
+          className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover"
         >
           Load more
         </button>
       ) : null}
 
       {suspendId ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-bg-secondary p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4">
+          <div className="w-full max-w-md rounded-xl border border-line bg-bg-secondary p-6">
             <h2 className="text-lg font-medium">Suspend organization</h2>
             <p className="mt-1 text-sm text-text-secondary">
               Provide a reason for suspension. Users will lose access immediately.
@@ -418,14 +418,14 @@ export function TenantsPage() {
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
-              className="mt-4 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
+              className="mt-4 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
               placeholder="Reason for suspension"
             />
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setSuspendId(null)}
-                className="rounded-lg px-4 py-2 text-sm hover:bg-white/5"
+                className="rounded-lg px-4 py-2 text-sm hover:bg-hover"
               >
                 Cancel
               </button>
@@ -443,7 +443,7 @@ export function TenantsPage() {
       ) : null}
 
       {deleteTenant ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4">
           <div className="w-full max-w-md rounded-xl border border-status-error/30 bg-bg-secondary p-6">
             <h2 className="text-lg font-medium text-status-error">Delete tenant</h2>
             <p className="mt-1 text-sm text-text-secondary">
@@ -453,7 +453,7 @@ export function TenantsPage() {
             <input
               value={deleteConfirmName}
               onChange={(e) => setDeleteConfirmName(e.target.value)}
-              className="mt-4 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
+              className="mt-4 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
               placeholder={deleteTenant.name}
             />
             {deleteMutation.error ? (
@@ -470,7 +470,7 @@ export function TenantsPage() {
                   setDeleteTenant(null);
                   setDeleteConfirmName('');
                 }}
-                className="rounded-lg px-4 py-2 text-sm hover:bg-white/5"
+                className="rounded-lg px-4 py-2 text-sm hover:bg-hover"
               >
                 Cancel
               </button>
@@ -490,8 +490,8 @@ export function TenantsPage() {
       ) : null}
 
       {showOnboard ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-white/10 bg-bg-secondary p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-line bg-bg-secondary p-6">
             <h2 className="text-lg font-medium">Onboard restaurant</h2>
             <p className="mt-1 text-sm text-text-secondary">
               Creates the tenant, default outlet, subscription, and a one-time owner password
@@ -520,7 +520,7 @@ export function TenantsPage() {
                   required
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
                 />
               </label>
               <label className="block">
@@ -528,7 +528,7 @@ export function TenantsPage() {
                 <select
                   value={parentType}
                   onChange={(e) => handleParentChange(e.target.value as BusinessTypeParent)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
                 >
                   {BUSINESS_TYPE_PARENTS.map((parent) => (
                     <option key={parent} value={parent}>
@@ -543,7 +543,7 @@ export function TenantsPage() {
                   <select
                     value={restaurantSize}
                     onChange={(e) => setRestaurantSize(e.target.value as RestaurantSize)}
-                    className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                    className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
                   >
                     {RESTAURANT_SIZES.map((size) => (
                       <option key={size} value={size}>
@@ -559,7 +559,7 @@ export function TenantsPage() {
                   <select
                     value={qsrSubtype}
                     onChange={(e) => setQsrSubtype(e.target.value as QsrSubtype)}
-                    className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                    className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
                   >
                     {QSR_SUBTYPES.map((sub) => (
                       <option key={sub} value={sub}>
@@ -575,7 +575,7 @@ export function TenantsPage() {
                   required
                   value={outletName}
                   onChange={(e) => setOutletName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
                 />
               </label>
               <label className="block">
@@ -583,7 +583,7 @@ export function TenantsPage() {
                 <select
                   value={planSlug}
                   onChange={(e) => setPlanSlug(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
                 >
                   {(plans.length
                     ? plans
@@ -600,7 +600,7 @@ export function TenantsPage() {
                 <input
                   value={ownerName}
                   onChange={(e) => setOwnerName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
                 />
               </label>
               <label className="block">
@@ -610,7 +610,7 @@ export function TenantsPage() {
                   required
                   value={ownerEmail}
                   onChange={(e) => setOwnerEmail(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
                 />
                 <span className="mt-1 block text-xs text-text-muted">
                   Must be unique — do not use your platform admin email. A one-time password is
@@ -622,14 +622,14 @@ export function TenantsPage() {
                 <button
                   type="button"
                   onClick={() => setShowOnboard(false)}
-                  className="rounded-lg px-4 py-2 text-sm hover:bg-white/5"
+                  className="rounded-lg px-4 py-2 text-sm hover:bg-hover"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={onboardMutation.isPending}
-                  className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-bg-primary disabled:opacity-60"
+                  className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand disabled:opacity-60"
                 >
                   {onboardMutation.isPending ? 'Creating…' : 'Create tenant'}
                 </button>

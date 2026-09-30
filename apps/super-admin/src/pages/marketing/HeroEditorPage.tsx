@@ -27,7 +27,7 @@ export function HeroEditorPage() {
         {slides.map((slide) => (
           <form
             key={String(slide.id)}
-            className="space-y-3 rounded-xl border border-white/10 bg-bg-card p-5"
+            className="space-y-3 rounded-xl border border-line bg-bg-card p-5"
             onSubmit={(e) => {
               e.preventDefault();
               const fd = new FormData(e.currentTarget);
@@ -46,25 +46,25 @@ export function HeroEditorPage() {
             <input
               name="headline"
               defaultValue={String(slide.headline)}
-              className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
             />
             <input
               name="headlineAccent"
               defaultValue={String(slide.headlineAccent)}
               placeholder="Accent line"
-              className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
             />
             <textarea
               name="subline"
               defaultValue={String(slide.subline)}
               rows={2}
-              className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
             />
             <input
               name="imageKey"
               defaultValue={String(slide.imageKey ?? '')}
               placeholder="Image slot key (e.g. heroRestaurant)"
-              className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
             />
             <button
               type="submit"

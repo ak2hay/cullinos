@@ -12,7 +12,7 @@ function sourceBadge(source: PlatformSettingsField['source']) {
     source === 'database'
       ? 'border-status-success/30 bg-status-success/10 text-status-success'
       : source === 'environment' || source === 'default'
-        ? 'border-white/15 bg-white/5 text-text-secondary'
+        ? 'border-line-strong bg-hover text-text-secondary'
         : 'border-status-warning/30 bg-status-warning/10 text-status-warning';
   const label =
     source === 'database'
@@ -126,13 +126,13 @@ function GroupForm({
     <form
       id={group.id}
       onSubmit={handleSave}
-      className="rounded-xl border border-white/5 bg-bg-card scroll-mt-6"
+      className="rounded-xl border border-line-subtle bg-bg-card scroll-mt-6"
     >
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex w-full items-start justify-between gap-3 px-6 py-5 text-left hover:bg-white/[0.02]"
+        className="flex w-full items-start justify-between gap-3 px-6 py-5 text-left hover:bg-hover"
       >
         <div className="min-w-0">
           <h2 className="font-medium">{group.label}</h2>
@@ -165,14 +165,14 @@ function GroupForm({
       </button>
 
       {expanded ? (
-        <div className="space-y-4 border-t border-white/5 px-6 pb-6 pt-4">
+        <div className="space-y-4 border-t border-line-subtle px-6 pb-6 pt-4">
           {error ? (
             <div className="rounded-lg border border-status-error/30 bg-status-error/10 px-3 py-2 text-sm text-status-error">
               {error}
             </div>
           ) : null}
           {testMsg ? (
-            <div className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm text-text-secondary">
+            <div className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm text-text-secondary">
               {testMsg}
             </div>
           ) : null}
@@ -182,7 +182,7 @@ function GroupForm({
               field.type === 'boolean' ? (
                 <div
                   key={field.key}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-bg-elevated px-3 py-3 sm:col-span-1"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-line bg-bg-elevated px-3 py-3 sm:col-span-1"
                 >
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 text-sm text-text-secondary">
@@ -199,7 +199,7 @@ function GroupForm({
                     disabled={saveMutation.isPending}
                     onClick={() => toggleBoolean(field)}
                     className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-60 ${
-                      field.value !== 'false' ? 'bg-status-success' : 'bg-white/15'
+                      field.value !== 'false' ? 'bg-status-success' : 'bg-hover-strong'
                     }`}
                   >
                     <span
@@ -229,7 +229,7 @@ function GroupForm({
                     onChange={(e) =>
                       setDraft((prev) => ({ ...prev, [field.key]: e.target.value }))
                     }
-                    className="w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                    className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
                   />
                   <span className="mt-1 flex items-center justify-between gap-2">
                     <span className="font-mono text-[10px] text-text-muted">{field.key}</span>
@@ -265,13 +265,13 @@ function GroupForm({
                   placeholder="Test email (optional)"
                   value={testEmail}
                   onChange={(e) => setTestEmail(e.target.value)}
-                  className="w-56 rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
+                  className="w-56 rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
                 />
                 <button
                   type="button"
                   onClick={() => testSmtpMutation.mutate()}
                   disabled={testSmtpMutation.isPending}
-                  className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
+                  className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
                 >
                   {testSmtpMutation.isPending ? 'Sending…' : 'Test SMTP'}
                 </button>
@@ -291,7 +291,7 @@ function GroupForm({
                   type="button"
                   onClick={() => testMsg91Mutation.mutate()}
                   disabled={testMsg91Mutation.isPending}
-                  className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
+                  className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
                 >
                   {testMsg91Mutation.isPending ? 'Sending…' : 'Test MSG91'}
                 </button>
@@ -339,7 +339,7 @@ export function SettingsPage() {
           type="button"
           onClick={() => refetch()}
           disabled={isFetching}
-          className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-60"
+          className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
         >
           {isFetching ? 'Refreshing…' : 'Refresh'}
         </button>

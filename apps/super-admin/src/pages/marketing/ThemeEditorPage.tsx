@@ -54,7 +54,7 @@ export function ThemeEditorPage() {
           <input
             name="name"
             defaultValue={String(theme?.name ?? 'Default')}
-            className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm"
           />
         </label>
         {TOKEN_KEYS.map((key) => (
@@ -69,12 +69,12 @@ export function ThemeEditorPage() {
                   const input = e.currentTarget.form?.elements.namedItem(key) as HTMLInputElement | null;
                   if (input) input.value = e.target.value;
                 }}
-                className="h-10 w-12 cursor-pointer rounded border border-white/10"
+                className="h-10 w-12 cursor-pointer rounded border border-line"
               />
               <input
                 name={key}
                 defaultValue={tokens[key] ?? ''}
-                className="flex-1 rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 font-mono text-sm"
+                className="flex-1 rounded-lg border border-line bg-bg-elevated px-3 py-2 font-mono text-sm"
               />
             </div>
           </label>

@@ -3,7 +3,7 @@ import { guestOpsApi } from '@/lib/api';
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
-    <div className="rounded-xl border border-white/5 bg-bg-card p-4">
+    <div className="rounded-xl border border-line-subtle bg-bg-card p-4">
       <p className="text-sm text-text-secondary">{label}</p>
       <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
       {sub ? <p className="mt-1 text-xs text-text-muted">{sub}</p> : null}
@@ -56,21 +56,21 @@ export function GuestOpsAnalyticsPage() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+            <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
               <h2 className="text-lg font-medium">Listed outlets by city</h2>
               {data.listedByCity.length === 0 ? (
                 <p className="mt-3 text-sm text-text-muted">No listed outlets.</p>
               ) : (
                 <table className="mt-4 w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/10 text-left text-text-secondary">
+                    <tr className="border-b border-line text-left text-text-secondary">
                       <th className="pb-2 font-medium">City</th>
                       <th className="pb-2 text-right font-medium">Outlets</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.listedByCity.map((row) => (
-                      <tr key={row.city} className="border-b border-white/5">
+                      <tr key={row.city} className="border-b border-line-subtle">
                         <td className="py-2">{row.city}</td>
                         <td className="py-2 text-right tabular-nums">{row.count}</td>
                       </tr>
@@ -80,21 +80,21 @@ export function GuestOpsAnalyticsPage() {
               )}
             </section>
 
-            <section className="rounded-xl border border-white/5 bg-bg-card p-5">
+            <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
               <h2 className="text-lg font-medium">Review volume by status</h2>
               {data.reviewVolume.length === 0 ? (
                 <p className="mt-3 text-sm text-text-muted">No reviews yet.</p>
               ) : (
                 <table className="mt-4 w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/10 text-left text-text-secondary">
+                    <tr className="border-b border-line text-left text-text-secondary">
                       <th className="pb-2 font-medium">Status</th>
                       <th className="pb-2 text-right font-medium">Count</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.reviewVolume.map((row) => (
-                      <tr key={row.status} className="border-b border-white/5">
+                      <tr key={row.status} className="border-b border-line-subtle">
                         <td className="py-2 capitalize">{row.status}</td>
                         <td className="py-2 text-right tabular-nums">{row.count}</td>
                       </tr>
