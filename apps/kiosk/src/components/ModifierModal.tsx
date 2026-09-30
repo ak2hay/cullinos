@@ -57,14 +57,14 @@ export function ModifierModal({ item, onClose, onAdd }: ModifierModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-6"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-scrim p-0 sm:items-center sm:p-6"
       onClick={onClose}
     >
       <div
         className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-bg-secondary sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-white/5 p-6">
+        <div className="flex items-start justify-between gap-4 border-b border-line-subtle p-6">
           <div>
             <h2 className="font-display text-2xl font-bold">{item.name}</h2>
             {item.description ? (
@@ -94,7 +94,7 @@ export function ModifierModal({ item, onClose, onAdd }: ModifierModalProps) {
                     className={`rounded-2xl border px-4 py-4 text-left text-base font-semibold ${
                       variantId === v.id
                         ? 'border-brand-primary bg-brand-primary/15 text-brand-primary'
-                        : 'border-white/10 bg-bg-card'
+                        : 'border-line bg-bg-card'
                     }`}
                   >
                     {v.name}
@@ -128,7 +128,7 @@ export function ModifierModal({ item, onClose, onAdd }: ModifierModalProps) {
                           toggle({ id: mod.id, name: mod.name, price: mod.price }, group.maxSelect, groupSelected)
                         }
                         className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-base ${
-                          selected ? 'border-brand-primary bg-brand-primary/10' : 'border-white/10 bg-bg-card'
+                          selected ? 'border-brand-primary bg-brand-primary/10' : 'border-line bg-bg-card'
                         }`}
                       >
                         <span>{mod.name}</span>
@@ -152,13 +152,13 @@ export function ModifierModal({ item, onClose, onAdd }: ModifierModalProps) {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              className="w-full select-text rounded-2xl border border-white/10 bg-bg-card px-4 py-3 text-base outline-none focus:border-brand-primary"
+              className="w-full select-text rounded-2xl border border-line bg-bg-card px-4 py-3 text-base outline-none focus:border-brand-primary"
               placeholder="No onions, extra spicy…"
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-4 border-t border-white/5 p-6">
+        <div className="flex items-center gap-4 border-t border-line-subtle p-6">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -189,7 +189,7 @@ export function ModifierModal({ item, onClose, onAdd }: ModifierModalProps) {
                 notes: notes.trim() || undefined,
               });
             }}
-            className="flex h-16 flex-1 items-center justify-between rounded-2xl bg-brand-primary px-5 text-lg font-bold text-bg-primary disabled:opacity-40"
+            className="flex h-16 flex-1 items-center justify-between rounded-2xl bg-brand-primary px-5 text-lg font-bold text-on-brand disabled:opacity-40"
           >
             <span>{unmetGroup ? `Pick ${unmetGroup.name}` : 'Add to order'}</span>
             <span className="font-mono">{formatPrice(lineTotal)}</span>

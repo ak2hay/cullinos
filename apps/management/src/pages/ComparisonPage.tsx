@@ -50,14 +50,14 @@ export function ComparisonPage() {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-4 rounded-xl border border-white/5 bg-bg-card p-4">
+      <div className="flex flex-wrap gap-4 rounded-xl border border-line-subtle bg-bg-card p-4">
         <label className="space-y-1 text-sm">
           <span className="text-text-secondary">Date</span>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="block h-11 rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+            className="block h-11 rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
           />
         </label>
         <FilterSelect
@@ -90,11 +90,11 @@ export function ComparisonPage() {
         <div className="h-48 animate-pulse rounded-xl bg-bg-card" />
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+          <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
             <h2 className="mb-4 font-medium">Revenue by outlet</h2>
             <BarChart items={revenueBars} valueLabel="Revenue (INR)" />
           </section>
-          <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+          <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
             <h2 className="mb-4 font-medium">Orders by outlet</h2>
             <BarChart items={orderBars} valueLabel="Order count" colorClass="bg-brand-accent" />
           </section>
@@ -102,7 +102,7 @@ export function ComparisonPage() {
       )}
 
       {data.length > 0 ? (
-        <section className="overflow-x-auto rounded-xl border border-white/5 bg-bg-card p-6">
+        <section className="overflow-x-auto rounded-xl border border-line-subtle bg-bg-card p-6">
           <h2 className="mb-4 font-medium">Outlet details</h2>
           <table className="w-full text-sm">
             <thead>
@@ -117,7 +117,7 @@ export function ComparisonPage() {
             </thead>
             <tbody>
               {data.map((row) => (
-                <tr key={row.outletId} className="border-t border-white/5">
+                <tr key={row.outletId} className="border-t border-line-subtle">
                   <td className="py-2 pr-4">{row.outletName}</td>
                   <td className="py-2 pr-4">{row.city ?? '—'}</td>
                   <td className="py-2 pr-4">{row.zone ?? '—'}</td>
@@ -151,7 +151,7 @@ function FilterSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="block h-11 min-w-[140px] rounded-lg border border-white/10 bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
+        className="block h-11 min-w-[140px] rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
       >
         <option value="">All</option>
         {options.map((o) => (

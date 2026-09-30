@@ -71,19 +71,19 @@ export function StockTransferPage() {
       )}
 
       {outlets.length >= 2 && items.length === 0 && (
-        <div className="rounded-xl border border-white/10 bg-bg-card px-4 py-3 text-sm text-text-secondary">
+        <div className="rounded-xl border border-line bg-bg-card px-4 py-3 text-sm text-text-secondary">
           No inventory items found. Add inventory items via <strong>Swagger</strong> (<code>/docs</code>) — <code>POST /api/v1/inventory/items</code> — then refresh this page.
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5 rounded-xl border border-white/5 bg-bg-card p-6">
+      <form onSubmit={handleSubmit} className="space-y-5 rounded-xl border border-line-subtle bg-bg-card p-6">
         <label className="block">
           <span className="text-sm text-text-secondary">From outlet</span>
           <select
             required
             value={fromOutletId}
             onChange={(e) => setFromOutletId(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+            className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
           >
             <option value="">Select outlet</option>
             {outlets.map((o) => (
@@ -98,7 +98,7 @@ export function StockTransferPage() {
             required
             value={toOutletId}
             onChange={(e) => setToOutletId(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+            className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
           >
             <option value="">Select outlet</option>
             {outlets.map((o) => (
@@ -113,7 +113,7 @@ export function StockTransferPage() {
             required
             value={inventoryItemId}
             onChange={(e) => setInventoryItemId(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+            className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
           >
             <option value="">Select item</option>
             {items.map((item) => (
@@ -133,7 +133,7 @@ export function StockTransferPage() {
             step="0.01"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+            className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
           />
         </label>
 
@@ -143,18 +143,18 @@ export function StockTransferPage() {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            className="mt-1 w-full rounded-lg border border-white/10 bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
+            className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
           />
         </label>
 
         {message ? (
-          <p className="rounded-lg border border-white/10 bg-bg-elevated px-3 py-2 text-sm">{message}</p>
+          <p className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm">{message}</p>
         ) : null}
 
         <button
           type="submit"
           disabled={transferMutation.isPending}
-          className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-medium text-bg-primary hover:bg-brand-primary-dark disabled:opacity-60"
+          className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-medium text-on-brand hover:bg-brand-primary-dark disabled:opacity-60"
         >
           {transferMutation.isPending ? 'Submitting…' : 'Submit transfer'}
         </button>

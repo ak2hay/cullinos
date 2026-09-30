@@ -15,7 +15,7 @@ interface ItemGridProps {
 export function ItemGrid({ items, quantities = {}, onAdd, emptyHint }: ItemGridProps) {
   if (items.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-white/10 bg-bg-card/40 p-12 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-line bg-bg-card/40 p-12 text-center">
         <p className="text-base text-text-secondary">
           {emptyHint ?? 'No items in this category.'}
         </p>
@@ -36,10 +36,10 @@ export function ItemGrid({ items, quantities = {}, onAdd, emptyHint }: ItemGridP
             type="button"
             disabled={!item.isAvailable}
             onClick={() => onAdd({ id: item.id, name: item.name, price: item.price })}
-            className="group relative flex min-h-[92px] flex-col items-start justify-between overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-bg-card to-bg-elevated/80 p-3 text-left sm:min-h-[112px] sm:p-4 shadow-sm transition hover:border-brand-primary/50 hover:shadow-md hover:shadow-brand-primary/10 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+            className="group relative flex min-h-[92px] flex-col items-start justify-between overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-bg-card to-bg-elevated/80 p-3 text-left sm:min-h-[112px] sm:p-4 shadow-sm transition hover:border-brand-primary/50 hover:shadow-md hover:shadow-brand-primary/10 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {qty > 0 ? (
-              <span className="absolute right-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-primary px-2 font-mono text-sm font-bold text-bg-primary">
+              <span className="absolute right-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-primary px-2 font-mono text-sm font-bold text-on-brand">
                 {qty}
               </span>
             ) : null}

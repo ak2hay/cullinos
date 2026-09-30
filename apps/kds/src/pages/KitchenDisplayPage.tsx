@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { KotCard } from '@/components/KotCard';
 import { StationFilter } from '@/components/StationFilter';
-import { Button, Select } from '@cullinos/ui';
+import { Button, Select, ThemeToggle } from '@cullinos/ui';
 import { useKitchenSocket } from '@/hooks/useKitchenSocket';
 import { apiRequest, kitchenApi, outletsApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
@@ -107,14 +107,20 @@ export function KitchenDisplayPage() {
     return options;
   }, [outlets, outletId]);
 
-  const kots = useMemo(() => {
-    if (!displayData) return [];
-    if (selectedStationId) {
-      const station = displayData.stations.find((s) => s.station.id === selectedStationId);
-      return station?.kots ?? [];
-    }
-    return displayData.allKots;
-  }, [displayData, selectedStationId]);
+  // `?station=BAR` pins this screen to one station (dedicated station displays).
+  const urlStationCode = searchParams.get('station')?.trim().toUpperCase() || null;
+  const setSelectedStationId = useKdsStore((s) => s.setSelectedStationId);
+  useEffect(() => {
+    if (!urlStationCode || !displayData) return;
+    const match = displayData.stations.find(
+      (s) => s.station.code?.trim().toUpperCase() === urlStationCode,
+    );
+    const next = urlStationCode === 'DEFAULT' ? 'default' : match?.station.id;
+    if (next && next !== selectedStationId) setSelectedStationId(next);
+  }, [urlStationCode, displayData, selectedStationId, setSelectedStationId]);
+
+  // The API filters tickets by the selected station, so allKots is already scoped.
+  const kots = useMemo(() => displayData?.allKots ?? [], [displayData]);
 
   const sortedKots = useMemo(
     () =>
@@ -141,7 +147,7 @@ export function KitchenDisplayPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-bg-primary">
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-bg-secondary px-6 py-4">
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-bg-secondary px-6 py-4">
         <div>
           <h1 className="text-xl font-semibold text-brand-primary">Kitchen Display</h1>
           <p className="text-sm text-text-secondary">
@@ -175,6 +181,7 @@ export function KitchenDisplayPage() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 7V3h4"/><path d="M21 7V3h-4"/><path d="M3 17v4h4"/><path d="M21 17v4h-4"/></svg>
             )}
           </Button>
+          <ThemeToggle className="self-center" />
           <Button variant="secondary" onClick={logout}>
             Logout
           </Button>

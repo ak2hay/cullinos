@@ -47,7 +47,7 @@ export function DashboardPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((kpi) => (
-          <div key={kpi.label} className="rounded-xl border border-white/5 bg-bg-card p-5">
+          <div key={kpi.label} className="rounded-xl border border-line-subtle bg-bg-card p-5">
             <p className="text-sm text-text-muted">{kpi.label}</p>
             <p className="mt-2 text-2xl font-semibold">
               {isLoading ? <span className="inline-block h-8 w-24 animate-pulse rounded bg-bg-elevated" /> : kpi.value}
@@ -56,7 +56,7 @@ export function DashboardPage() {
         ))}
       </div>
 
-      <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+      <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="font-medium">Outlets</h2>
@@ -85,7 +85,7 @@ export function DashboardPage() {
         ) : outlets.length === 0 ? (
           <p className="mt-4 text-sm text-text-muted">No outlets yet.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-white/5">
+          <ul className="mt-4 divide-y divide-line-subtle">
             {outlets.map((outlet) => (
               <li key={outlet.id} className="flex items-center justify-between gap-3 py-3">
                 <div>
@@ -98,7 +98,7 @@ export function DashboardPage() {
                   href={ADMIN_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-lg bg-bg-elevated px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-white/5"
+                  className="rounded-lg bg-bg-elevated px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-hover"
                 >
                   Manage
                 </a>
@@ -109,7 +109,7 @@ export function DashboardPage() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
           <h2 className="font-medium">Payment mix</h2>
           <ul className="mt-4 space-y-2">
             {(data?.paymentBreakdown ?? []).map((row) => (
@@ -124,7 +124,7 @@ export function DashboardPage() {
           </ul>
         </section>
 
-        <section className="rounded-xl border border-white/5 bg-bg-card p-6">
+        <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
           <h2 className="font-medium">Hourly breakdown</h2>
           <ul className="mt-4 max-h-64 space-y-2 overflow-y-auto">
             {(data?.hourlyBreakdown ?? []).map((row) => (
