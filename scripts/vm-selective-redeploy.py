@@ -5,8 +5,8 @@
 2. Overlay workspace sources (apps/*, packages/*, lockfile, Dockerfiles, compose) onto /opt/cullinos.
    The API image copies every workspace and runs `npm ci`, so all package.json files must match the lock.
    .env, secrets/, archive/ and dist-exports/ on the VM are never touched.
-3. Cached `docker compose build api` with GIT_COMMIT, recreate, `prisma db push`, health check.
-4. Publish locally built SPAs + static landings to /var/www/cullinos/<name>/.
+3. Cached `docker compose build api` with GIT_COMMIT, recreate, `prisma migrate deploy`, health check.
+4. Publish locally built SPAs (`npm run build:frontends`) + static landings to /var/www/cullinos/<name>/.
 5. Install infrastructure/nginx/cullinos-frontends.conf (backup + auto-restore if `nginx -t` fails).
 6. Rebuild the marketing web container.
 
@@ -17,6 +17,7 @@ Env:
   DEPLOY_WEB=0              skip marketing web rebuild
   DEPLOY_NGINX=0            skip nginx config install
   ALLOW_SANDBOX_OTP_SKIP    if set (true/false), written to the VM .env before the API is recreated
+  ANDROID_ASSETLINKS_SHA256 comma-separated cert fingerprints for guest-landing assetlinks.json
 """
 from __future__ import annotations
 
@@ -185,15 +186,41 @@ def make_source_patch() -> bytes:
     return buf.read()
 
 
+ASSETLINKS_ARCNAME = "guest-landing/.well-known/assetlinks.json"
+ASSETLINKS_PLACEHOLDER = '"REPLACE_WITH_PLAY_OR_UPLOAD_CERT_SHA256"'
+
+
+def assetlinks_json() -> bytes | None:
+    """assetlinks.json with ANDROID_ASSETLINKS_SHA256 (comma-separated) filled in, or None to keep the file."""
+    fingerprints = [f.strip() for f in os.environ.get("ANDROID_ASSETLINKS_SHA256", "").split(",") if f.strip()]
+    if not fingerprints:
+        safe_print("WARNING: ANDROID_ASSETLINKS_SHA256 is empty; guest-landing keeps the placeholder assetlinks.json")
+        return None
+    source = (ROOT / "infrastructure" / "www" / ASSETLINKS_ARCNAME).read_text(encoding="utf-8")
+    return source.replace(ASSETLINKS_PLACEHOLDER, ", ".join(f'"{f}"' for f in fingerprints)).encode("utf-8")
+
+
 def make_publish_tarball(spa_apps: list[str]) -> bytes:
+    assetlinks = assetlinks_json()
+
+    def landing_filter(ti: tarfile.TarInfo) -> tarfile.TarInfo | None:
+        return None if assetlinks is not None and ti.name == ASSETLINKS_ARCNAME else ti
+
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
         for app in spa_apps:
             tar.add(ROOT / "apps" / app / "dist", arcname=SPA_PUBLISH[app])
             safe_print(f"pack apps/{app}/dist -> {SPA_PUBLISH[app]}")
         for landing in LANDINGS:
-            tar.add(ROOT / "infrastructure" / "www" / landing, arcname=landing)
+            tar.add(ROOT / "infrastructure" / "www" / landing, arcname=landing, filter=landing_filter)
             safe_print(f"pack infrastructure/www/{landing} -> {landing}")
+        if assetlinks is not None:
+            info = tarfile.TarInfo(ASSETLINKS_ARCNAME)
+            info.size = len(assetlinks)
+            info.mtime = int(time.time())
+            info.mode = 0o644
+            tar.addfile(info, io.BytesIO(assetlinks))
+            safe_print(f"pack {ASSETLINKS_ARCNAME} with ANDROID_ASSETLINKS_SHA256 fingerprints")
     buf.seek(0)
     return buf.read()
 
@@ -290,7 +317,7 @@ def main() -> int:
             print("API build/recreate failed", file=sys.stderr)
             return code
 
-        safe_print("\n=== Prisma schema sync (db push, no data loss) ===")
+        safe_print("\n=== Prisma migrate deploy ===")
         code, _, _ = run(
             ssh,
             f"cd {APP_DIR} && docker compose -f docker-compose.prod.yml run --rm -T --no-deps api "
@@ -298,7 +325,7 @@ def main() -> int:
             timeout=900,
         )
         if code != 0:
-            print("Schema sync failed (refused data loss or DB error) - API is up on the new image", file=sys.stderr)
+            print("Migrations failed - API is up on the new image", file=sys.stderr)
             return code
 
         health_body = ""
