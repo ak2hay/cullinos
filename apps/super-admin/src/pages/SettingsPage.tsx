@@ -83,6 +83,14 @@ function GroupForm({
     onError: (err: Error) => setTestMsg(err.message),
   });
 
+  const [whatsappPhone, setWhatsappPhone] = useState('');
+  const [whatsappTestMessage, setWhatsappTestMessage] = useState('Cullinos WhatsApp test');
+  const testWhatsappMutation = useMutation({
+    mutationFn: () => superAdminApi.testWhatsapp(whatsappPhone, whatsappTestMessage),
+    onSuccess: (r) => setTestMsg(r.ok ? r.message : `Failed: ${r.message}`),
+    onError: (err: Error) => setTestMsg(err.message),
+  });
+
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
     const values: Record<string, string> = {};
@@ -297,10 +305,117 @@ function GroupForm({
                 </button>
               </>
             ) : null}
+
+            {group.id === 'whatsapp' ? (
+              <>
+                <div className="min-w-[16rem]">
+                  <PhoneField
+                    label="Test phone"
+                    value={whatsappPhone}
+                    onChange={setWhatsappPhone}
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Test message"
+                  value={whatsappTestMessage}
+                  onChange={(e) => setWhatsappTestMessage(e.target.value)}
+                  className="min-w-[16rem] flex-1 rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
+                />
+                <button
+                  type="button"
+                  onClick={() => testWhatsappMutation.mutate()}
+                  disabled={
+                    testWhatsappMutation.isPending ||
+                    !whatsappPhone.trim() ||
+                    !whatsappTestMessage.trim()
+                  }
+                  className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
+                >
+                  {testWhatsappMutation.isPending ? 'Sending…' : 'Send test'}
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
       ) : null}
     </form>
+  );
+}
+
+function parseRecipientPhones(raw: string): string[] {
+  return [...new Set(raw.split(/[\s,;]+/).map((part) => part.trim()).filter(Boolean))];
+}
+
+function WhatsappMarketingSection() {
+  const [message, setMessage] = useState('');
+  const [phonesText, setPhonesText] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const phones = parseRecipientPhones(phonesText);
+
+  const sendMutation = useMutation({
+    mutationFn: () => superAdminApi.sendWhatsappMarketing(phones, message.trim()),
+    onSuccess: (result) => {
+      setError(null);
+      setNotice(result.message);
+    },
+    onError: (err: Error) => {
+      setNotice(null);
+      setError(err.message);
+    },
+  });
+
+  return (
+    <section className="rounded-xl border border-line-subtle bg-bg-card px-6 py-5">
+      <h2 className="font-medium">WhatsApp marketing</h2>
+      <p className="mt-1 max-w-2xl text-sm text-text-muted">
+        Draft a message and send it to the numbers you enter. WhatsApp delivers it as the approved
+        marketing template&apos;s body variable, configured above. Create and approve that template
+        in the MSG91 panel first.
+      </p>
+      {notice ? (
+        <div className="mt-4 rounded-lg border border-status-success/30 bg-status-success/10 px-3 py-2 text-sm text-status-success">
+          {notice}
+        </div>
+      ) : null}
+      {error ? (
+        <div className="mt-4 rounded-lg border border-status-error/30 bg-status-error/10 px-3 py-2 text-sm text-status-error">
+          {error}
+        </div>
+      ) : null}
+      <label className="mt-4 block">
+        <span className="mb-1.5 block text-sm text-text-secondary">Message</span>
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          rows={4}
+          maxLength={1024}
+          placeholder="Text that fills the template body variable"
+          className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+        />
+      </label>
+      <label className="mt-4 block">
+        <span className="mb-1.5 block text-sm text-text-secondary">
+          Recipient numbers ({phones.length})
+        </span>
+        <textarea
+          value={phonesText}
+          onChange={(e) => setPhonesText(e.target.value)}
+          rows={4}
+          placeholder="One number per line, or separated by commas"
+          className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+        />
+      </label>
+      <button
+        type="button"
+        onClick={() => sendMutation.mutate()}
+        disabled={sendMutation.isPending || !message.trim() || phones.length === 0}
+        className="mt-4 rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-text-primary hover:opacity-90 disabled:opacity-60"
+      >
+        {sendMutation.isPending ? 'Sending…' : 'Send on WhatsApp'}
+      </button>
+    </section>
   );
 }
 
@@ -329,10 +444,10 @@ export function SettingsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Platform settings</h1>
           <p className="mt-1 max-w-2xl text-text-secondary">
-            Turn client portals on or off, and configure SMTP (staff OTP), MSG91 (phone OTP),
-            Firebase Admin for Cullinos App auth/push (FCM HTTP v1), Razorpay, and Cullinos App
-            release flags. Click a section to edit credentials. Database values override
-            environment variables.
+            Turn client portals on or off, and configure SMTP (staff OTP), MSG91 (phone OTP and
+            WhatsApp), Firebase Admin for Cullinos App auth/push (FCM HTTP v1), Razorpay, and
+            Cullinos App release flags. Click a section to edit credentials. Database values
+            override environment variables.
           </p>
         </div>
         <button
@@ -383,6 +498,7 @@ export function SettingsPage() {
               }}
             />
           ))}
+          <WhatsappMarketingSection />
         </div>
       )}
     </div>

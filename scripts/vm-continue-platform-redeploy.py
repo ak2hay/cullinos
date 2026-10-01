@@ -25,8 +25,9 @@ SPA_PUBLISH = {
     "pos": "pos",
     "kds": "kds",
     "kiosk": "kiosk",
+    "guest-web": "guest-landing",
 }
-LANDINGS = ["guest-landing", "waiter-landing"]
+LANDINGS = ["waiter-landing"]
 EXCLUDE = {
     "node_modules",
     "dist",
@@ -130,6 +131,14 @@ def make_publish() -> bytes:
             src = ROOT / "infrastructure" / "www" / landing
             if src.is_dir():
                 tar.add(src, arcname=landing)
+        assetlinks = (
+            ROOT / "infrastructure" / "www" / "guest-landing" / ".well-known" / "assetlinks.json"
+        ).read_bytes()
+        info = tarfile.TarInfo("guest-landing/.well-known/assetlinks.json")
+        info.size = len(assetlinks)
+        info.mtime = int(time.time())
+        info.mode = 0o644
+        tar.addfile(info, io.BytesIO(assetlinks))
     return buf.getvalue()
 
 

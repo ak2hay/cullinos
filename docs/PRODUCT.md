@@ -151,7 +151,7 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | **Coupons** | Discount codes across channels |
 | **Promo email** | Compose and send email campaigns |
 | **SMS campaigns** | MSG91 marketing SMS (prepaid portal wallet) |
-| **WhatsApp e-bills** | Platform Meta Cloud API; owner enable + per-message wallet charge |
+| **WhatsApp e-bills** | Platform MSG91 WhatsApp; owner enable + per-message wallet charge |
 | **Events / pop-ups** | Event-driven pre-orders |
 | **Privacy & consent** | Consent, export/erase, retention (DPDP-oriented) |
 
@@ -177,7 +177,7 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | **Suspend / activate** | Lifecycle control |
 | **Plans & entitlements** | Module feature flags per plan |
 | **Impersonation** | Support handoff into tenant Admin |
-| **Platform config** | SMTP, Razorpay, MSG91, WhatsApp (Meta), FCM, R2, OpenAI, wallet messaging rates, … |
+| **Platform config** | SMTP, Razorpay, MSG91, WhatsApp (MSG91), FCM, R2, OpenAI, wallet messaging rates, … |
 | **Marketing CMS** | Hero, pages, pricing, blog, media, theme |
 | **Cullinos App Ops** | Full Cullinos App portal under `/guest-ops`: marketplace moderation & featuring, Discover CMS, banners (all scopes), segmented/scheduled push, offers featuring, review moderation, GuestUser support/privacy, analytics, app runtime (force/soft update, maintenance, remote legal URLs) |
 | **Health & audit** | Platform health, audit trails |
@@ -190,8 +190,8 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | Integration | Status | Use |
 |-------------|--------|-----|
 | **Razorpay** | Available | Online payments, Guest/Customer verify, subscription collect |
-| **MSG91** | Available | Phone OTP widget / Flow SMS; marketing SMS |
-| **WhatsApp (Meta Cloud API)** | Available | Cullinos platform account; tenant e-bill receipts (wallet-metered) |
+| **MSG91** | Available | Phone OTP widget / Flow SMS; marketing SMS; WhatsApp templates |
+| **WhatsApp (MSG91)** | Available | Cullinos platform number; tenant e-bill receipts (wallet-metered); Super Admin marketing drafts |
 | **Firebase Auth + FCM** | Available | Guest auth; order & marketing push |
 | **SMTP / Brevo** | Available | Staff email OTP, promo email |
 | **Resend** | Available | Owner onboarding credential emails |

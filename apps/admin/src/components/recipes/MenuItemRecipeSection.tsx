@@ -45,9 +45,9 @@ export function MenuItemRecipeSection({
 
   if (!menuItemId) {
     return (
-      <section className="mt-6 rounded-lg border border-dashed border-line p-3 text-sm text-text-muted">
-        <p className="font-medium text-text-secondary">Recipe &amp; stock</p>
-        Save the item first, then link the inventory ingredients it uses.
+      <section className="rounded-lg border border-dashed border-line p-3 text-sm text-text-muted">
+        <p className="font-medium text-text-secondary">Add recipe</p>
+        Save the item first, then choose the inventory items and quantities deducted when it is sold.
       </section>
     );
   }
@@ -57,13 +57,20 @@ export function MenuItemRecipeSection({
   const recipe = recipes.find((r) => r.menuItemId === menuItemId) ?? null;
 
   return (
-    <section className="mt-6 space-y-3 rounded-lg border border-line-subtle p-3">
+    <section
+      className="space-y-3 rounded-lg border border-line-subtle p-3"
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter') return;
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') e.preventDefault();
+      }}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium">Recipe &amp; stock</p>
+          <p className="text-sm font-medium">{recipe ? 'Recipe' : 'Add recipe'}</p>
           <p className="text-xs text-text-muted">
-            Ingredients deducted from outlet stock each time this item is sold. Variant “Stock ×”
-            scales these quantities.
+            These inventory items and quantities are deducted from stock when this item is sold.
+            Variant “Stock ×” scales these quantities.
           </p>
         </div>
         {recipe ? (
