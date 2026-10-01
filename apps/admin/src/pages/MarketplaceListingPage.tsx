@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   ErrorBanner,
@@ -23,6 +23,8 @@ import {
 import { ImageCropModal } from '@/components/ImageCropModal';
 import { outletsApi, type Outlet, type OutletPhoto, API_BASE } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
+
+const LocationPicker = lazy(() => import('@/components/LocationPicker'));
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 const DAY_LABELS: Record<(typeof DAY_KEYS)[number], string> = {
@@ -328,6 +330,17 @@ export function MarketplaceListingPage() {
           </p>
         </div>
 
+        <div className="sm:col-span-2 space-y-2">
+          <p className="text-sm font-medium text-text-primary">Outlet location *</p>
+          <Suspense fallback={<div className="ui-skeleton h-[22rem] w-full rounded-xl" />}>
+            <LocationPicker
+              key={outletId}
+              latitude={form.latitude}
+              longitude={form.longitude}
+              onChange={(latitude, longitude) => setForm((f) => ({ ...f, latitude, longitude }))}
+            />
+          </Suspense>
+        </div>
         <Input
           label="Latitude *"
           placeholder="12.9716"
