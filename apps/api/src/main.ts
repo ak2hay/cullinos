@@ -30,7 +30,7 @@ async function bootstrap() {
     rawBody: true,
   });
 
-  // Behind Traefik/nginx every request arrives from the proxy; without this, rate limits
+  // Behind nginx every request arrives from the proxy; without this, rate limits
   // and login backoff share one bucket for all clients. Set to the number of proxy hops.
   app.set("trust proxy", parseTrustProxyHops(process.env.TRUST_PROXY_HOPS));
 

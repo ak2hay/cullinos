@@ -1,6 +1,6 @@
 # Cullinos Architecture
 
-Cullinos is a restaurant operating system built as an npm workspaces monorepo orchestrated by Turborepo. A single NestJS API backs multiple client applications (web SPAs, Next.js marketing, Flutter Guest, Electron shells). Production is a self-managed VM running **k3s** (see [DEPLOYMENT.md](./DEPLOYMENT.md)); CI/CD ships images via GitHub Actions → GHCR.
+Cullinos is a restaurant operating system built as an npm workspaces monorepo orchestrated by Turborepo. A single NestJS API backs multiple client applications (web SPAs, Next.js marketing, Flutter Guest, Electron shells). Production is a self-managed VM running **Docker Compose** behind host nginx, deployed over SSH with the scripts in `scripts/` (see [DEPLOYMENT.md](./DEPLOYMENT.md)); GitHub Actions runs CI and security checks.
 
 Full product/feature catalogue: [PRODUCT.md](./PRODUCT.md).
 
@@ -8,9 +8,9 @@ Full product/feature catalogue: [PRODUCT.md](./PRODUCT.md).
 
 ```
                     ┌─────────────────────────────────────┐
-                    │    VM — k3s (staging + production)  │
-                    │  API · PostgreSQL · Redis · Traefik │
-                    │  SPA images · Next.js web · Grafana │
+                    │   VM — Docker Compose (production)  │
+                    │  API · PostgreSQL · Redis · web     │
+                    │  host nginx · static SPAs · certbot │
                     └──────────────┬──────────────────────┘
                                    │ HTTPS / WebSocket
          ┌─────────────────────────┼─────────────────────────┐

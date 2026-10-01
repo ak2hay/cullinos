@@ -62,6 +62,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.web
+      args:
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
+        NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN: ${NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN:-}
     container_name: cullinos-web
     restart: unless-stopped
     env_file:

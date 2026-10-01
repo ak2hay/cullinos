@@ -1,21 +1,10 @@
 # Cullinos — Backup & one-click rollback (VM)
 
-Production runs on a single OnLiveServer VM. After the k3s cutover, **app rollback** is image-tag redeploy via GitHub Actions; **DB backup** still uses R2. Compose-era scripts under `/opt/cullinos/scripts/prod/` remain valid until Compose is fully retired.
+Production runs as a Docker Compose stack on a single OnLiveServer VM (see [DEPLOYMENT.md](DEPLOYMENT.md)). **App rollback** restores a release snapshot on the VM; **DB backups** go to Cloudflare R2. Monitoring: Sentry (`SENTRY_DSN` in the VM `.env`) and the `Uptime Check` workflow.
 
-## k3s (current path)
+## Scripts
 
-| Action | How |
-|--------|-----|
-| App rollback (DB fine) | Actions → **Deploy Production** → `workflow_dispatch` with previous image SHA (`Build Images` short SHA tag) |
-| DB dump from cluster | `bash infrastructure/k8s/scripts/backup-pg-k8s.sh production` |
-| Point-in-time DB | Prefer R2 daily/hourly dumps (below); restore into the `postgres` pod with `psql` |
-| Monitoring | Grafana `https://grafana.cullinos.com` + Sentry (DSN in `cullinos-secrets`) |
-
-Cutover notes: [`infrastructure/k8s/scripts/cutover-checklist.md`](../infrastructure/k8s/scripts/cutover-checklist.md).
-
-## Compose-era scripts (legacy / transitional)
-
-These scripts live on the server under `/opt/cullinos/scripts/prod/` while Compose volumes still exist:
+These scripts live on the server under `/opt/cullinos/scripts/prod/`:
 
 | Script | Purpose |
 |--------|---------|
@@ -35,19 +24,17 @@ These scripts live on the server under `/opt/cullinos/scripts/prod/` while Compo
 
 | Situation | Action |
 |-----------|--------|
-| Bad deploy, API/UI broken, **DB fine** (k3s) | Redeploy prior image tag via Deploy Production |
-| Bad deploy (Compose still live) | `bash /opt/cullinos/scripts/prod/rollback.sh` |
-| Need a named prior Compose release | `bash .../rollback.sh --list` then `rollback.sh <id>` |
+| Bad deploy, API/UI broken, **DB fine** | `bash /opt/cullinos/scripts/prod/rollback.sh` |
+| Need a named prior release | `bash .../rollback.sh --list` then `rollback.sh <id>` |
 | Bad data / need **yesterday** | `bash .../restore-backup.sh YYYY-MM-DD --from-r2` (type `RESTORE`) |
 | Need data from **a few hours ago** | Restore hourly SQL from R2 (see below) |
-| Whole VM dead | New VM + k3s install + `restore-backup.sh YYYY-MM-DD --from-r2` |
+| Whole VM dead | New VM + `scripts/remote-deploy.py` (installs Docker/Compose) + `restore-backup.sh YYYY-MM-DD --from-r2` |
 
 ```mermaid
 flowchart TD
   issue[Prod issue]
   issue --> q1{App broken DB OK?}
-  q1 -->|yes k3s| redeploy[Redeploy prior GHCR tag]
-  q1 -->|yes Compose| rollback[rollback.sh]
+  q1 -->|yes| rollback[rollback.sh]
   q1 -->|no| q2{Need point-in-time data?}
   q2 -->|yesterday or full stack| daily["restore-backup.sh --from-r2"]
   q2 -->|last few hours DB| hourly[hourly SQL from R2]
