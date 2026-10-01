@@ -95,11 +95,20 @@ describe("cors.util", () => {
     ).toThrow(/ENCRYPTION_KEY/);
   });
 
-  it("fails production when TURNSTILE_SECRET_KEY is missing", () => {
+  it("allows production without TURNSTILE_SECRET_KEY (captcha disabled)", () => {
     expect(() =>
       assertProductionSecurityConfig({
         ...validProd,
         TURNSTILE_SECRET_KEY: "",
+      }),
+    ).not.toThrow();
+  });
+
+  it("fails production when TURNSTILE_SECRET_KEY is a placeholder", () => {
+    expect(() =>
+      assertProductionSecurityConfig({
+        ...validProd,
+        TURNSTILE_SECRET_KEY: "change-me-turnstile-secret",
       }),
     ).toThrow(/TURNSTILE_SECRET_KEY/);
   });

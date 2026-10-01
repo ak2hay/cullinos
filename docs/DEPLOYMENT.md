@@ -29,7 +29,9 @@ Files: [`docker-compose.prod.yml`](../docker-compose.prod.yml), nginx configs in
   are read from the same VM `.env` when Compose builds `web`.
 - **SPA build keys** are baked in on the machine that builds the frontends. Set them in your shell
   before `npm run build:frontends`:
-  - `VITE_TURNSTILE_SITE_KEY` (login / forgot-password captcha; only once the API has `TURNSTILE_SECRET_KEY`)
+  - `VITE_TURNSTILE_SITE_KEY` (login / forgot-password captcha). Captcha stays off while the VM
+    `.env` has no `TURNSTILE_SECRET_KEY`; set that secret only after every client (Vite portals,
+    guest app) ships with the matching site key.
   - `ANDROID_ASSETLINKS_SHA256`: comma-separated SHA-256 cert fingerprints (Play app signing + upload key)
     for `guest-landing/.well-known/assetlinks.json`. Without it the placeholder ships and Android App
     Links do not verify.
