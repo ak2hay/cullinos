@@ -10,7 +10,7 @@
     "lint": "echo 'lint ok'"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1127.0",
+    "@aws-sdk/client-s3": "^3.1142.0",
     "@cullinos/auth": "*",
     "@cullinos/events": "*",
     "@cullinos/integrations": "*",
@@ -27,7 +27,7 @@
     "@nestjs/platform-express": "^11.1.3",
     "@nestjs/platform-socket.io": "^11.1.3",
     "@nestjs/swagger": "11.4.7",
-    "@nestjs/throttler": "^6.5.0",
+    "@nestjs/throttler": "^6.7.1",
     "@nestjs/websockets": "^11.1.3",
     "@sentry/node": "^9.47.1",
     "@socket.io/redis-adapter": "^8.3.0",
@@ -36,7 +36,7 @@
     "@types/node": "^22.15.21",
     "@types/passport-jwt": "^4.0.1",
     "class-transformer": "^0.5.1",
-    "class-validator": "^0.14.2",
+    "class-validator": "^0.15.1",
     "dotenv": "^16.6.1",
     "firebase-admin": "^14.5.0",
     "ioredis": "^5.11.1",
@@ -48,7 +48,7 @@
     "resend": "^4.8.0",
     "rxjs": "^7.8.2",
     "sharp": "^0.35.5",
-    "socket.io": "^4.8.1",
+    "socket.io": "^4.8.4",
     "typescript": "^5.8.3"
   },
   "devDependencies": {
