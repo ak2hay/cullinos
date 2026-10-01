@@ -29,7 +29,7 @@ export function StatusDonut({ counts, loading }: { counts: StatusCounts | null; 
 
   if (loading || !counts) {
     return (
-      <div className="flex flex-col items-center gap-6 sm:flex-row">
+      <div className="flex flex-col items-center gap-6 sm:flex-row xl:flex-col">
         <Skeleton className="h-[168px] w-[168px] rounded-full" />
         <div className="w-full space-y-3">
           {SEGMENTS.map((s) => (
@@ -44,7 +44,7 @@ export function StatusDonut({ counts, loading }: { counts: StatusCounts | null; 
   let offset = 0;
 
   return (
-    <div className="flex flex-col items-center gap-6 sm:flex-row xl:flex-col 2xl:flex-row">
+    <div className="flex flex-col items-center gap-6 sm:flex-row xl:flex-col">
       <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }}>
         <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="-rotate-90">
           <circle
@@ -86,14 +86,14 @@ export function StatusDonut({ counts, loading }: { counts: StatusCounts | null; 
         </div>
       </div>
 
-      <ul className="w-full space-y-3">
+      <ul className="w-full min-w-0 space-y-3">
         {SEGMENTS.map((s) => {
           const count = counts[s.key];
           const pct = total > 0 ? Math.round((count / total) * 100) : 0;
           return (
             <li key={s.key} className="flex items-center gap-3 text-sm">
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${s.dot}`} aria-hidden="true" />
-              <span className="flex-1 text-text-secondary">{s.label}</span>
+              <span className="min-w-0 flex-1 truncate text-text-secondary">{s.label}</span>
               <span className="w-8 text-right font-semibold tabular-nums text-text-primary">{count}</span>
               <span className="w-10 text-right tabular-nums text-text-muted">{pct}%</span>
             </li>
