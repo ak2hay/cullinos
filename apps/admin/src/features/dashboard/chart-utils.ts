@@ -62,17 +62,16 @@ export function niceScale(max: number, ticks = 4): { max: number; step: number }
 }
 
 export function useElementWidth<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
+  const [el, setEl] = useState<T | null>(null);
   const [width, setWidth] = useState(0);
   useEffect(() => {
-    const el = ref.current;
     if (!el) return;
     setWidth(el.clientWidth);
     const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
-  return { ref, width };
+  }, [el]);
+  return { ref: setEl, width };
 }
 
 /** Eases a number towards `target` so KPI values count up instead of popping in. */
