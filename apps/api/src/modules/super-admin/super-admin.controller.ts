@@ -15,6 +15,8 @@ import {
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEmail,
@@ -35,6 +37,7 @@ import { MailService } from "../mail/mail.service";
 import { SuperAdminGuard } from "../marketing/guards/super-admin.guard";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
 import { Msg91Service } from "../sms/msg91.service";
+import { WhatsappService } from "../sms/whatsapp.service";
 import { SuperAdminService } from "./super-admin.service";
 import { RefreshCookieInterceptor } from "../auth/refresh-cookie.interceptor";
 import { LabsSqlDto, UpdateOrgEnvironmentDto } from "./dto/super-admin.dto";
@@ -221,12 +224,38 @@ class SmtpTestDto {
   to?: string;
 }
 
+class WhatsappTestDto {
+  @IsString()
+  @MinLength(8)
+  @MaxLength(20)
+  phone!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(1024)
+  message!: string;
+}
+
+class WhatsappMarketingDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(1024)
+  message!: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  phones!: string[];
+}
+
 @Controller("super-admin")
 @UseGuards(SuperAdminGuard)
 export class SuperAdminController {
   constructor(
     private service: SuperAdminService,
     private msg91: Msg91Service,
+    private whatsapp: WhatsappService,
     private platformConfig: PlatformConfigService,
     private mail: MailService,
     private audit: AuditService,
@@ -540,6 +569,18 @@ export class SuperAdminController {
   @RequirePlatformPermission("settings.manage")
   testMsg91(@Body() body: Msg91TestDto) {
     return this.msg91.testConfig(body.phone);
+  }
+
+  @Post("settings/whatsapp/test")
+  @RequirePlatformPermission("settings.manage")
+  testWhatsapp(@Body() body: WhatsappTestDto) {
+    return this.whatsapp.testConnection(body.phone, body.message);
+  }
+
+  @Post("settings/whatsapp/marketing")
+  @RequirePlatformPermission("settings.manage")
+  sendWhatsappMarketing(@Body() body: WhatsappMarketingDto) {
+    return this.whatsapp.sendMarketingDraft(body.phones, body.message);
   }
 
   @Patch("tenants/:id/suspend")

@@ -1,5 +1,17 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import { redactPhone } from "../../common/pii-redact.util";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
+import {
+  MSG91_WHATSAPP_BULK_URL,
+  buildMsg91WhatsappBulkBody,
+  isPlausibleWhatsappPhone,
+  msg91WhatsappErrorMessage,
+  msg91WhatsappRequestId,
+  normalizeWhatsappPhone,
+  sanitizeTemplateParam,
+} from "./whatsapp-msg91.util";
+
+const MAX_RECIPIENTS = 100;
 
 @Injectable()
 export class WhatsappService {
@@ -7,89 +19,97 @@ export class WhatsappService {
 
   constructor(private readonly config: PlatformConfigService) {}
 
-  isConfigured(): boolean {
-    return Boolean(
-      this.config.get("WHATSAPP_ACCESS_TOKEN")?.trim() &&
-        this.config.get("WHATSAPP_PHONE_NUMBER_ID")?.trim(),
+  private authKey(): string | undefined {
+    return (
+      this.config.get("MSG91_WHATSAPP_AUTH_KEY")?.trim() ||
+      this.config.get("MSG91_AUTH_KEY")?.trim() ||
+      undefined
     );
   }
 
-  private normalizePhone(phone: string): string {
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length === 10) return `91${digits}`;
-    return digits;
+  private integratedNumber(): string | undefined {
+    const raw = this.config.get("MSG91_WHATSAPP_INTEGRATED_NUMBER")?.trim();
+    if (!raw) return undefined;
+    const digits = raw.replace(/\D/g, "");
+    return digits || undefined;
   }
 
-  /** Receipts are business-initiated, so Meta only delivers them as an approved template. */
+  isConfigured(): boolean {
+    return Boolean(this.authKey() && this.integratedNumber());
+  }
+
+  /** Receipts are business-initiated, so MSG91 only delivers them as an approved template. */
   isReceiptTemplateConfigured(): boolean {
     return this.isConfigured() && Boolean(this.config.get("WHATSAPP_RECEIPT_TEMPLATE")?.trim());
   }
 
-  /**
-   * Send a free-form text message. Meta only delivers these inside a 24h customer-initiated
-   * session; use `sendTemplate` for anything the business starts.
-   */
-  async sendText(phone: string, body: string): Promise<{ sent: boolean; messageId?: string }> {
-    return this.post(phone, { type: "text", text: { preview_url: false, body } });
+  private requirePhones(phones: string[]): string[] {
+    const normalized = [
+      ...new Set(phones.map((phone) => normalizeWhatsappPhone(phone)).filter(Boolean)),
+    ];
+    if (!normalized.length) {
+      throw new BadRequestException("Enter at least one phone number.");
+    }
+    if (normalized.length > MAX_RECIPIENTS) {
+      throw new BadRequestException(`Send to at most ${MAX_RECIPIENTS} numbers at a time.`);
+    }
+    if (normalized.some((phone) => !isPlausibleWhatsappPhone(phone))) {
+      throw new BadRequestException("One or more phone numbers are invalid.");
+    }
+    return normalized;
   }
 
+  /**
+   * Send an approved MSG91 WhatsApp template. Body params map to body_1, body_2, …
+   */
   async sendTemplate(
-    phone: string,
+    phone: string | string[],
     templateName: string,
     bodyParams: string[],
-  ): Promise<{ sent: boolean; messageId?: string }> {
-    const language = this.config.get("WHATSAPP_TEMPLATE_LANGUAGE")?.trim() || "en";
-    return this.post(phone, {
-      type: "template",
-      template: {
-        name: templateName,
-        language: { code: language },
-        components: [
-          {
-            type: "body",
-            parameters: bodyParams.map((text) => ({ type: "text", text: text || "-" })),
-          },
-        ],
-      },
-    });
-  }
-
-  private async post(
-    phone: string,
-    message: Record<string, unknown>,
-  ): Promise<{ sent: boolean; messageId?: string }> {
+  ): Promise<{ sent: boolean; messageId?: string; recipientCount: number }> {
     if (!this.isConfigured()) {
       throw new BadRequestException(
-        "WhatsApp is not configured. Add keys in Super Admin → Settings → WhatsApp.",
+        "WhatsApp is not configured. Add the MSG91 integrated number in Super Admin → Settings → WhatsApp.",
       );
     }
-    const token = this.config.get("WHATSAPP_ACCESS_TOKEN")!.trim();
-    const phoneNumberId = this.config.get("WHATSAPP_PHONE_NUMBER_ID")!.trim();
-    const version = this.config.get("WHATSAPP_API_VERSION")?.trim() || "v21.0";
-    const to = this.normalizePhone(phone);
+    const name = templateName.trim();
+    if (!name) {
+      throw new BadRequestException("WhatsApp template name is missing.");
+    }
+    const phones = this.requirePhones(Array.isArray(phone) ? phone : [phone]);
+    const authkey = this.authKey()!;
+    const integratedNumber = this.integratedNumber()!;
+    const language = this.config.get("WHATSAPP_TEMPLATE_LANGUAGE")?.trim() || "en";
+    const body = buildMsg91WhatsappBulkBody({
+      integratedNumber,
+      templateName: name,
+      languageCode: language,
+      namespace: this.config.get("MSG91_WHATSAPP_NAMESPACE"),
+      phones,
+      bodyParams,
+    });
 
     try {
-      const res = await fetch(
-        `https://graph.facebook.com/${version}/${phoneNumberId}/messages`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ messaging_product: "whatsapp", to, ...message }),
+      const res = await fetch(MSG91_WHATSAPP_BULK_URL, {
+        method: "POST",
+        headers: {
+          authkey,
+          "Content-Type": "application/json",
         },
-      );
-      const data = (await res.json().catch(() => ({}))) as {
-        messages?: Array<{ id?: string }>;
-        error?: { message?: string };
-      };
-      if (!res.ok) {
-        const msg = data.error?.message ?? `WhatsApp API ${res.status}`;
+        body: JSON.stringify(body),
+      });
+      const data = (await res.json().catch(() => ({}))) as unknown;
+      const error = msg91WhatsappErrorMessage(data, res.status);
+      if (!res.ok || error) {
+        const msg = error ?? `WhatsApp API ${res.status}`;
         this.logger.error(`WhatsApp send failed: ${msg}`);
         throw new BadRequestException(msg);
       }
-      return { sent: true, messageId: data.messages?.[0]?.id };
+      return {
+        sent: true,
+        messageId: msg91WhatsappRequestId(data),
+        recipientCount: phones.length,
+      };
     } catch (err) {
       if (err instanceof BadRequestException) throw err;
       this.logger.error(
@@ -97,6 +117,61 @@ export class WhatsappService {
       );
       throw new BadRequestException("Failed to send WhatsApp message");
     }
+  }
+
+  /** Draft text fills body_1 of the approved marketing template. */
+  async sendMarketing(
+    phones: string[],
+    message: string,
+  ): Promise<{ sent: boolean; messageId?: string; recipientCount: number }> {
+    const template = this.config.get("WHATSAPP_MARKETING_TEMPLATE")?.trim();
+    if (!template) {
+      throw new BadRequestException(
+        "WhatsApp marketing template is not configured. Set an approved template in Super Admin → Settings → WhatsApp.",
+      );
+    }
+    const text = sanitizeTemplateParam(message);
+    if (text === "-") {
+      throw new BadRequestException("Enter a message to send.");
+    }
+    return this.sendTemplate(phones, template, [text]);
+  }
+
+  async testConnection(
+    phone: string,
+    message: string,
+  ): Promise<{ ok: boolean; message: string }> {
+    const marketing = this.config.get("WHATSAPP_MARKETING_TEMPLATE")?.trim();
+    const receipt = this.config.get("WHATSAPP_RECEIPT_TEMPLATE")?.trim();
+    const template = marketing || receipt;
+    if (!template) {
+      throw new BadRequestException(
+        "Set a marketing or e-bill WhatsApp template in Super Admin → Settings → WhatsApp before sending a test.",
+      );
+    }
+    const text = sanitizeTemplateParam(message);
+    if (text === "-") {
+      throw new BadRequestException("Enter a test message.");
+    }
+    const params = marketing ? [text] : [text, "-", "-", "-"];
+    const result = await this.sendTemplate(phone, template, params);
+    const to = redactPhone(normalizeWhatsappPhone(phone));
+    return {
+      ok: result.sent,
+      message: `Test WhatsApp sent to ${to}${result.messageId ? ` (${result.messageId})` : ""}`,
+    };
+  }
+
+  async sendMarketingDraft(
+    phones: string[],
+    message: string,
+  ): Promise<{ ok: boolean; message: string; sentCount: number }> {
+    const result = await this.sendMarketing(phones, message);
+    return {
+      ok: result.sent,
+      sentCount: result.recipientCount,
+      message: `Marketing WhatsApp queued for ${result.recipientCount} number${result.recipientCount === 1 ? "" : "s"}${result.messageId ? ` (${result.messageId})` : ""}`,
+    };
   }
 
   async sendReceiptAndThankYou(input: {
@@ -112,11 +187,12 @@ export class WhatsappService {
         "WhatsApp e-bill template is not configured. Set an approved template in Super Admin → Settings → WhatsApp.",
       );
     }
-    return this.sendTemplate(input.phone, template, [
+    const result = await this.sendTemplate(input.phone, template, [
       input.orderNumber,
       input.outletName?.trim() || "-",
       `₹${input.total.toFixed(2)}`,
       input.feedbackUrl || "-",
     ]);
+    return { sent: result.sent, messageId: result.messageId };
   }
 }

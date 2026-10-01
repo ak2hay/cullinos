@@ -36,7 +36,7 @@ flutter build appbundle --flavor prod -t lib/main_prod.dart
 
 - App link: `https://guest.cullinos.com/o/{orgSlug}/{outletSlug}?session=` / `?table=`
 - Custom: `cullinos://outlet/{orgSlug}/{outletSlug}`
-- Table QR (print): `https://guest.cullinos.com/o/{org}/{outlet}?org=&outlet=&table=` — download-first landing; opens app when installed, else Play / browser
+- Table QR (print): `https://guest.cullinos.com/o/{org}/{outlet}?table=` — opens the Cullinos app when it is installed; otherwise the browser menu on the same link
 - Wired via `app_links` in [`lib/core/deep_links.dart`](lib/core/deep_links.dart)
 - Sideload / Play Protect: see [docs/guest-app/INSTALL_TRUST.md](../../docs/guest-app/INSTALL_TRUST.md)
 

@@ -15,6 +15,8 @@ import {
   type RestaurantSize,
 } from '@cullinos/shared';
 import { Button, Input, PageShell, PhoneField, TabPanel, Tabs } from '@cullinos/ui';
+import { OutletQrCard } from '@/components/ordering/OutletQrCard';
+import { useAuthStore } from '@/stores/auth';
 import {
   organizationsApi,
   outletsApi,
@@ -104,6 +106,7 @@ export function SettingsPage() {
   const [whatsappReceiptsEnabled, setWhatsappReceiptsEnabled] = useState(false);
   const [servesAlcoholEnabled, setServesAlcoholEnabled] = useState(false);
 
+  const selectedOutletId = useAuthStore((s) => s.selectedOutletId);
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
   const orgQuery = useQuery({ queryKey: ['organizations', 'current'], queryFn: organizationsApi.current });
   const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get });
@@ -259,6 +262,9 @@ export function SettingsPage() {
   const parent = businessType ? getBusinessTypeParent(businessType) : null;
   const showPreOrders = isNavFeatureVisible(businessType, FEATURES.PRE_ORDERS, restaurantSize);
   const businessRules = getBusinessTypeRules(businessType);
+  const qrOutlet =
+    outletsQuery.data?.find((outlet) => outlet.id === selectedOutletId) ??
+    (outletsQuery.data?.length === 1 ? outletsQuery.data[0] : undefined);
   const visibleOrderOptions = ORDER_OPTIONS.filter((option) =>
     (businessRules.allowedOrderTypes as readonly string[]).includes(option.id),
   ).map((option) =>
@@ -399,6 +405,14 @@ export function SettingsPage() {
           ))}
         </div>
       </div>
+
+      {!businessRules.tables ? (
+        <OutletQrCard
+          orgSlug={orgQuery.data?.slug}
+          outletSlug={qrOutlet?.slug}
+          outletName={qrOutlet?.name}
+        />
+      ) : null}
 
       {businessRules.alcoholToggle || businessRules.alcoholAlwaysOn ? (
         <div className="space-y-3 rounded-xl border border-line-subtle bg-bg-card p-5">

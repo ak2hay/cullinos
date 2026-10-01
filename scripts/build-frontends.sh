@@ -28,6 +28,9 @@ for app in "${APPS[@]}"; do
   npm run build -w "@cullinos/$app"
 done
 
+echo ">>> Building @cullinos/guest-web"
+npm run build -w @cullinos/guest-web
+
 echo ">>> Building @cullinos/web (Next.js marketing)"
 npm run build -w @cullinos/web
 
@@ -44,9 +47,12 @@ for app in "${APPS[@]}"; do
   cp -r "$src" "${OUT}/${app}"
 done
 
-# Static landings for decommissioned web portals (Android apps)
-mkdir -p "${OUT}/guest-landing" "${OUT}/waiter-landing"
-cp -r "${ROOT}/infrastructure/www/guest-landing/." "${OUT}/guest-landing/"
+# Phone storefront replaces the download-only guest landing. Waiter stays a static page.
+mkdir -p "${OUT}/waiter-landing"
+rm -rf "${OUT}/guest-landing"
+cp -r "${ROOT}/apps/guest-web/dist" "${OUT}/guest-landing"
+mkdir -p "${OUT}/guest-landing/.well-known"
+cp "${ROOT}/infrastructure/www/guest-landing/.well-known/assetlinks.json" "${OUT}/guest-landing/.well-known/assetlinks.json"
 cp -r "${ROOT}/infrastructure/www/waiter-landing/." "${OUT}/waiter-landing/"
 
 # ANDROID_ASSETLINKS_SHA256: comma-separated Play app signing + upload key SHA-256 fingerprints.
