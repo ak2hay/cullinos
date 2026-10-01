@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""LEGACY emergency deploy (Docker Compose + SSH). Prefer GitHub Actions → GHCR → k3s.
+"""Full Cullinos deploy to a Compose VM over SSH (fresh VM bootstrap or full rebuild).
 
-Normal releases: push to develop/main (see CONTRIBUTING.md and docs/DEPLOYMENT.md).
-This script remains for disaster rollback to Compose only — not for CI.
+Installs Docker/nginx/ufw, replaces /opt/cullinos with the local tree (keeps .env), runs
+Prisma migrations, rebuilds the stack, publishes SPAs, configures nginx + certbot and
+snapshots the release. Routine releases use scripts/vm-selective-redeploy.py instead;
+see docs/DEPLOYMENT.md.
 """
 from __future__ import annotations
 

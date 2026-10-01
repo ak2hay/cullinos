@@ -60,9 +60,9 @@ Manual checks (automated alternative: `npm run test:e2e` — see [`e2e/README.md
 
 ## Contributing & deploy
 
-Multi-developer workflow: `feature/*` → `develop` (staging) → `main` (production). See [CONTRIBUTING.md](CONTRIBUTING.md).
+Multi-developer workflow: `feature/*` → `develop` (integration) → `main` (production). See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-CI/CD ships images to **GHCR** and deploys to **k3s** on the VM. Details: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Production runs on **Docker Compose** on the VM and is deployed from `main` with the SSH scripts in `scripts/`. Details: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Docs
 
@@ -71,7 +71,7 @@ CI/CD ships images to **GHCR** and deploys to **k3s** on the VM. Details: [docs/
 | Full product & features | [docs/PRODUCT.md](docs/PRODUCT.md) |
 | Client brochure / overview / manual | [docs/client/](docs/client/README.md) (`npm run client:export`) |
 | Architecture | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| Deployment (GitHub → GHCR → k3s) | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| Deployment (Docker Compose on VM) | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | Contributing / branch model | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Rkyves Grok Bot employee team | [docs/rkyves-team/](docs/rkyves-team/README.md) |
 | Agent / bot company rules | [AGENTS.md](AGENTS.md) |

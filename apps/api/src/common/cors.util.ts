@@ -68,10 +68,11 @@ export function assertProductionSecurityConfig(env: NodeJS.ProcessEnv = process.
     );
   }
 
+  // Captcha is opt-in: unset means disabled, but a placeholder value is a misconfiguration.
   const turnstileSecret = (env.TURNSTILE_SECRET_KEY ?? "").trim();
-  if (!turnstileSecret || isPlaceholderSecret(turnstileSecret)) {
+  if (turnstileSecret && isPlaceholderSecret(turnstileSecret)) {
     throw new Error(
-      "TURNSTILE_SECRET_KEY must be set in production (captcha protects OTP, login and public forms)",
+      "TURNSTILE_SECRET_KEY must be a real Cloudflare secret or unset (captcha disabled) in production",
     );
   }
 }

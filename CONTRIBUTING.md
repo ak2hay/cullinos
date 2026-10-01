@@ -9,15 +9,15 @@ feature/<module>-short-desc  →  develop  →  main
 | Branch | Purpose | Deploy |
 |--------|---------|--------|
 | `feature/*` | Module work (one concern per branch) | None |
-| `develop` | Integration / staging | Auto → **staging** namespace |
-| `main` | Production | Auto → **production** namespace |
+| `develop` | Integration | None |
+| `main` | Production | Manual, from `main` with the VM deploy scripts |
 
 ### Rules
 
 1. Branch from `develop`, not `main`.
 2. Name features by area: `feature/api-payments`, `feature/admin-coupons`, `feature/pos-print`.
 3. Open a **PR into `develop`**. CI (`CI`, `Security`, path-filtered `API Build`) must pass.
-4. After staging validation, open a **PR from `develop` → `main`** for production.
+4. After local/QA validation, open a **PR from `develop` → `main`** for production.
 5. Do not push directly to `develop` or `main` (enable branch protection in GitHub — see below).
 6. Keep the monorepo: parallel work is branches + path owners, not separate repos.
 
@@ -45,6 +45,4 @@ See [README.md](README.md). Use `npm run docker:up` for Postgres/Redis; never po
 
 ## Deploy / infra
 
-Production and staging run on **k3s** on the OnLiveServer VM. Images ship via **GHCR**; CD is GitHub Actions. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
-
-Emergency-only legacy path: `scripts/remote-deploy.py` (Compose/SSH) — do not use for normal releases.
+Production runs as a **Docker Compose** stack on the OnLiveServer VM. Releases are deployed from `main` over SSH with `scripts/vm-selective-redeploy.py` (fresh VM / full rebuild: `scripts/remote-deploy.py`), only with human approval. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).

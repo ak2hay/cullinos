@@ -1,6 +1,6 @@
 import type { Request } from "express";
 
-/** Proxy hops in front of the API (Traefik / nginx = 1). `0` disables trust. */
+/** Proxy hops in front of the API (host nginx = 1). `0` disables trust. */
 export function parseTrustProxyHops(raw: string | undefined): number {
   if (raw == null || raw.trim() === "") return 1;
   const hops = Number(raw);

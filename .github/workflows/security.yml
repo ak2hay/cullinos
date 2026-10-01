@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Filesystem scan (dependencies, Dockerfiles, k8s manifests)
+      - name: Filesystem scan (dependencies, Dockerfiles, secrets)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
