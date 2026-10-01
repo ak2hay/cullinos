@@ -6,7 +6,8 @@
    The API image copies every workspace and runs `npm ci`, so all package.json files must match the lock.
    .env, secrets/, archive/ and dist-exports/ on the VM are never touched.
 3. Cached `docker compose build api` with GIT_COMMIT, recreate, `prisma migrate deploy`, health check.
-4. Publish locally built SPAs (`npm run build:frontends`) + static landings to /var/www/cullinos/<name>/.
+4. Publish locally built SPAs (`npm run build:frontends`) to /var/www/cullinos/<name>/.
+   guest-web is published as guest-landing (with assetlinks.json). waiter-landing stays static.
 5. Install infrastructure/nginx/cullinos-frontends.conf (backup + auto-restore if `nginx -t` fails).
 6. Rebuild the marketing web container.
 
@@ -67,9 +68,10 @@ SPA_PUBLISH = {
     "pos": "pos",
     "kds": "kds",
     "kiosk": "kiosk",
+    "guest-web": "guest-landing",
 }
 
-LANDINGS = ["guest-landing", "waiter-landing"]
+LANDINGS = ["waiter-landing"]
 
 EXCLUDE_DIR_NAMES = {
     "node_modules",
@@ -200,11 +202,15 @@ def assetlinks_json() -> bytes | None:
     return source.replace(ASSETLINKS_PLACEHOLDER, ", ".join(f'"{f}"' for f in fingerprints)).encode("utf-8")
 
 
-def make_publish_tarball(spa_apps: list[str]) -> bytes:
-    assetlinks = assetlinks_json()
+def guest_assetlinks_bytes() -> bytes:
+    filled = assetlinks_json()
+    if filled is not None:
+        return filled
+    return (ROOT / "infrastructure" / "www" / ASSETLINKS_ARCNAME).read_bytes()
 
-    def landing_filter(ti: tarfile.TarInfo) -> tarfile.TarInfo | None:
-        return None if assetlinks is not None and ti.name == ASSETLINKS_ARCNAME else ti
+
+def make_publish_tarball(spa_apps: list[str]) -> bytes:
+    assetlinks = guest_assetlinks_bytes()
 
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
@@ -212,15 +218,14 @@ def make_publish_tarball(spa_apps: list[str]) -> bytes:
             tar.add(ROOT / "apps" / app / "dist", arcname=SPA_PUBLISH[app])
             safe_print(f"pack apps/{app}/dist -> {SPA_PUBLISH[app]}")
         for landing in LANDINGS:
-            tar.add(ROOT / "infrastructure" / "www" / landing, arcname=landing, filter=landing_filter)
+            tar.add(ROOT / "infrastructure" / "www" / landing, arcname=landing)
             safe_print(f"pack infrastructure/www/{landing} -> {landing}")
-        if assetlinks is not None:
-            info = tarfile.TarInfo(ASSETLINKS_ARCNAME)
-            info.size = len(assetlinks)
-            info.mtime = int(time.time())
-            info.mode = 0o644
-            tar.addfile(info, io.BytesIO(assetlinks))
-            safe_print(f"pack {ASSETLINKS_ARCNAME} with ANDROID_ASSETLINKS_SHA256 fingerprints")
+        info = tarfile.TarInfo(ASSETLINKS_ARCNAME)
+        info.size = len(assetlinks)
+        info.mtime = int(time.time())
+        info.mode = 0o644
+        tar.addfile(info, io.BytesIO(assetlinks))
+        safe_print(f"pack {ASSETLINKS_ARCNAME}")
     buf.seek(0)
     return buf.read()
 

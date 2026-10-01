@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { getBusinessTypeRules, isBusinessType } from '@cullinos/shared';
 import { Button } from '@cullinos/ui';
+import { OutletQrCard } from '@/components/ordering/OutletQrCard';
 import { outletsApi, organizationsApi, settingsApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
@@ -31,6 +33,9 @@ export function KioskLauncherPage() {
   const outletSlug = outlet?.slug;
   const phoneMenuQrEnabled =
     settingsQuery.data?.platformCapabilities?.phoneMenuQrEnabled === true;
+  const rawBusinessType = orgQuery.data?.businessType;
+  const businessType = isBusinessType(rawBusinessType) ? rawBusinessType : null;
+  const showOutletQr = !getBusinessTypeRules(businessType).tables;
 
   if (!outletId) {
     return (
@@ -65,7 +70,7 @@ export function KioskLauncherPage() {
         'Open in any tablet browser (full-screen) for in-store self-order. Guests pay at the counter with their pickup code.',
       url: kioskUrl,
     },
-    ...(phoneMenuQrEnabled
+    ...(phoneMenuQrEnabled && !showOutletQr
       ? [
           {
             id: 'menu',
@@ -90,11 +95,15 @@ export function KioskLauncherPage() {
       <div>
         <h1 className="text-2xl font-semibold">Digital ordering</h1>
         <p className="mt-1 text-sm text-text-secondary">
-          Tablet kiosk{phoneMenuQrEnabled ? ' and phone menu' : ''} for{' '}
+          Tablet kiosk{phoneMenuQrEnabled || showOutletQr ? ' and phone menu' : ''} for{' '}
           {outlet?.name ?? 'the selected outlet'}. Tickets use a unique 6-character code with QR —
           not another customer status board.
         </p>
       </div>
+
+      {showOutletQr ? (
+        <OutletQrCard orgSlug={orgSlug} outletSlug={outletSlug} outletName={outlet?.name} />
+      ) : null}
 
       <div className="space-y-4">
         {links.map((link) => (

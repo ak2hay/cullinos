@@ -260,31 +260,35 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
   },
   {
     id: "whatsapp",
-    label: "WhatsApp (Meta Cloud API)",
+    label: "WhatsApp (MSG91)",
     description:
-      "Cullinos platform Meta Cloud API credentials. Powers Cullinos-level ops and tenant e-bill receipts when owners enable WhatsApp receipts (metered from portal wallet). Leave blank until keys are ready.",
+      "MSG91 WhatsApp credentials for the Cullinos platform number. Powers tenant e-bill receipts (wallet-metered) and Super Admin marketing drafts. The WhatsApp auth key falls back to MSG91_AUTH_KEY when blank. Templates must already be approved in the MSG91 panel.",
     keys: [
       {
-        key: "WHATSAPP_ACCESS_TOKEN",
+        key: "MSG91_WHATSAPP_AUTH_KEY",
         isSecret: true,
-        label: "Access token",
+        label: "WhatsApp auth key (optional if MSG91 auth key is set)",
       },
       {
-        key: "WHATSAPP_PHONE_NUMBER_ID",
+        key: "MSG91_WHATSAPP_INTEGRATED_NUMBER",
         isSecret: false,
-        label: "Phone number ID",
+        label: "Integrated WhatsApp number (country code, no +)",
       },
       {
-        key: "WHATSAPP_API_VERSION",
+        key: "MSG91_WHATSAPP_NAMESPACE",
         isSecret: false,
-        label: "Graph API version",
-        defaultValue: "v21.0",
+        label: "Template namespace (optional)",
       },
       {
         key: "WHATSAPP_RECEIPT_TEMPLATE",
         isSecret: false,
         label:
           "Approved e-bill template name (body params: {{1}} order no., {{2}} outlet, {{3}} total, {{4}} feedback link)",
+      },
+      {
+        key: "WHATSAPP_MARKETING_TEMPLATE",
+        isSecret: false,
+        label: "Approved marketing template (one body variable for the drafted text)",
       },
       {
         key: "WHATSAPP_TEMPLATE_LANGUAGE",

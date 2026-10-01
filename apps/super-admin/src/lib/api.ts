@@ -831,6 +831,21 @@ export const superAdminApi = {
       body: JSON.stringify({ phone }),
     }),
 
+  testWhatsapp: (phone: string, message: string) =>
+    apiRequest<{ ok: boolean; message: string }>('/super-admin/settings/whatsapp/test', {
+      method: 'POST',
+      body: JSON.stringify({ phone, message }),
+    }),
+
+  sendWhatsappMarketing: (phones: string[], message: string) =>
+    apiRequest<{ ok: boolean; message: string; sentCount: number }>(
+      '/super-admin/settings/whatsapp/marketing',
+      {
+        method: 'POST',
+        body: JSON.stringify({ phones, message }),
+      },
+    ),
+
   listOwnerRecipients: () =>
     apiRequest<
       Array<{

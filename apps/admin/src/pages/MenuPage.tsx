@@ -832,6 +832,10 @@ export function MenuPage() {
                 <Input label="Price (₹)" type="number" min="0" step="0.01" required value={itemForm.basePrice} onChange={(e) => setItemForm((f) => ({ ...f, basePrice: e.target.value }))} />
                 <Input label="Packaging (₹)" type="number" min="0" step="0.01" value={itemForm.packagingCharge} onChange={(e) => setItemForm((f) => ({ ...f, packagingCharge: e.target.value }))} />
               </div>
+              <MenuItemRecipeSection
+                menuItemId={editingItem?.id ?? null}
+                enabled={itemDrawerOpen}
+              />
               <div className="space-y-3 rounded-lg border border-line-subtle p-3">
                 <p className="text-sm font-medium">Tax</p>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -1057,10 +1061,6 @@ export function MenuPage() {
                 ))}
               </div>
             </form>
-            <MenuItemRecipeSection
-              menuItemId={editingItem?.id ?? null}
-              enabled={itemDrawerOpen}
-            />
           </Drawer>
         </Card>
       ) : null}
