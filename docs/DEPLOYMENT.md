@@ -45,7 +45,7 @@ never use the admin `/etc/rancher/k3s/k3s.yaml`.
 | Secret | Scope | Purpose |
 |--------|-------|---------|
 | `KUBE_CONFIG` | environment | Base64 kubeconfig, namespace-scoped ServiceAccount |
-| `STAGING_APP_SECRETS_ENV` | staging | Multiline `KEY=value` for `cullinos-secrets` (see `infrastructure/k8s/secrets.example.env`; must include `REDIS_PASSWORD`, and `TURNSTILE_SECRET_KEY` in production) |
+| `STAGING_APP_SECRETS_ENV` | staging | Multiline `KEY=value` for `cullinos-secrets` (see `infrastructure/k8s/secrets.example.env`; must include `REDIS_PASSWORD`; `TURNSTILE_SECRET_KEY` enables login captcha and must only be set once clients ship the matching site key) |
 | `PRODUCTION_APP_SECRETS_ENV` | production | Same for production |
 | `GHCR_PULL_TOKEN` | repo | PAT with `read:packages` if default `GITHUB_TOKEN` cannot pull |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN` | repo | Baked into the web build |

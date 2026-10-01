@@ -1,22 +1,24 @@
 import { ForbiddenException, Logger } from "@nestjs/common";
 
 const logger = new Logger("Turnstile");
+let warnedDisabled = false;
 
 /**
  * Verify Cloudflare Turnstile token.
- * When TURNSTILE_SECRET_KEY is unset, verification is skipped (local/dev).
+ * When TURNSTILE_SECRET_KEY is unset, captcha is disabled and verification is skipped.
+ * Clients only render the widget when built with a site key, so enforcing without one
+ * would lock everyone out.
  */
 export async function verifyTurnstileToken(
   token: string | undefined | null,
   ip?: string,
 ): Promise<boolean> {
-  const secret = process.env.TURNSTILE_SECRET_KEY;
+  const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
   if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      logger.error("TURNSTILE_SECRET_KEY not set in production — rejecting captcha");
-      return false;
+    if (!warnedDisabled) {
+      warnedDisabled = true;
+      logger.warn("TURNSTILE_SECRET_KEY not set — captcha verification disabled");
     }
-    logger.warn("TURNSTILE_SECRET_KEY not set — skipping verification (dev only)");
     return true;
   }
   if (!token?.trim()) return false;
