@@ -77,7 +77,7 @@ function Panel({
   return (
     <section
       style={style}
-      className={`animate-slide-up rounded-2xl border border-line-subtle bg-bg-card p-5 shadow-sm ${className}`}
+      className={`animate-slide-up rounded-2xl border border-line-subtle bg-bg-card p-4 shadow-sm sm:p-5 ${className}`}
     >
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -108,20 +108,28 @@ function Segmented<T extends string | number>({
   value,
   onChange,
   size = 'md',
+  fullWidth = false,
 }: {
   options: Array<{ id: T; label: string }>;
   value: T;
   onChange: (v: T) => void;
   size?: 'sm' | 'md';
+  fullWidth?: boolean;
 }) {
   return (
-    <div className="inline-flex gap-1 rounded-xl border border-line-subtle bg-bg-card p-1 shadow-sm">
+    <div
+      className={`gap-1 rounded-xl border border-line-subtle bg-bg-card p-1 shadow-sm ${
+        fullWidth ? 'flex w-full sm:inline-flex sm:w-auto' : 'inline-flex'
+      }`}
+    >
       {options.map((opt) => (
         <button
           key={String(opt.id)}
           type="button"
           onClick={() => onChange(opt.id)}
-          className={`rounded-lg font-medium transition-colors duration-150 ${
+          className={`whitespace-nowrap rounded-lg font-medium transition-colors duration-150 ${
+            fullWidth ? 'flex-1 sm:flex-none' : ''
+          } ${
             size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3.5 py-1.5 text-sm'
           } ${
             value === opt.id
@@ -283,15 +291,15 @@ export function DashboardPage() {
             {range === 'today' ? 'today' : range === 'custom' ? `on ${dayLabel}` : range === 'week' ? 'this week' : 'this month'}.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Segmented options={RANGES} value={range} onChange={setRange} />
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <Segmented options={RANGES} value={range} onChange={setRange} fullWidth />
           {range === 'custom' ? (
             <input
               type="date"
               value={customDate}
               max={today}
               onChange={(e) => setCustomDate(e.target.value || today)}
-              className="h-10 animate-fade-in rounded-xl border border-line bg-bg-card px-3 text-sm text-text-primary shadow-sm outline-none focus:border-brand-primary"
+              className="h-10 w-full animate-fade-in rounded-xl sm:w-auto border border-line bg-bg-card px-3 text-sm text-text-primary shadow-sm outline-none focus:border-brand-primary"
             />
           ) : null}
         </div>
@@ -369,7 +377,7 @@ export function DashboardPage() {
           title="Revenue trend"
           subtitle={trendMode === 'revenue' ? 'Daily revenue from completed orders' : 'Completed orders per day'}
           action={
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-start">
               <Segmented
                 size="sm"
                 options={[
