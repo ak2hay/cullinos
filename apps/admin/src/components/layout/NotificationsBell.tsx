@@ -81,7 +81,7 @@ export function NotificationsBell() {
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 z-50 mt-2 w-80 origin-top-right animate-scale-in rounded-xl border border-line bg-bg-card p-2 shadow-lg"
+          className="fixed inset-x-3 top-16 z-50 origin-top-right animate-scale-in rounded-xl border border-line bg-bg-card p-2 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80"
         >
           <p className="px-2 pb-2 pt-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
             {t('shell.notifications', 'Notifications')}

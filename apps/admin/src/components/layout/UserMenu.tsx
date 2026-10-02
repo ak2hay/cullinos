@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
+import { canAccessPortalMode } from '@cullinos/shared';
+import { ThemeToggle } from '@cullinos/ui';
 import { resolvePublicImageSrc } from '@/components/ImageUploadField';
 import { useAuthStore } from '@/stores/auth';
+import { PortalModeSwitch } from './PortalModeSwitch';
 
 export function UserAvatar({
   name,
@@ -50,11 +53,12 @@ export function UserAvatar({
 }
 
 /** Header account button: who is signed in, plus profile / password / sign-out. */
-export function UserMenu() {
+export function UserMenu({ showModeSwitch = false }: { showModeSwitch?: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const impersonation = useAuthStore((s) => s.impersonation);
+  const permissions = useAuthStore((s) => s.permissions);
   const logout = useAuthStore((s) => s.logout);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -96,7 +100,7 @@ export function UserMenu() {
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-line bg-bg-card p-2 shadow-xl"
+          className="fixed inset-x-3 top-16 z-50 rounded-xl border border-line bg-bg-card p-2 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-64"
         >
           <div className="flex items-center gap-3 border-b border-line-subtle px-2 pb-3 pt-1">
             <UserAvatar name={displayName} avatarUrl={user.avatarUrl} size={40} />
@@ -107,6 +111,20 @@ export function UserMenu() {
                 <p className="truncate text-xs text-text-muted">{user.organizationName}</p>
               ) : null}
             </div>
+          </div>
+          <div className="space-y-3 border-b border-line-subtle px-2 py-3 sm:hidden">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-medium text-text-muted">Theme</span>
+              <ThemeToggle variant="segmented" />
+            </div>
+            {showModeSwitch &&
+            canAccessPortalMode(permissions, 'erp') &&
+            canAccessPortalMode(permissions, 'pos') ? (
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium text-text-muted">Mode</span>
+                <PortalModeSwitch />
+              </div>
+            ) : null}
           </div>
           <div className="pt-2">
             <Link role="menuitem" to="/profile" className={itemClass} onClick={() => setOpen(false)}>

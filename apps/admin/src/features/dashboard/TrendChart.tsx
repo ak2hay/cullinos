@@ -173,7 +173,7 @@ export function TrendChart({
       {active && hover !== null ? (
         <div
           className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-line bg-bg-secondary px-3 py-2 text-center shadow-md transition-[left,top] duration-100"
-          style={{ left: active.x, top: active.y - 12 }}
+          style={{ left: Math.min(Math.max(active.x, 64), width - 64), top: active.y - 12 }}
         >
           <p className="font-mono text-sm font-semibold text-text-primary">
             {mode === 'revenue' ? formatMoney(values[hover]) : `${values[hover]} orders`}

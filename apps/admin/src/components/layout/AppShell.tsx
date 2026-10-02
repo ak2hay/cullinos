@@ -30,6 +30,7 @@ import { ImpersonationBanner } from '@/components/auth/ImpersonationBanner';
 import { LanguageSelect, useOrgDefaultLanguage } from '@/components/LanguageSelect';
 import { NotificationsBell } from './NotificationsBell';
 import { OutletSelector } from './OutletSelector';
+import { PortalModeSwitch } from './PortalModeSwitch';
 import { UpgradeCard } from './UpgradeCard';
 import { NavIcon, iconForPath } from './navIcons';
 import { UserAvatar, UserMenu } from './UserMenu';
@@ -350,63 +351,6 @@ function SidebarNav({
   );
 }
 
-function PortalModeSwitch() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const permissions = useAuthStore((s) => s.permissions);
-  const portalMode = useAuthStore((s) => s.portalMode);
-  const setPortalMode = useAuthStore((s) => s.setPortalMode);
-
-  const canErp = canAccessPortalMode(permissions, 'erp');
-  const canPos = canAccessPortalMode(permissions, 'pos');
-  // Dual-mode switch: need POS_ACCESS plus at least one ERP capability.
-  if (!canPos || !canErp) return null;
-
-  function switchMode(mode: PortalMode) {
-    if (!canAccessPortalMode(permissions, mode)) return;
-    setPortalMode(mode);
-    if (mode === 'pos' && location.pathname !== '/pos') {
-      navigate('/pos');
-    } else if (mode === 'erp' && location.pathname === '/pos') {
-      navigate('/');
-    }
-  }
-
-  return (
-    <div
-      className="inline-flex rounded-lg border border-line bg-bg-elevated p-0.5"
-      role="group"
-      aria-label={t('shell.portalMode')}
-    >
-      <button
-        type="button"
-        disabled={!canErp}
-        onClick={() => switchMode('erp')}
-        className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-          portalMode === 'erp'
-            ? 'bg-brand-primary text-on-brand'
-            : 'text-text-secondary hover:text-text-primary disabled:opacity-40'
-        }`}
-      >
-        ERP
-      </button>
-      <button
-        type="button"
-        disabled={!canPos}
-        onClick={() => switchMode('pos')}
-        className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-          portalMode === 'pos'
-            ? 'bg-brand-primary text-on-brand'
-            : 'text-text-secondary hover:text-text-primary disabled:opacity-40'
-        }`}
-      >
-        POS
-      </button>
-    </div>
-  );
-}
-
 export function AppShell({ compact, children }: AppShellProps) {
   const { t } = useTranslation();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -499,7 +443,7 @@ export function AppShell({ compact, children }: AppShellProps) {
     return (
       <div className="flex h-[100dvh] flex-col bg-bg-primary">
         <ImpersonationBanner />
-        <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line-subtle bg-bg-secondary px-3 py-2 sm:h-14 sm:flex-nowrap sm:gap-4 sm:px-6 sm:py-0">
+        <header className="relative z-30 flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line-subtle bg-bg-secondary px-3 py-2 sm:h-14 sm:flex-nowrap sm:gap-4 sm:px-6 sm:py-0">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <BrandWordmark size="sm" />
             <p className="hidden text-xs text-text-muted sm:block">
@@ -552,7 +496,7 @@ export function AppShell({ compact, children }: AppShellProps) {
         ) : null}
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="flex h-16 shrink-0 items-center gap-3 border-b border-line-subtle bg-bg-secondary/80 px-4 backdrop-blur-md sm:px-6">
+          <header className="relative z-30 flex h-16 shrink-0 items-center gap-2 border-b border-line-subtle bg-bg-secondary/80 px-3 backdrop-blur-md sm:gap-3 sm:px-6">
             <button
               type="button"
               aria-label={t('shell.openNavigation')}
@@ -596,9 +540,9 @@ export function AppShell({ compact, children }: AppShellProps) {
               ) : null}
               <TodayChip />
               {!compact ? <NotificationsBell /> : null}
-              <ThemeToggle />
-              {!compact ? <PortalModeSwitch /> : null}
-              <UserMenu />
+              <ThemeToggle className="hidden sm:block" />
+              {!compact ? <PortalModeSwitch className="hidden sm:inline-flex" /> : null}
+              <UserMenu showModeSwitch={!compact} />
             </div>
           </header>
 
