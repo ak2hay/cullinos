@@ -475,6 +475,30 @@ export interface Customer {
   marketingEmailOptIn?: boolean;
   marketingSmsOptIn?: boolean;
   loyaltyTier?: { id: string; name: string } | null;
+  createdAt?: string;
+  /** Orders that were not drafted, cancelled or voided */
+  visits?: number;
+  /** Paise */
+  totalSpent?: number;
+  lastVisitAt?: string | null;
+  /** Detail response only */
+  loyaltyTransactions?: Array<{
+    id: string;
+    points: number;
+    type: string;
+    reference: string | null;
+    createdAt: string;
+  }>;
+  /** Detail response only; total in paise */
+  orders?: Array<{ id: string; orderNumber: string; total: number; status: string; createdAt: string }>;
+}
+
+export type CustomerSort = 'recent' | 'spent' | 'visits' | 'points' | 'name' | 'joined';
+
+export interface CustomerOverview {
+  data: Customer[];
+  meta: { page: number; limit: number; total: number; hasMore: boolean; sort: CustomerSort };
+  summary: { totalCustomers: number; totalPoints: number };
 }
 
 export interface LoyaltySettings {
@@ -1131,6 +1155,14 @@ export const customersApi = {
   list: (q?: string) => {
     const qs = q ? `?q=${encodeURIComponent(q)}` : '';
     return apiRequest<Customer[]>(`/customers${qs}`);
+  },
+  overview: (params: { q?: string; sort?: CustomerSort; page?: number; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params.q) qs.set('q', params.q);
+    if (params.sort) qs.set('sort', params.sort);
+    if (params.page) qs.set('page', String(params.page));
+    if (params.limit) qs.set('limit', String(params.limit));
+    return apiRequest<CustomerOverview>(`/customers/overview?${qs.toString()}`);
   },
   get: (id: string) => apiRequest<Customer>(`/customers/${id}`),
   create: (payload: {

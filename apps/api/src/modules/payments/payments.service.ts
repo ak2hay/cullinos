@@ -2,9 +2,11 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
+import { LoyaltyService } from "../loyalty/loyalty.service";
 import { CashfreeClient } from "./cashfree.client";
 import { PaymentCredentialsService } from "./payment-credentials.service";
 import type {
@@ -37,6 +39,7 @@ export class PaymentsService {
     private prisma: PrismaService,
     private credentials: PaymentCredentialsService,
     private cashfree: CashfreeClient,
+    @Optional() private loyalty?: LoyaltyService,
   ) {}
 
   list(orgId: string) {
@@ -108,6 +111,7 @@ export class PaymentsService {
     });
 
     if (!result) {
+      await this.loyalty?.earnIfOrderSettled(order.id, { organizationId: orgId });
       return {
         success: true,
         orderId: order.id,
@@ -119,6 +123,9 @@ export class PaymentsService {
 
     // Payment settled ≠ kitchen/order completed — leave status for Orders/KDS.
     const left = await this.remainingUnpaid(order.id, Number(order.total));
+    if (left <= 0) {
+      await this.loyalty?.earnIfOrderSettled(order.id, { organizationId: orgId });
+    }
 
     return {
       success: true,
@@ -656,6 +663,16 @@ export class PaymentsService {
     amountPaise?: number;
     currency?: string;
   }) {
+    const result = await this.completeDinerPaymentTx(input);
+    if (result.success && !input.failed) {
+      await this.loyalty?.earnIfOrderSettled(result.orderId, {
+        organizationId: input.organizationId,
+      });
+    }
+    return result;
+  }
+
+  private completeDinerPaymentTx(input: Parameters<PaymentsService["completeDinerPayment"]>[0]) {
     return this.prisma.$transaction(async (tx) => {
       const payment = await this.findDinerPaymentTx(tx, input);
       if (!payment) {
