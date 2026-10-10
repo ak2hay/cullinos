@@ -104,7 +104,7 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | **Push notifications** | Order status + marketing campaigns |
 | **App listing (Admin)** | Control marketplace presence for your outlet |
 | **Guest banners** | Home / discover creative (org + platform) |
-| **Guest push campaigns** | Targeted push from Admin / Super Admin |
+| **Guest push campaigns** | Targeted push from Super Admin App Ops (`/guest-ops/push`). Not routed in tenant Admin. |
 | **Coupons & offers** | Codes validated at Guest / Customer checkout |
 | **Featured ranking** | Platform can pin / feature outlets in Discover |
 | **Discover CMS** | Curated home sections (cuisine packs, seasonal rows) |
@@ -136,10 +136,10 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 |---------|-------------|
 | **Unified orders** | Create, confirm, status, hold/resume, cancel |
 | **Discounts & split** | Line/order discounts; split bill support |
-| **Payments** | Cash + Razorpay intent / verify / webhooks |
+| **Payments** | Cash + Razorpay / Cashfree capture. Cancel refunds the captured amount on the tenant gateway when the payment id is stored; otherwise staff confirm a dashboard refund |
 | **Tax engine** | Tax groups and GST calculation (`@cullinos/tax-engine`) |
 | **Delivery management** | Track delivery orders from Admin |
-| **Aggregators** | Swiggy / Zomato connect, webhooks, settlements |
+| **Aggregators** | Swiggy / Zomato webhooks and settlements. Outbound menu sync is not available |
 | **Feedback surveys** | Post-order survey links + public submit |
 
 ### 3.6 CRM & growth
@@ -149,7 +149,7 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | **Customer CRM** | Profiles, history, tiers |
 | **Loyalty** | Stamps, points, rewards (admin + public) |
 | **Coupons** | Discount codes across channels |
-| **Promo email** | Compose and send email campaigns |
+| **Promo email** | Compose and send from Super Admin (`/promo-email`). Not routed in tenant Admin |
 | **SMS campaigns** | MSG91 marketing SMS (prepaid portal wallet) |
 | **WhatsApp e-bills** | Platform MSG91 WhatsApp; owner enable + per-message wallet charge |
 | **Events / pop-ups** | Event-driven pre-orders |
@@ -176,12 +176,18 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | **Tenant onboarding** | Create org, issue owner credentials |
 | **Suspend / activate** | Lifecycle control |
 | **Plans & entitlements** | Module feature flags per plan |
-| **Impersonation** | Support handoff into tenant Admin |
+| **Tenant access (impersonation)** | Only through an approved, time-boxed grant on a support ticket (read-only or full, 15 min–8 h). Read-only sessions cannot write; every action is logged with the staff employee ID and ticket |
+| **Support desk** | Tickets per tenant with priority, SLA due times, team/assignee routing, internal notes and timeline |
 | **Platform config** | SMTP, Razorpay, MSG91, WhatsApp (MSG91), FCM, R2, OpenAI, wallet messaging rates, … |
 | **Marketing CMS** | Hero, pages, pricing, blog, media, theme |
 | **Cullinos App Ops** | Full Cullinos App portal under `/guest-ops`: marketplace moderation & featuring, Discover CMS, banners (all scopes), segmented/scheduled push, offers featuring, review moderation, GuestUser support/privacy, analytics, app runtime (force/soft update, maintenance, remote legal URLs) |
 | **Health & audit** | Platform health, audit trails |
-| **Platform team & roles** | Owners invite Rkyves employees with a fixed role (Owner, Support, Sales, Marketing, Finance, Viewer); permissions gate every Super Admin route and App Ops (`guest_ops.manage`). Role change, deactivate, and password reset revoke sessions; last active Owner is protected; all actions audited. See [`docs/rkyves-team/PLATFORM_STAFF.md`](rkyves-team/PLATFORM_STAFF.md) |
+| **Platform team & roles** | Rkyves employees with employee IDs, departments, nested teams and managers. Six system roles plus custom roles from a risk-rated permission catalog; role assignments to people or teams, scoped globally, by region or to a set of tenants, optionally time-bound. Permissions gate every Super Admin route and App Ops (`guest_ops.manage`); last active Owner is protected. See [`docs/rkyves-team/PLATFORM_STAFF.md`](rkyves-team/PLATFORM_STAFF.md) |
+| **Approvals** | Configurable maker-checker policies (N approvers, approver roles or team, expiry, conditions) on sensitive actions such as tenant delete, plan changes, large wallet adjustments, settings, critical role grants, tenant access, exports and bulk jobs. Approvals inbox with notifications |
+| **People ops** | Directory, org chart, bulk invite, joiner/mover/leaver (offboarding revokes access and hands over work), shifts and on-call rotations |
+| **Staff activity log** | Append-only, hash-chained log of every Super Admin and tenant-access request with employee ID; chain verification; approval-gated export |
+| **Access governance** | Access review campaigns, session management, IP allowlists (global/team/role), step-up OTP for high-risk actions, just-in-time temporary roles |
+| **Ops reports** | SLA and workload dashboard, saved views, approval-gated CSV exports and bulk tenant jobs |
 
 ---
 
@@ -196,7 +202,7 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | **SMTP / Brevo** | Available | Staff email OTP, promo email |
 | **Resend** | Available | Owner onboarding credential emails |
 | **Cloudflare R2** | Available | Marketing CMS media |
-| **Swiggy / Zomato** | Available (expanding) | Outlet connect, webhooks, settlements |
+| **Swiggy / Zomato** | Webhooks expanding | Incoming order webhooks and settlements. Outbound menu sync is not available |
 | **Print / Local Gateway** | Available | Thermal receipts, KOT, cash drawer, scanners |
 | **ERP day-book export** | Available | Accounting export (not a full ERP connector) |
 | **Hotel PMS** | Roadmap | Deeper folio sync beyond room posting |
@@ -273,6 +279,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) and [DEPLOYMENT.md](./DEPLOYMENT.md).
 | **Brochure** | Prospects | `docs/client/export/pdf/Cullinos_Brochure.pdf` |
 | **Product Overview** | Decision makers | `docs/client/export/pdf/Cullinos_Product_Overview.pdf` |
 | **User Manual** | Owners & staff | `docs/client/export/pdf/Cullinos_User_Manual.pdf` |
+| **Agency & Creator Brief** | Marketing agencies, creators | `docs/client/AGENCY_BRIEF.md` · `docs/client/export/pdf/Cullinos_Agency_Brief.pdf` |
 | **Architecture** | Engineers | `docs/ARCHITECTURE.md` |
 | **Deployment** | Ops | `docs/DEPLOYMENT.md` |
 | **Cullinos App** | Mobile / release | `apps/guest/README.md`, `docs/guest-app/` |

@@ -2,6 +2,13 @@ import { createSessionRefresher, resolveViteApiBase, revokeSessionCookie } from 
 import type { ApiError } from '@cullinos/shared';
 import { useAuthStore, type SuperAdminUser } from '../stores/auth';
 import type { PlatformPermission, PlatformRole } from './permissions';
+import {
+  askJustification,
+  askStepUp,
+  cachedStepUpToken,
+  clearStepUpToken,
+  showApprovalNotice,
+} from './governance';
 
 const API_BASE = resolveViteApiBase({
   viteApiUrl: import.meta.env.VITE_API_URL,
@@ -72,6 +79,29 @@ async function parseError(response: Response): Promise<ApiRequestError> {
   }
 }
 
+/** Thrown when the API parked the request for maker-checker approval (HTTP 202). */
+export class ApprovalPendingError extends ApiRequestError {
+  constructor(
+    message: string,
+    public approval: { id: string; ref: string; status: string; title: string },
+  ) {
+    super(message, 'APPROVAL_PENDING', 202);
+    this.name = 'ApprovalPendingError';
+  }
+}
+
+type ApprovalParked = {
+  approvalRequired: true;
+  approvalRequest: { id: string; ref: string; status: string; title: string };
+  message: string;
+};
+
+function withHeader(options: RequestInit, name: string, value: string): RequestInit {
+  const headers = new Headers(options.headers);
+  headers.set(name, value);
+  return { ...options, headers };
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -87,6 +117,8 @@ export async function apiRequest<T>(
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }
+    const stepUp = cachedStepUpToken();
+    if (stepUp && !headers.has('X-Step-Up-Token')) headers.set('X-Step-Up-Token', stepUp);
   }
 
   const response = await fetch(`${API_BASE}${path}`, {
@@ -103,6 +135,19 @@ export async function apiRequest<T>(
       }
       useAuthStore.getState().logout();
     }
+    if (authenticated && err.code === 'APPROVAL_JUSTIFICATION_REQUIRED') {
+      const answer = await askJustification(err.message);
+      if (!answer) throw new ApiRequestError('Cancelled — no justification given', 'CANCELLED', 400);
+      let next = withHeader(options, 'X-Approval-Justification', encodeURIComponent(answer.justification));
+      if (answer.ticketId) next = withHeader(next, 'X-Ticket-Id', answer.ticketId);
+      return apiRequest<T>(path, next, authenticated, retried);
+    }
+    if (authenticated && err.code === 'STEP_UP_REQUIRED' && !new Headers(options.headers).has('X-Step-Up-Token')) {
+      clearStepUpToken();
+      const token = await askStepUp(err.message);
+      if (!token) throw new ApiRequestError('Cancelled — identity not confirmed', 'CANCELLED', 403);
+      return apiRequest<T>(path, withHeader(options, 'X-Step-Up-Token', token), authenticated, retried);
+    }
     throw err;
   }
 
@@ -110,7 +155,31 @@ export async function apiRequest<T>(
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  const data = (await response.json()) as T;
+  if (response.status === 202 && (data as Partial<ApprovalParked>)?.approvalRequired) {
+    const parked = data as unknown as ApprovalParked;
+    showApprovalNotice({ ...parked.approvalRequest, message: parked.message });
+    throw new ApprovalPendingError(parked.message, parked.approvalRequest);
+  }
+  return data;
+}
+
+/** Re-sends an approved request exactly as approved, bound by X-Approval-Id. */
+export async function executeApprovedRequest(approvalId: string) {
+  const replay = await apiRequest<{ method: string; path: string; query: Record<string, unknown>; body: unknown }>(
+    `/super-admin/approvals/${approvalId}/replay`,
+  );
+  const qs = new URLSearchParams(
+    Object.entries(replay.query ?? {}).flatMap(([k, v]) =>
+      Array.isArray(v) ? v.map((x) => [k, String(x)]) : v === undefined ? [] : [[k, String(v)]],
+    ),
+  ).toString();
+  const hasBody = replay.body !== null && replay.body !== undefined && replay.method !== 'GET';
+  return apiRequest<unknown>(`${replay.path}${qs ? `?${qs}` : ''}`, {
+    method: replay.method,
+    headers: { 'X-Approval-Id': approvalId },
+    ...(hasBody ? { body: JSON.stringify(replay.body) } : {}),
+  });
 }
 
 /** Resolve relative upload URLs (e.g. `/cms/...`) against the API host. */
@@ -190,6 +259,10 @@ export interface PlatformTeamMember {
   mustChangePassword: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  employeeCode?: string | null;
+  title?: string | null;
+  team?: { id: string; name: string } | null;
+  department?: { id: string; name: string } | null;
 }
 
 export interface PlatformRoleInfo {
@@ -218,10 +291,13 @@ export interface Tenant {
   sandboxSkipSmsOtp?: boolean;
   sandboxRelaxPassword?: boolean;
   plan: string | null;
+  planName?: string | null;
   priceMonthly?: number;
   mrrContribution?: number;
   subscriptionStatus: string | null;
   trialEndsAt: string | null;
+  currentPeriodEnd?: string | null;
+  autoRenew?: boolean;
   graceUntil?: string | null;
   checkoutUrl: string | null;
   razorpaySubId: string | null;
@@ -234,6 +310,20 @@ export interface Tenant {
 export interface TenantListResponse {
   data: Tenant[];
   meta: { total: number; page: number; limit: number; hasMore: boolean };
+}
+
+export interface TenantSummary {
+  total: number;
+  active: number;
+  trial: number;
+  suspended: number;
+  cancelled: number;
+  deleted: number;
+  outlets: number;
+  users: number;
+  newThisMonth: number;
+  totalAtMonthStart: number;
+  usersAtMonthStart: number;
 }
 
 export interface TenantDetail {
@@ -376,6 +466,9 @@ export interface ImpersonationResponse {
   expiresIn?: number;
   adminUrl: string;
   handoffCode?: string;
+  accessLevel?: 'read_only' | 'full';
+  ticketId?: string;
+  grantExpiresAt?: string;
   organization: { id: string; name: string; slug: string };
   user: {
     id: string;
@@ -487,7 +580,17 @@ export const superAdminApi = {
 
   listTeamRoles: () => apiRequest<PlatformRoleInfo[]>('/super-admin/team/roles'),
 
-  inviteTeamMember: (payload: { email: string; name: string; platformRole: PlatformRole }) =>
+  inviteTeamMember: (payload: {
+    email: string;
+    name: string;
+    platformRole: PlatformRole;
+    title?: string;
+    departmentId?: string;
+    teamId?: string;
+    managerUserId?: string;
+    region?: string;
+    location?: string;
+  }) =>
     apiRequest<TemporaryCredentials & { member: PlatformTeamMember }>('/super-admin/team', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -525,6 +628,8 @@ export const superAdminApi = {
     apiRequest<TenantListResponse>(
       `/super-admin/organizations?${orgQuery({ page, limit, ...filters })}`,
     ),
+
+  organizationSummary: () => apiRequest<TenantSummary>('/super-admin/organizations/summary'),
 
   getOrganization: (id: string) =>
     apiRequest<TenantDetail>(`/super-admin/organizations/${id}`),
@@ -638,10 +743,11 @@ export const superAdminApi = {
       { method: 'PATCH' },
     ),
 
-  impersonateOrganization: (id: string, reason: string) =>
+  /** Opens a support session backed by an active, approved access grant. */
+  impersonateOrganization: (id: string, grantId: string) =>
     apiRequest<ImpersonationResponse>(`/super-admin/organizations/${id}/impersonate`, {
       method: 'POST',
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify({ grantId }),
     }),
 
   listAuditLogs: (

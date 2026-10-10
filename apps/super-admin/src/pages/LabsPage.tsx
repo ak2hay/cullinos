@@ -1,23 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Copy, Lock, Play, ShieldCheck } from 'lucide-react';
+import { Button } from '@cullinos/ui';
+import {
+  ConfirmDialog,
+  DataTable,
+  FilterSelect,
+  PageHeader,
+  PageTabs,
+  SearchInput,
+  SectionCard,
+  StatusPill,
+} from '@/components/ui';
+import { inputClass, Notice } from '@/components/common';
 import { ApiRequestError, type Tenant, superAdminApi } from '@/lib/api';
 
 type StepUp = { token: string; expiresAt: number };
+type Tab = 'environments' | 'sql' | 'audits';
 
-function EnvBadge({ environmentClass }: { environmentClass?: number }) {
+function EnvPill({ environmentClass }: { environmentClass?: number }) {
   const sandbox = environmentClass === 0;
-  return (
-    <span
-      className={`rounded px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide ${
-        sandbox
-          ? 'border border-status-warning/40 bg-status-warning/10 text-status-warning'
-          : 'border border-status-success/30 bg-status-success/10 text-status-success'
-      }`}
-    >
-      {sandbox ? 'Sandbox' : 'Live'}
-    </span>
-  );
+  return <StatusPill status={sandbox ? 'sandbox' : 'live'} tone={sandbox ? 'warning' : 'success'} label={sandbox ? 'Sandbox' : 'Live'} />;
 }
 
 function rowsToCsv(columns: string[], rows: Record<string, unknown>[]): string {
@@ -33,8 +37,14 @@ function rowsToCsv(columns: string[], rows: Record<string, unknown>[]): string {
   return lines.join('\n');
 }
 
+function cellText(v: unknown) {
+  if (v == null) return '∅';
+  return typeof v === 'object' ? JSON.stringify(v) : String(v);
+}
+
 export function LabsPage() {
   const queryClient = useQueryClient();
+  const [tab, setTab] = useState<Tab>('environments');
   const [q, setQ] = useState('');
   const [envFilter, setEnvFilter] = useState<'all' | '0' | '1'>('all');
   const [sql, setSql] = useState('SELECT id, name, slug, environment_class FROM organizations LIMIT 20');
@@ -49,6 +59,7 @@ export function LabsPage() {
   const [stepUp, setStepUp] = useState<StepUp | null>(null);
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
   const [otp, setOtp] = useState('');
+  const [envChange, setEnvChange] = useState<{ tenant: Tenant; nextClass: number } | null>(null);
   const stepUpActive = stepUp != null && stepUp.expiresAt > Date.now();
 
   const startStepUpMutation = useMutation({
@@ -113,6 +124,7 @@ export function LabsPage() {
     },
     onSuccess: () => {
       setMessage('Tenant environment updated');
+      setEnvChange(null);
       queryClient.invalidateQueries({ queryKey: ['super-admin', 'organizations'] });
     },
     onError: (err: Error) => setMessage(err.message),
@@ -135,18 +147,9 @@ export function LabsPage() {
     },
   });
 
-  function confirmEnvChange(tenant: Tenant, nextClass: number) {
-    const from = tenant.environmentClass === 0 ? 'Sandbox' : 'Live';
-    const to = nextClass === 0 ? 'Sandbox' : 'Live';
-    if (from === to) return;
-    const ok = window.confirm(
-      `Change ${tenant.name} from ${from} to ${to}?${
-        nextClass === 0
-          ? '\n\nSandbox can skip email MFA and SMS OTP when the Skip OTP toggles are on (default), and can relax passwords.'
-          : '\n\nLive tenants always enforce normal OTP and password rules.'
-      }`,
-    );
-    if (!ok) return;
+  function applyEnvChange() {
+    if (!envChange) return;
+    const { tenant, nextClass } = envChange;
     envMutation.mutate({
       id: tenant.id,
       environmentClass: nextClass,
@@ -160,11 +163,7 @@ export function LabsPage() {
     });
   }
 
-  function toggleFlag(
-    tenant: Tenant,
-    key: 'sandboxSkipEmailOtp' | 'sandboxSkipSmsOtp' | 'sandboxRelaxPassword',
-    value: boolean,
-  ) {
+  function toggleFlag(tenant: Tenant, key: 'sandboxSkipEmailOtp' | 'sandboxSkipSmsOtp' | 'sandboxRelaxPassword', value: boolean) {
     envMutation.mutate({
       id: tenant.id,
       environmentClass: 0,
@@ -172,316 +171,287 @@ export function LabsPage() {
     });
   }
 
+  const sandboxCount = (orgsQuery.data?.data ?? []).filter((t) => t.environmentClass === 0).length;
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold">Tenant labs</h1>
-        <p className="mt-1 max-w-2xl text-sm text-text-secondary">
-          Curated Sandbox / Live controls and a SELECT-only SQL console. Every SQL attempt is
-          audited.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Tenant labs"
+        description="Curated Sandbox / Live controls and a SELECT-only SQL console. Every SQL attempt is audited."
+      />
 
       {message ? (
-        <div className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm text-text-secondary">
-          {message}
+        <Notice tone="info">
+          <span className="flex flex-wrap items-center justify-between gap-2">
+            {message}
+            <button type="button" className="text-xs font-medium underline" onClick={() => setMessage(null)}>
+              Dismiss
+            </button>
+          </span>
+        </Notice>
+      ) : null}
+
+      <PageTabs
+        label="Labs sections"
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: 'environments', label: 'Environments', count: sandboxCount || null },
+          { id: 'sql', label: 'SQL console' },
+          { id: 'audits', label: 'Audit trail', count: auditsQuery.data?.length ?? null },
+        ]}
+      />
+
+      {tab === 'environments' ? (
+        <DataTable
+          rows={filtered}
+          loading={orgsQuery.isLoading}
+          getRowKey={(t) => t.id}
+          emptyMessage="No tenants match"
+          toolbar={
+            <>
+              <SearchInput label="Filter tenants" placeholder="Filter by name, slug, email…" value={q} onChange={setQ} />
+              <FilterSelect
+                aria-label="Environment"
+                value={envFilter}
+                onChange={(e) => setEnvFilter(e.target.value as 'all' | '0' | '1')}
+                options={[
+                  { value: 'all', label: 'All environments' },
+                  { value: '0', label: 'Sandbox' },
+                  { value: '1', label: 'Live' },
+                ]}
+              />
+            </>
+          }
+          columns={[
+            {
+              key: 'tenant',
+              header: 'Tenant',
+              cell: (t) => (
+                <div>
+                  <Link to={`/tenants/${t.id}`} className="font-medium hover:text-accent">
+                    {t.name}
+                  </Link>
+                  <p className="text-xs text-text-muted">{t.slug}</p>
+                </div>
+              ),
+            },
+            { key: 'status', header: 'Status', cell: (t) => (t.status ? <StatusPill status={t.status} /> : '—') },
+            { key: 'env', header: 'Environment', cell: (t) => <EnvPill environmentClass={t.environmentClass} /> },
+            {
+              key: 'flags',
+              header: 'Sandbox flags',
+              cell: (t) =>
+                t.environmentClass === 0 ? (
+                  <div className="flex flex-col gap-1 text-xs">
+                    {(
+                      [
+                        ['sandboxSkipEmailOtp', 'Skip email MFA'],
+                        ['sandboxSkipSmsOtp', 'Skip SMS OTP'],
+                        ['sandboxRelaxPassword', 'Relax password'],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <label key={key} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          className="accent-accent"
+                          checked={t[key] !== false}
+                          disabled={envMutation.isPending}
+                          onChange={(e) => toggleFlag(t, key, e.target.checked)}
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-text-muted">N/A on Live</span>
+                ),
+            },
+            {
+              key: 'actions',
+              header: <span className="sr-only">Actions</span>,
+              className: 'text-right',
+              cell: (t) =>
+                t.environmentClass === 0 ? (
+                  <Button size="sm" variant="secondary" disabled={envMutation.isPending} onClick={() => setEnvChange({ tenant: t, nextClass: 1 })}>
+                    Promote to Live
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="ghost" className="text-status-warning" disabled={envMutation.isPending} onClick={() => setEnvChange({ tenant: t, nextClass: 0 })}>
+                    Move to Sandbox
+                  </Button>
+                ),
+            },
+          ]}
+        />
+      ) : null}
+
+      {tab === 'sql' ? (
+        <div className="space-y-6">
+          <SectionCard
+            title="SQL console (SELECT only)"
+            description="Max 200 rows, ~5s timeout, read-only transaction. Multi-statement and DML/DDL are rejected server-side. Requires an emailed verification code every 10 minutes."
+            actions={
+              stepUpActive ? (
+                <StatusPill status="unlocked" tone="success" label="Unlocked" />
+              ) : (
+                <StatusPill status="locked" tone="warning" label="Locked" />
+              )
+            }
+          >
+            <div className="space-y-4">
+              {!stepUpActive ? (
+                <div className="flex flex-wrap items-end gap-3 rounded-xl border border-status-warning/30 bg-status-warning/5 p-4">
+                  <Lock size={18} className="mb-2 text-status-warning" aria-hidden="true" />
+                  {challengeToken ? (
+                    <>
+                      <label className="space-y-1 text-sm">
+                        <span className="font-medium text-text-secondary">Verification code</span>
+                        <input
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          className={`${inputClass} block w-32 font-mono tracking-widest`}
+                        />
+                      </label>
+                      <Button size="sm" loading={verifyStepUpMutation.isPending} disabled={otp.length !== 6} onClick={() => verifyStepUpMutation.mutate()}>
+                        <ShieldCheck size={16} aria-hidden="true" />
+                        Verify
+                      </Button>
+                    </>
+                  ) : null}
+                  <Button size="sm" variant="secondary" loading={startStepUpMutation.isPending} onClick={() => startStepUpMutation.mutate()}>
+                    {challengeToken ? 'Resend code' : 'Email me a code to unlock'}
+                  </Button>
+                </div>
+              ) : null}
+              <textarea
+                aria-label="SQL query"
+                value={sql}
+                onChange={(e) => setSql(e.target.value)}
+                rows={7}
+                spellCheck={false}
+                className={`${inputClass} font-mono`}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" loading={sqlMutation.isPending} disabled={!sql.trim() || !stepUpActive} onClick={() => sqlMutation.mutate()}>
+                  <Play size={16} aria-hidden="true" />
+                  Run query
+                </Button>
+                {sqlResult ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(rowsToCsv(sqlResult.columns, sqlResult.rows));
+                      setMessage('CSV copied to clipboard');
+                    }}
+                  >
+                    <Copy size={16} aria-hidden="true" />
+                    Copy CSV
+                  </Button>
+                ) : null}
+              </div>
+              {sqlError ? <Notice tone="error">{sqlError}</Notice> : null}
+            </div>
+          </SectionCard>
+
+          {sqlResult ? (
+            <SectionCard
+              title="Results"
+              description={`${sqlResult.rows.length} row(s) in ${sqlResult.durationMs}ms${sqlResult.truncated ? ' (truncated at 200)' : ''}`}
+              flush
+            >
+              <div className="max-h-[28rem] overflow-auto sa-scroll">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="sticky top-0 border-b border-line-subtle bg-bg-secondary text-text-muted">
+                    <tr>
+                      {sqlResult.columns.map((c) => (
+                        <th key={c} scope="col" className="whitespace-nowrap px-3 py-2 font-medium">
+                          {c}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sqlResult.rows.map((row, i) => (
+                      <tr key={i} className="border-b border-line-subtle last:border-0 hover:bg-hover">
+                        {sqlResult.columns.map((c) => (
+                          <td key={c} className="max-w-xs truncate px-3 py-1.5 font-mono" title={cellText(row[c])}>
+                            {cellText(row[c])}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SectionCard>
+          ) : null}
         </div>
       ) : null}
 
-      <section className="space-y-4">
-        <h2 className="text-lg font-medium">Tenant environment</h2>
-        <div className="flex flex-wrap gap-3">
-          <input
-            type="search"
-            placeholder="Filter by name, slug, email…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="min-w-[16rem] flex-1 rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
-          />
-          <select
-            value={envFilter}
-            onChange={(e) => setEnvFilter(e.target.value as 'all' | '0' | '1')}
-            className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
-          >
-            <option value="all">All environments</option>
-            <option value="0">Sandbox</option>
-            <option value="1">Live</option>
-          </select>
-        </div>
-
-        {orgsQuery.isLoading ? (
-          <p className="text-sm text-text-muted">Loading tenants…</p>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-line-subtle">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-line-subtle bg-bg-elevated text-xs uppercase tracking-wide text-text-muted">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Tenant</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
-                  <th className="px-3 py-2 font-medium">Environment</th>
-                  <th className="px-3 py-2 font-medium">Sandbox flags</th>
-                  <th className="px-3 py-2 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((t) => {
-                  const sandbox = t.environmentClass === 0;
-                  return (
-                    <tr key={t.id} className="border-b border-line-subtle align-top">
-                      <td className="px-3 py-3">
-                        <Link
-                          to={`/tenants/${t.id}`}
-                          className="font-medium text-brand-primary hover:underline"
-                        >
-                          {t.name}
-                        </Link>
-                        <div className="text-xs text-text-muted">{t.slug}</div>
-                      </td>
-                      <td className="px-3 py-3 text-text-secondary">{t.status ?? '—'}</td>
-                      <td className="px-3 py-3">
-                        <EnvBadge environmentClass={t.environmentClass} />
-                      </td>
-                      <td className="px-3 py-3">
-                        {sandbox ? (
-                          <div className="flex flex-col gap-1 text-xs">
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={t.sandboxSkipEmailOtp !== false}
-                                disabled={envMutation.isPending}
-                                onChange={(e) =>
-                                  toggleFlag(t, 'sandboxSkipEmailOtp', e.target.checked)
-                                }
-                              />
-                              Skip email MFA
-                            </label>
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={t.sandboxSkipSmsOtp !== false}
-                                disabled={envMutation.isPending}
-                                onChange={(e) =>
-                                  toggleFlag(t, 'sandboxSkipSmsOtp', e.target.checked)
-                                }
-                              />
-                              Skip SMS OTP
-                            </label>
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={t.sandboxRelaxPassword !== false}
-                                disabled={envMutation.isPending}
-                                onChange={(e) =>
-                                  toggleFlag(t, 'sandboxRelaxPassword', e.target.checked)
-                                }
-                              />
-                              Relax password
-                            </label>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-text-muted">N/A on Live</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          {sandbox ? (
-                            <button
-                              type="button"
-                              disabled={envMutation.isPending}
-                              onClick={() => confirmEnvChange(t, 1)}
-                              className="rounded border border-line px-2 py-1 text-xs hover:bg-hover disabled:opacity-60"
-                            >
-                              Promote to Live
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={envMutation.isPending}
-                              onClick={() => confirmEnvChange(t, 0)}
-                              className="rounded border border-status-warning/40 px-2 py-1 text-xs text-status-warning hover:bg-status-warning/10 disabled:opacity-60"
-                            >
-                              Move to Sandbox
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-3 py-6 text-center text-text-muted">
-                      No tenants match.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section className="space-y-4">
-        <h2 className="text-lg font-medium">SQL console (SELECT only)</h2>
-        <p className="text-sm text-text-muted">
-          Max 200 rows, ~5s timeout, read-only transaction. Multi-statement and DML/DDL are
-          rejected server-side. Requires an emailed verification code every 10 minutes.
-        </p>
-        {!stepUpActive ? (
-          <div className="flex flex-wrap items-end gap-2 rounded-lg border border-status-warning/30 bg-status-warning/5 p-3">
-            {challengeToken ? (
-              <>
-                <label className="space-y-1 text-sm">
-                  <span className="text-text-secondary">Verification code</span>
-                  <input
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    className="block w-32 rounded-lg border border-line bg-bg-elevated px-3 py-2 font-mono text-sm outline-none focus:border-brand-accent"
-                  />
-                </label>
-                <button
-                  type="button"
-                  disabled={otp.length !== 6 || verifyStepUpMutation.isPending}
-                  onClick={() => verifyStepUpMutation.mutate()}
-                  className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-text-primary hover:opacity-90 disabled:opacity-60"
-                >
-                  {verifyStepUpMutation.isPending ? 'Verifying…' : 'Verify'}
-                </button>
-              </>
-            ) : null}
-            <button
-              type="button"
-              disabled={startStepUpMutation.isPending}
-              onClick={() => startStepUpMutation.mutate()}
-              className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
-            >
-              {challengeToken ? 'Resend code' : 'Email me a code to unlock'}
-            </button>
-          </div>
-        ) : null}
-        <textarea
-          value={sql}
-          onChange={(e) => setSql(e.target.value)}
-          rows={6}
-          spellCheck={false}
-          className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 font-mono text-sm outline-none focus:border-brand-accent"
+      {tab === 'audits' ? (
+        <DataTable
+          rows={auditsQuery.data ?? []}
+          loading={auditsQuery.isLoading}
+          getRowKey={(a) => a.id}
+          emptyMessage="No SQL audits yet"
+          columns={[
+            {
+              key: 'when',
+              header: 'When',
+              className: 'whitespace-nowrap text-text-secondary',
+              cell: (a) => new Date(a.createdAt).toLocaleString(),
+            },
+            { key: 'actor', header: 'Actor', cell: (a) => a.actorEmail },
+            {
+              key: 'result',
+              header: 'Result',
+              cell: (a) =>
+                a.success ? (
+                  <span className="inline-flex items-center gap-2">
+                    <StatusPill status="ok" tone="success" label="OK" />
+                    <span className="text-xs text-text-muted">
+                      {a.rowCount ?? 0} rows · {a.durationMs ?? '—'}ms
+                    </span>
+                  </span>
+                ) : (
+                  <span className="text-xs text-status-error">{a.error ?? 'failed'}</span>
+                ),
+            },
+            {
+              key: 'sql',
+              header: 'SQL',
+              cell: (a) => (
+                <span className="block max-w-md truncate font-mono text-xs" title={a.sqlPreview}>
+                  {a.sqlPreview}
+                </span>
+              ),
+            },
+          ]}
         />
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={sqlMutation.isPending || !sql.trim() || !stepUpActive}
-            onClick={() => sqlMutation.mutate()}
-            className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-text-primary hover:opacity-90 disabled:opacity-60"
-          >
-            {sqlMutation.isPending ? 'Running…' : 'Run query'}
-          </button>
-          {sqlResult ? (
-            <button
-              type="button"
-              onClick={() => {
-                const csv = rowsToCsv(sqlResult.columns, sqlResult.rows);
-                void navigator.clipboard.writeText(csv);
-                setMessage('CSV copied to clipboard');
-              }}
-              className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover"
-            >
-              Copy CSV
-            </button>
-          ) : null}
-        </div>
+      ) : null}
 
-        {sqlError ? (
-          <div className="rounded-lg border border-status-error/30 bg-status-error/10 px-3 py-2 text-sm text-status-error">
-            {sqlError}
-          </div>
-        ) : null}
-
-        {sqlResult ? (
-          <div className="space-y-2">
-            <p className="text-xs text-text-muted">
-              {sqlResult.rows.length} row(s) in {sqlResult.durationMs}ms
-              {sqlResult.truncated ? ' (truncated at 200)' : ''}
-            </p>
-            <div className="max-h-[28rem] overflow-auto rounded-xl border border-line-subtle">
-              <table className="min-w-full text-left text-xs">
-                <thead className="sticky top-0 border-b border-line-subtle bg-bg-elevated text-text-muted">
-                  <tr>
-                    {sqlResult.columns.map((c) => (
-                      <th key={c} className="whitespace-nowrap px-2 py-1.5 font-medium">
-                        {c}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sqlResult.rows.map((row, i) => (
-                    <tr key={i} className="border-b border-line-subtle">
-                      {sqlResult.columns.map((c) => (
-                        <td key={c} className="max-w-xs truncate px-2 py-1 font-mono">
-                          {row[c] == null
-                            ? '∅'
-                            : typeof row[c] === 'object'
-                              ? JSON.stringify(row[c])
-                              : String(row[c])}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium">Recent SQL audits</h2>
-        {auditsQuery.isLoading ? (
-          <p className="text-sm text-text-muted">Loading audits…</p>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-line-subtle">
-            <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-line-subtle bg-bg-elevated text-text-muted">
-                <tr>
-                  <th className="px-3 py-2">When</th>
-                  <th className="px-3 py-2">Actor</th>
-                  <th className="px-3 py-2">Result</th>
-                  <th className="px-3 py-2">SQL</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(auditsQuery.data ?? []).map((a) => (
-                  <tr key={a.id} className="border-b border-line-subtle align-top">
-                    <td className="whitespace-nowrap px-3 py-2 text-text-muted">
-                      {new Date(a.createdAt).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2">{a.actorEmail}</td>
-                    <td className="px-3 py-2">
-                      {a.success ? (
-                        <span className="text-status-success">
-                          ok · {a.rowCount ?? 0} rows · {a.durationMs ?? '—'}ms
-                        </span>
-                      ) : (
-                        <span className="text-status-error">{a.error ?? 'failed'}</span>
-                      )}
-                    </td>
-                    <td className="max-w-md truncate px-3 py-2 font-mono">{a.sqlPreview}</td>
-                  </tr>
-                ))}
-                {(auditsQuery.data ?? []).length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-3 py-4 text-center text-text-muted">
-                      No audits yet.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      <ConfirmDialog
+        open={Boolean(envChange)}
+        onClose={() => setEnvChange(null)}
+        onConfirm={applyEnvChange}
+        loading={envMutation.isPending}
+        tone={envChange?.nextClass === 0 ? 'danger' : 'primary'}
+        title={
+          envChange
+            ? `Move ${envChange.tenant.name} to ${envChange.nextClass === 0 ? 'Sandbox' : 'Live'}?`
+            : ''
+        }
+        description={
+          envChange?.nextClass === 0
+            ? 'Sandbox can skip email MFA and SMS OTP when the Skip OTP toggles are on (default), and can relax passwords.'
+            : 'Live tenants always enforce normal OTP and password rules.'
+        }
+        confirmLabel={envChange?.nextClass === 0 ? 'Move to Sandbox' : 'Promote to Live'}
+      />
     </div>
   );
 }

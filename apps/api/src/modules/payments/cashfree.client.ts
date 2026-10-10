@@ -85,6 +85,28 @@ export class CashfreeClient {
     };
   }
 
+  async createRefund(
+    creds: ResolvedPaymentCredentials,
+    input: { orderId: string; refundId: string; amount: number; note?: string },
+  ): Promise<{ refundId: string }> {
+    if (!Number.isFinite(input.amount) || input.amount < 1) {
+      throw new BadRequestException("Refund amount must be at least ₹1.00");
+    }
+    const res = await this.request(
+      creds,
+      "POST",
+      `/orders/${encodeURIComponent(input.orderId)}/refunds`,
+      {
+        refund_amount: Math.round(input.amount * 100) / 100,
+        refund_id: input.refundId.slice(0, 40),
+        refund_note: (input.note || "Order cancel").slice(0, 100),
+      },
+    );
+    return {
+      refundId: typeof res.refund_id === "string" ? res.refund_id : input.refundId,
+    };
+  }
+
   async getOrder(
     creds: ResolvedPaymentCredentials,
     orderId: string,

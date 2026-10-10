@@ -1,13 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Send } from 'lucide-react';
+import { Button } from '@cullinos/ui';
+import { DataTable, PageHeader, SearchInput, SectionCard, StatusPill, useConfirm } from '@/components/ui';
+import { inputClass, LabeledInput, Notice } from '@/components/common';
 import { superAdminApi } from '@/lib/api';
 
 export function PromoEmailPage() {
   const queryClient = useQueryClient();
+  const [confirm, confirmDialog] = useConfirm();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [selectAll, setSelectAll] = useState(true);
+  const [search, setSearch] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +53,7 @@ export function PromoEmailPage() {
     });
   }
 
-  function handleSend(e: React.FormEvent) {
+  async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setMessage(null);
@@ -57,69 +63,58 @@ export function PromoEmailPage() {
       return;
     }
     const count = selectAll ? recipients.length : ownerUserIds!.length;
-    if (!window.confirm(`Send this email to ${count} owner(s)?`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Send this email to ${count} owner${count === 1 ? '' : 's'}?`,
+      description: 'Emails go out immediately and cannot be recalled.',
+      confirmLabel: 'Send campaign',
+      tone: 'primary',
+    });
+    if (!ok) return;
     sendMutation.mutate({ subject, body, ownerUserIds });
   }
 
+  const q = search.trim().toLowerCase();
+  const visible = recipients.filter(
+    (r) => !q || r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q) || (r.organizationName ?? '').toLowerCase().includes(q),
+  );
+  const selectedCount = selectAll ? recipients.length : selectedIds.size;
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold">Promo email</h1>
-        <p className="mt-1 max-w-2xl text-text-secondary">
-          Compose a promotional email and send it to restaurant owners across tenants.
-        </p>
-      </div>
+    <div className="space-y-6">
+      {confirmDialog}
+      <PageHeader title="Promo email" description="Compose a promotional email and send it to restaurant owners across tenants." />
 
-      {message ? (
-        <div className="rounded-lg border border-line bg-bg-card px-4 py-3 text-sm text-text-secondary">
-          {message}
-        </div>
-      ) : null}
-      {error ? (
-        <div className="rounded-lg border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
-          {error}
-        </div>
-      ) : null}
+      {message ? <Notice tone="success">{message}</Notice> : null}
+      {error ? <Notice tone="error">{error}</Notice> : null}
 
-      <form onSubmit={handleSend} className="grid gap-8 lg:grid-cols-2">
-        <section className="space-y-4 rounded-xl border border-line-subtle bg-bg-card p-6">
-          <h2 className="font-medium">Compose</h2>
-          <label className="block">
-            <span className="mb-1.5 block text-sm text-text-secondary">Subject</span>
-            <input
-              required
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm text-text-secondary">Body</span>
-            <textarea
-              required
-              rows={10}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={sendMutation.isPending || recipients.length === 0}
-            className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-medium disabled:opacity-60"
-          >
-            {sendMutation.isPending ? 'Sending…' : 'Send campaign'}
-          </button>
-        </section>
+      <form onSubmit={(e) => void handleSend(e)} className="grid items-start gap-6 lg:grid-cols-[1fr_380px]">
+        <SectionCard title="Compose">
+          <div className="space-y-4">
+            <LabeledInput label="Subject">
+              <input required value={subject} onChange={(e) => setSubject(e.target.value)} className={inputClass} />
+            </LabeledInput>
+            <LabeledInput label="Body">
+              <textarea required rows={12} value={body} onChange={(e) => setBody(e.target.value)} className={inputClass} />
+            </LabeledInput>
+            <div className="flex flex-wrap items-center gap-3 border-t border-line-subtle pt-4">
+              <Button type="submit" loading={sendMutation.isPending} disabled={recipients.length === 0}>
+                <Send size={16} aria-hidden="true" />
+                Send campaign
+              </Button>
+              <span className="text-sm text-text-muted">
+                {selectedCount} recipient{selectedCount === 1 ? '' : 's'} selected
+              </span>
+            </div>
+          </div>
+        </SectionCard>
 
-        <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="font-medium">Owners ({recipients.length})</h2>
+        <SectionCard
+          title={`Owners (${recipients.length})`}
+          actions={
             <label className="flex items-center gap-2 text-sm text-text-secondary">
               <input
                 type="checkbox"
+                className="accent-accent"
                 checked={selectAll}
                 onChange={(e) => {
                   setSelectAll(e.target.checked);
@@ -128,81 +123,67 @@ export function PromoEmailPage() {
               />
               Select all
             </label>
-          </div>
-
+          }
+        >
+          <SearchInput label="Search owners" placeholder="Search name, email, tenant…" value={search} onChange={setSearch} className="sm:w-full" />
           {isLoading ? (
-            <p className="mt-4 text-sm text-text-muted">Loading owners…</p>
-          ) : recipients.length === 0 ? (
-            <p className="mt-4 text-sm text-text-muted">No owner emails found.</p>
+            <div className="mt-4 space-y-2">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-12 animate-pulse rounded-lg bg-bg-secondary" />
+              ))}
+            </div>
+          ) : visible.length === 0 ? (
+            <p className="mt-4 text-sm text-text-muted">{recipients.length === 0 ? 'No owner emails found.' : 'No owners match.'}</p>
           ) : (
-            <ul className="mt-4 max-h-96 space-y-2 overflow-y-auto">
-              {recipients.map((r) => (
+            <ul className="sa-scroll mt-3 max-h-[26rem] space-y-1 overflow-y-auto">
+              {visible.map((r) => (
                 <li key={r.id}>
                   <label className="flex items-start gap-3 rounded-lg px-2 py-2 hover:bg-hover">
                     <input
                       type="checkbox"
+                      className="mt-1 accent-accent"
                       disabled={selectAll}
                       checked={selectAll || selectedIds.has(r.id)}
                       onChange={() => toggleId(r.id)}
-                      className="mt-1"
                     />
-                    <span>
-                      <span className="block text-sm font-medium">{r.name}</span>
-                      <span className="block text-xs text-text-muted">{r.email}</span>
-                      <span className="block text-xs text-text-muted">{r.organizationName}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">{r.name}</span>
+                      <span className="block truncate text-xs text-text-muted">
+                        {r.email} · {r.organizationName}
+                      </span>
                     </span>
                   </label>
                 </li>
               ))}
             </ul>
           )}
-        </section>
+        </SectionCard>
       </form>
 
-      <section className="overflow-hidden rounded-xl border border-line-subtle bg-bg-card">
-        <div className="border-b border-line-subtle px-4 py-3">
-          <h2 className="font-medium">Recent campaigns</h2>
-        </div>
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
-              <th className="px-4 py-3 font-medium">Subject</th>
-              <th className="px-4 py-3 font-medium">Sent</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">When</th>
-            </tr>
-          </thead>
-          <tbody>
-            {campaignsQuery.isLoading ? (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-text-muted">
-                  Loading…
-                </td>
-              </tr>
-            ) : (campaignsQuery.data ?? []).length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-text-muted">
-                  No campaigns yet.
-                </td>
-              </tr>
-            ) : (
-              (campaignsQuery.data ?? []).map((c) => (
-                <tr key={c.id} className="border-b border-line-subtle">
-                  <td className="px-4 py-3">{c.subject}</td>
-                  <td className="px-4 py-3">
-                    {c.sentCount}/{c.recipientCount}
-                    {c.failedCount ? ` (${c.failedCount} failed)` : ''}
-                  </td>
-                  <td className="px-4 py-3 capitalize">{c.status}</td>
-                  <td className="px-4 py-3 text-text-muted">
-                    {new Date(c.createdAt).toLocaleString()}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </section>
+      <SectionCard title="Recent campaigns" flush>
+        <DataTable
+          bare
+          rows={campaignsQuery.data ?? []}
+          loading={campaignsQuery.isLoading}
+          getRowKey={(c) => c.id}
+          emptyMessage="No campaigns yet"
+          columns={[
+            { key: 'subject', header: 'Subject', cell: (c) => <span className="font-medium">{c.subject}</span> },
+            {
+              key: 'sent',
+              header: 'Delivered',
+              cell: (c) => (
+                <span className="tabular-nums">
+                  {c.sentCount}/{c.recipientCount}
+                  {c.failedCount ? <span className="ml-1 text-xs text-status-error">({c.failedCount} failed)</span> : null}
+                </span>
+              ),
+            },
+            { key: 'status', header: 'Status', cell: (c) => <StatusPill status={c.status} /> },
+            { key: 'when', header: 'When', className: 'whitespace-nowrap text-text-secondary', cell: (c) => new Date(c.createdAt).toLocaleString() },
+          ]}
+        />
+      </SectionCard>
     </div>
   );
 }

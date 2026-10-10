@@ -42,6 +42,7 @@ export const ERP_NAV_PERMISSION_MAP: Record<string, string> = {
   '/onboarding': PERMISSIONS.ORG_UPDATE,
   '/customers': PERMISSIONS.CUSTOMER_READ,
   '/loyalty': PERMISSIONS.CUSTOMER_READ,
+  '/activity-log': PERMISSIONS.ORDER_REFUND,
 };
 
 export function isErpNavPathAllowed(permissions: string[], path: string): boolean {

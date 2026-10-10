@@ -5,6 +5,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "outlet:read", "outlet:create", "outlet:update", "outlet:delete",
     "menu:read", "menu:create", "menu:update",
     "order:read", "order:create", "order:update", "order:cancel", "order:discount", "order:discount:approve",
+    "order:refund",
     "pos:access", "pos:shift:open", "pos:shift:close", "pos:day:close",
     "table:read", "table:manage", "inventory:read", "inventory:adjust", "inventory:transfer",
     "purchase:read", "purchase:create",
@@ -14,6 +15,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   manager: [
     "org:read", "outlet:read", "outlet:update", "menu:read", "menu:create", "menu:update",
     "order:read", "order:create", "order:update", "order:cancel", "order:discount", "order:discount:approve",
+    "order:refund",
     "pos:access", "pos:shift:open", "pos:shift:close", "pos:day:close",
     "table:read", "table:manage", "inventory:read", "inventory:adjust", "inventory:transfer",
     "purchase:read", "purchase:create",

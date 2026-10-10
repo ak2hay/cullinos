@@ -3,8 +3,10 @@ import type { JwtPayload } from "@cullinos/auth";
 import {
   CurrentUser,
   OrgId,
+  PlatformScope,
   RequireModule,
   RequirePlatformPermission,
+  RequiresApproval,
 } from "../../common/decorators";
 import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { SuperAdminGuard } from "../marketing/guards/super-admin.guard";
@@ -69,12 +71,15 @@ export class SuperAdminWalletController {
 
   @Get(":orgId/wallet")
   @RequirePlatformPermission("tenants.read")
+  @PlatformScope("param", "orgId")
   getBalance(@Param("orgId") orgId: string) {
     return this.wallet.getBalance(orgId);
   }
 
   @Post(":orgId/wallet/adjust")
   @RequirePlatformPermission("wallet.manage")
+  @PlatformScope("param", "orgId")
+  @RequiresApproval("wallet.adjust", "Adjust tenant wallet")
   adjust(
     @Param("orgId") orgId: string,
     @CurrentUser() user: JwtPayload,

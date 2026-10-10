@@ -95,7 +95,11 @@ export interface AggregatorAdapter {
     payload: unknown,
     ctx: { outletId: string; itemSkuMap?: Record<string, string> },
   ): CullinosNormalizedOrder;
-  /** Stub: push menu to aggregator (MVP no-op). */
+  /**
+   * Push the outlet menu to the aggregator.
+   * Omit until the adapter makes a real provider call. A no-op that
+   * returns a synced count is treated as success by callers.
+   */
   syncMenu?(
     outletId: string,
     menu: Record<string, unknown>[],
@@ -176,13 +180,6 @@ export class SwiggyAdapter implements AggregatorAdapter {
       idempotencyKey: `aggregator:swiggy:${externalOrderId}`,
     };
   }
-
-  async syncMenu(
-    _outletId: string,
-    menu: Record<string, unknown>[],
-  ): Promise<{ synced: number; skipped: number }> {
-    return { synced: menu.length, skipped: 0 };
-  }
 }
 
 export class ZomatoAdapter implements AggregatorAdapter {
@@ -220,13 +217,6 @@ export class ZomatoAdapter implements AggregatorAdapter {
       deliveryAddress: readString(order, "delivery_address"),
       idempotencyKey: `aggregator:zomato:${externalOrderId}`,
     };
-  }
-
-  async syncMenu(
-    _outletId: string,
-    menu: Record<string, unknown>[],
-  ): Promise<{ synced: number; skipped: number }> {
-    return { synced: menu.length, skipped: 0 };
   }
 }
 

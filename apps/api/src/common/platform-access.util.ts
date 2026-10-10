@@ -4,20 +4,39 @@ import {
   type ExecutionContext,
 } from "@nestjs/common";
 import type { Reflector } from "@nestjs/core";
-import { PLATFORM_PERMISSIONS_KEY } from "./decorators";
+import { ANY_PLATFORM_STAFF, PLATFORM_PERMISSIONS_KEY } from "./decorators";
 import { isPlatformRole, permissionsForPlatformRole } from "./platform-permissions";
+import type { ScopedGrant } from "../modules/platform-iam/platform-access.util";
 
 type PlatformUser = { isSuperAdmin?: boolean; platformRole?: string } | undefined;
 
+export type PlatformAccessView = {
+  isOwner: boolean;
+  global: readonly string[];
+  scoped: readonly ScopedGrant[];
+};
+
+export type PlatformAccessDecision = {
+  required: string[] | undefined;
+  /** Set when only region / tenant-set scoped grants cover the route. */
+  scopedOnly: ScopedGrant[] | null;
+};
+
+function accessFromRole(role: string | undefined): PlatformAccessView {
+  return { isOwner: role === "owner", global: permissionsForPlatformRole(role), scoped: [] };
+}
+
 /**
- * Enforces platform staff role permissions on a /super-admin route. Permissions are
- * derived from the signed role claim, so catalog changes apply without re-login.
+ * Enforces platform staff permissions on a /super-admin route. Permissions come from the
+ * database-resolved access (primary role + role assignments); without it, from the signed
+ * role claim. Forged `platformPermissions` claims are never trusted.
  */
 export function assertPlatformAccess(
   reflector: Reflector,
   context: ExecutionContext,
   user: PlatformUser,
-): void {
+  access?: PlatformAccessView,
+): PlatformAccessDecision {
   if (!user?.isSuperAdmin) {
     throw new ForbiddenException("Super admin access required");
   }
@@ -25,20 +44,23 @@ export function assertPlatformAccess(
     // Tokens issued before platform roles existed: force a refresh that adds the claim.
     throw new UnauthorizedException("Platform session is outdated, sign in again");
   }
+  const view = access ?? accessFromRole(user.platformRole);
 
   const required = reflector.getAllAndOverride<string[] | undefined>(PLATFORM_PERMISSIONS_KEY, [
     context.getHandler(),
     context.getClass(),
   ]);
   if (!required || required.length === 0) {
-    if (user.platformRole !== "owner") {
+    if (!view.isOwner) {
       throw new ForbiddenException("Owner access required");
     }
-    return;
+    return { required, scopedOnly: null };
   }
 
-  const granted: string[] = permissionsForPlatformRole(user.platformRole);
-  if (!required.some((p) => granted.includes(p))) {
-    throw new ForbiddenException("Your platform role does not allow this action");
+  if (required.includes(ANY_PLATFORM_STAFF) || required.some((p) => view.global.includes(p))) {
+    return { required, scopedOnly: null };
   }
+  const scoped = view.scoped.filter((g) => required.some((p) => g.permissions.includes(p)));
+  if (scoped.length) return { required, scopedOnly: scoped };
+  throw new ForbiddenException("Your platform access does not allow this action");
 }

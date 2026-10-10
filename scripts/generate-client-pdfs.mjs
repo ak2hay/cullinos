@@ -1,6 +1,6 @@
 /**
  * Generates stylish client-facing Cullinos PDFs:
- * Brochure, Product Overview, User Manual, Plans Brochure, per-plan sheets.
+ * Brochure, Product Overview, User Manual, Plans Brochure, Agency Brief, per-plan sheets.
  * Run: node scripts/generate-client-pdfs.mjs
  */
 import { spawnSync } from 'child_process';
@@ -876,6 +876,418 @@ ${cover({
   return shell('Cullinos Product Overview', body);
 }
 
+const AGENCY_CSS = `
+.flow { display: flex; align-items: center; gap: 10px; margin: 14px 0 18px; page-break-inside: avoid; }
+.flow-sources { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.flow-sources span { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; font-size: 9pt; }
+.flow-arrow { font-size: 18pt; color: var(--gold); }
+.flow-node { background: var(--ink); color: var(--gold-bright); border-radius: 12px; padding: 14px 16px; font-weight: 700; text-align: center; flex: 0 0 150px; }
+table.pretty.compact { font-size: 9pt; }
+table.pretty.compact td { padding: 6px 9px; }
+.dont td:first-child { color: #9b2c2c; font-weight: 600; }
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; margin-right: 4px; border: 1px solid var(--line); }
+`;
+
+/** @param {string[]} headers @param {string[][]} rows @param {string} [cls] */
+function tableHtml(headers, rows, cls = 'pretty compact') {
+  return `<table class="${cls}">
+    <thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>
+      ${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('\n      ')}
+    </tbody>
+  </table>`;
+}
+
+function agencyBriefHtml() {
+  const body = `
+${cover({
+  eyebrow: 'Agency &amp; creator brief',
+  title: 'Everything you need to tell the Cullinos story',
+  subtitle: 'What Cullinos is, every feature in plain language, who it is for, how to talk about it, content ideas, and the claims to avoid.',
+  meta: 'For marketing agencies &amp; content creators · cullinos.com · 2026',
+})}
+
+<section class="page">
+  <p class="eyebrow">1 · Cullinos in one page</p>
+  <h2 style="border:none;margin-top:0">Your food business operating system</h2>
+  <p class="lead">One login runs the cashier, kitchen, QR &amp; online orders, the Cullinos Guest marketplace app, production, and reports — for restaurants, cafes, food trucks, bakeries, cloud kitchens, bars, and hotels. GST billing built in. Made in Mumbai by <strong>Rkyves</strong>.</p>
+
+  <div class="grid-3">
+    <div class="card"><div class="kicker">GST-ready</div><h3>India billing built in</h3><p>CGST, SGST, and IGST on every bill — not bolted on later.</p></div>
+    <div class="card"><div class="kicker">Every channel</div><h3>One kitchen</h3><p>POS, waiter, QR, storefront, kiosk, Guest app, Swiggy &amp; Zomato — all on one kitchen screen.</p></div>
+    <div class="card"><div class="kicker">Scales</div><h3>Truck to hotel chain</h3><p>The same platform from a single counter to a multi-outlet hotel group.</p></div>
+  </div>
+
+  <div class="banner">
+    <h3>The one-line pitch</h3>
+    <p>Stop juggling five apps to run one restaurant. Cullinos runs billing, kitchen, orders, stock, and marketing as one live system.</p>
+  </div>
+
+  <h2>2 · The problem we solve</h2>
+  <p>A typical Indian restaurant runs on a patchwork: a basic billing machine, paper kitchen tickets that get lost, separate Swiggy and Zomato tablets, Excel for stock, WhatsApp groups for staff, and nothing (or another tool) for loyalty and customer data. Every tool has its own menu, prices, and login — and nothing talks to anything else.</p>
+  <p><strong>Cullinos replaces the patchwork with one live system.</strong> Change a price once and it updates on the POS, QR menu, kiosk, and Guest app. An order from any channel appears on the kitchen screen instantly. Sales, stock, and customers live in one dashboard.</p>
+
+  <h2>3 · How it works</h2>
+  ${HOW_IT_WORKS.map((s, i) => `<div class="step"><div class="step-num">${i + 1}</div><div><h3>${s[0]}</h3><p>${s[1]}</p></div></div>`).join('\n  ')}
+  <div class="flow">
+    <div class="flow-sources">
+      <span>Cashier POS</span><span>Waiter app</span><span>Table QR</span><span>Online storefront &amp; kiosk</span><span>Cullinos Guest app</span><span>Swiggy &amp; Zomato</span>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node">Kitchen Display</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node">One GST-ready ledger &amp; reports</div>
+  </div>
+
+  <h2 class="section-break">4 · The apps, explained like a person would use them</h2>
+  <p class="muted small">Each role gets its own focused app. They all share the same live data.</p>
+  ${tableHtml(['App', 'Who uses it', 'What it does', 'A moment you can film'], AGENCY_APPS)}
+
+  <h2 class="section-break">5 · Full feature tour</h2>
+  <p class="muted small">Everything below is live today. Each line gives what it is and why a restaurant cares.</p>
+  ${AGENCY_FEATURE_GROUPS.map(
+    (g) => `<h3>${g.title}</h3>
+  ${tableHtml(g.withWhy ? ['Feature', 'What it is', 'Why it matters'] : ['Feature', 'What it is'], g.rows.map((r) => [`<strong>${r[0]}</strong>`, ...r.slice(1)]))}`,
+  ).join('\n  ')}
+  <p class="small muted">Restaurants control their Guest app listing and banners from Admin. Featured placement, Discover curation, and app-wide push campaigns are run by the Rkyves team.</p>
+  <h3>Bars &amp; pubs</h3>
+  <p>An automatic Bar station on the kitchen display, happy-hour pricing, pour-size recipes tracked against bottle stock, a liquor stock register with CSV export, and a State Excise tax group.</p>
+
+  <h2 class="section-break">6 · Who it's for</h2>
+  ${tableHtml(['Vertical', 'The story to tell'], AGENCY_VERTICALS)}
+  <h3>Personas</h3>
+  ${tableHtml(['Persona', 'What they worry about', 'What to show them'], AGENCY_PERSONAS)}
+
+  <h2>7 · Plans &amp; pricing</h2>
+  ${planCardsHtml()}
+
+  <h2>8 · Integrations</h2>
+  ${tableHtml(['Integration', 'What it does'], AGENCY_INTEGRATIONS)}
+
+  <h2 class="section-break">9 · Brand messaging kit</h2>
+  <h3>Positioning statement</h3>
+  <p>For Indian food businesses tired of juggling separate billing, kitchen, delivery, and marketing tools, <strong>Cullinos</strong> is the restaurant operating system that runs every role and every order channel on one live platform, with GST billing built in. Unlike a basic POS, Cullinos connects cashier, kitchen, floor, guests, and owner — from one outlet to a hotel chain.</p>
+  <h3>Key messages</h3>
+  <ol>
+    <li><strong>One system, every service moment.</strong> Billing, kitchen, floor, online, and back office, connected.</li>
+    <li><strong>Every order reaches one kitchen.</strong> POS, waiter, QR, app, and aggregator orders on the same screen.</li>
+    <li><strong>Built for India.</strong> GST invoices, UPI payments, SMS and WhatsApp, phone OTP.</li>
+    <li><strong>Each role gets its own app.</strong> Cashier, chef, and waiter each see only what they need.</li>
+    <li><strong>Grows with you.</strong> From a food truck to a franchise network, on the same platform.</li>
+  </ol>
+  <h3>Tagline options</h3>
+  <div class="pill-row">
+    <span class="pill gold">Your food business operating system.</span>
+    <span class="pill">One system. Every service moment.</span>
+    <span class="pill">Every order channel. One kitchen.</span>
+    <span class="pill">From one outlet to hotel chains — same platform.</span>
+  </div>
+  <h3>Tone of voice</h3>
+  <ul>
+    <li><strong>Confident, practical, warm</strong> — like an experienced restaurant manager, not a software salesperson.</li>
+    <li><strong>Show the moment, not the module</strong> — "the grill sees the order the second it's placed", not "KDS with station routing".</li>
+    <li><strong>India-first</strong> — rupee prices, UPI, GST, lunch-rush and chai-break examples.</li>
+    <li><strong>Plain language</strong> — explain jargon (see the glossary) or avoid it.</li>
+  </ul>
+  <h3>Names to use exactly</h3>
+  ${tableHtml(['Use', 'Avoid'], AGENCY_NAMES)}
+
+  <h2 class="section-break">10 · Content ideas</h2>
+  <h3>Reel &amp; short-video hooks</h3>
+  ${tableHtml(['Feature', 'Hook idea'], AGENCY_HOOKS)}
+  <h3>Series ideas</h3>
+  <ul>
+    <li><strong>A day in the life</strong> — follow one order from QR scan to kitchen, Ready board, bill, and the owner's report.</li>
+    <li><strong>Before / after Cullinos</strong> — paper tickets and five tablets compared with one system.</li>
+    <li><strong>Owner confessions</strong> — real pain points (cash leakage, wrong orders, stock-outs), each answered by one feature.</li>
+    <li><strong>One feature, 30 seconds</strong> — a quick explainer per feature in section 5.</li>
+    <li><strong>Vertical spotlights</strong> — cafes, bakeries, cloud kitchens, bars, hotels.</li>
+  </ul>
+  <h3>60-second demo script</h3>
+  ${tableHtml(['Time', 'Visual', 'Voiceover'], AGENCY_SCRIPT)}
+  <h3>Carousel / post ideas</h3>
+  <ul>
+    <li>"5 signs your restaurant has outgrown its billing software"</li>
+    <li>"What happens to an order in Cullinos" (step-by-step)</li>
+    <li>"GST billing without the headache"</li>
+    <li>"Which Cullinos plan fits you?"</li>
+    <li>"The real cost of a dish" (recipe costing explainer)</li>
+    <li>Customer story template (only with written permission from the restaurant)</li>
+  </ul>
+  <h3>Campaign themes by vertical</h3>
+  ${tableHtml(['Vertical', 'Campaign theme'], AGENCY_CAMPAIGNS)}
+
+  <h2 class="section-break">11 · Assets &amp; links</h2>
+  <h3>Product visuals</h3>
+  <p class="small">Mockup illustrations in <code>apps/web/public/images/</code>: <code>mockup-pos.svg</code>, <code>mockup-kds.svg</code>, <code>mockup-waiter.svg</code>, <code>mockup-ordering.svg</code>, <code>mockup-admin.svg</code>, <code>mockup-enterprise.svg</code>, <code>flow-cloud.svg</code>. Ask Rkyves for screen recordings or a demo account. Never publish a real restaurant's customer data or sales figures without written permission.</p>
+  <h3>Brand basics</h3>
+  <p class="small"><span class="swatch" style="background:#0F0F1A"></span>Ink #0F0F1A &nbsp; <span class="swatch" style="background:#D4A017"></span>Gold #D4A017 &nbsp; <span class="swatch" style="background:#F5A623"></span>Bright gold #F5A623 &nbsp; <span class="swatch" style="background:#F7F4EE"></span>Cream #F7F4EE · Headlines in <strong>Fraunces</strong>, body in <strong>DM Sans</strong>.</p>
+  <h3>Links</h3>
+  ${tableHtml(['What', 'URL'], AGENCY_LINKS)}
+  <p class="small muted">Also available on request: Brochure, Product Overview, Plans Brochure, User Manual.</p>
+
+  <h2>12 · Do's and don'ts</h2>
+  <h3>Do</h3>
+  <ul>
+    <li>Show real service moments (rush hour, table QR, kitchen screen) rather than abstract dashboards.</li>
+    <li>Say "GST-ready billing with CGST, SGST, and IGST".</li>
+    <li>Say Swiggy and Zomato orders <strong>come into</strong> Cullinos alongside your own orders.</li>
+    <li>Mention that the Guest app is on <strong>Android</strong>.</li>
+    <li>Send any new claim, statistic, or customer quote to Rkyves for approval before publishing.</li>
+  </ul>
+  <h3>Don't</h3>
+  ${tableHtml(["Don't say", 'Why', 'Say instead'], AGENCY_DONTS, 'pretty compact dont')}
+
+  <h2 class="section-break">13 · Glossary</h2>
+  ${tableHtml(['Term', 'Meaning'], AGENCY_GLOSSARY.map(([t, m]) => [`<strong>${t}</strong>`, m]))}
+
+  <div class="banner">
+    <h3>Questions, approvals, demo access</h3>
+    <p>Send drafts and claims to the Rkyves team before publishing.</p>
+    <div class="cta">hello@rkyves.com · cullinos.com · Mumbai, India</div>
+  </div>
+  ${footer('Cullinos Agency &amp; Creator Brief')}
+</section>`;
+  return shell('Cullinos Agency & Creator Brief', body, AGENCY_CSS);
+}
+
+const HOW_IT_WORKS = [
+  ['Set up your outlet', 'Add your menu, tables, staff, and GST settings in the Admin dashboard.'],
+  ['Take orders anywhere', 'POS, waiter app, table QR, online storefront, kiosk, or the Guest app — all connected.'],
+  ['The kitchen stays in sync', 'Orders appear on the Kitchen Display instantly — from floor, web, app, or aggregators.'],
+  ['Track and grow', 'See sales, inventory, customers, and reports. Add outlets when you are ready.'],
+];
+
+const AGENCY_APPS = [
+  ['<strong>POS</strong><br/><span class="small muted">browser + Windows</span>', 'Cashier', 'Touch billing, modifiers, hold / resume, takeaway, cash &amp; online payments, GST receipts', 'Cashier clears a lunch rush in seconds; receipt prints instantly'],
+  ['<strong>Portal POS</strong>', 'Counter teams', 'Full cashier screen inside Admin — no separate device needed', 'Owner billing from the same laptop they manage the menu on'],
+  ['<strong>Kitchen Display</strong>', 'Kitchen', 'Live tickets routed to stations; tap to mark ready', 'New order pops onto the kitchen screen the moment a guest orders'],
+  ['<strong>Order Display</strong>', 'Guests at the counter', 'Preparing → Ready board', 'Order number flips to Ready on a TV'],
+  ['<strong>Promo display</strong>', 'Guests in venue', 'Promo playlists on TV or tablet', "In-store TV cycling today's specials"],
+  ['<strong>Waiter app</strong><br/><span class="small muted">Android</span>', 'Floor staff', 'Table map, table-side orders, QR sessions', 'Kitchen updates before the waiter walks away'],
+  ['<strong>Admin</strong>', 'Owner / manager', 'Menu, staff, stock, purchasing, CRM, loyalty, reports, Guest app listing &amp; banners', 'Change a price once; it updates everywhere'],
+  ['<strong>Management</strong>', 'Chains', 'Network KPIs, outlet comparison, stock transfer, franchise', "Three outlets' sales side by side"],
+  ['<strong>Cullinos Guest app</strong><br/><span class="small muted">Android</span>', 'Diners', 'Discover nearby outlets, order, reorder, loyalty, push updates', 'Diner finds a cafe, orders, gets "Your order is ready"'],
+  ['<strong>Storefront &amp; table QR</strong><br/><span class="small muted">guest.cullinos.com</span>', 'Diners', 'Branded web menu; scan table QR to order into the bill', 'Guest scans, orders, food arrives — no waving for a waiter'],
+];
+
+const AGENCY_FEATURE_GROUPS = [
+  {
+    title: 'Front of house',
+    withWhy: true,
+    rows: [
+      ['Point of Sale', 'Touch checkout, modifiers, holds, takeaway, discounts, split bills, GST receipts', 'Faster billing, compliant invoices'],
+      ['Cashier shifts', 'Open / close shifts with cash-drawer accountability', 'Know who handled the cash'],
+      ['Waiter app', 'Mobile table-side ordering, live status', 'Fewer trips, fewer wrong orders'],
+      ['Table management', 'Table map, merge / transfer, service requests', 'Smooth turnover on busy nights'],
+      ['Table sessions &amp; QR', 'Guests scan and add to the same table bill', 'Guests order more, staff run less'],
+      ['Reservations', 'Admin bookings plus a public booking link', 'Share the link on Instagram or Google'],
+      ['Kitchen Display &amp; KOT', 'Live tickets on screen or printed, station routing', 'No lost paper tickets'],
+      ['Order Display', 'Preparing → Ready board', 'Less crowding at the counter'],
+      ['Promo display', 'Promo playlists on in-venue screens', 'Idle screens become upsell screens'],
+      ['Pickup queue', 'Ready-queue workflow for counters', 'Fast-food style flow'],
+    ],
+  },
+  {
+    title: 'Customer ordering channels',
+    withWhy: true,
+    rows: [
+      ['QR dine-in ordering', 'Scan the table QR and order into the table session', 'Self-service, no app download'],
+      ['Online storefront', 'Branded menu and ordering link per outlet', 'Direct orders the restaurant owns'],
+      ['Digital ordering / kiosk', 'Self-serve kiosk mode', 'Shorter queues'],
+      ['Guest checkout &amp; OTP login', 'Order with name + phone; optional phone-OTP login', 'No friction for first-timers'],
+      ['Loyalty portal', 'Loyalty status on the storefront', 'Brings guests back'],
+      ['Deep links', 'Links that open a specific outlet in the app or web', 'Perfect for bios, posts, and ads'],
+    ],
+  },
+  {
+    title: 'Cullinos Guest app (for diners)',
+    rows: [
+      ['Nearby marketplace', 'Discover restaurants near you'],
+      ['Browse &amp; order', 'Menus, cart, dine-in / takeaway / delivery'],
+      ['Easy login', 'Phone OTP, optional PIN'],
+      ['Orders &amp; reorder', 'History and one-tap reorder'],
+      ['Favourites, reviews, addresses', 'Save outlets, leave reviews, faster delivery checkout'],
+      ['Loyalty wallets', 'Points and stamps in the app'],
+      ['Push notifications', 'Order status plus offers and campaigns'],
+      ['Coupons, Discover &amp; banners', 'Offer codes, curated home rows, outlet banners'],
+    ],
+  },
+  {
+    title: 'Back office',
+    withWhy: true,
+    rows: [
+      ['Menu management', 'Categories, items, modifiers, pricing, availability', 'One menu, updated everywhere'],
+      ['Happy hours', 'Time-based pricing', 'Price changes run automatically'],
+      ['Inventory', 'Stock levels and adjustments per outlet', 'Know what is running low'],
+      ['Recipes &amp; costing', 'Ingredients linked to dishes', 'True cost and margin per plate'],
+      ['Purchasing, POs &amp; suppliers', 'Purchase orders, goods receipt, vendor list', 'Track ordered vs. received'],
+      ['Wastage', 'Log waste against stock', 'See where money is lost'],
+      ['Production &amp; central kitchen', 'Batches, plus outlet requests fulfilled by a central kitchen', 'Bakeries and hub-and-spoke kitchens'],
+      ['Brands', 'Multiple brands from one kitchen', 'Built for cloud kitchens'],
+      ['Staff &amp; roles', 'Owner, manager, cashier, waiter, kitchen, and more', 'Staff see only what they need'],
+      ['Devices &amp; printing', 'Receipt and KOT print setup', 'Thermal printers, cash drawers'],
+      ['Reports &amp; day-book export', 'Sales, top items, outlet performance, accounting export', 'Real numbers, easy accountant hand-off'],
+    ],
+  },
+  {
+    title: 'Orders &amp; payments',
+    rows: [
+      ['Unified orders', 'Every channel in one list: create, hold, resume, cancel'],
+      ['Discounts &amp; split bills', 'Item or bill discounts; split between guests'],
+      ['Payments', "Cash plus online payments via the restaurant's own Razorpay or Cashfree account"],
+      ['Refunds', 'Cancelled paid orders refund through the gateway where possible; otherwise staff confirm on the gateway dashboard'],
+      ['GST tax engine', 'Automatic CGST / SGST / IGST calculation'],
+      ['Delivery &amp; aggregators', 'Track delivery; Swiggy and Zomato orders flow in with settlement tracking'],
+      ['Feedback surveys', 'Post-order survey links'],
+    ],
+  },
+  {
+    title: 'CRM &amp; growth',
+    withWhy: true,
+    rows: [
+      ['Customer CRM', 'Profiles, history, tiers', 'Know your regulars'],
+      ['Loyalty', 'Stamps, points, rewards', 'Turn first-timers into regulars'],
+      ['Coupons', 'Discount codes across channels', 'Run offers anywhere'],
+      ['SMS campaigns', 'MSG91 marketing SMS from a prepaid wallet', 'Reach customers directly'],
+      ['WhatsApp e-bills', 'Bills on WhatsApp, pay-per-message', 'Paperless receipts, direct touchpoint'],
+      ['Events &amp; pop-ups', 'Pre-orders for events', 'Pop-ups, catering, festivals'],
+      ['Privacy &amp; consent', 'Consent, data export and erase', "Built with India's DPDP law in mind"],
+    ],
+  },
+  {
+    title: 'Enterprise &amp; hospitality',
+    rows: [
+      ['Multi-outlet console', 'Network KPIs and outlet comparison'],
+      ['Stock transfer', 'Move inventory between outlets'],
+      ['Franchise &amp; multi-brand', 'Franchisee visibility; multiple brands from shared kitchens'],
+      ['Advanced analytics &amp; API', 'Network dashboards, exports, and integrations'],
+      ['Room service &amp; room posting', "In-room dining charged to the guest's room bill"],
+      ['Banquets', 'Menus, packages, and billing for large events'],
+    ],
+  },
+];
+
+const AGENCY_VERTICALS = [
+  ['Restaurants', 'Tables, waiter app, QR dine-in, kitchen display, full back office'],
+  ['Cafes &amp; QSR', 'Lightning-fast counter billing, Ready board, loyalty, kiosk'],
+  ['Food trucks &amp; pop-ups', 'POS on a tablet, events and pre-orders, quick service'],
+  ['Bakeries', 'Production batches, recipes, pre-orders'],
+  ['Cloud kitchens', 'Multiple brands, delivery, Swiggy / Zomato on one kitchen screen'],
+  ['Catering', 'Events, pre-orders, production planning'],
+  ['Bars &amp; pubs', 'Happy hours, bar station, pour-size stock, liquor register'],
+  ['Hotels &amp; resorts', 'Room service, charge-to-room, banquets'],
+];
+
+const AGENCY_PERSONAS = [
+  ['Owner (single outlet)', 'Cash leakage, wrong orders, too many apps', 'One dashboard, shift cash control, kitchen screen, GST bills'],
+  ['Manager', 'Rush hours, staff mistakes, stock-outs', 'Waiter app, KDS, inventory, reports'],
+  ['Chain / franchise operator', 'Consistency and visibility across outlets', 'Management console, comparison, stock transfer, central kitchen'],
+  ['Hotel F&amp;B head', 'Room service and banquet billing mess', 'Room posting, banquets, one platform'],
+  ['Diner', 'Waiting, waving for the waiter, repeat orders', 'QR ordering, Guest app, reorder, loyalty'],
+];
+
+const AGENCY_INTEGRATIONS = [
+  ['<strong>Razorpay / Cashfree</strong>', "Online payments (UPI, cards, wallets) into the restaurant's own account"],
+  ['<strong>MSG91</strong>', 'Phone OTP, marketing SMS, WhatsApp messages'],
+  ['<strong>Firebase</strong>', 'Guest app login and push notifications'],
+  ['<strong>Swiggy / Zomato</strong>', 'Incoming aggregator orders and settlements'],
+  ['<strong>Printers &amp; hardware</strong>', 'Receipt and kitchen printers, cash drawers, scanners, display boards via the Local Gateway'],
+  ['<strong>Accounting</strong>', 'Daily day-book export'],
+];
+
+const AGENCY_NAMES = [
+  ['<strong>Cullinos</strong>', 'Culinos, CullinOS, "Cullinos POS" (it is more than a POS)'],
+  ['<strong>Cullinos Guest app</strong> (or "the Cullinos app" for diners)', '"Customer app", "Cullinos delivery app"'],
+  ['<strong>Cullinos Waiter app</strong>', '"Captain app"'],
+  ['<strong>Rkyves</strong> (the company)', 'Rkyves POS, Rkives'],
+  ['<strong>Kitchen Display</strong> (KDS)', '"Kitchen TV"'],
+];
+
+const AGENCY_HOOKS = [
+  ['QR ordering + KDS', '"QR to kitchen in 10 seconds" — split screen: guest scans, kitchen screen lights up'],
+  ['POS', '"Lunch rush, zero panic"'],
+  ['Waiter app', '"Your waiter just stopped walking to the counter"'],
+  ['Kitchen Display', '"RIP paper KOTs"'],
+  ['Order Display', '"No more \'is my order ready?\'"'],
+  ['Menu sync', '"Change the price once. Watch it update everywhere."'],
+  ['Recipes &amp; costing', '"Do you actually know what your paneer tikka costs you?"'],
+  ['Shifts &amp; cash', '"Who closed the drawer ₹500 short?"'],
+  ['Loyalty', '"Turn first-timers into regulars"'],
+  ['WhatsApp e-bills', '"Your bill, on WhatsApp, before you leave the table"'],
+  ['Aggregators', '"Swiggy, Zomato, dine-in — one kitchen screen"'],
+  ['Guest app', '"Found it, ordered it, picked it up"'],
+  ['Multi-outlet', '"Three outlets. One screen. Morning chai."'],
+  ['Bars', '"Happy hour starts itself"'],
+  ['Hotels', '"Room 304 ordered biryani — and it\'s already on their bill"'],
+];
+
+const AGENCY_SCRIPT = [
+  ['0–5s', 'Messy counter: paper KOTs, three delivery tablets, a calculator', '"Running a restaurant shouldn\'t need five apps."'],
+  ['5–15s', 'Guest scans the table QR and orders', '"Your guests order straight from the table…"'],
+  ['15–25s', 'Order pops up on the kitchen screen; chef taps Ready', '"…and the kitchen sees it instantly. No paper, no shouting."'],
+  ['25–35s', 'Waiter adds dessert; cashier bills; GST receipt prints', '"Waiters, cashiers, and the kitchen all work from the same live order."'],
+  ['35–45s', 'Owner on Admin: sales, stock, top dishes', '"You see sales, stock, and best sellers in one dashboard."'],
+  ['45–55s', 'Cuts: Guest app, loyalty, WhatsApp bill, multi-outlet view', '"Loyalty, WhatsApp bills, your own ordering app, every outlet in one view."'],
+  ['55–60s', 'Cullinos logo + cullinos.com', '"Cullinos. Your food business operating system."'],
+];
+
+const AGENCY_CAMPAIGNS = [
+  ['Cafes &amp; QSR', '"Faster queues, happier regulars"'],
+  ['Restaurants', '"Run the floor, not the paperwork"'],
+  ['Cloud kitchens', '"Many brands, one kitchen screen"'],
+  ['Bakeries', '"Bake to plan, not to guess"'],
+  ['Bars &amp; pubs', '"Happy hours that run themselves"'],
+  ['Hotels', '"Every outlet, every room, one system"'],
+  ['Chains', '"Every outlet, one morning check"'],
+];
+
+const AGENCY_LINKS = [
+  ['Website', 'https://cullinos.com'],
+  ['Start a trial / contact', 'https://cullinos.com/contact?intent=trial'],
+  ['Restaurant Admin', 'https://admin.cullinos.com'],
+  ['Online ordering', 'https://guest.cullinos.com'],
+  ['Waiter app landing', 'https://waiter.cullinos.com'],
+  ['Multi-outlet console', 'https://manage.cullinos.com'],
+  ['Contact', 'hello@rkyves.com'],
+];
+
+const AGENCY_DONTS = [
+  ['"Sync your menu to Swiggy / Zomato automatically"', 'Outbound menu sync is not available', '"Swiggy and Zomato orders flow into the same kitchen screen"'],
+  ['"Fully integrated with your hotel PMS"', 'Deeper PMS sync is on the roadmap', '"Charge F&amp;B to the guest\'s room bill"'],
+  ['"AI-powered"', 'AI features are not live yet', 'Leave AI out'],
+  ['"Available on iPhone"', 'Guest and Waiter apps are Android', '"Available on Android"'],
+  ['"Full ERP / Tally integration"', 'Day-book export only, not a full ERP connector', '"Daily accounting export"'],
+  ['"100% GST compliant" / "government approved"', 'Unverified compliance claims', '"GST-ready billing", "e-invoice readiness"'],
+  ['"Zero commission forever" or savings figures', 'Not an approved claim', '"Take direct orders on your own storefront"'],
+  ['"Free"', 'All plans are paid', '"Plans from ₹1,499 a month" (check current pricing)'],
+  ['Negative competitor comparisons', 'Legal and brand risk', 'Focus on the problem Cullinos solves'],
+  ['Fake reviews, invented customers or numbers', 'Misleading', 'Real testimonials with written permission only'],
+];
+
+const AGENCY_GLOSSARY = [
+  ['POS', 'Point of Sale — the billing screen at the counter'],
+  ['KOT', 'Kitchen Order Ticket — the order slip sent to the kitchen'],
+  ['KDS', 'Kitchen Display System — a kitchen screen that replaces paper KOTs'],
+  ['CDS', 'Customer / Order Display — the "Preparing / Ready" board'],
+  ['QSR', 'Quick Service Restaurant — counter service, cafes, fast food'],
+  ['Cloud kitchen', 'A delivery-only kitchen, often running several brands'],
+  ['Central kitchen', 'One kitchen preparing food or stock for several outlets'],
+  ['Aggregator', 'Third-party delivery apps like Swiggy and Zomato'],
+  ['GST · CGST / SGST / IGST', "India's Goods and Services Tax and its central, state, and integrated parts"],
+  ['GSTIN', "A business's GST registration number"],
+  ['HSN / SAC', 'Tax classification codes printed on invoices'],
+  ['Modifier', 'An add-on or change to an item ("extra cheese")'],
+  ['Table session', 'An open table bill that waiter and guests can both add to'],
+  ['Folio · Room posting', "A hotel guest's room bill · charging F&amp;B to it"],
+  ['Banquet', 'A large event with set menus and billing'],
+  ['Indent', 'A stock request from an outlet to a central kitchen'],
+  ['PO / GRN', 'Purchase Order / Goods Receipt Note'],
+  ['Shift', "A cashier's session, with cash counted at open and close"],
+  ['Deep link', 'A link that opens a specific restaurant in the app or web'],
+  ['OTP · UPI · DPDP', "One-time password · India's instant payment system · India's data protection law"],
+];
+
 function manualHtml() {
   const body = `
 ${cover({
@@ -1037,6 +1449,7 @@ const DOCS = [
   { id: 'product', dest: 'Cullinos_Product_Overview.pdf', html: 'Cullinos_Product_Overview.html', build: productHtml },
   { id: 'manual', dest: 'Cullinos_User_Manual.pdf', html: 'Cullinos_User_Manual.html', build: manualHtml },
   { id: 'plans', dest: 'Cullinos_Plans_Brochure.pdf', html: 'Cullinos_Plans_Brochure.html', build: plansBrochureHtml },
+  { id: 'agency', dest: 'Cullinos_Agency_Brief.pdf', html: 'Cullinos_Agency_Brief.html', build: agencyBriefHtml },
   ...PLANS.map((plan) => ({
     id: `plan-${plan.slug}`,
     dest: join('plans', `Cullinos_Plan_${planFileName(plan)}.pdf`),

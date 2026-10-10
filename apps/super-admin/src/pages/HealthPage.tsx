@@ -1,6 +1,24 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import {
+  AlertTriangle,
+  BellRing,
+  Building2,
+  CheckCircle2,
+  Database,
+  FlaskConical,
+  MessageSquare,
+  RefreshCw,
+  ShoppingBag,
+  Timer,
+  XCircle,
+} from 'lucide-react';
+import { Button } from '@cullinos/ui';
+import { Card, DefinitionList, KpiCard, KpiGrid, PageHeader, SectionCard, StatusDot, StatusPill } from '@/components/ui';
+import { Notice } from '@/components/common';
 import { superAdminApi } from '@/lib/api';
+import { errorMessage } from '@/lib/errors';
+import { formatNumber, relativeTime } from '@/lib/format';
 
 export function HealthPage() {
   const { data, isLoading, error, refetch, isFetching } = useQuery({
@@ -16,161 +34,142 @@ export function HealthPage() {
   });
 
   const metrics = data?.metrics;
-
-  const cards = [
-    { label: 'Total organizations', value: metrics?.totalOrganizations },
-    { label: 'Active organizations', value: metrics?.activeOrganizations },
-    { label: 'Trial organizations', value: metrics?.trialOrganizations },
-    { label: 'Orders today', value: metrics?.ordersToday },
-    { label: 'Pending sync events', value: metrics?.pendingSyncEvents },
-    {
-      label: 'Failed sync events',
-      value: metrics?.failedSyncEvents ?? metrics?.failedNotifications,
-    },
-    { label: 'Unread notifications', value: metrics?.unreadNotifications },
-  ];
-
   const sms = smsQuery.data;
-  const hasAlerts =
-    (metrics?.failedSyncEvents ?? metrics?.failedNotifications ?? 0) > 0 ||
-    (metrics?.pendingSyncEvents ?? 0) > 50;
+  const failed = metrics?.failedSyncEvents ?? metrics?.failedNotifications ?? 0;
+  const pending = metrics?.pendingSyncEvents ?? 0;
+  const hasAlerts = failed > 0 || pending > 50;
+  const refreshing = isFetching || smsQuery.isFetching;
+  const value = (n: number | undefined) => (isLoading ? '…' : formatNumber(n ?? 0));
+
+  const services = [
+    {
+      name: 'API',
+      icon: CheckCircle2,
+      ok: data?.status === 'ok',
+      state: data?.status ?? (isLoading ? 'checking' : 'unknown'),
+      detail: data?.timestamp ? `Checked ${relativeTime(data.timestamp)}` : 'Waiting for first check',
+    },
+    {
+      name: 'Database',
+      icon: Database,
+      ok: data?.database === 'ok' || data?.database === 'connected' || data?.database === 'up',
+      state: data?.database ?? (isLoading ? 'checking' : 'unknown'),
+      detail: 'Primary Postgres',
+    },
+    {
+      name: 'Sync queue',
+      icon: RefreshCw,
+      ok: failed === 0 && pending <= 50,
+      state: failed > 0 ? `${failed} failed` : pending > 50 ? 'backlog' : 'healthy',
+      detail: `${formatNumber(pending)} pending events`,
+    },
+    {
+      name: 'SMS / MSG91',
+      icon: MessageSquare,
+      ok: Boolean(sms?.flowConfigured),
+      state: smsQuery.isLoading
+        ? 'checking'
+        : sms?.flowConfigured
+          ? 'Flow ready'
+          : sms?.widgetConfigured
+            ? 'Widget only'
+            : 'Not configured',
+      detail: 'OTP delivery provider',
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">System health</h1>
-          <p className="mt-1 text-text-secondary">
-            Platform status and operational metrics.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Link
-            to="/"
-            className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover"
-          >
-            Dashboard
-          </Link>
-          <button
-            type="button"
+      <PageHeader
+        title="System health"
+        description="Platform status and operational metrics. Refreshes every 30 seconds."
+        actions={
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={refreshing}
             onClick={() => {
               void refetch();
               void smsQuery.refetch();
             }}
-            disabled={isFetching || smsQuery.isFetching}
-            className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
           >
-            {isFetching || smsQuery.isFetching ? 'Refreshing…' : 'Refresh'}
-          </button>
-        </div>
-      </div>
+            <RefreshCw size={16} aria-hidden="true" />
+            Refresh
+          </Button>
+        }
+      />
 
-      {error ? (
-        <div className="rounded-xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
-          {error instanceof Error ? error.message : 'Failed to load health data'}
-        </div>
-      ) : null}
-
+      {error ? <Notice tone="error">{errorMessage(error) ?? 'Failed to load health data'}</Notice> : null}
       {hasAlerts ? (
-        <div className="rounded-xl border border-status-warning/30 bg-status-warning/10 px-4 py-3 text-sm text-status-warning">
-          Operational alerts detected.{' '}
-          <Link to="/" className="underline hover:no-underline">
+        <Notice tone="warning">
+          Operational alerts detected: {failed > 0 ? `${failed} failed sync events` : `${pending} sync events pending`}.{' '}
+          <Link to="/" className="font-medium underline hover:no-underline">
             View dashboard charts
           </Link>
-        </div>
+        </Notice>
       ) : null}
 
-      <div className="flex items-center gap-3 rounded-xl border border-line-subtle bg-bg-card p-5">
-        <span
-          className={`h-3 w-3 rounded-full ${
-            data?.status === 'ok' ? 'bg-status-success' : 'bg-status-warning'
-          }`}
-        />
-        <div>
-          <p className="font-medium capitalize">
-            {data?.status ?? (isLoading ? 'Loading…' : 'Unknown')}
-          </p>
-          <p className="text-sm text-text-muted">
-            Database: {data?.database ?? '—'} · Last check:{' '}
-            {data?.timestamp ? new Date(data.timestamp).toLocaleString() : '—'}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((card) => (
-          <div key={card.label} className="rounded-xl border border-line-subtle bg-bg-card p-5">
-            <p className="text-sm text-text-muted">{card.label}</p>
-            <p className="mt-2 text-2xl font-semibold">
-              {isLoading ? '…' : (card.value ?? 0)}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {services.map((s) => (
+          <Card key={s.name} className="p-5">
+            <div className="flex items-start justify-between gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-bg-secondary text-text-secondary">
+                <s.icon size={18} aria-hidden="true" />
+              </span>
+              {s.ok ? (
+                <CheckCircle2 size={18} className="text-status-success" aria-label="Operational" />
+              ) : isLoading ? null : s.state === 'unknown' ? (
+                <AlertTriangle size={18} className="text-status-warning" aria-label="Unknown" />
+              ) : (
+                <XCircle size={18} className="text-status-warning" aria-label="Needs attention" />
+              )}
+            </div>
+            <p className="mt-4 font-medium">{s.name}</p>
+            <p className="mt-1 flex items-center gap-2 text-sm capitalize text-text-secondary">
+              <StatusDot tone={s.ok ? 'success' : 'warning'} />
+              {s.state}
             </p>
-          </div>
+            <p className="mt-1 text-xs text-text-muted">{s.detail}</p>
+          </Card>
         ))}
       </div>
 
-      <div className="rounded-xl border border-line-subtle bg-bg-card p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="font-medium">SMS / MSG91</h2>
-            <p className="mt-1 text-sm text-text-secondary">
-              OTP delivery provider configuration status.
-            </p>
-          </div>
-          <span
-            className={`rounded-full px-2 py-0.5 text-xs ${
-              sms?.flowConfigured
-                ? 'bg-status-success/15 text-status-success'
-                : sms?.widgetConfigured
-                  ? 'bg-status-warning/15 text-status-warning'
-                  : 'bg-status-warning/15 text-status-warning'
-            }`}
-          >
-            {smsQuery.isLoading
-              ? '…'
-              : sms?.flowConfigured
-                ? 'Flow ready (Waiter)'
-                : sms?.widgetConfigured
-                  ? 'Widget only (Guest)'
-                  : 'Not configured'}
-          </span>
-        </div>
+      <KpiGrid>
+        <KpiCard label="Total organizations" value={value(metrics?.totalOrganizations)} icon={Building2} tone="indigo" />
+        <KpiCard label="Active organizations" value={value(metrics?.activeOrganizations)} icon={CheckCircle2} tone="green" />
+        <KpiCard label="Trial organizations" value={value(metrics?.trialOrganizations)} icon={FlaskConical} tone="orange" />
+        <KpiCard label="Orders today" value={value(metrics?.ordersToday)} icon={ShoppingBag} tone="blue" />
+        <KpiCard label="Pending sync events" value={value(metrics?.pendingSyncEvents)} icon={Timer} tone={pending > 50 ? 'orange' : 'slate'} />
+        <KpiCard label="Failed sync events" value={value(failed)} icon={AlertTriangle} tone={failed > 0 ? 'rose' : 'slate'} />
+        <KpiCard label="Unread notifications" value={value(metrics?.unreadNotifications)} icon={BellRing} tone="violet" />
+      </KpiGrid>
+
+      <SectionCard
+        title="SMS / MSG91"
+        description="OTP delivery provider configuration status."
+        actions={
+          <StatusPill
+            status={sms?.flowConfigured ? 'active' : 'pending'}
+            tone={sms?.flowConfigured ? 'success' : 'warning'}
+            label={smsQuery.isLoading ? 'Checking…' : sms?.flowConfigured ? 'Flow ready (Waiter)' : sms?.widgetConfigured ? 'Widget only (Guest)' : 'Not configured'}
+          />
+        }
+      >
         {smsQuery.error ? (
-          <p className="mt-3 text-sm text-status-error">
-            {smsQuery.error instanceof Error
-              ? smsQuery.error.message
-              : 'Failed to load SMS status'}
-          </p>
+          <Notice tone="error">{errorMessage(smsQuery.error) ?? 'Failed to load SMS status'}</Notice>
         ) : (
-          <dl className="mt-4 grid gap-3 sm:grid-cols-3 text-sm">
-            <div>
-              <dt className="text-text-muted">Flow (Waiter SMS)</dt>
-              <dd className="mt-0.5 font-mono">
-                {sms?.flowConfigured ? 'configured' : 'missing template/key'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-text-muted">Widget (Guest)</dt>
-              <dd className="mt-0.5 font-mono">
-                {sms?.widgetConfigured ? 'configured' : 'not set'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-text-muted">Sender ID</dt>
-              <dd className="mt-0.5 font-mono">{sms?.senderId ?? '—'}</dd>
-            </div>
-            <div>
-              <dt className="text-text-muted">Template ID</dt>
-              <dd className="mt-0.5 font-mono">{sms?.templateId ?? '—'}</dd>
-            </div>
-            <div>
-              <dt className="text-text-muted">OTP TTL</dt>
-              <dd className="mt-0.5 font-mono">
-                {sms?.otpTtlSeconds != null ? `${sms.otpTtlSeconds}s` : '—'}
-              </dd>
-            </div>
-          </dl>
+          <DefinitionList
+            columns={3}
+            items={[
+              { label: 'Flow (Waiter SMS)', value: sms?.flowConfigured ? 'Configured' : 'Missing template/key' },
+              { label: 'Widget (Guest)', value: sms?.widgetConfigured ? 'Configured' : 'Not set' },
+              { label: 'Sender ID', value: <span className="font-mono">{sms?.senderId ?? '—'}</span> },
+              { label: 'Template ID', value: <span className="font-mono">{sms?.templateId ?? '—'}</span> },
+              { label: 'OTP TTL', value: sms?.otpTtlSeconds != null ? `${sms.otpTtlSeconds}s` : '—' },
+            ]}
+          />
         )}
-      </div>
+      </SectionCard>
     </div>
   );
 }

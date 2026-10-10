@@ -9,6 +9,12 @@ import { PortalContextMiddleware } from "./common/portal-context";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PlatformConfigModule } from "./modules/platform-config/platform-config.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { PlatformIamModule } from "./modules/platform-iam/platform-iam.module";
+import { PlatformApprovalsModule } from "./modules/platform-approvals/platform-approvals.module";
+import { PlatformSupportModule } from "./modules/platform-support/platform-support.module";
+import { PlatformPeopleModule } from "./modules/platform-people/platform-people.module";
+import { PlatformSecurityModule } from "./modules/platform-security/platform-security.module";
+import { PlatformReportsModule } from "./modules/platform-reports/platform-reports.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { BrandsModule } from "./modules/brands/brands.module";
 import { OutletsModule } from "./modules/outlets/outlets.module";
@@ -81,7 +87,13 @@ import { GeoController } from "./modules/geo/geo.controller";
     PrismaModule,
     PlatformConfigModule,
     StorageModule,
+    PlatformIamModule,
+    PlatformApprovalsModule,
     AuthModule,
+    PlatformSupportModule,
+    PlatformPeopleModule,
+    PlatformSecurityModule,
+    PlatformReportsModule,
     OrganizationsModule,
     BrandsModule,
     OutletsModule,

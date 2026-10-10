@@ -10,6 +10,7 @@ Stylish PDFs for customers, prospects, and restaurant teams.
 | **Cullinos_Product_Overview.pdf** | Decision makers | What Cullinos is, every feature, plans |
 | **Cullinos_User_Manual.pdf** | Owners & staff | How to use the platform day to day |
 | **Cullinos_Plans_Brochure.pdf** | Prospects / decision makers | Plan chooser, a page per plan, comparison matrix, custom quotes |
+| **Cullinos_Agency_Brief.pdf** | Marketing agencies / content creators | Every feature in plain language, messaging kit, content ideas, assets, claim guardrails, glossary (source: [AGENCY_BRIEF.md](./AGENCY_BRIEF.md)) |
 | **plans/Cullinos_Plan_&lt;Name&gt;.pdf** | A specific prospect | One-page sheet per plan: Starter, QSR, Professional, Enterprise, Hospitality |
 
 Plan prices, limits, and features are rendered from the `PLANS` constant in the generator, which mirrors `PUBLIC_PLAN_CATALOG` / `PLAN_FEATURES` in `packages/shared/src/features.ts`. Update both together when pricing changes.
@@ -45,6 +46,7 @@ Outputs:
 2. Product Overview → demos & proposals  
 3. Plans Brochure → pricing conversations; per-plan sheet → follow-up after a demo  
 4. User Manual → after onboarding  
-5. (Optional) Link decision-makers to the detailed [PRODUCT.md](../PRODUCT.md) for engineers / deep diligence  
+5. Agency Brief → marketing agencies, creators, and partners producing Cullinos content  
+6. (Optional) Link decision-makers to the detailed [PRODUCT.md](../PRODUCT.md) for engineers / deep diligence  
 
 Contact: hello@rkyves.com · https://cullinos.com · Mumbai, India

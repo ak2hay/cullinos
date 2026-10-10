@@ -15,6 +15,8 @@ export interface CommandPaletteProps {
   onClose: () => void;
   items: CommandPaletteItem[];
   placeholder?: string;
+  /** Lets the host add remote results (e.g. records) for the current query. */
+  onQueryChange?: (query: string) => void;
 }
 
 export function CommandPalette({
@@ -22,6 +24,7 @@ export function CommandPalette({
   onClose,
   items,
   placeholder = 'Search pages…',
+  onQueryChange,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -46,7 +49,8 @@ export function CommandPalette({
 
   useEffect(() => {
     setActiveIndex(0);
-  }, [query]);
+    onQueryChange?.(query);
+  }, [query, onQueryChange]);
 
   useEffect(() => {
     if (!open) return;

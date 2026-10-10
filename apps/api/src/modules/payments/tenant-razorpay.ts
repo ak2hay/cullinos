@@ -47,6 +47,47 @@ export function verifyTenantRazorpayWebhookSignature(
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+function duplicateRefund(err: unknown): boolean {
+  return /already exists|duplicate refund|refund.{0,40}already/i.test(extractMessage(err));
+}
+
+/** Full refund of a captured diner payment on the restaurant's Razorpay account. */
+export async function refundTenantRazorpayPayment(
+  creds: ResolvedPaymentCredentials,
+  input: { paymentId: string; amountPaise: number; receipt: string },
+): Promise<{ id: string }> {
+  if (!input.paymentId.startsWith("pay_")) {
+    throw new BadRequestException("Razorpay payment id is missing");
+  }
+  if (!Number.isFinite(input.amountPaise) || input.amountPaise < MIN_AMOUNT_PAISE) {
+    throw new BadRequestException("Refund amount must be at least ₹1.00");
+  }
+  const instance = createTenantRazorpayInstance(creds);
+  const paymentsApi = instance.payments as {
+    refund: (
+      paymentId: string,
+      params: {
+        amount: number;
+        speed: "normal";
+        receipt: string;
+        notes: RazorpayNotes;
+      },
+    ) => Promise<{ id: string }>;
+  };
+  try {
+    const refund = await paymentsApi.refund(input.paymentId, {
+      amount: Math.round(input.amountPaise),
+      speed: "normal",
+      receipt: input.receipt.slice(0, 40),
+      notes: { source: "cullinos_order_cancel" },
+    });
+    return { id: refund.id };
+  } catch (err) {
+    if (duplicateRefund(err)) return { id: input.receipt };
+    return mapTenantRazorpayError(err, "refund payment");
+  }
+}
+
 export async function createTenantRazorpayOrder(
   creds: ResolvedPaymentCredentials,
   input: {

@@ -1,10 +1,10 @@
-/* Applies the saved Light/Dark/System theme before first paint (see @cullinos/ui theme-mode.ts). */
+/* Applies the saved theme before first paint (see @cullinos/ui theme-mode.ts). Super admin defaults to light. */
 (function () {
-  var theme = 'dark';
+  var theme = 'light';
   try {
     var stored = localStorage.getItem('cullinos-theme');
-    if (stored === 'light' || stored === 'dark') theme = stored;
-    else if (window.matchMedia && !window.matchMedia('(prefers-color-scheme: dark)').matches) theme = 'light';
+    if (stored === 'dark') theme = 'dark';
+    else if (stored !== 'light') localStorage.setItem('cullinos-theme', 'light');
   } catch (e) {}
   document.documentElement.setAttribute('data-theme', theme);
 })();

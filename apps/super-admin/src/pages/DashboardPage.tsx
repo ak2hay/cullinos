@@ -1,380 +1,345 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import {
-  superAdminApi,
-  type AnalyticsRange,
-} from '@/lib/api';
-import { useCan } from '@/lib/permissions';
+import { Link, useNavigate } from 'react-router-dom';
+import { AlertTriangle, BadgeCheck, Building2, CalendarClock, IndianRupee, Plus, ReceiptText, RefreshCcw, TrendingUp } from 'lucide-react';
+import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useCssVar } from '@cullinos/ui';
+import { Notice } from '@/components/common';
+import {
+  CHART_COLORS,
+  chartTooltipStyle,
+  DataTable,
+  EntityAvatar,
+  KpiCard,
+  PageHeader,
+  SectionCard,
+  Segmented,
+  StatusPill,
+} from '@/components/ui';
+import { superAdminApi, type AnalyticsRange } from '@/lib/api';
+import { formatDate, formatInr, relativeTime } from '@/lib/format';
+import { useCan } from '@/lib/permissions';
+import { approvalsApi } from '@/lib/platform-api';
+import { useAuthStore } from '@/stores/auth';
 
-const RANGES: AnalyticsRange[] = ['7d', '30d', '90d'];
-const PIE_COLORS = ['#3d9a6a', '#5b8def', '#e8a317', '#e85d5d', '#9b7ed9', '#5ec8c8'];
-
-function formatInr(n: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(n);
-}
+const RANGES: Array<{ value: AnalyticsRange; label: string }> = [
+  { value: '7d', label: '7 days' },
+  { value: '30d', label: '30 days' },
+  { value: '90d', label: '90 days' },
+];
 
 function shortDate(iso: string) {
   const [, m, d] = iso.split('-');
   return `${d}/${m}`;
 }
 
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+}
+
+function TrendChart({
+  data,
+  color,
+  name,
+}: {
+  data: Array<{ label: string; count: number }>;
+  color: string;
+  name: string;
+}) {
+  const tick = useCssVar('--color-text-muted', '#8a8a8a');
+  const grid = useCssVar('--color-line-subtle', 'rgba(0,0,0,0.06)');
+  const id = `grad-${name.replace(/\s/g, '')}`;
+  return (
+    <div className="h-60">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+          <defs>
+            <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.28} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke={grid} vertical={false} />
+          <XAxis dataKey="label" tick={{ fill: tick, fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={16} />
+          <YAxis allowDecimals={false} tick={{ fill: tick, fontSize: 11 }} axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={chartTooltipStyle} />
+          <Area type="monotone" dataKey="count" name={name} stroke={color} fill={`url(#${id})`} strokeWidth={2.25} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 export function DashboardPage() {
   const [range, setRange] = useState<AnalyticsRange>('30d');
+  const navigate = useNavigate();
   const can = useCan();
+  const admin = useAuthStore((s) => s.admin);
   const canSeeTenants = can('tenants.read');
-  const chartTick = useCssVar('--color-text-muted', '#8a8a8a');
-  const chartGrid = useCssVar('--color-line-subtle', 'rgba(255,255,255,0.06)');
 
-  const analyticsQuery = useQuery({
+  const analytics = useQuery({
     queryKey: ['super-admin', 'analytics', range],
     queryFn: () => superAdminApi.analyticsOverview(range),
     refetchInterval: 30_000,
   });
-
-  const tenantsQuery = useQuery({
+  const tenants = useQuery({
     queryKey: ['super-admin', 'organizations', 1, 'dash'],
-    queryFn: () => superAdminApi.listOrganizations(1, 8),
+    queryFn: () => superAdminApi.listOrganizations(1, 6),
     enabled: canSeeTenants,
   });
+  const approvals = useQuery({ queryKey: ['super-admin', 'approvals', 'count'], queryFn: approvalsApi.count });
 
-  const data = analyticsQuery.data;
+  const data = analytics.data;
   const saas = data?.saas;
   const ops = data?.ops;
+  const loading = analytics.isLoading;
+  const v = (x: string | number | undefined) => (loading ? '…' : (x ?? '—'));
 
-  const kpiCards = [
-    { label: 'MRR', value: saas ? formatInr(saas.mrr) : '…' },
-    { label: 'ARR', value: saas ? formatInr(saas.arr) : '…' },
-    { label: 'Active orgs', value: ops?.activeOrganizations ?? '…' },
-    { label: 'Trials', value: saas?.trialCount ?? '…' },
-    { label: 'Orders today', value: ops?.ordersToday ?? '…' },
-    { label: 'Failed syncs', value: ops?.failedSyncEvents ?? '…' },
-  ];
-
-  const newOrgsSeries =
-    saas?.newOrganizationsByDay.map((p) => ({
-      ...p,
-      label: shortDate(p.date),
-    })) ?? [];
-  const ordersSeries =
-    ops?.ordersByDay.map((p) => ({
-      ...p,
-      label: shortDate(p.date),
-    })) ?? [];
+  const newOrgs = saas?.newOrganizationsByDay.map((p) => ({ ...p, label: shortDate(p.date) })) ?? [];
+  const orders = ops?.ordersByDay.map((p) => ({ ...p, label: shortDate(p.date) })) ?? [];
+  const planMix = saas?.planMix ?? [];
+  const planTotal = planMix.reduce((a, p) => a + p.count, 0);
+  const firstName = (admin?.name ?? '').split(' ')[0];
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="mt-1 text-text-secondary">
-            SaaS revenue and platform operations at a glance.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex rounded-lg border border-line p-0.5">
-            {RANGES.map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setRange(r)}
-                className={`rounded-md px-3 py-1.5 text-sm ${
-                  range === r
-                    ? 'bg-brand-primary text-on-brand'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
+      <PageHeader
+        breadcrumbs={false}
+        title={`${greeting()}${firstName ? `, ${firstName}` : ''}`}
+        description="SaaS revenue and platform operations at a glance."
+        actions={
+          <>
+            <Segmented label="Date range" options={RANGES} value={range} onChange={setRange} />
+            {can('tenants.write') ? (
+              <Link
+                to="/tenants?onboard=1"
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-brand-primary px-4 text-sm font-medium text-on-brand hover:bg-brand-primary-dark"
               >
-                {r}
-              </button>
-            ))}
-          </div>
-          {can('tenants.write') ? (
-            <Link
-              to="/tenants?onboard=1"
-              className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand hover:bg-brand-primary-dark"
-            >
-              Onboard restaurant
-            </Link>
+                <Plus size={16} aria-hidden="true" />
+                Onboard restaurant
+              </Link>
+            ) : null}
+          </>
+        }
+      />
+
+      {analytics.error ? (
+        <Notice tone="error">{analytics.error instanceof Error ? analytics.error.message : 'Failed to load analytics'}</Notice>
+      ) : null}
+
+      {(data?.alerts ?? []).map((alert) => (
+        <Notice key={alert.message} tone={alert.severity === 'error' ? 'error' : alert.severity === 'warning' ? 'warning' : 'info'}>
+          {alert.message}
+          {alert.severity !== 'info' ? (
+            <>
+              {' · '}
+              <Link to="/health" className="font-medium underline hover:no-underline">
+                System health
+              </Link>
+            </>
           ) : null}
-        </div>
-      </div>
+        </Notice>
+      ))}
 
-      {analyticsQuery.error ? (
-        <div className="rounded-xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
-          {analyticsQuery.error instanceof Error
-            ? analyticsQuery.error.message
-            : 'Failed to load analytics'}
-        </div>
-      ) : null}
-
-      {(data?.alerts?.length ?? 0) > 0 ? (
-        <div className="space-y-2">
-          {data!.alerts.map((alert) => (
-            <div
-              key={alert.message}
-              className={`rounded-xl border px-4 py-3 text-sm ${
-                alert.severity === 'error'
-                  ? 'border-status-error/30 bg-status-error/10 text-status-error'
-                  : alert.severity === 'warning'
-                    ? 'border-status-warning/30 bg-status-warning/10 text-status-warning'
-                    : 'border-line bg-bg-card text-text-secondary'
-              }`}
-            >
-              {alert.message}
-              {alert.severity !== 'info' ? (
-                <>
-                  {' · '}
-                  <Link to="/health" className="underline hover:no-underline">
-                    System health
-                  </Link>
-                </>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {kpiCards.map((card) => (
-          <div key={card.label} className="rounded-xl border border-line-subtle bg-bg-card p-5">
-            <p className="text-sm text-text-muted">{card.label}</p>
-            <p className="mt-2 text-2xl font-semibold tabular-nums">
-              {analyticsQuery.isLoading ? '…' : card.value}
-            </p>
-          </div>
-        ))}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <KpiCard label="MRR" icon={IndianRupee} tone="indigo" value={v(saas ? formatInr(saas.mrr) : undefined)} hint="Monthly recurring revenue" />
+        <KpiCard label="ARR" icon={TrendingUp} tone="violet" value={v(saas ? formatInr(saas.arr) : undefined)} hint="Annualised" />
+        <KpiCard label="Active orgs" icon={Building2} tone="green" value={v(ops?.activeOrganizations)} hint="Live tenants" />
+        <KpiCard label="Trials" icon={CalendarClock} tone="blue" value={v(saas?.trialCount)} hint={`${saas?.trialsEndingSoon.length ?? 0} ending this week`} />
+        <KpiCard label="Orders today" icon={ReceiptText} tone="orange" value={v(ops?.ordersToday)} hint="Across all tenants" />
+        <KpiCard
+          label="Failed syncs"
+          icon={RefreshCcw}
+          tone={(ops?.failedSyncEvents ?? 0) > 0 ? 'rose' : 'slate'}
+          value={v(ops?.failedSyncEvents)}
+          hint="Offline sync queue"
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-line-subtle bg-bg-card p-5">
-          <h2 className="font-medium">New organizations</h2>
-          <p className="mt-1 text-sm text-text-muted">Signups over the selected range</p>
-          <div className="mt-4 h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={newOrgsSeries}>
-                <CartesianGrid stroke={chartGrid} vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: chartTick, fontSize: 11 }} />
-                <YAxis allowDecimals={false} tick={{ fill: chartTick, fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{
-                    background: 'var(--color-bg-secondary)',
-                    color: 'var(--color-text-primary)',
-                    border: '1px solid var(--color-line)',
-                    borderRadius: 8,
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  name="New orgs"
-                  stroke="#3d9a6a"
-                  fill="rgba(61,154,106,0.25)"
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-line-subtle bg-bg-card p-5">
-          <h2 className="font-medium">Orders</h2>
-          <p className="mt-1 text-sm text-text-muted">Platform order volume by day</p>
-          <div className="mt-4 h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={ordersSeries}>
-                <CartesianGrid stroke={chartGrid} vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: chartTick, fontSize: 11 }} />
-                <YAxis allowDecimals={false} tick={{ fill: chartTick, fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{
-                    background: 'var(--color-bg-secondary)',
-                    color: 'var(--color-text-primary)',
-                    border: '1px solid var(--color-line)',
-                    borderRadius: 8,
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  name="Orders"
-                  stroke="#5b8def"
-                  fill="rgba(91,141,239,0.25)"
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <SectionCard title="New organizations" description="Signups over the selected range">
+          <TrendChart data={newOrgs} color={CHART_COLORS[0]} name="New orgs" />
+        </SectionCard>
+        <SectionCard title="Orders" description="Platform order volume by day">
+          <TrendChart data={orders} color={CHART_COLORS[3]} name="Orders" />
+        </SectionCard>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-xl border border-line-subtle bg-bg-card p-5 lg:col-span-1">
-          <h2 className="font-medium">Plan mix</h2>
-          <p className="mt-1 text-sm text-text-muted">Tenants by subscription plan</p>
-          <div className="mt-4 h-56">
-            {(saas?.planMix.length ?? 0) === 0 ? (
-              <p className="pt-16 text-center text-sm text-text-muted">No plan data</p>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={saas!.planMix}
-                    dataKey="count"
-                    nameKey="planName"
-                    innerRadius={45}
-                    outerRadius={75}
-                    paddingAngle={2}
-                  >
-                    {saas!.planMix.map((_, i) => (
-                      <Cell key={saas!.planMix[i]!.planSlug} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      background: 'var(--color-bg-secondary)',
-                    color: 'var(--color-text-primary)',
-                      border: '1px solid var(--color-line)',
-                      borderRadius: 8,
-                    }}
-                  />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-          <p className="mt-2 text-xs text-text-muted">
-            Cancelled in range: {saas?.cancelledInRange ?? 0}
-          </p>
-        </div>
+        <SectionCard title="Plan mix" description="Tenants by subscription plan">
+          {planMix.length === 0 ? (
+            <p className="py-16 text-center text-sm text-text-muted">No plan data</p>
+          ) : (
+            <div className="flex flex-col items-center gap-4 sm:flex-row lg:flex-col xl:flex-row">
+              <div className="relative h-44 w-44 shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={planMix} dataKey="count" nameKey="planName" innerRadius={52} outerRadius={78} paddingAngle={2} stroke="none">
+                      {planMix.map((p, i) => (
+                        <Cell key={p.planSlug} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={chartTooltipStyle} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="font-display text-2xl font-bold">{planTotal}</span>
+                  <span className="text-xs text-text-muted">tenants</span>
+                </div>
+              </div>
+              <ul className="w-full space-y-2 text-sm">
+                {planMix.map((p, i) => (
+                  <li key={p.planSlug} className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                    <span className="flex-1 truncate">{p.planName}</span>
+                    <span className="font-medium tabular-nums">{p.count}</span>
+                  </li>
+                ))}
+                <li className="border-t border-line-subtle pt-2 text-xs text-text-muted">Cancelled in range: {saas?.cancelledInRange ?? 0}</li>
+              </ul>
+            </div>
+          )}
+        </SectionCard>
 
-        <div className="overflow-hidden rounded-xl border border-line-subtle bg-bg-card lg:col-span-2">
-          <div className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
-            <h2 className="font-medium">Trials ending soon</h2>
-            <Link to="/tenants" className="text-sm text-brand-primary hover:underline">
+        <SectionCard
+          className="lg:col-span-2"
+          flush
+          title="Trials ending soon"
+          description="Next 7 days"
+          actions={
+            <Link to="/tenants" className="text-sm font-medium text-accent hover:underline">
               All tenants
             </Link>
-          </div>
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
-                <th className="px-4 py-3 font-medium">Organization</th>
-                <th className="px-4 py-3 font-medium">Plan</th>
-                <th className="px-4 py-3 font-medium">Ends</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(saas?.trialsEndingSoon ?? []).length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="px-4 py-8 text-center text-text-muted">
-                    No trials ending in the next 7 days.
-                  </td>
-                </tr>
-              ) : (
-                saas!.trialsEndingSoon.map((t) => (
-                  <tr key={t.organizationId} className="border-b border-line-subtle">
-                    <td className="px-4 py-3">
-                      <Link
-                        to={`/tenants/${t.organizationId}`}
-                        className="font-medium hover:text-brand-primary"
-                      >
-                        {t.organizationName}
-                      </Link>
-                      <p className="text-xs text-text-muted">{t.organizationSlug}</p>
-                    </td>
-                    <td className="px-4 py-3">{t.planName}</td>
-                    <td className="px-4 py-3 text-text-muted">
-                      {t.trialEndsAt ? new Date(t.trialEndsAt).toLocaleDateString() : '—'}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+          }
+        >
+          <DataTable
+            bare
+            rows={saas?.trialsEndingSoon ?? []}
+            loading={loading}
+            skeletonRows={3}
+            getRowKey={(t) => t.organizationId}
+            onRowClick={(t) => navigate(`/tenants/${t.organizationId}`)}
+            emptyMessage="No trials ending in the next 7 days"
+            columns={[
+              {
+                key: 'org',
+                header: 'Organization',
+                cell: (t) => (
+                  <div className="flex items-center gap-3">
+                    <EntityAvatar name={t.organizationName} seed={t.organizationId} size={32} />
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{t.organizationName}</p>
+                      <p className="truncate text-xs text-text-muted">{t.organizationSlug}</p>
+                    </div>
+                  </div>
+                ),
+              },
+              { key: 'plan', header: 'Plan', cell: (t) => t.planName },
+              {
+                key: 'ends',
+                header: 'Trial ends',
+                cell: (t) => (
+                  <div>
+                    <p>{formatDate(t.trialEndsAt)}</p>
+                    <p className="text-xs text-text-muted">{relativeTime(t.trialEndsAt)}</p>
+                  </div>
+                ),
+              },
+            ]}
+          />
+        </SectionCard>
       </div>
 
-      {canSeeTenants ? (
-        <div className="overflow-hidden rounded-xl border border-line-subtle bg-bg-card">
-          <div className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
-            <h2 className="font-medium">Recent tenants</h2>
-            <Link to="/tenants" className="text-sm text-brand-primary hover:underline">
-              View all
-            </Link>
-          </div>
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
-                <th className="px-4 py-3 font-medium">Organization</th>
-                <th className="px-4 py-3 font-medium">Plan</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tenantsQuery.isLoading ? (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-text-muted">
-                    Loading…
-                  </td>
-                </tr>
-              ) : (tenantsQuery.data?.data ?? []).length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-text-muted">
-                    No tenants yet.
-                  </td>
-                </tr>
-              ) : (
-                (tenantsQuery.data?.data ?? []).map((tenant) => (
-                  <tr key={tenant.id} className="border-b border-line-subtle">
-                    <td className="px-4 py-3">
-                      <Link
-                        to={`/tenants/${tenant.id}`}
-                        className="font-medium hover:text-brand-primary"
-                      >
-                        {tenant.name}
-                      </Link>
-                      <p className="text-xs text-text-muted">{tenant.slug}</p>
-                    </td>
-                    <td className="px-4 py-3">{tenant.plan ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs ${
-                          tenant.isActive
-                            ? 'bg-status-success/15 text-status-success'
-                            : 'bg-status-error/15 text-status-error'
-                        }`}
-                      >
-                        {tenant.isActive ? 'Active' : 'Suspended'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-text-muted">
-                      {new Date(tenant.createdAt).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {canSeeTenants ? (
+          <SectionCard
+            className="lg:col-span-2"
+            flush
+            title="Recent tenants"
+            actions={
+              <Link to="/tenants" className="text-sm font-medium text-accent hover:underline">
+                View all
+              </Link>
+            }
+          >
+            <DataTable
+              bare
+              rows={tenants.data?.data ?? []}
+              loading={tenants.isLoading}
+              skeletonRows={4}
+              getRowKey={(t) => t.id}
+              onRowClick={(t) => navigate(`/tenants/${t.id}`)}
+              emptyMessage="No tenants yet"
+              columns={[
+                {
+                  key: 'org',
+                  header: 'Organization',
+                  cell: (t) => (
+                    <div className="flex items-center gap-3">
+                      <EntityAvatar name={t.name} seed={t.id} size={32} />
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{t.name}</p>
+                        <p className="truncate text-xs text-text-muted">{t.slug}</p>
+                      </div>
+                    </div>
+                  ),
+                },
+                { key: 'plan', header: 'Plan', cell: (t) => <span className="capitalize">{t.planName ?? t.plan ?? '—'}</span> },
+                { key: 'status', header: 'Status', cell: (t) => <StatusPill status={t.status ?? (t.isActive ? 'active' : 'suspended')} /> },
+                {
+                  key: 'created',
+                  header: 'Created',
+                  cell: (t) => <span className="text-text-muted">{relativeTime(t.createdAt)}</span>,
+                },
+              ]}
+            />
+          </SectionCard>
+        ) : null}
+
+        <SectionCard title="Needs attention" className={canSeeTenants ? '' : 'lg:col-span-3'}>
+          <ul className="space-y-2">
+            <li>
+              <Link to="/approvals" className="flex items-center gap-3 rounded-lg border border-line-subtle p-3 hover:bg-hover">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/12 text-indigo-600 dark:text-indigo-300">
+                  <BadgeCheck size={18} aria-hidden="true" />
+                </span>
+                <span className="flex-1">
+                  <span className="block text-sm font-medium">Approvals</span>
+                  <span className="block text-xs text-text-muted">Waiting on you</span>
+                </span>
+                <span className="font-display text-lg font-semibold">{approvals.data?.count ?? 0}</span>
+              </Link>
+            </li>
+            <li>
+              <Link to="/tenants" className="flex items-center gap-3 rounded-lg border border-line-subtle p-3 hover:bg-hover">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/12 text-sky-600 dark:text-sky-300">
+                  <CalendarClock size={18} aria-hidden="true" />
+                </span>
+                <span className="flex-1">
+                  <span className="block text-sm font-medium">Trials ending</span>
+                  <span className="block text-xs text-text-muted">Next 7 days</span>
+                </span>
+                <span className="font-display text-lg font-semibold">{saas?.trialsEndingSoon.length ?? 0}</span>
+              </Link>
+            </li>
+            {can('health.read') ? (
+              <li>
+                <Link to="/health" className="flex items-center gap-3 rounded-lg border border-line-subtle p-3 hover:bg-hover">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/12 text-amber-600 dark:text-amber-300">
+                    <AlertTriangle size={18} aria-hidden="true" />
+                  </span>
+                  <span className="flex-1">
+                    <span className="block text-sm font-medium">Platform alerts</span>
+                    <span className="block text-xs text-text-muted">Sync and delivery issues</span>
+                  </span>
+                  <span className="font-display text-lg font-semibold">{data?.alerts.filter((a) => a.severity !== 'info').length ?? 0}</span>
+                </Link>
+              </li>
+            ) : null}
+          </ul>
+        </SectionCard>
+      </div>
     </div>
   );
 }

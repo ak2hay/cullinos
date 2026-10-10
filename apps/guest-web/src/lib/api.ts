@@ -45,6 +45,8 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T
 export interface MenuCategory {
   id: string;
   name: string;
+  description?: string | null;
+  imageUrl?: string | null;
 }
 
 export interface MenuModifier {
@@ -77,11 +79,22 @@ export interface MenuItem {
   price: number;
   isAvailable: boolean;
   categoryId: string | null;
+  /** Paise, before any happy-hour discount */
+  regularPrice?: number;
+  happyHour?: { name: string; endTime: string } | null;
   imageUrl?: string | null;
   isVeg?: boolean | null;
+  isSpecial?: boolean;
   isAlcohol?: boolean;
   variants?: MenuVariant[];
   modifierGroups?: MenuModifierGroup[];
+}
+
+export interface DayHours {
+  closed: boolean;
+  /** HH:MM, 24h */
+  open: string;
+  close: string;
 }
 
 export interface StorefrontBootstrap {
@@ -94,7 +107,12 @@ export interface StorefrontBootstrap {
   brandName: string;
   logoUrl?: string | null;
   coverImageUrl?: string | null;
+  photoUrls?: string[];
   accentColor?: string | null;
+  /** null when the outlet has not configured opening hours */
+  openNow?: boolean | null;
+  todayHours?: DayHours | null;
+  popularItemIds?: string[];
   menu: {
     outletId: string;
     categories: MenuCategory[];
@@ -159,6 +177,7 @@ export const orderApi = {
     payload: {
       items: OrderLineInput[];
       customerName: string;
+      customerPhone?: string;
       notes?: string;
       ageConfirmed?: boolean;
     },
@@ -178,6 +197,7 @@ export const orderApi = {
     outletSlug: string;
     type: 'takeaway' | 'dine_in';
     customerName: string;
+    customerPhone?: string;
     notes: string;
     items: OrderLineInput[];
     ageConfirmed?: boolean;
@@ -193,6 +213,15 @@ export const orderApi = {
 export function formatPrice(paise: number): string {
   const rupees = paise / 100;
   return `₹${Number.isInteger(rupees) ? rupees.toFixed(0) : rupees.toFixed(2)}`;
+}
+
+/** "23:00" → "11:00 PM" */
+export function formatClock(hhmm: string): string {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!m) return hhmm;
+  const h = Number(m[1]) % 24;
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  return `${h % 12 === 0 ? 12 : h % 12}:${m[2]} ${suffix}`;
 }
 
 export function isAndroid(): boolean {

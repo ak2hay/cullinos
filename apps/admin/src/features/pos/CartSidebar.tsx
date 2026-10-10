@@ -144,8 +144,8 @@ export function CartSidebar({
   const duePaise = Math.max(0, subtotal + tipPaise - discountPaise);
 
   return (
-    <aside className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden border-t border-line-subtle bg-bg-secondary lg:w-[26rem] lg:flex-none lg:border-l lg:border-t-0">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line-subtle px-4 py-3 lg:px-5 lg:py-4">
+    <aside className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden border-t border-line-subtle bg-bg-secondary lg:w-[22rem] lg:flex-none lg:border-l lg:border-t-0">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line-subtle px-3 py-2">
         {onBack ? (
           <button
             type="button"
@@ -157,71 +157,72 @@ export function CartSidebar({
           </button>
         ) : null}
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg font-semibold">{t('pos.currentOrder')}</h2>
-          <p className="text-sm text-text-muted">
-            {itemCount} {itemCount === 1 ? 'item' : 'items'}
-          </p>
+          <h2 className="text-sm font-semibold">
+            {t('pos.currentOrder')}
+            <span className="ml-2 text-xs font-normal text-text-muted">
+              {itemCount} {itemCount === 1 ? 'item' : 'items'}
+            </span>
+          </h2>
         </div>
         {itemCount > 0 ? (
-          <span className="rounded-full bg-brand-primary/15 px-3 py-1 font-mono text-sm font-semibold text-brand-primary">
+          <span className="rounded-full bg-brand-primary/15 px-2.5 py-0.5 font-mono text-xs font-semibold text-brand-primary">
             {formatMoney(duePaise)}
           </span>
         ) : null}
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 py-2">
         {lines.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-line bg-bg-primary/40 px-4 py-8 text-center">
+          <div className="flex flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-line bg-bg-primary/40 px-4 py-6 text-center">
             <p className="text-sm font-medium text-text-secondary">{t('pos.cartEmpty')}</p>
             <p className="text-xs text-text-muted">{t('pos.cartEmptyHint')}</p>
           </div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="divide-y divide-line-subtle overflow-hidden rounded-lg border border-line-subtle bg-bg-card/90">
             {lines.map((line) => (
-              <li
-                key={line.lineId}
-                className="rounded-xl border border-line-subtle bg-bg-card/90 p-3 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-2">
+              <li key={line.lineId} className="px-2 py-1.5">
+                <div className="flex items-center gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium leading-tight">{line.name}</p>
+                    <p className="truncate text-sm font-medium leading-tight" title={line.name}>
+                      {line.name}
+                    </p>
                     <CartLineNote
                       notes={line.notes}
                       onSave={(notes) => setLineNote(line.lineId, notes)}
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removeItem(line.lineId)}
-                    className="text-sm text-text-muted hover:text-status-error"
-                    aria-label="Remove item"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="mt-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-1">
                     <button
                       type="button"
                       onClick={() => updateQuantity(line.lineId, line.quantity - 1)}
-                      className="flex h-10 w-10 items-center justify-center rounded-lg bg-bg-elevated text-lg font-bold active:scale-95"
+                      className="flex h-7 w-7 items-center justify-center rounded-md bg-bg-elevated text-sm font-bold active:scale-95"
+                      aria-label="Decrease quantity"
                     >
                       −
                     </button>
-                    <span className="min-w-[2rem] text-center font-mono text-lg">
+                    <span className="min-w-[1.5rem] text-center font-mono text-sm">
                       {line.quantity}
                     </span>
                     <button
                       type="button"
                       onClick={() => updateQuantity(line.lineId, line.quantity + 1)}
-                      className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-primary/20 text-lg font-bold text-brand-primary active:scale-95"
+                      className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-primary/20 text-sm font-bold text-brand-primary active:scale-95"
+                      aria-label="Increase quantity"
                     >
                       +
                     </button>
                   </div>
-                  <span className="font-mono text-brand-primary">
+                  <span className="w-16 shrink-0 text-right font-mono text-xs text-brand-primary">
                     {formatMoney(line.unitPrice * line.quantity)}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => removeItem(line.lineId)}
+                    className="shrink-0 px-1 text-xs text-text-muted hover:text-status-error"
+                    aria-label="Remove item"
+                  >
+                    ✕
+                  </button>
                 </div>
               </li>
             ))}
@@ -473,15 +474,15 @@ export function CartSidebar({
         ) : null}
       </div>
 
-      <div className="shrink-0 space-y-3 border-t border-line-subtle bg-bg-secondary p-4">
+      <div className="shrink-0 space-y-2 border-t border-line-subtle bg-bg-secondary p-2.5">
         {discountPaise > 0 ? (
           <div className="flex items-center justify-between text-sm text-text-muted">
             <span>{t('pos.loyaltyDiscount')}</span>
             <span className="font-mono">−{formatMoney(discountPaise)}</span>
           </div>
         ) : null}
-        <div className="flex items-center justify-between text-lg">
-          <span className="text-text-secondary">
+        <div className="flex items-center justify-between text-base">
+          <span className="text-sm text-text-secondary">
             {unpaidBalance ? t('pos.remaining') : t('pos.subtotal')}
           </span>
           <span className="font-mono font-semibold text-brand-primary">
@@ -495,7 +496,7 @@ export function CartSidebar({
           type="button"
           disabled={!canCharge && !unpaidOrder}
           onClick={() => setTenderOpen(true)}
-          className="h-14 w-full rounded-2xl bg-brand-primary text-lg font-bold text-on-brand shadow-lg shadow-brand-primary/20 transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+          className="h-11 w-full rounded-xl bg-brand-primary text-base font-bold text-on-brand shadow-lg shadow-brand-primary/20 transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
         >
           {checkoutLoading
             ? t('pos.processing')
@@ -515,7 +516,7 @@ export function CartSidebar({
                 setTenderOpen(false);
                 onCash();
               }}
-              className="h-12 rounded-xl bg-brand-primary/20 font-medium text-brand-primary disabled:opacity-40"
+              className="h-10 rounded-lg bg-brand-primary/20 text-sm font-medium text-brand-primary disabled:opacity-40"
             >
               {cashDisabled ? t('pos.cashOpenShift') : t('pos.cashEnter')}
             </button>
@@ -527,7 +528,7 @@ export function CartSidebar({
                 setTenderOpen(false);
                 onOnline();
               }}
-              className="h-12 rounded-xl border border-line font-medium disabled:opacity-40"
+              className="h-10 rounded-lg border border-line text-sm font-medium disabled:opacity-40"
             >
               {t('pos.upiCard')}
             </button>
@@ -542,7 +543,7 @@ export function CartSidebar({
             type="button"
             disabled={lines.length === 0 || holdLoading}
             onClick={onHold}
-            className="h-12 rounded-xl border border-line bg-bg-elevated font-medium transition active:scale-[0.98] disabled:opacity-40"
+            className="h-9 rounded-lg border border-line bg-bg-elevated text-sm font-medium transition active:scale-[0.98] disabled:opacity-40"
           >
             {holdLoading ? t('pos.holding') : t('pos.hold')}
           </button>
@@ -550,7 +551,7 @@ export function CartSidebar({
             type="button"
             disabled={lines.length === 0}
             onClick={onClear}
-            className="h-12 rounded-xl border border-line bg-bg-elevated font-medium text-status-error transition active:scale-[0.98] disabled:opacity-40"
+            className="h-9 rounded-lg border border-line bg-bg-elevated text-sm font-medium text-status-error transition active:scale-[0.98] disabled:opacity-40"
           >
             Clear (Esc)
           </button>

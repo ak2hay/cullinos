@@ -864,7 +864,7 @@ export function PortalPosPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[radial-gradient(ellipse_at_top,_var(--color-bg-secondary)_0%,_var(--color-bg-primary)_55%)]">
-      <div className="flex shrink-0 items-center gap-2 border-b border-line-subtle px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
+      <div className="flex shrink-0 items-center gap-2 border-b border-line-subtle px-2 py-1.5 sm:px-3">
         <div className="min-w-0 flex-1">
           <SearchBar ref={searchRef} value={search} onChange={setSearch} />
         </div>
@@ -882,49 +882,12 @@ export function PortalPosPage() {
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line-subtle bg-bg-elevated/60 px-3 py-1.5 text-xs sm:gap-3 sm:px-4 sm:py-2 sm:text-sm">
-        {hasOpenShift ? (
-          <>
-            <p className="min-w-0 truncate text-text-secondary">
-              Shift open
-              {openShift?.openedAt
-                ? ` · since ${new Date(openShift.openedAt).toLocaleTimeString()}`
-                : ''}
-            </p>
-            <button
-              type="button"
-              disabled={closeShiftMutation.isPending}
-              onClick={() => closeShiftMutation.mutate()}
-              className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold transition hover:border-status-error/40"
-            >
-              {closeShiftMutation.isPending ? 'Closing…' : 'Close shift'}
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="min-w-0 truncate text-status-warning">No open shift — cash tender blocked</p>
-            <button
-              type="button"
-              disabled={openShiftMutation.isPending}
-              onClick={() => openShiftMutation.mutate()}
-              className="rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-on-brand"
-            >
-              {openShiftMutation.isPending ? 'Opening…' : 'Open shift'}
-            </button>
-          </>
-        )}
-      </div>
-
-      {statusMessage ? (
-        <div className="animate-[fadeIn_0.2s_ease] bg-brand-primary/15 px-4 py-2 text-center text-sm font-medium text-brand-primary">
-          {statusMessage}
-        </div>
-      ) : null}
-
-      <div className="flex shrink-0 flex-wrap items-end gap-2 border-b border-line-subtle bg-bg-card/80 px-3 py-2 sm:gap-3 sm:px-4">
-        <div className="min-w-[12rem] flex-1 sm:max-w-xs">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line-subtle bg-bg-elevated/60 px-2 py-1 text-xs sm:px-3">
+        <div className="w-full min-w-[13rem] sm:w-64">
           <PhoneField
+            compact
             label="Customer mobile (loyalty)"
+            placeholder="Customer mobile (loyalty)"
             value={customerPhone}
             onChange={setCustomerPhone}
           />
@@ -933,18 +896,16 @@ export function PortalPosPage() {
           type="button"
           disabled={lookupMutation.isPending || !customerPhone.trim()}
           onClick={() => lookupMutation.mutate()}
-          className="rounded-xl border border-line bg-bg-elevated px-4 py-2.5 text-sm font-medium disabled:opacity-40"
+          className="h-8 rounded-lg border border-line bg-bg-elevated px-3 text-xs font-medium disabled:opacity-40"
         >
           {lookupMutation.isPending ? '…' : 'Find'}
         </button>
         {linkedCustomer ? (
-          <div className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border border-brand-primary/30 bg-brand-primary/10 px-3 py-2 text-sm sm:max-w-sm">
-            <div className="min-w-0">
-              <p className="truncate font-medium">{linkedCustomer.name}</p>
-              <p className="text-xs text-brand-primary">
-                {linkedCustomer.loyaltyPoints} pts · no OTP required
-              </p>
-            </div>
+          <div className="flex h-8 min-w-0 items-center gap-2 rounded-lg border border-brand-primary/30 bg-brand-primary/10 px-2">
+            <p className="min-w-0 truncate">
+              <span className="font-medium">{linkedCustomer.name}</span>
+              <span className="ml-1.5 text-brand-primary">{linkedCustomer.loyaltyPoints} pts</span>
+            </p>
             <button
               type="button"
               onClick={() => {
@@ -952,19 +913,58 @@ export function PortalPosPage() {
                 setCustomerPhone('');
                 setRedeemPoints(0);
               }}
-              className="shrink-0 text-xs text-text-muted hover:text-text-primary"
+              className="shrink-0 text-text-muted hover:text-text-primary"
             >
               Clear
             </button>
           </div>
         ) : null}
+
+        <div className="ml-auto flex min-w-0 items-center gap-2">
+          {hasOpenShift ? (
+            <>
+              <p className="min-w-0 truncate text-text-secondary">
+                Shift open
+                {openShift?.openedAt
+                  ? ` · since ${new Date(openShift.openedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                  : ''}
+              </p>
+              <button
+                type="button"
+                disabled={closeShiftMutation.isPending}
+                onClick={() => closeShiftMutation.mutate()}
+                className="h-7 rounded-md border border-line px-2.5 font-semibold transition hover:border-status-error/40"
+              >
+                {closeShiftMutation.isPending ? 'Closing…' : 'Close shift'}
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="min-w-0 truncate text-status-warning">No open shift — cash blocked</p>
+              <button
+                type="button"
+                disabled={openShiftMutation.isPending}
+                onClick={() => openShiftMutation.mutate()}
+                className="h-7 rounded-md bg-brand-primary px-2.5 font-semibold text-on-brand"
+              >
+                {openShiftMutation.isPending ? 'Opening…' : 'Open shift'}
+              </button>
+            </>
+          )}
+        </div>
       </div>
+
+      {statusMessage ? (
+        <div className="animate-[fadeIn_0.2s_ease] bg-brand-primary/15 px-4 py-1 text-center text-xs font-medium text-brand-primary">
+          {statusMessage}
+        </div>
+      ) : null}
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <main
           className={`${
             mobileView === 'cart' ? 'hidden lg:flex' : 'flex'
-          } min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4`}
+          } min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2`}
         >
           {menuQuery.isLoading ? (
             <div className="flex flex-1 items-center justify-center text-text-muted">
@@ -984,17 +984,17 @@ export function PortalPosPage() {
                 onSelect={setSelectedCategoryId}
               />
               {recentItems.length > 0 && !search && !selectedCategoryId ? (
-                <section className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                <section className="flex shrink-0 items-center gap-2">
+                  <p className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
                     Recent
                   </p>
-                  <div className="flex gap-2 overflow-x-auto pb-1">
+                  <div className="flex min-w-0 gap-1.5 overflow-x-auto pb-0.5">
                     {recentItems.map((item) => (
                       <button
                         key={item.id}
                         type="button"
                         onClick={() => handleAddItem(item)}
-                        className="shrink-0 rounded-full border border-line bg-bg-card px-4 py-2 text-sm font-medium transition hover:border-brand-primary/40 active:scale-95"
+                        className="shrink-0 rounded-full border border-line bg-bg-card px-3 py-1 text-xs font-medium transition hover:border-brand-primary/40 active:scale-95"
                       >
                         {item.name}
                       </button>
@@ -1044,7 +1044,7 @@ export function PortalPosPage() {
         <div
           className={`${
             mobileView === 'menu' ? 'hidden lg:flex' : 'flex'
-          } min-h-0 w-full flex-1 flex-col lg:h-full lg:w-[26rem] lg:flex-none`}
+          } min-h-0 w-full flex-1 flex-col lg:h-full lg:w-[22rem] lg:flex-none`}
         >
         <CartSidebar
           onBack={() => setMobileView('menu')}

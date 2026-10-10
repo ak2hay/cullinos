@@ -1,49 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { PhoneField } from '@cullinos/ui';
-import {
-  type PlatformSettingsField,
-  type PlatformSettingsGroup,
-  superAdminApi,
-} from '@/lib/api';
+import { RefreshCw, Send } from 'lucide-react';
+import { Button, PhoneField, cn } from '@cullinos/ui';
+import { PageHeader, SectionCard, StatusPill, useConfirm, type PillTone } from '@/components/ui';
+import { inputClass, Notice } from '@/components/common';
+import { type PlatformSettingsField, type PlatformSettingsGroup, superAdminApi } from '@/lib/api';
 
-function sourceBadge(source: PlatformSettingsField['source']) {
-  const styles =
-    source === 'database'
-      ? 'border-status-success/30 bg-status-success/10 text-status-success'
-      : source === 'environment' || source === 'default'
-        ? 'border-line-strong bg-hover text-text-secondary'
-        : 'border-status-warning/30 bg-status-warning/10 text-status-warning';
-  const label =
-    source === 'database'
-      ? 'Database'
-      : source === 'environment'
-        ? 'Environment'
-        : source === 'default'
-          ? 'Default'
-          : 'Missing';
-  return (
-    <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${styles}`}>
-      {label}
-    </span>
-  );
+const WHATSAPP_MARKETING_ID = 'whatsapp_marketing';
+
+function SourcePill({ source }: { source: PlatformSettingsField['source'] }) {
+  const map: Record<string, { label: string; tone: PillTone }> = {
+    database: { label: 'Database', tone: 'success' },
+    environment: { label: 'Environment', tone: 'neutral' },
+    default: { label: 'Default', tone: 'neutral' },
+  };
+  const s = map[source] ?? { label: 'Missing', tone: 'warning' as const };
+  return <StatusPill status={source} tone={s.tone} label={s.label} dot={false} />;
 }
 
 function GroupForm({
   group,
   encryptionConfigured,
-  expanded,
-  onToggle,
   onSaved,
 }: {
   group: PlatformSettingsGroup;
   encryptionConfigured: boolean;
-  expanded: boolean;
-  onToggle: () => void;
   onSaved: (msg: string) => void;
 }) {
-  // Anchor id used by Cullinos App → App settings (`/settings#guest_app`)
   const queryClient = useQueryClient();
+  const [confirm, confirmDialog] = useConfirm();
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [testMsg, setTestMsg] = useState<string | null>(null);
@@ -59,8 +44,7 @@ function GroupForm({
   }, [group]);
 
   const saveMutation = useMutation({
-    mutationFn: (values: Record<string, string>) =>
-      superAdminApi.updateSettingsGroup(group.id, values),
+    mutationFn: (values: Record<string, string>) => superAdminApi.updateSettingsGroup(group.id, values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['super-admin', 'settings'] });
       onSaved(`${group.label} saved`);
@@ -111,235 +95,159 @@ function GroupForm({
     saveMutation.mutate(values);
   }
 
-  function clearOverride(key: string) {
-    saveMutation.mutate({ [key]: '' });
-  }
-
-  function toggleBoolean(field: PlatformSettingsField) {
+  async function toggleBoolean(field: PlatformSettingsField) {
     const next = field.value === 'false' ? 'true' : 'false';
-    if (
-      next === 'false' &&
-      group.id === 'portals' &&
-      !window.confirm(`Turn off "${field.label}" for every tenant? Signed-in users are blocked on their next request.`)
-    ) {
-      return;
+    if (next === 'false' && group.id === 'portals') {
+      const ok = await confirm({
+        title: `Turn off "${field.label}" for every tenant?`,
+        description: 'Signed-in users are blocked on their next request.',
+        confirmLabel: 'Turn off',
+      });
+      if (!ok) return;
     }
     saveMutation.mutate({ [field.key]: next });
   }
 
   const needsEncryption = group.fields.some((f) => f.isSecret);
-  const configuredCount = group.fields.filter((f) => f.configured || f.source === 'database').length;
+  const textFields = group.fields.filter((f) => f.type !== 'boolean');
 
   return (
-    <form
-      id={group.id}
-      onSubmit={handleSave}
-      className="rounded-xl border border-line-subtle bg-bg-card scroll-mt-6"
-    >
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        className="flex w-full items-start justify-between gap-3 px-6 py-5 text-left hover:bg-hover"
-      >
-        <div className="min-w-0">
-          <h2 className="font-medium">{group.label}</h2>
-          <p className="mt-1 text-sm text-text-muted">{group.description}</p>
-          {!expanded ? (
-            <p className="mt-2 text-xs text-text-muted">
-              {configuredCount}/{group.fields.length} fields configured — click to expand
-            </p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-3 pt-0.5">
-          {needsEncryption && !encryptionConfigured ? (
-            <p className="max-w-[10rem] text-right text-xs text-status-warning">
-              Set ENCRYPTION_KEY on the API to save secrets.
-            </p>
-          ) : null}
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={`h-5 w-5 text-text-secondary transition-transform ${expanded ? 'rotate-180' : ''}`}
-          >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </div>
-      </button>
+    <SectionCard title={group.label} description={group.description}>
+      {confirmDialog}
+      <form id={group.id} onSubmit={handleSave} className="space-y-5">
+        {needsEncryption && !encryptionConfigured ? (
+          <Notice tone="warning">Set ENCRYPTION_KEY on the API to save secrets in this section.</Notice>
+        ) : null}
+        {error ? <Notice tone="error">{error}</Notice> : null}
+        {testMsg ? <Notice tone={testMsg.startsWith('Failed') ? 'error' : 'info'}>{testMsg}</Notice> : null}
 
-      {expanded ? (
-        <div className="space-y-4 border-t border-line-subtle px-6 pb-6 pt-4">
-          {error ? (
-            <div className="rounded-lg border border-status-error/30 bg-status-error/10 px-3 py-2 text-sm text-status-error">
-              {error}
-            </div>
-          ) : null}
-          {testMsg ? (
-            <div className="rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm text-text-secondary">
-              {testMsg}
-            </div>
-          ) : null}
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {group.fields.map((field) =>
-              field.type === 'boolean' ? (
-                <div
-                  key={field.key}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-line bg-bg-elevated px-3 py-3 sm:col-span-1"
-                >
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 text-sm text-text-secondary">
-                      {field.label}
-                      {sourceBadge(field.source)}
-                    </p>
-                    <p className="font-mono text-[10px] text-text-muted">{field.key}</p>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={field.value !== 'false'}
-                    aria-label={field.label}
-                    disabled={saveMutation.isPending}
-                    onClick={() => toggleBoolean(field)}
-                    className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-60 ${
-                      field.value !== 'false' ? 'bg-status-success' : 'bg-hover-strong'
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
-                        field.value !== 'false' ? 'left-[22px]' : 'left-0.5'
-                      }`}
-                    />
-                  </button>
-                </div>
-              ) : (
-                <label key={field.key} className="block sm:col-span-1">
-                  <span className="mb-1.5 flex items-center gap-2 text-sm text-text-secondary">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {group.fields.map((field) =>
+            field.type === 'boolean' ? (
+              <div key={field.key} className="flex items-center justify-between gap-3 rounded-xl border border-line-subtle bg-bg-secondary px-4 py-3">
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
                     {field.label}
-                    {sourceBadge(field.source)}
-                  </span>
-                  <input
-                    type={field.isSecret ? 'password' : 'text'}
-                    autoComplete="off"
-                    placeholder={
-                      field.isSecret
-                        ? field.configured
-                          ? field.masked ?? '•••• configured — leave blank to keep'
-                          : 'Not set'
-                        : undefined
-                    }
-                    value={draft[field.key] ?? ''}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, [field.key]: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
-                  />
-                  <span className="mt-1 flex items-center justify-between gap-2">
-                    <span className="font-mono text-[10px] text-text-muted">{field.key}</span>
-                    {field.source === 'database' ? (
-                      <button
-                        type="button"
-                        onClick={() => clearOverride(field.key)}
-                        disabled={saveMutation.isPending}
-                        className="text-[11px] text-text-muted hover:text-status-warning"
-                      >
-                        Clear override
-                      </button>
-                    ) : null}
-                  </span>
-                </label>
-              ),
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={saveMutation.isPending}
-              className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-text-primary hover:opacity-90 disabled:opacity-60"
-            >
-              {saveMutation.isPending ? 'Saving…' : 'Save'}
-            </button>
-
-            {group.id === 'smtp' ? (
-              <>
-                <input
-                  type="email"
-                  placeholder="Test email (optional)"
-                  value={testEmail}
-                  onChange={(e) => setTestEmail(e.target.value)}
-                  className="w-56 rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
-                />
-                <button
-                  type="button"
-                  onClick={() => testSmtpMutation.mutate()}
-                  disabled={testSmtpMutation.isPending}
-                  className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
-                >
-                  {testSmtpMutation.isPending ? 'Sending…' : 'Test SMTP'}
-                </button>
-              </>
-            ) : null}
-
-            {group.id === 'msg91' ? (
-              <>
-                <div className="min-w-[16rem]">
-                  <PhoneField
-                    label="Test phone"
-                    value={testPhone}
-                    onChange={setTestPhone}
-                  />
+                    <SourcePill source={field.source} />
+                  </p>
+                  <p className="mt-0.5 font-mono text-[10px] text-text-muted">{field.key}</p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => testMsg91Mutation.mutate()}
-                  disabled={testMsg91Mutation.isPending}
-                  className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
+                  role="switch"
+                  aria-checked={field.value !== 'false'}
+                  aria-label={field.label}
+                  disabled={saveMutation.isPending}
+                  onClick={() => void toggleBoolean(field)}
+                  className={cn(
+                    'relative h-6 w-11 shrink-0 rounded-full transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60',
+                    field.value !== 'false' ? 'bg-accent' : 'bg-hover-strong',
+                  )}
                 >
-                  {testMsg91Mutation.isPending ? 'Sending…' : 'Test MSG91'}
-                </button>
-              </>
-            ) : null}
-
-            {group.id === 'whatsapp' ? (
-              <>
-                <div className="min-w-[16rem]">
-                  <PhoneField
-                    label="Test phone"
-                    value={whatsappPhone}
-                    onChange={setWhatsappPhone}
+                  <span
+                    className={cn(
+                      'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all',
+                      field.value !== 'false' ? 'left-[22px]' : 'left-0.5',
+                    )}
                   />
-                </div>
+                </button>
+              </div>
+            ) : (
+              <label key={field.key} className="block">
+                <span className="mb-1.5 flex flex-wrap items-center gap-2 text-sm font-medium text-text-secondary">
+                  {field.label}
+                  <SourcePill source={field.source} />
+                </span>
                 <input
-                  type="text"
-                  placeholder="Test message"
-                  value={whatsappTestMessage}
-                  onChange={(e) => setWhatsappTestMessage(e.target.value)}
-                  className="min-w-[16rem] flex-1 rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
-                />
-                <button
-                  type="button"
-                  onClick={() => testWhatsappMutation.mutate()}
-                  disabled={
-                    testWhatsappMutation.isPending ||
-                    !whatsappPhone.trim() ||
-                    !whatsappTestMessage.trim()
+                  type={field.isSecret ? 'password' : 'text'}
+                  autoComplete="off"
+                  placeholder={
+                    field.isSecret ? (field.configured ? (field.masked ?? '•••• configured — leave blank to keep') : 'Not set') : undefined
                   }
-                  className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
-                >
-                  {testWhatsappMutation.isPending ? 'Sending…' : 'Send test'}
-                </button>
-              </>
-            ) : null}
-          </div>
+                  value={draft[field.key] ?? ''}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                  className={inputClass}
+                />
+                <span className="mt-1 flex items-center justify-between gap-2">
+                  <span className="font-mono text-[10px] text-text-muted">{field.key}</span>
+                  {field.source === 'database' ? (
+                    <button
+                      type="button"
+                      onClick={() => saveMutation.mutate({ [field.key]: '' })}
+                      disabled={saveMutation.isPending}
+                      className="text-[11px] text-text-muted hover:text-status-warning"
+                    >
+                      Clear override
+                    </button>
+                  ) : null}
+                </span>
+              </label>
+            ),
+          )}
         </div>
-      ) : null}
-    </form>
+
+        <div className="flex flex-wrap items-end gap-3 border-t border-line-subtle pt-4">
+          {textFields.length > 0 ? (
+            <Button type="submit" size="sm" loading={saveMutation.isPending}>
+              Save changes
+            </Button>
+          ) : null}
+
+          {group.id === 'smtp' ? (
+            <>
+              <input
+                type="email"
+                aria-label="Test email"
+                placeholder="Test email (optional)"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                className={`${inputClass} w-56`}
+              />
+              <Button type="button" size="sm" variant="secondary" loading={testSmtpMutation.isPending} onClick={() => testSmtpMutation.mutate()}>
+                Test SMTP
+              </Button>
+            </>
+          ) : null}
+
+          {group.id === 'msg91' ? (
+            <>
+              <div className="min-w-[16rem]">
+                <PhoneField label="Test phone" value={testPhone} onChange={setTestPhone} />
+              </div>
+              <Button type="button" size="sm" variant="secondary" loading={testMsg91Mutation.isPending} onClick={() => testMsg91Mutation.mutate()}>
+                Test MSG91
+              </Button>
+            </>
+          ) : null}
+
+          {group.id === 'whatsapp' ? (
+            <>
+              <div className="min-w-[16rem]">
+                <PhoneField label="Test phone" value={whatsappPhone} onChange={setWhatsappPhone} />
+              </div>
+              <input
+                type="text"
+                aria-label="Test message"
+                placeholder="Test message"
+                value={whatsappTestMessage}
+                onChange={(e) => setWhatsappTestMessage(e.target.value)}
+                className={`${inputClass} min-w-[16rem] flex-1`}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                loading={testWhatsappMutation.isPending}
+                disabled={!whatsappPhone.trim() || !whatsappTestMessage.trim()}
+                onClick={() => testWhatsappMutation.mutate()}
+              >
+                Send test
+              </Button>
+            </>
+          ) : null}
+        </div>
+      </form>
+    </SectionCard>
   );
 }
 
@@ -367,140 +275,147 @@ function WhatsappMarketingSection() {
   });
 
   return (
-    <section className="rounded-xl border border-line-subtle bg-bg-card px-6 py-5">
-      <h2 className="font-medium">WhatsApp marketing</h2>
-      <p className="mt-1 max-w-2xl text-sm text-text-muted">
-        Draft a message and send it to the numbers you enter. WhatsApp delivers it as the approved
-        marketing template&apos;s body variable, configured above. Create and approve that template
-        in the MSG91 panel first.
-      </p>
-      {notice ? (
-        <div className="mt-4 rounded-lg border border-status-success/30 bg-status-success/10 px-3 py-2 text-sm text-status-success">
-          {notice}
-        </div>
-      ) : null}
-      {error ? (
-        <div className="mt-4 rounded-lg border border-status-error/30 bg-status-error/10 px-3 py-2 text-sm text-status-error">
-          {error}
-        </div>
-      ) : null}
-      <label className="mt-4 block">
-        <span className="mb-1.5 block text-sm text-text-secondary">Message</span>
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={4}
-          maxLength={1024}
-          placeholder="Text that fills the template body variable"
-          className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
-        />
-      </label>
-      <label className="mt-4 block">
-        <span className="mb-1.5 block text-sm text-text-secondary">
-          Recipient numbers ({phones.length})
-        </span>
-        <textarea
-          value={phonesText}
-          onChange={(e) => setPhonesText(e.target.value)}
-          rows={4}
-          placeholder="One number per line, or separated by commas"
-          className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
-        />
-      </label>
-      <button
-        type="button"
-        onClick={() => sendMutation.mutate()}
-        disabled={sendMutation.isPending || !message.trim() || phones.length === 0}
-        className="mt-4 rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-text-primary hover:opacity-90 disabled:opacity-60"
-      >
-        {sendMutation.isPending ? 'Sending…' : 'Send on WhatsApp'}
-      </button>
-    </section>
+    <SectionCard
+      title="WhatsApp marketing"
+      description="Draft a message and send it to the numbers you enter. WhatsApp delivers it as the approved marketing template's body variable, configured in the WhatsApp section. Create and approve that template in the MSG91 panel first."
+    >
+      <div id={WHATSAPP_MARKETING_ID} className="space-y-4">
+        {notice ? <Notice tone="success">{notice}</Notice> : null}
+        {error ? <Notice tone="error">{error}</Notice> : null}
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-text-secondary">Message</span>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={4}
+            maxLength={1024}
+            placeholder="Text that fills the template body variable"
+            className={inputClass}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-text-secondary">Recipient numbers ({phones.length})</span>
+          <textarea
+            value={phonesText}
+            onChange={(e) => setPhonesText(e.target.value)}
+            rows={4}
+            placeholder="One number per line, or separated by commas"
+            className={inputClass}
+          />
+        </label>
+        <Button size="sm" loading={sendMutation.isPending} disabled={!message.trim() || phones.length === 0} onClick={() => sendMutation.mutate()}>
+          <Send size={16} aria-hidden="true" />
+          Send on WhatsApp
+        </Button>
+      </div>
+    </SectionCard>
   );
 }
 
 export function SettingsPage() {
   const [banner, setBanner] = useState<string | null>(null);
-  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(() => window.location.hash.replace(/^#/, '') || null);
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['super-admin', 'settings'],
     queryFn: superAdminApi.getSettings,
   });
 
+  const groups = data?.groups ?? [];
+  const validIds = [...groups.map((g) => g.id), WHATSAPP_MARKETING_ID];
+  const current = activeId && validIds.includes(activeId) ? activeId : (groups[0]?.id ?? null);
+  const activeGroup = groups.find((g) => g.id === current);
+
   useEffect(() => {
-    const hash = window.location.hash.replace(/^#/, '');
-    if (!hash || isLoading || !data) return;
-    const exists = data.groups.some((g) => g.id === hash);
-    if (exists) setOpenGroupId(hash);
-    const el = document.getElementById(hash);
-    if (el) {
-      window.setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-    }
-  }, [isLoading, data]);
+    const onHash = () => setActiveId(window.location.hash.replace(/^#/, '') || null);
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  function select(id: string) {
+    setActiveId(id);
+    window.history.replaceState(null, '', `#${id}`);
+  }
+
+  const navItems = [
+    ...groups.map((g) => ({
+      id: g.id,
+      label: g.label,
+      configured: g.fields.filter((f) => f.configured || f.source === 'database').length,
+      total: g.fields.length,
+    })),
+    { id: WHATSAPP_MARKETING_ID, label: 'WhatsApp marketing', configured: null as number | null, total: 0 },
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Platform settings</h1>
-          <p className="mt-1 max-w-2xl text-text-secondary">
-            Turn client portals on or off, and configure SMTP (staff OTP), MSG91 (phone OTP and
-            WhatsApp), Firebase Admin for Cullinos App auth/push (FCM HTTP v1), Razorpay, and
-            Cullinos App release flags. Click a section to edit credentials. Database values
-            override environment variables.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
-        >
-          {isFetching ? 'Refreshing…' : 'Refresh'}
-        </button>
-      </div>
+      <PageHeader
+        title="Platform settings"
+        description="Client portals, SMTP (staff OTP), MSG91 (phone OTP and WhatsApp), Firebase Admin for Cullinos App auth/push, Razorpay and Cullinos App release flags. Database values override environment variables."
+        actions={
+          <Button size="sm" variant="secondary" loading={isFetching} onClick={() => refetch()}>
+            <RefreshCw size={16} aria-hidden="true" />
+            Refresh
+          </Button>
+        }
+      />
 
-      {banner ? (
-        <div className="rounded-lg border border-status-success/30 bg-status-success/10 px-4 py-3 text-sm text-status-success">
-          {banner}
-        </div>
-      ) : null}
-
-      {error ? (
-        <div className="rounded-xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
-          {error instanceof Error ? error.message : 'Failed to load settings'}
-        </div>
-      ) : null}
-
+      {banner ? <Notice tone="success">{banner}</Notice> : null}
+      {error ? <Notice tone="error">{error instanceof Error ? error.message : 'Failed to load settings'}</Notice> : null}
       {data && !data.encryptionConfigured ? (
-        <div className="rounded-xl border border-status-warning/30 bg-status-warning/10 px-4 py-3 text-sm text-status-warning">
-          ENCRYPTION_KEY is not set on the API. You can still save non-secret fields; secrets
-          require encryption.
-        </div>
+        <Notice tone="warning">ENCRYPTION_KEY is not set on the API. You can still save non-secret fields; secrets require encryption.</Notice>
       ) : null}
 
       {isLoading ? (
-        <p className="text-text-muted">Loading settings…</p>
-      ) : (
-        <div className="space-y-3">
-          {data?.groups.map((group) => (
-            <GroupForm
-              key={group.id}
-              group={group}
-              encryptionConfigured={data.encryptionConfigured}
-              expanded={openGroupId === group.id}
-              onToggle={() =>
-                setOpenGroupId((prev) => (prev === group.id ? null : group.id))
-              }
-              onSaved={(msg) => {
-                setBanner(msg);
-                window.setTimeout(() => setBanner(null), 3000);
-              }}
-            />
-          ))}
-          <WhatsappMarketingSection />
+        <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
+          <div className="h-80 animate-pulse rounded-xl bg-bg-secondary" />
+          <div className="h-96 animate-pulse rounded-xl bg-bg-secondary" />
         </div>
-      )}
+      ) : data ? (
+        <div className="grid items-start gap-6 lg:grid-cols-[240px_1fr]">
+          <nav aria-label="Settings sections" className="lg:sticky lg:top-24">
+            <ul className="flex gap-1 overflow-x-auto rounded-xl border border-line-subtle bg-bg-card p-2 lg:flex-col sa-scroll">
+              {navItems.map((item) => {
+                const active = item.id === current;
+                return (
+                  <li key={item.id} className="shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => select(item.id)}
+                      aria-current={active ? 'page' : undefined}
+                      className={cn(
+                        'flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                        active ? 'bg-accent/10 font-medium text-accent' : 'text-text-secondary hover:bg-hover hover:text-text-primary',
+                      )}
+                    >
+                      <span className="whitespace-nowrap">{item.label}</span>
+                      {item.configured != null && item.total > 0 ? (
+                        <span className="text-xs tabular-nums text-text-muted">
+                          {item.configured}/{item.total}
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+          <div className="min-w-0">
+            {current === WHATSAPP_MARKETING_ID ? (
+              <WhatsappMarketingSection />
+            ) : activeGroup ? (
+              <GroupForm
+                key={activeGroup.id}
+                group={activeGroup}
+                encryptionConfigured={data.encryptionConfigured}
+                onSaved={(msg) => {
+                  setBanner(msg);
+                  window.setTimeout(() => setBanner(null), 3000);
+                }}
+              />
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

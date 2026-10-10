@@ -12,7 +12,10 @@ import {
 import { JwtService } from "@nestjs/jwt";
 import type { JwtPayload } from "@cullinos/auth";
 import { CurrentUser, OrgId, Public, RequireModule } from "../../common/decorators";
-import { provePublicCustomerId } from "../../common/public-customer.util";
+import {
+  provePublicCustomerId,
+  resolvePublicCustomerByPhone,
+} from "../../common/public-customer.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { MergeTablesDto, TransferTableDto } from "./dto/tables.dto";
@@ -312,13 +315,14 @@ export class PublicSessionsController {
   ) {
     const items = (body.items ?? []) as never[];
     const orgId = await this.sessions.organizationIdForToken(token);
-    const customerId = await provePublicCustomerId(
-      this.jwt,
-      this.prisma,
-      orgId,
-      typeof body.customerId === "string" ? body.customerId : undefined,
-      authorization,
-    );
+    const customerId =
+      (await provePublicCustomerId(
+        this.jwt,
+        this.prisma,
+        orgId,
+        typeof body.customerId === "string" ? body.customerId : undefined,
+        authorization,
+      )) ?? (await resolvePublicCustomerByPhone(this.prisma, orgId, body.customerPhone, body.customerName));
     return this.sessions.addItemsToSession(token, items, {
       customerName: body.customerName as string | undefined,
       notes: body.notes as string | undefined,

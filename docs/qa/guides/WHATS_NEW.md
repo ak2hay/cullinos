@@ -95,7 +95,7 @@ Primary QA tenant: **enterprise** + **restaurant** (medium or large size so Tabl
 | Razorpay pay-now without keys → **N/A** | Admin Tables placeholder |
 | Outlet comparison needs 2+ outlets | Admin Inventory placeholder |
 | Banquets / Brands / Guests / Rooms hidden on restaurant → **N/A** | POS/KDS “local only” |
-| Aggregator menu sync may be partial | Settings as JSON editor |
+| Aggregator menu sync is rejected (not a partial success) | Settings as JSON editor |
 | Admin `/promo-email` 404 | Expected — use Super Admin |
 
 ---

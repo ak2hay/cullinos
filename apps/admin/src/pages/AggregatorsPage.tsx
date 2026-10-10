@@ -77,7 +77,7 @@ export function AggregatorsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Aggregators"
-        description="Connect Swiggy and Zomato, toggle online menu sync per outlet, and ingest webhook orders."
+        description="Swiggy and Zomato preview. Outbound menu sync is not available, and connect stays disabled until launch."
         actions={
           <span className="rounded-full border border-brand-accent/40 bg-brand-accent/15 px-2.5 py-0.5 text-xs font-semibold text-brand-accent">
             Coming soon

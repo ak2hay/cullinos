@@ -15,7 +15,7 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
           placeholder="Search items… ( / )"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-11 w-full rounded-xl border border-line bg-bg-elevated pl-4 pr-4 text-base outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
+          className="h-9 w-full rounded-lg border border-line bg-bg-elevated pl-3 pr-3 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
         />
       </div>
     );

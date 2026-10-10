@@ -34,6 +34,10 @@ export interface SuperAdminUser {
   avatarUrl?: string | null;
   platformRole?: PlatformRole;
   platformPermissions?: string[];
+  /** Permissions held only for some tenants (region / tenant-set role assignments). */
+  scopedPermissions?: string[];
+  employeeCode?: string | null;
+  isOwner?: boolean;
   mustChangePassword?: boolean;
 }
 

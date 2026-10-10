@@ -44,6 +44,11 @@ export type AccessClaims = {
   portal?: string;
   impersonation?: boolean;
   impersonatedBy?: string;
+  /** Ticket-backed support session details (tenant tokens only). */
+  grantId?: string;
+  ticketId?: string;
+  employeeCode?: string;
+  accessLevel?: "read_only" | "full";
 };
 
 function hashToken(token: string): string {

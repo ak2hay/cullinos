@@ -21,7 +21,7 @@ export function RequirePermission({
         Your platform role{role ? ` (${PLATFORM_ROLE_LABELS[role]})` : ''} does not include this
         section. Ask a platform Owner if you need it.
       </p>
-      <Link to="/" className="mt-4 inline-block text-sm text-brand-primary hover:underline">
+      <Link to="/" className="mt-4 inline-block text-sm text-accent hover:underline">
         Back to dashboard
       </Link>
     </div>

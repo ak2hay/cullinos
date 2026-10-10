@@ -34,22 +34,28 @@ function setup(opts: { target?: ReturnType<typeof member> | null; otherOwners?: 
         member({ ...(opts.target ?? {}), ...args.data }),
       ),
     },
+    platformEmployee: { findUnique: vi.fn(async () => null) },
+    tenantAccessGrant: { updateMany: vi.fn(async () => ({ count: 0 })) },
   };
   const mail = { sendPlatformStaffInvite: vi.fn(async () => true) };
   const sessions = { revokeAllForUser: vi.fn(async () => undefined) };
   const audit = { log: vi.fn(async () => ({})) };
+  const iam = { createEmployee: vi.fn(async () => ({ employeeCode: "RKY-000042" })) };
+  const access = { invalidate: vi.fn() };
   const service = new PlatformTeamService(
     prisma as never,
     mail as never,
     sessions as never,
     audit as never,
+    iam as never,
+    access as never,
   );
-  return { service, prisma, mail, sessions, audit };
+  return { service, prisma, mail, sessions, audit, iam, access };
 }
 
 describe("PlatformTeamService", () => {
   it("invites staff into the actor's platform org with a forced password change", async () => {
-    const { service, prisma, mail, audit } = setup();
+    const { service, prisma, mail, audit, iam } = setup();
     const res = await service.invite(actor, {
       email: " New@Rkyves.com ",
       name: "New Person",
@@ -65,8 +71,13 @@ describe("PlatformTeamService", () => {
     });
     expect(res.temporaryPassword).toHaveLength(14);
     expect(mail.sendPlatformStaffInvite).toHaveBeenCalledOnce();
+    expect(iam.createEmployee).toHaveBeenCalledWith("u_new", expect.objectContaining({ title: null }));
     expect(audit.log).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "platform.team_invite", userId: "owner_1" }),
+      expect.objectContaining({
+        action: "platform.team_invite",
+        userId: "owner_1",
+        metadata: expect.objectContaining({ employeeCode: "RKY-000042" }),
+      }),
     );
   });
 
@@ -122,9 +133,14 @@ describe("PlatformTeamService", () => {
       }),
     );
 
+    expect(a.access.invalidate).toHaveBeenCalledWith("u_2");
+
     const b = setup({ target: member() });
     await b.service.deactivate(actor, "u_2", "left company");
     expect(b.sessions.revokeAllForUser).toHaveBeenCalledWith("u_2");
+    expect(b.prisma.tenantAccessGrant.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: "u_2", status: { in: ["pending", "active"] } } }),
+    );
   });
 
   it("resets a member's password and signs them out", async () => {

@@ -11,12 +11,17 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { CurrentUser, OrgId, Public, RequireModule } from "../../common/decorators";
-import { provePublicCustomerId } from "../../common/public-customer.util";
+import {
+  provePublicCustomerId,
+  resolvePublicCustomerByPhone,
+} from "../../common/public-customer.util";
 import type { JwtPayload } from "@cullinos/auth";
 import { PrismaService } from "../../prisma/prisma.service";
 import { OrdersService } from "./orders.service";
 import { AuditService } from "../audit/audit.service";
 import { StorefrontService } from "../storefront/storefront.service";
+import { RefundPinService } from "../refund-pin/refund-pin.service";
+import { toPaise } from "../../common/money.util";
 import {
   assertCanSetOrderStatus,
   pickPublicOrderFields,
@@ -30,6 +35,7 @@ export class OrdersController {
   constructor(
     private service: OrdersService,
     private audit: AuditService,
+    private refundPin: RefundPinService,
   ) {}
 
   /** Money-reducing actions (cancel, void, discount) keep a record of who did them. */
@@ -89,8 +95,10 @@ export class OrdersController {
   @Get(":id")
   @RequireModule("orders")
   @RequirePermissions("order:read")
-  get(@OrgId() orgId: string, @Param("id") id: string) {
-    return this.service.get(orgId, id);
+  async get(@OrgId() orgId: string, @Param("id") id: string) {
+    const order = await this.service.get(orgId, id);
+    const paidRupees = await this.service.paidTotal(orgId, id);
+    return { ...order, paidAmount: toPaise(paidRupees) };
   }
 
   @Post()
@@ -156,12 +164,15 @@ export class OrdersController {
     @OrgId() orgId: string,
     @CurrentUser() user: JwtPayload,
     @Param("id") id: string,
-    @Body("status") status: string,
+    @Body() body: { status?: string; externalRefundConfirmed?: boolean },
   ) {
+    const status = body?.status ?? "";
     assertCanSetOrderStatus(user, status);
     const result = await this.service.updateStatus(orgId, id, status, {
       // Managers/owners may close a bill with a balance (credit / complimentary); cashiers may not.
       allowUnpaidComplete: Boolean(user?.permissions?.includes("order:discount:approve")),
+      userId: user.sub,
+      externalRefundConfirmed: body?.externalRefundConfirmed === true,
     });
     const normalized = String(status ?? "").toLowerCase();
     if (normalized === "cancelled" || normalized === "voided") {
@@ -223,11 +234,45 @@ export class OrdersController {
     @OrgId() orgId: string,
     @CurrentUser() user: JwtPayload,
     @Param("id") id: string,
-    @Body() body?: { notes?: string },
+    @Body() body?: { notes?: string; externalRefundConfirmed?: boolean },
   ) {
-    const result = await this.service.cancel(orgId, id, body?.notes);
+    const result = await this.service.cancel(orgId, id, body?.notes, {
+      userId: user.sub,
+      externalRefundConfirmed: body?.externalRefundConfirmed === true,
+    });
     await this.auditOrder(orgId, user, "order.cancelled", id, {
       notes: body?.notes?.slice(0, 200) ?? null,
+    });
+    return result;
+  }
+
+  /** Full refund of every completed payment, then cancel. Requires the caller's own passcode. */
+  @Post(":id/refund")
+  @RequireModule("orders")
+  @RequirePermissions("order:refund")
+  async refund(
+    @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
+    @Param("id") id: string,
+    @Body() body?: { pin?: string; reason?: string; externalRefundConfirmed?: boolean },
+  ) {
+    await this.refundPin.verify(orgId, user.sub, body?.pin, { orderId: id });
+    const amount = await this.service.paidTotal(orgId, id);
+    if (amount <= 0) {
+      throw new BadRequestException("This order has no completed payments to refund");
+    }
+    const reason = body?.reason?.trim().slice(0, 200) || undefined;
+    const externalRefundConfirmed = body?.externalRefundConfirmed === true;
+    const result = await this.service.cancel(orgId, id, reason ? `Refunded: ${reason}` : "Refunded", {
+      userId: user.sub,
+      externalRefundConfirmed,
+      refundAuthorized: true,
+    });
+    await this.auditOrder(orgId, user, "order.refunded", id, {
+      orderNumber: result.orderNumber,
+      amount,
+      reason: reason ?? null,
+      externalRefundConfirmed,
     });
     return result;
   }
@@ -273,13 +318,20 @@ export class PublicOrdersController {
       outletSlug,
     );
 
-    const customerId = await provePublicCustomerId(
-      this.jwt,
-      this.prisma,
-      organization.id,
-      typeof body.customerId === "string" ? body.customerId : undefined,
-      authorization,
-    );
+    const customerId =
+      (await provePublicCustomerId(
+        this.jwt,
+        this.prisma,
+        organization.id,
+        typeof body.customerId === "string" ? body.customerId : undefined,
+        authorization,
+      )) ??
+      (await resolvePublicCustomerByPhone(
+        this.prisma,
+        organization.id,
+        body.customerPhone,
+        body.customerName,
+      ));
 
     return this.service.create(organization.id, null, {
       ...pickPublicOrderFields(body),

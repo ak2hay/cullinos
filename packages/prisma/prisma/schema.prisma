@@ -559,6 +559,10 @@ model User {
   mustChangePassword Boolean    @default(false) @map("must_change_password")
   /// Bumped to revoke every access/refresh token issued before (logout-all, password change, deactivation).
   tokenVersion       Int        @default(0) @map("token_version")
+  /// Personal 4-digit passcode (bcrypt) required to refund paid orders.
+  refundPinHash           String?   @map("refund_pin_hash")
+  refundPinFailedAttempts Int       @default(0) @map("refund_pin_failed_attempts")
+  refundPinLockedUntil    DateTime? @map("refund_pin_locked_until")
   lastLoginAt        DateTime?  @map("last_login_at")
   createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt          DateTime   @updatedAt @map("updated_at")
@@ -571,6 +575,8 @@ model User {
   orders       Order[]      @relation("OrderCreatedBy")
   cashierShifts CashierShift[]
   acknowledgedServiceRequests ServiceRequest[] @relation("ServiceRequestAcknowledgedBy")
+  platformEmployee        PlatformEmployee?
+  platformRoleAssignments PlatformRoleAssignment[]
 
   @@unique([organizationId, email])
   @@map("users")
@@ -3017,4 +3023,485 @@ model SuperAdminSqlAudit {
 
   @@index([createdAt])
   @@map("super_admin_sql_audits")
+}
+
+// ─── Platform staff organisation (Rkyves internal, never tenant-scoped) ─────
+
+enum PlatformEmploymentStatus {
+  active
+  on_leave
+  notice
+  exited
+}
+
+enum PlatformScopeType {
+  global
+  region
+  tenant_set
+}
+
+enum PlatformApprovalStatus {
+  pending
+  approved
+  rejected
+  expired
+  cancelled
+  executing
+  executed
+}
+
+enum PlatformTicketStatus {
+  open
+  in_progress
+  waiting_customer
+  resolved
+  closed
+}
+
+enum PlatformTicketPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+enum PlatformAccessLevel {
+  read_only
+  full
+}
+
+enum PlatformAccessGrantStatus {
+  pending
+  active
+  rejected
+  revoked
+  expired
+}
+
+enum PlatformReviewDecision {
+  pending
+  certified
+  revoked
+}
+
+enum PlatformJobStatus {
+  pending_approval
+  queued
+  running
+  completed
+  failed
+  cancelled
+}
+
+model PlatformDepartment {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique
+  description String?
+  headUserId  String?  @map("head_user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  teams     PlatformTeam[]
+  employees PlatformEmployee[]
+
+  @@map("platform_departments")
+}
+
+model PlatformTeam {
+  id           String   @id @default(cuid())
+  departmentId String   @map("department_id")
+  parentId     String?  @map("parent_id")
+  name         String
+  code         String   @unique
+  description  String?
+  leadUserId   String?  @map("lead_user_id")
+  /// CIDR or exact IPs; empty = no restriction.
+  ipAllowlist  String[] @default([]) @map("ip_allowlist")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  department PlatformDepartment @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  parent     PlatformTeam?      @relation("PlatformTeamTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children   PlatformTeam[]     @relation("PlatformTeamTree")
+  employees  PlatformEmployee[]
+
+  @@index([departmentId])
+  @@map("platform_teams")
+}
+
+model PlatformEmployee {
+  id               String                   @id @default(cuid())
+  userId           String                   @unique @map("user_id")
+  /// Human-facing employee id stamped on every logged action, e.g. RKY-000123.
+  employeeCode     String                   @unique @map("employee_code")
+  title            String?
+  departmentId     String?                  @map("department_id")
+  teamId           String?                  @map("team_id")
+  managerId        String?                  @map("manager_id")
+  region           String?
+  location         String?
+  employmentStatus PlatformEmploymentStatus @default(active) @map("employment_status")
+  joinedAt         DateTime?                @map("joined_at")
+  exitedAt         DateTime?                @map("exited_at")
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department PlatformDepartment? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  team       PlatformTeam?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  manager    PlatformEmployee?   @relation("PlatformReports", fields: [managerId], references: [id], onDelete: SetNull)
+  reports    PlatformEmployee[]  @relation("PlatformReports")
+
+  @@index([teamId])
+  @@index([departmentId])
+  @@index([managerId])
+  @@map("platform_employees")
+}
+
+model PlatformRoleDef {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  /// Built-in roles mirror the code catalog and cannot be edited.
+  isSystem    Boolean  @default(false) @map("is_system")
+  ipAllowlist String[] @default([]) @map("ip_allowlist")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  permissions PlatformRolePermission[]
+  assignments PlatformRoleAssignment[]
+
+  @@map("platform_role_defs")
+}
+
+model PlatformRolePermission {
+  roleId     String @map("role_id")
+  permission String
+
+  role PlatformRoleDef @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permission])
+  @@map("platform_role_permissions")
+}
+
+model PlatformRoleAssignment {
+  id                String            @id @default(cuid())
+  userId            String            @map("user_id")
+  roleId            String            @map("role_id")
+  scopeType         PlatformScopeType @default(global) @map("scope_type")
+  /// Region names or organization ids depending on scopeType.
+  scopeValues       String[]          @default([]) @map("scope_values")
+  expiresAt         DateTime?         @map("expires_at")
+  grantedById       String?           @map("granted_by_id")
+  reason            String?
+  approvalRequestId String?           @map("approval_request_id")
+  revokedAt         DateTime?         @map("revoked_at")
+  revokedById       String?           @map("revoked_by_id")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  user User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role PlatformRoleDef @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([roleId])
+  @@map("platform_role_assignments")
+}
+
+/// Append-only, hash-chained record of every platform staff action.
+model PlatformActivityLog {
+  id                String   @id @default(cuid())
+  seq               BigInt   @unique @default(autoincrement())
+  userId            String?  @map("user_id")
+  employeeCode      String?  @map("employee_code")
+  actorEmail        String?  @map("actor_email")
+  sessionId         String?  @map("session_id")
+  action            String
+  resourceType      String?  @map("resource_type")
+  resourceId        String?  @map("resource_id")
+  method            String?
+  route             String?
+  statusCode        Int?     @map("status_code")
+  targetOrgId       String?  @map("target_org_id")
+  requestId         String?  @map("request_id")
+  ip                String?
+  userAgent         String?  @map("user_agent")
+  approvalRequestId String?  @map("approval_request_id")
+  ticketId          String?  @map("ticket_id")
+  grantId           String?  @map("grant_id")
+  diff              Json?
+  metadata          Json?
+  prevHash          String?  @map("prev_hash")
+  hash              String
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([employeeCode, createdAt])
+  @@index([userId, createdAt])
+  @@index([targetOrgId, createdAt])
+  @@index([action, createdAt])
+  @@index([grantId])
+  @@index([createdAt])
+  @@map("platform_activity_logs")
+}
+
+model PlatformApprovalPolicy {
+  id                String   @id @default(cuid())
+  actionKey         String   @unique @map("action_key")
+  name              String
+  description       String?
+  requiredApprovals Int      @default(1) @map("required_approvals")
+  /// Role keys (system or custom) whose holders may approve.
+  approverRoleKeys  String[] @default([]) @map("approver_role_keys")
+  approverTeamIds   String[] @default([]) @map("approver_team_ids")
+  blockSelfApproval Boolean  @default(true) @map("block_self_approval")
+  expiryHours       Int      @default(72) @map("expiry_hours")
+  /// e.g. { "field": "amount", "op": "gt", "value": 50000 }
+  conditions        Json?
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_approval_policies")
+}
+
+model PlatformApprovalRequest {
+  id                String                 @id @default(cuid())
+  seq               Int                    @unique @default(autoincrement())
+  actionKey         String                 @map("action_key")
+  policyId          String?                @map("policy_id")
+  status            PlatformApprovalStatus @default(pending)
+  title             String
+  /// Method, path, params, query and a body preview (secrets redacted).
+  payload           Json
+  /// Full request body, encrypted when it may contain secrets.
+  bodyEnc           String?                @map("body_enc")
+  payloadHash       String                 @map("payload_hash")
+  justification     String
+  ticketId          String?                @map("ticket_id")
+  targetOrgId       String?                @map("target_org_id")
+  requestedById     String                 @map("requested_by_id")
+  requiredApprovals Int                    @map("required_approvals")
+  approverRoleKeys  String[]               @default([]) @map("approver_role_keys")
+  approverTeamIds   String[]               @default([]) @map("approver_team_ids")
+  blockSelfApproval Boolean                @default(true) @map("block_self_approval")
+  expiresAt         DateTime               @map("expires_at")
+  decidedAt         DateTime?              @map("decided_at")
+  executedAt        DateTime?              @map("executed_at")
+  executionResult   Json?                  @map("execution_result")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+
+  decisions PlatformApprovalDecision[]
+
+  @@index([status, createdAt])
+  @@index([requestedById, createdAt])
+  @@index([actionKey])
+  @@map("platform_approval_requests")
+}
+
+model PlatformApprovalDecision {
+  id         String   @id @default(cuid())
+  requestId  String   @map("request_id")
+  approverId String   @map("approver_id")
+  /// approved | rejected
+  decision   String
+  comment    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  request PlatformApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, approverId])
+  @@map("platform_approval_decisions")
+}
+
+model PlatformNotification {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  kind      String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId, readAt, createdAt])
+  @@map("platform_notifications")
+}
+
+model SupportTicket {
+  id              String                 @id @default(cuid())
+  seq             Int                    @unique @default(autoincrement())
+  organizationId  String?                @map("organization_id")
+  subject         String
+  description     String
+  category        String                 @default("general")
+  priority        PlatformTicketPriority @default(normal)
+  status          PlatformTicketStatus   @default(open)
+  requesterName   String?                @map("requester_name")
+  requesterEmail  String?                @map("requester_email")
+  requesterPhone  String?                @map("requester_phone")
+  assigneeTeamId  String?                @map("assignee_team_id")
+  assigneeUserId  String?                @map("assignee_user_id")
+  createdById     String                 @map("created_by_id")
+  slaDueAt        DateTime?              @map("sla_due_at")
+  firstResponseAt DateTime?              @map("first_response_at")
+  resolvedAt      DateTime?              @map("resolved_at")
+  tags            String[]               @default([])
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+
+  comments     SupportTicketComment[]
+  accessGrants TenantAccessGrant[]
+
+  @@index([status, priority, createdAt])
+  @@index([assigneeUserId, status])
+  @@index([assigneeTeamId, status])
+  @@index([organizationId, createdAt])
+  @@map("support_tickets")
+}
+
+model SupportTicketComment {
+  id          String   @id @default(cuid())
+  ticketId    String   @map("ticket_id")
+  authorId    String?  @map("author_id")
+  body        String
+  isInternal  Boolean  @default(true) @map("is_internal")
+  /// [{ name, url }]
+  attachments Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("support_ticket_comments")
+}
+
+/// Time-boxed, ticket-backed permission for one employee to open a tenant account.
+model TenantAccessGrant {
+  id                String                    @id @default(cuid())
+  ticketId          String                    @map("ticket_id")
+  userId            String                    @map("user_id")
+  organizationId    String                    @map("organization_id")
+  accessLevel       PlatformAccessLevel       @default(read_only) @map("access_level")
+  justification     String
+  durationMinutes   Int                       @default(60) @map("duration_minutes")
+  status            PlatformAccessGrantStatus @default(pending)
+  approvalRequestId String?                   @map("approval_request_id")
+  approvedAt        DateTime?                 @map("approved_at")
+  startsAt          DateTime?                 @map("starts_at")
+  expiresAt         DateTime?                 @map("expires_at")
+  revokedAt         DateTime?                 @map("revoked_at")
+  revokedById       String?                   @map("revoked_by_id")
+  lastUsedAt        DateTime?                 @map("last_used_at")
+  createdAt         DateTime                  @default(now()) @map("created_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+
+  @@index([userId, status])
+  @@index([organizationId, status])
+  @@map("tenant_access_grants")
+}
+
+model PlatformShift {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  teamId    String?  @map("team_id")
+  /// shift | on_call | leave
+  kind      String   @default("shift")
+  startsAt  DateTime @map("starts_at")
+  endsAt    DateTime @map("ends_at")
+  note      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, startsAt])
+  @@index([teamId, startsAt])
+  @@map("platform_shifts")
+}
+
+model PlatformOnCallRotation {
+  id            String   @id @default(cuid())
+  teamId        String   @map("team_id")
+  name          String
+  memberUserIds String[] @default([]) @map("member_user_ids")
+  rotationDays  Int      @default(7) @map("rotation_days")
+  startsAt      DateTime @map("starts_at")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([teamId])
+  @@map("platform_on_call_rotations")
+}
+
+model PlatformAccessReviewCampaign {
+  id          String    @id @default(cuid())
+  name        String
+  /// open | closed
+  status      String    @default("open")
+  dueAt       DateTime  @map("due_at")
+  createdById String    @map("created_by_id")
+  closedAt    DateTime? @map("closed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  items PlatformAccessReviewItem[]
+
+  @@map("platform_access_review_campaigns")
+}
+
+model PlatformAccessReviewItem {
+  id           String                 @id @default(cuid())
+  campaignId   String                 @map("campaign_id")
+  /// Role assignment id, or "primary:<userId>" for the primary system role.
+  assignmentId String                 @map("assignment_id")
+  userId       String                 @map("user_id")
+  roleKey      String                 @map("role_key")
+  reviewerId   String?                @map("reviewer_id")
+  decision     PlatformReviewDecision @default(pending)
+  comment      String?
+  decidedAt    DateTime?              @map("decided_at")
+  decidedById  String?                @map("decided_by_id")
+
+  campaign PlatformAccessReviewCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, decision])
+  @@index([reviewerId, decision])
+  @@map("platform_access_review_items")
+}
+
+model PlatformSavedView {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  page      String
+  name      String
+  filters   Json
+  isShared  Boolean  @default(false) @map("is_shared")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([page, userId])
+  @@map("platform_saved_views")
+}
+
+/// Exports and bulk tenant operations run in the background with progress.
+model PlatformJob {
+  id                String            @id @default(cuid())
+  /// export | bulk_action
+  kind              String
+  action            String
+  status            PlatformJobStatus @default(queued)
+  params            Json
+  total             Int               @default(0)
+  processed         Int               @default(0)
+  failed            Int               @default(0)
+  resultCsv         String?           @map("result_csv")
+  errors            Json?
+  approvalRequestId String?           @map("approval_request_id")
+  createdById       String            @map("created_by_id")
+  startedAt         DateTime?         @map("started_at")
+  finishedAt        DateTime?         @map("finished_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  @@index([createdById, createdAt])
+  @@index([status])
+  @@map("platform_jobs")
 }

@@ -1,8 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Download } from 'lucide-react';
 import { csvRow } from '@cullinos/shared';
-import { Button, Input } from '@cullinos/ui';
+import { Button } from '@cullinos/ui';
+import { DataTable, PageHeader, SearchInput, Toolbar } from '@/components/ui';
+import { inputClass } from '@/components/common';
 import { superAdminApi } from '@/lib/api';
+
+const PAGE_SIZE = 50;
 
 function toCsv(rows: Array<Record<string, string>>) {
   if (rows.length === 0) return '';
@@ -20,23 +25,17 @@ function downloadCsv(filename: string, csv: string) {
   URL.revokeObjectURL(url);
 }
 
+const EMPTY_FILTERS = { organizationId: '', action: '', from: '', to: '' };
+
 export function AuditActivityPage() {
   const [page, setPage] = useState(1);
-  const [organizationId, setOrganizationId] = useState('');
-  const [action, setAction] = useState('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [applied, setApplied] = useState({
-    organizationId: '',
-    action: '',
-    from: '',
-    to: '',
-  });
+  const [draft, setDraft] = useState(EMPTY_FILTERS);
+  const [applied, setApplied] = useState(EMPTY_FILTERS);
 
   const query = useQuery({
     queryKey: ['super-admin', 'audit-logs', page, applied],
     queryFn: () =>
-      superAdminApi.listAuditLogs(page, 50, {
+      superAdminApi.listAuditLogs(page, PAGE_SIZE, {
         organizationId: applied.organizationId || undefined,
         action: applied.action || undefined,
         from: applied.from || undefined,
@@ -46,6 +45,8 @@ export function AuditActivityPage() {
 
   const rows = query.data?.data ?? [];
   const meta = query.data?.meta;
+  const dirty = JSON.stringify(draft) !== JSON.stringify(applied);
+  const hasFilters = Object.values(applied).some(Boolean);
 
   const csv = useMemo(
     () =>
@@ -64,151 +65,131 @@ export function AuditActivityPage() {
     [rows],
   );
 
+  function apply() {
+    setPage(1);
+    setApplied(draft);
+  }
+
+  function clear() {
+    setDraft(EMPTY_FILTERS);
+    setApplied(EMPTY_FILTERS);
+    setPage(1);
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Audit & activity</h1>
-          <p className="mt-1 max-w-2xl text-sm text-text-secondary">
-            Platform-wide audit log across tenants. Filter by organization, action, or date range.
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={!csv}
-          onClick={() => downloadCsv(`audit-logs-page-${page}.csv`, csv)}
-        >
-          Export CSV
-        </Button>
-      </div>
+      <PageHeader
+        title="Audit & activity"
+        description="Platform-wide audit log across tenants. Filter by organization, action, or date range."
+        actions={
+          <Button type="button" variant="secondary" size="sm" disabled={!csv} onClick={() => downloadCsv(`audit-logs-page-${page}.csv`, csv)}>
+            <Download size={16} aria-hidden="true" />
+            Export CSV
+          </Button>
+        }
+      />
 
-      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
-        <form
-          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setPage(1);
-            setApplied({ organizationId, action, from, to });
-          }}
-        >
-          <Input
-            label="Organization ID"
-            value={organizationId}
-            onChange={(e) => setOrganizationId(e.target.value)}
-            placeholder="Optional org id"
-          />
-          <Input
-            label="Action contains"
-            value={action}
-            onChange={(e) => setAction(e.target.value)}
-            placeholder="e.g. suspend_user"
-          />
-          <Input
-            label="From"
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-          />
-          <Input
-            label="To"
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-          />
-          <div className="flex items-end gap-2">
-            <Button type="submit">Apply</Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setOrganizationId('');
-                setAction('');
-                setFrom('');
-                setTo('');
-                setPage(1);
-                setApplied({ organizationId: '', action: '', from: '', to: '' });
-              }}
-            >
-              Clear
+      <DataTable
+        rows={rows}
+        loading={query.isLoading}
+        getRowKey={(r) => r.id}
+        emptyMessage={hasFilters ? 'No audit entries match these filters' : 'No audit entries yet'}
+        emptyAction={
+          hasFilters ? (
+            <Button size="sm" variant="secondary" onClick={clear}>
+              Clear filters
             </Button>
-          </div>
-        </form>
-      </section>
-
-      <section className="overflow-hidden rounded-xl border border-line-subtle bg-bg-card">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
-              <th className="px-4 py-3 font-medium">When</th>
-              <th className="px-4 py-3 font-medium">Action</th>
-              <th className="px-4 py-3 font-medium">Org</th>
-              <th className="px-4 py-3 font-medium">Actor</th>
-              <th className="px-4 py-3 font-medium">Entity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {query.isLoading ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-text-muted">
-                  Loading…
-                </td>
-              </tr>
-            ) : rows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-text-muted">
-                  No audit rows.
-                </td>
-              </tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={r.id} className="border-b border-line-subtle">
-                  <td className="px-4 py-3 whitespace-nowrap text-text-secondary">
-                    {new Date(r.createdAt).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 font-medium">{r.action}</td>
-                  <td className="px-4 py-3">
-                    {r.organization?.name ?? '—'}
-                    <span className="block text-xs text-text-muted">
-                      {r.organization?.slug}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary">{r.user?.email ?? '—'}</td>
-                  <td className="px-4 py-3 text-text-secondary">
-                    {r.entityType}
-                    {r.entityId ? (
-                      <span className="block font-mono text-xs text-text-muted">{r.entityId}</span>
-                    ) : null}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-        <div className="flex items-center justify-between border-t border-line-subtle px-4 py-3 text-sm">
-          <span className="text-text-muted">
-            {meta ? `${meta.total} total · page ${meta.page}` : ''}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Previous
+          ) : undefined
+        }
+        toolbar={
+          <Toolbar className="w-full">
+            <SearchInput
+              label="Action contains"
+              placeholder="Action, e.g. suspend_user"
+              value={draft.action}
+              onChange={(action) => setDraft({ ...draft, action })}
+              onSubmit={apply}
+            />
+            <input
+              aria-label="Organization ID"
+              className={`${inputClass} h-9 w-full sm:w-56`}
+              placeholder="Organization ID"
+              value={draft.organizationId}
+              onChange={(e) => setDraft({ ...draft, organizationId: e.target.value })}
+              onKeyDown={(e) => e.key === 'Enter' && apply()}
+            />
+            <input
+              aria-label="From date"
+              type="date"
+              className={`${inputClass} h-9 w-auto`}
+              value={draft.from}
+              onChange={(e) => setDraft({ ...draft, from: e.target.value })}
+            />
+            <span className="text-xs text-text-muted">to</span>
+            <input
+              aria-label="To date"
+              type="date"
+              className={`${inputClass} h-9 w-auto`}
+              value={draft.to}
+              onChange={(e) => setDraft({ ...draft, to: e.target.value })}
+            />
+            <Button size="sm" onClick={apply} disabled={!dirty}>
+              Apply
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={!meta?.hasMore}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      </section>
+            {hasFilters || dirty ? (
+              <Button size="sm" variant="ghost" onClick={clear}>
+                Clear
+              </Button>
+            ) : null}
+          </Toolbar>
+        }
+        pagination={
+          meta
+            ? {
+                page: meta.page,
+                pageSize: PAGE_SIZE,
+                total: meta.total,
+                onPageChange: setPage,
+                itemLabel: 'entries',
+              }
+            : undefined
+        }
+        columns={[
+          {
+            key: 'when',
+            header: 'When',
+            className: 'whitespace-nowrap text-text-secondary',
+            cell: (r) => new Date(r.createdAt).toLocaleString(),
+          },
+          {
+            key: 'action',
+            header: 'Action',
+            cell: (r) => <span className="rounded-md bg-bg-secondary px-2 py-0.5 font-mono text-xs text-text-primary">{r.action}</span>,
+          },
+          {
+            key: 'org',
+            header: 'Organization',
+            cell: (r) => (
+              <div>
+                <p className="font-medium">{r.organization?.name ?? '—'}</p>
+                {r.organization?.slug ? <p className="text-xs text-text-muted">{r.organization.slug}</p> : null}
+              </div>
+            ),
+          },
+          { key: 'actor', header: 'Actor', className: 'text-text-secondary', cell: (r) => r.user?.email ?? '—' },
+          {
+            key: 'entity',
+            header: 'Entity',
+            className: 'text-text-secondary',
+            cell: (r) => (
+              <div>
+                <p>{r.entityType}</p>
+                {r.entityId ? <p className="font-mono text-xs text-text-muted">{r.entityId}</p> : null}
+              </div>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

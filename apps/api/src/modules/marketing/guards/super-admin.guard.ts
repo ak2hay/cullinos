@@ -8,13 +8,17 @@ import { JwtService } from "@nestjs/jwt";
 import { Reflector } from "@nestjs/core";
 import { IS_PUBLIC_KEY } from "../../../common/decorators";
 import { verifyStaffAccessToken } from "../../../common/access-token.util";
-import { assertPlatformAccess } from "../../../common/platform-access.util";
+import { PlatformAuthorizationService } from "../../platform-iam/platform-authorization.service";
 
 @Injectable()
 export class SuperAdminGuard implements CanActivate {
-  constructor(private jwt: JwtService, private reflector: Reflector) {}
+  constructor(
+    private jwt: JwtService,
+    private reflector: Reflector,
+    private authz: PlatformAuthorizationService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -30,7 +34,7 @@ export class SuperAdminGuard implements CanActivate {
     const payload = verifyStaffAccessToken(this.jwt, authHeader.slice(7));
     if (!payload) throw new UnauthorizedException("Invalid token");
     request.user = payload;
-    assertPlatformAccess(this.reflector, context, payload);
+    await this.authz.authorize(context, request);
     return true;
   }
 }

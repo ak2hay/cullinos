@@ -1,48 +1,64 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { superAdminApi } from '@/lib/api';
+import { CreditCard, IndianRupee, Settings2 } from 'lucide-react';
+import { Button } from '@cullinos/ui';
+import { inputClass, LabeledInput, Notice } from '@/components/common';
+import {
+  DataTable,
+  DefinitionList,
+  EntityAvatar,
+  FilterSelect,
+  FormDrawer,
+  KpiCard,
+  KpiGrid,
+  PageHeader,
+  RowActions,
+  SearchInput,
+  StatusPill,
+} from '@/components/ui';
+import { superAdminApi, type Tenant } from '@/lib/api';
+import { formatDate, formatInr } from '@/lib/format';
 import { openRazorpaySubscriptionCheckout } from '@/lib/razorpay-subscription-checkout';
+
+const SUB_STATUSES = ['TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'CANCELLED'];
 
 export function SubscriptionsPage() {
   const queryClient = useQueryClient();
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Tenant | null>(null);
   const [planSlug, setPlanSlug] = useState('enterprise');
   const [status, setStatus] = useState('ACTIVE');
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ tone: 'info' | 'success' | 'error'; text: string } | null>(null);
   const [searchInput, setSearchInput] = useState('');
   const [q, setQ] = useState('');
+  const [planFilter, setPlanFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   useEffect(() => {
-    const t = setTimeout(() => setQ(searchInput.trim()), 300);
+    const t = setTimeout(() => {
+      setQ(searchInput.trim());
+      setPage(1);
+    }, 300);
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['super-admin', 'organizations', 'subs', q],
-    queryFn: () => superAdminApi.listOrganizations(1, 100, { q: q || undefined }),
+  const list = useQuery({
+    queryKey: ['super-admin', 'organizations', 'subs', page, pageSize, q, planFilter],
+    queryFn: () => superAdminApi.listOrganizations(page, pageSize, { q: q || undefined, planSlug: planFilter || undefined }),
+    placeholderData: keepPreviousData,
   });
-
-  const { data: plans = [] } = useQuery({
-    queryKey: ['super-admin', 'plans'],
-    queryFn: () => superAdminApi.listPlans(),
-  });
+  const analytics = useQuery({ queryKey: ['super-admin', 'analytics', '30d'], queryFn: () => superAdminApi.analyticsOverview('30d') });
+  const { data: plans = [] } = useQuery({ queryKey: ['super-admin', 'plans'], queryFn: () => superAdminApi.listPlans() });
 
   const updateMutation = useMutation({
-    mutationFn: ({
-      orgId,
-      planSlug: slug,
-      status: s,
-    }: {
-      orgId: string;
-      planSlug: string;
-      status: string;
-    }) => superAdminApi.manageSubscription(orgId, { planSlug: slug, status: s }),
+    mutationFn: ({ orgId, planSlug: slug, status: s }: { orgId: string; planSlug: string; status: string }) =>
+      superAdminApi.manageSubscription(orgId, { planSlug: slug, status: s }),
     onSuccess: () => {
-      setMessage('Subscription updated successfully.');
+      setSelected(null);
+      setMessage({ tone: 'success', text: 'Subscription updated successfully.' });
       queryClient.invalidateQueries({ queryKey: ['super-admin', 'organizations'] });
     },
-    onError: (err: Error) => setMessage(err.message),
   });
 
   const collectMutation = useMutation({
@@ -51,197 +67,195 @@ export function SubscriptionsPage() {
       queryClient.invalidateQueries({ queryKey: ['super-admin', 'organizations'] });
       if (result.keyId && result.razorpaySubId) {
         try {
-          setMessage('Opening Razorpay Checkout…');
+          setMessage({ tone: 'info', text: 'Opening Razorpay Checkout…' });
           await openRazorpaySubscriptionCheckout({
             keyId: result.keyId,
             subscriptionId: result.razorpaySubId,
             description: 'Cullinos subscription',
             prefill: result.prefill,
           });
-          setMessage('Payment submitted. Subscription will activate when Razorpay confirms.');
+          setMessage({ tone: 'success', text: 'Payment submitted. Subscription will activate when Razorpay confirms.' });
         } catch (err) {
-          setMessage(err instanceof Error ? err.message : 'Checkout failed');
+          setMessage({ tone: 'error', text: err instanceof Error ? err.message : 'Checkout failed' });
         }
         return;
       }
       if (result.shortUrl) {
-        setMessage(`Razorpay checkout ready: ${result.shortUrl}`);
+        setMessage({ tone: 'info', text: `Razorpay checkout ready: ${result.shortUrl}` });
         window.open(result.shortUrl, '_blank', 'noopener,noreferrer');
         return;
       }
-      setMessage('Razorpay subscription created but no checkout method was returned.');
+      setMessage({ tone: 'error', text: 'Razorpay subscription created but no checkout method was returned.' });
     },
-    onError: (err: Error) => setMessage(err.message),
+    onError: (err: Error) => setMessage({ tone: 'error', text: err.message }),
   });
 
-  const selected = data?.data.find((t) => t.id === selectedOrgId);
+  function openManage(t: Tenant) {
+    setSelected(t);
+    setPlanSlug(t.plan ?? 'enterprise');
+    setStatus(t.subscriptionStatus?.toUpperCase() ?? 'ACTIVE');
+    updateMutation.reset();
+  }
+
+  const saas = analytics.data?.saas;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Subscription management</h1>
-        <p className="mt-1 text-text-secondary">
-          Search tenants, update plans, and collect Razorpay payments.
-        </p>
-      </div>
+      <PageHeader title="Subscriptions" description="Update tenant plans and collect Razorpay payments for Cullinos SaaS billing." />
+
+      <KpiGrid>
+        <KpiCard label="MRR" icon={IndianRupee} tone="indigo" value={saas ? formatInr(saas.mrr) : '…'} hint="Monthly recurring revenue" />
+        <KpiCard label="ARR" icon={IndianRupee} tone="violet" value={saas ? formatInr(saas.arr) : '…'} />
+        <KpiCard label="Trials" icon={CreditCard} tone="blue" value={saas?.trialCount ?? '…'} hint={`${saas?.trialsEndingSoon.length ?? 0} ending this week`} />
+        <KpiCard label="Cancelled (30d)" icon={CreditCard} tone="rose" value={saas?.cancelledInRange ?? '…'} />
+      </KpiGrid>
 
       {message ? (
-        <div className="rounded-xl border border-line bg-bg-card px-4 py-3 text-sm text-text-secondary">
-          {message}
-          <button type="button" className="ml-3 text-xs underline" onClick={() => setMessage(null)}>
+        <Notice tone={message.tone}>
+          {message.text}
+          <button type="button" className="ml-3 text-xs font-medium underline" onClick={() => setMessage(null)}>
             Dismiss
           </button>
-        </div>
+        </Notice>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
-          <h2 className="font-medium">Select tenant</h2>
-          <input
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search name, slug, email…"
-            className="mt-3 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
-          />
-          <ul className="mt-4 max-h-96 divide-y divide-line-subtle overflow-y-auto">
-            {isLoading ? (
-              <li className="py-4 text-sm text-text-muted">Loading…</li>
-            ) : (data?.data ?? []).length === 0 ? (
-              <li className="py-4 text-sm text-text-muted">No tenants found.</li>
-            ) : (
-              (data?.data ?? []).map((tenant) => (
-                <li key={tenant.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedOrgId(tenant.id);
-                      setPlanSlug(tenant.plan ?? 'enterprise');
-                      setStatus(tenant.subscriptionStatus?.toUpperCase() ?? 'ACTIVE');
-                    }}
-                    className={`w-full px-2 py-3 text-left text-sm transition hover:bg-hover ${
-                      selectedOrgId === tenant.id ? 'bg-hover' : ''
-                    }`}
-                  >
-                    <p className="font-medium">{tenant.name}</p>
-                    <p className="text-xs text-text-muted">
-                      {tenant.plan ?? 'No plan'} · {tenant.subscriptionStatus ?? '—'}
-                      {tenant.mrrContribution
-                        ? ` · ₹${tenant.mrrContribution}/mo`
-                        : ''}
-                    </p>
-                  </button>
-                </li>
-              ))
-            )}
-          </ul>
-        </section>
-
-        <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
-          <h2 className="font-medium">Tenant detail</h2>
-          {selected ? (
-            <div className="mt-4 space-y-4">
-              <dl className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <dt className="text-text-muted">Slug</dt>
-                  <dd className="font-mono">{selected.slug}</dd>
+      <DataTable
+        rows={list.data?.data ?? []}
+        loading={list.isLoading}
+        getRowKey={(t) => t.id}
+        onRowClick={openManage}
+        emptyMessage="No tenants found"
+        toolbar={
+          <>
+            <SearchInput value={searchInput} onChange={setSearchInput} placeholder="Search name, slug, email…" />
+            <FilterSelect
+              aria-label="Plan"
+              value={planFilter}
+              onChange={(e) => {
+                setPlanFilter(e.target.value);
+                setPage(1);
+              }}
+              options={[{ value: '', label: 'All plans' }, ...plans.map((p) => ({ value: p.slug, label: p.name }))]}
+            />
+          </>
+        }
+        columns={[
+          {
+            key: 'org',
+            header: 'Organization',
+            cell: (t) => (
+              <div className="flex items-center gap-3">
+                <EntityAvatar name={t.name} seed={t.id} size={34} />
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{t.name}</p>
+                  <p className="truncate text-xs text-text-muted">{t.slug}</p>
                 </div>
-                <div>
-                  <dt className="text-text-muted">Status</dt>
-                  <dd>{selected.isActive ? 'Active' : 'Suspended'}</dd>
-                </div>
-                <div>
-                  <dt className="text-text-muted">Outlets</dt>
-                  <dd>{selected.outletCount}</dd>
-                </div>
-                <div>
-                  <dt className="text-text-muted">MRR contribution</dt>
-                  <dd>₹{selected.mrrContribution ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="text-text-muted">Grace until</dt>
-                  <dd>
-                    {selected.graceUntil
-                      ? new Date(selected.graceUntil).toLocaleDateString()
-                      : '—'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-text-muted">Last payment id</dt>
-                  <dd className="truncate font-mono text-xs">
-                    {selected.lastRazorpayPaymentId ?? '—'}
-                  </dd>
-                </div>
-              </dl>
-
-              <Link
-                to={`/tenants/${selected.id}`}
-                className="inline-block text-sm text-brand-primary hover:underline"
-              >
-                Open tenant detail →
-              </Link>
-
-              <label className="block text-sm">
-                <span className="text-text-muted">Plan</span>
-                <select
-                  value={planSlug}
-                  onChange={(e) => setPlanSlug(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
-                >
-                  {plans.map((p) => (
-                    <option key={p.id} value={p.slug}>
-                      {p.visibility === 'private' ? 'Custom — ' : ''}
-                      {p.name} (₹{p.priceMonthly})
-                      {p.visibility === 'private' ? ' (private)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block text-sm">
-                <span className="text-text-muted">Subscription status</span>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
-                >
-                  {['TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'CANCELLED'].map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={updateMutation.isPending}
-                  onClick={() =>
-                    updateMutation.mutate({
-                      orgId: selected.id,
-                      planSlug,
-                      status,
-                    })
-                  }
-                  className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand disabled:opacity-60"
-                >
-                  {updateMutation.isPending ? 'Saving…' : 'Update subscription'}
-                </button>
-                <button
-                  type="button"
-                  disabled={collectMutation.isPending}
-                  onClick={() => collectMutation.mutate(selected.id)}
-                  className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-hover disabled:opacity-60"
-                >
-                  {collectMutation.isPending ? 'Creating…' : 'Collect payment'}
-                </button>
               </div>
+            ),
+          },
+          { key: 'plan', header: 'Plan', cell: (t) => <span className="capitalize">{t.planName ?? t.plan ?? '—'}</span> },
+          { key: 'sub', header: 'Subscription', cell: (t) => (t.subscriptionStatus ? <StatusPill status={t.subscriptionStatus.toLowerCase()} /> : <span className="text-text-muted">None</span>) },
+          { key: 'mrr', header: 'MRR', className: 'tabular-nums', cell: (t) => formatInr(t.mrrContribution ?? 0) },
+          {
+            key: 'renews',
+            header: 'Renews / ends',
+            cell: (t) => (
+              <span className="text-text-secondary">
+                {t.subscriptionStatus?.toLowerCase() === 'trial' ? `Trial ends ${formatDate(t.trialEndsAt)}` : formatDate(t.currentPeriodEnd)}
+              </span>
+            ),
+          },
+          {
+            key: 'actions',
+            header: '',
+            className: 'text-right',
+            cell: (t) => (
+              <RowActions
+                onView={() => openManage(t)}
+                viewLabel="Manage"
+                actions={[{ label: 'Collect payment', icon: CreditCard, disabled: collectMutation.isPending, onSelect: () => collectMutation.mutate(t.id) }]}
+              />
+            ),
+          },
+        ]}
+        pagination={{
+          page,
+          pageSize,
+          total: list.data?.meta.total ?? 0,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => {
+            setPageSize(n);
+            setPage(1);
+          },
+          itemLabel: 'tenants',
+        }}
+      />
+
+      <FormDrawer
+        open={Boolean(selected)}
+        onClose={() => setSelected(null)}
+        title={selected ? `Manage ${selected.name}` : 'Manage subscription'}
+        description="Plan and status changes may require approval."
+        submitLabel="Update subscription"
+        loading={updateMutation.isPending}
+        error={updateMutation.error}
+        onSubmit={() => selected && updateMutation.mutate({ orgId: selected.id, planSlug, status })}
+        extraFooter={
+          selected ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              type="button"
+              className="mr-auto gap-2"
+              loading={collectMutation.isPending}
+              onClick={() => collectMutation.mutate(selected.id)}
+            >
+              <CreditCard size={15} aria-hidden="true" />
+              Collect payment
+            </Button>
+          ) : null
+        }
+      >
+        {selected ? (
+          <>
+            <div className="rounded-xl border border-line-subtle bg-bg-elevated/50 p-4">
+              <DefinitionList
+                items={[
+                  { label: 'Slug', value: <span className="font-mono text-xs">{selected.slug}</span> },
+                  { label: 'Tenant status', value: <StatusPill status={selected.status ?? (selected.isActive ? 'active' : 'suspended')} /> },
+                  { label: 'Outlets', value: selected.outletCount },
+                  { label: 'MRR contribution', value: formatInr(selected.mrrContribution ?? 0) },
+                  { label: 'Grace until', value: formatDate(selected.graceUntil) },
+                  { label: 'Last payment', value: <span className="font-mono text-xs">{selected.lastRazorpayPaymentId ?? '—'}</span> },
+                ]}
+              />
+              <Link to={`/tenants/${selected.id}`} className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline">
+                <Settings2 size={14} aria-hidden="true" />
+                Open tenant
+              </Link>
             </div>
-          ) : (
-            <p className="mt-4 text-sm text-text-muted">Select a tenant to manage billing.</p>
-          )}
-        </section>
-      </div>
+            <LabeledInput label="Plan">
+              <select value={planSlug} onChange={(e) => setPlanSlug(e.target.value)} className={inputClass}>
+                {plans.map((p) => (
+                  <option key={p.id} value={p.slug}>
+                    {p.visibility === 'private' ? 'Custom: ' : ''}
+                    {p.name} ({formatInr(p.priceMonthly)}){p.visibility === 'private' ? ' (private)' : ''}
+                  </option>
+                ))}
+              </select>
+            </LabeledInput>
+            <LabeledInput label="Subscription status">
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputClass}>
+                {SUB_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s.replace('_', ' ')}
+                  </option>
+                ))}
+              </select>
+            </LabeledInput>
+          </>
+        ) : null}
+      </FormDrawer>
     </div>
   );
 }

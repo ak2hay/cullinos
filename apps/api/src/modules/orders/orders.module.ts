@@ -10,6 +10,8 @@ import { MailModule } from "../mail/mail.module";
 import { SmsModule } from "../sms/sms.module";
 import { FeedbackModule } from "../feedback/feedback.module";
 import { WalletModule } from "../wallet/wallet.module";
+import { PaymentsModule } from "../payments/payments.module";
+import { RefundPinModule } from "../refund-pin/refund-pin.module";
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { WalletModule } from "../wallet/wallet.module";
     SmsModule,
     FeedbackModule,
     WalletModule,
+    PaymentsModule,
+    RefundPinModule,
   ],
   controllers: [OrdersController, PublicOrdersController],
   providers: [OrdersService],

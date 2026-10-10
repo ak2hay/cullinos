@@ -23,6 +23,6 @@ import { SuperAdminService } from "./super-admin.service";
   ],
   controllers: [SuperAdminController, PlatformTeamController],
   providers: [SuperAdminService, PlatformTeamService, SuperAdminGuard, PlanBootstrapService],
-  exports: [SuperAdminService],
+  exports: [SuperAdminService, PlatformTeamService],
 })
 export class SuperAdminModule {}

@@ -19,6 +19,8 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { SessionTokensService } from "../auth/session-tokens.service";
 import { MailService } from "../mail/mail.service";
+import { PlatformAccessService } from "../platform-iam/platform-access.service";
+import { PlatformIamService } from "../platform-iam/platform-iam.service";
 
 export type PlatformActor = { sub: string; organizationId: string; email?: string };
 
@@ -32,6 +34,14 @@ const MEMBER_SELECT = {
   mustChangePassword: true,
   lastLoginAt: true,
   createdAt: true,
+  platformEmployee: {
+    select: {
+      employeeCode: true,
+      title: true,
+      team: { select: { id: true, name: true } },
+      department: { select: { id: true, name: true } },
+    },
+  },
 } as const;
 
 type MemberRow = {
@@ -44,6 +54,12 @@ type MemberRow = {
   mustChangePassword: boolean;
   lastLoginAt: Date | null;
   createdAt: Date;
+  platformEmployee?: {
+    employeeCode: string;
+    title: string | null;
+    team: { id: string; name: string } | null;
+    department: { id: string; name: string } | null;
+  } | null;
 };
 
 function toMember(u: MemberRow) {
@@ -57,8 +73,24 @@ function toMember(u: MemberRow) {
     mustChangePassword: u.mustChangePassword,
     lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
     createdAt: u.createdAt.toISOString(),
+    employeeCode: u.platformEmployee?.employeeCode ?? null,
+    title: u.platformEmployee?.title ?? null,
+    team: u.platformEmployee?.team ?? null,
+    department: u.platformEmployee?.department ?? null,
   };
 }
+
+export type InviteStaffInput = {
+  email: string;
+  name: string;
+  platformRole: string;
+  title?: string;
+  departmentId?: string;
+  teamId?: string;
+  managerUserId?: string;
+  region?: string;
+  location?: string;
+};
 
 /** Rkyves internal staff who can sign in to the super admin panel. */
 @Injectable()
@@ -68,6 +100,8 @@ export class PlatformTeamService {
     private mail: MailService,
     private sessions: SessionTokensService,
     private audit: AuditService,
+    private iam: PlatformIamService,
+    private access: PlatformAccessService,
   ) {}
 
   private loginUrl(): string {
@@ -93,10 +127,7 @@ export class PlatformTeamService {
     return users.map(toMember);
   }
 
-  async invite(
-    actor: PlatformActor,
-    input: { email: string; name: string; platformRole: string },
-  ) {
+  async invite(actor: PlatformActor, input: InviteStaffInput) {
     const email = input.email.trim().toLowerCase();
     const name = input.name.trim();
     if (!email || !name) throw new BadRequestException("Name and email are required");
@@ -127,8 +158,24 @@ export class PlatformTeamService {
         mustChangePassword: true,
         status: "active",
       },
-      select: MEMBER_SELECT,
+      select: { id: true },
     });
+    const manager = input.managerUserId
+      ? await this.prisma.platformEmployee.findUnique({
+          where: { userId: input.managerUserId },
+          select: { id: true },
+        })
+      : null;
+    const employee = await this.iam.createEmployee(created.id, {
+      title: input.title?.trim() || null,
+      departmentId: input.departmentId || null,
+      teamId: input.teamId || null,
+      managerId: manager?.id ?? null,
+      region: input.region?.trim() || null,
+      location: input.location?.trim() || null,
+      joinedAt: new Date(),
+    });
+    const member = await this.findMember(created.id);
 
     const loginUrl = this.loginUrl();
     const emailSent = await this.mail.sendPlatformStaffInvite({
@@ -143,10 +190,11 @@ export class PlatformTeamService {
     await this.log(actor, "platform.team_invite", created.id, {
       email,
       platformRole: role,
+      employeeCode: employee.employeeCode,
       emailSent,
     });
 
-    return { member: toMember(created), temporaryPassword, emailSent, loginUrl };
+    return { member: toMember(member), temporaryPassword, emailSent, loginUrl };
   }
 
   async changeRole(actor: PlatformActor, userId: string, rawRole: string) {
@@ -169,6 +217,7 @@ export class PlatformTeamService {
     });
     // New permissions only apply to freshly issued tokens.
     await this.sessions.revokeAllForUser(userId);
+    this.access.invalidate(userId);
 
     await this.log(actor, "platform.team_role_change", userId, {
       email: target.email,
@@ -194,6 +243,11 @@ export class PlatformTeamService {
       select: MEMBER_SELECT,
     });
     await this.sessions.revokeAllForUser(userId);
+    this.access.invalidate(userId);
+    await this.prisma.tenantAccessGrant.updateMany({
+      where: { userId, status: { in: ["pending", "active"] } },
+      data: { status: "revoked", revokedAt: new Date(), revokedById: actor.sub },
+    });
 
     await this.log(actor, "platform.team_deactivate", userId, {
       email: target.email,

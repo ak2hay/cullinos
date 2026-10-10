@@ -1,9 +1,10 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { OrderStatus } from '@cullinos/shared';
-import { Button, Tabs } from '@cullinos/ui';
-import { ordersApi, type Order } from '@/lib/api';
+import { PERMISSIONS, hasPermission, type OrderStatus } from '@cullinos/shared';
+import { Button, Tabs, useToast } from '@cullinos/ui';
+import { RefundPinDialog } from '@/components/RefundPinDialog';
+import { ApiRequestError, auditApi, ordersApi, type Order } from '@/lib/api';
 import { formatDate, formatMoney, formatMoneyExact } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
 
@@ -54,6 +55,10 @@ export function OrdersPage() {
   const statusLabel = (status: string) => t(`orderStatus.${status}`, { defaultValue: status });
   const outletId = useAuthStore((s) => s.selectedOutletId);
   const queryClient = useQueryClient();
+  const toast = useToast();
+  const permissions = useAuthStore((s) => s.permissions);
+  const canRefund = hasPermission(permissions, PERMISSIONS.ORDER_REFUND);
+  const [refundOpen, setRefundOpen] = useState(false);
   const [tab, setTab] = useState<OrdersTab>('current');
   const [day, setDay] = useState(todayInputValue);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -90,13 +95,38 @@ export function OrdersPage() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
-      ordersApi.updateStatus(id, status),
+    mutationFn: ({
+      id,
+      status,
+      externalRefundConfirmed,
+    }: {
+      id: string;
+      status: OrderStatus;
+      externalRefundConfirmed?: boolean;
+    }) => ordersApi.updateStatus(id, status, { externalRefundConfirmed }),
     onSuccess: () => {
       setStatusError(null);
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     },
-    onError: (err: Error) => setStatusError(err.message),
+    onError: (
+      err: Error,
+      vars: { id: string; status: OrderStatus; externalRefundConfirmed?: boolean },
+    ) => {
+      if (
+        err instanceof ApiRequestError &&
+        err.code === 'EXTERNAL_REFUND_REQUIRED' &&
+        !vars.externalRefundConfirmed &&
+        window.confirm(`${err.message}\n\n${t('orders.confirmExternalRefund')}`)
+      ) {
+        statusMutation.mutate({ ...vars, externalRefundConfirmed: true });
+        return;
+      }
+      if (err instanceof ApiRequestError && err.code === 'REFUND_PIN_REQUIRED' && canRefund) {
+        setRefundOpen(true);
+        return;
+      }
+      setStatusError(err.message);
+    },
   });
 
   const allOrders = ordersQuery.data?.pages.flatMap((p) => p.data) ?? [];
@@ -105,6 +135,14 @@ export function OrdersPage() {
     ? allOrders.filter((o) => Boolean(o.scheduledPickupAt))
     : allOrders;
   const detail = detailQuery.data;
+  const isPaid = (detail?.paidAmount ?? 0) > 0;
+
+  const refundLogQuery = useQuery({
+    queryKey: ['audit', 'refunds', selectedId],
+    queryFn: () => auditApi.refunds(selectedId!),
+    enabled: Boolean(selectedId) && canRefund && detail?.status === 'CANCELLED',
+  });
+  const refundEntry = refundLogQuery.data?.find((e) => e.action === 'order.refunded');
 
   const emptyMessage = scheduledOnly
     ? t('orders.emptyScheduled')
@@ -316,7 +354,38 @@ export function OrdersPage() {
 
                 <BillBreakdown order={detail} />
 
+                {isPaid ? (
+                  <div className="flex justify-between gap-2 text-sm text-text-secondary">
+                    <span>{t('orders.paid')}</span>
+                    <span className="font-mono">{formatMoneyExact(detail.paidAmount ?? 0)}</span>
+                  </div>
+                ) : null}
+
+                {refundEntry ? (
+                  <p className="rounded-lg bg-status-error/10 px-3 py-2 text-xs text-status-error">
+                    {t('orders.refundedBy', {
+                      name: refundEntry.user?.name ?? refundEntry.user?.email ?? '—',
+                      time: formatDate(refundEntry.createdAt),
+                    })}
+                  </p>
+                ) : null}
+
                 {statusError ? <p className="text-sm text-status-error">{statusError}</p> : null}
+
+                {isPaid && !['CANCELLED', 'VOIDED'].includes(detail.status) ? (
+                  canRefund ? (
+                    <Button
+                      type="button"
+                      variant="danger"
+                      className="w-full"
+                      onClick={() => setRefundOpen(true)}
+                    >
+                      {t('orders.refund')} · {formatMoneyExact(detail.paidAmount ?? 0)}
+                    </Button>
+                  ) : (
+                    <p className="text-xs text-text-muted">{t('orders.refundNotAllowed')}</p>
+                  )
+                ) : null}
 
                 <div>
                   <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
@@ -331,6 +400,11 @@ export function OrdersPage() {
                         className="h-9 px-3 text-xs"
                         loading={statusMutation.isPending}
                         onClick={() => {
+                          if (status === 'CANCELLED' && isPaid) {
+                            if (canRefund) setRefundOpen(true);
+                            else setStatusError(t('orders.refundNotAllowed'));
+                            return;
+                          }
                           if (
                             status === 'CANCELLED' &&
                             !window.confirm(
@@ -347,6 +421,18 @@ export function OrdersPage() {
                     ))}
                   </div>
                 </div>
+                <RefundPinDialog
+                  order={detail}
+                  open={refundOpen}
+                  onClose={() => setRefundOpen(false)}
+                  onRefunded={(next) => {
+                    setRefundOpen(false);
+                    setStatusError(null);
+                    toast.success(t('orders.refundDone', { number: next.orderNumber }));
+                    queryClient.invalidateQueries({ queryKey: ['orders'] });
+                    queryClient.invalidateQueries({ queryKey: ['audit', 'refunds'] });
+                  }}
+                />
               </div>
             ) : null}
           </aside>

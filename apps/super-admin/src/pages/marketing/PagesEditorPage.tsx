@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Button, cn } from '@cullinos/ui';
+import { PageHeader, PageTabs, SectionCard, StatusPill } from '@/components/ui';
+import { inputClass, MutationError } from '@/components/common';
 import { marketingApi } from '@/lib/marketing-api';
 
 type PageRow = {
@@ -8,6 +11,17 @@ type PageRow = {
   title: string;
   blocks?: Array<{ id: string; blockKey: string; content: unknown; sortOrder: number }>;
 };
+
+const BLOCK_KEYS = ['elevatorPitch', 'trustPillars', 'ctaBanner', 'featureIntro'];
+
+function jsonError(text: string): string | null {
+  try {
+    JSON.parse(text);
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.message : 'Invalid JSON';
+  }
+}
 
 export function PagesEditorPage() {
   const queryClient = useQueryClient();
@@ -28,106 +42,105 @@ export function PagesEditorPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['marketing', 'pages'] }),
   });
 
-  const page = (pages as PageRow[]).find((p) => p.slug === selectedSlug);
+  const rows = pages as PageRow[];
+  const page = rows.find((p) => p.slug === selectedSlug);
   const block = page?.blocks?.find((b) => b.blockKey === blockKey);
+  const parseError = jsonError(json);
 
-  function loadBlock(key: string) {
+  function loadBlock(key: string, slug = selectedSlug) {
     setBlockKey(key);
-    const existing = page?.blocks?.find((b) => b.blockKey === key);
+    const existing = rows.find((p) => p.slug === slug)?.blocks?.find((b) => b.blockKey === key);
     setJson(JSON.stringify(existing?.content ?? { title: '', body: '' }, null, 2));
   }
 
-  if (isLoading) return <p className="text-text-muted">Loading pages…</p>;
+  const pageTabs = rows.some((p) => p.slug === 'home')
+    ? rows.map((p) => ({ id: p.slug, label: p.title || p.slug }))
+    : [{ id: 'home', label: 'home (new)' }, ...rows.map((p) => ({ id: p.slug, label: p.title || p.slug }))];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Pages & blocks</h1>
-        <p className="mt-1 text-text-secondary">
-          Edit structured content blocks per page (draft). Prefer small JSON objects with{" "}
-          <code className="text-xs">title</code> and <code className="text-xs">body</code>. Publish
-          from Marketing overview to go live.
-        </p>
-      </div>
+      <PageHeader
+        title="Pages & blocks"
+        description={
+          <>
+            Edit structured content blocks per page (draft). Prefer small JSON objects with <code className="text-xs">title</code> and{' '}
+            <code className="text-xs">body</code>. Publish from Marketing overview to go live.
+          </>
+        }
+      />
 
-      <div className="flex flex-wrap gap-3">
-        {(pages as PageRow[]).map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => {
-              setSelectedSlug(p.slug);
-              loadBlock(blockKey);
+      {isLoading ? (
+        <div className="h-96 animate-pulse rounded-xl bg-bg-secondary" />
+      ) : (
+        <>
+          <PageTabs
+            label="Pages"
+            value={selectedSlug}
+            onChange={(slug) => {
+              setSelectedSlug(slug);
+              loadBlock(blockKey, slug);
             }}
-            className={`rounded-lg border px-4 py-2 text-sm ${
-              selectedSlug === p.slug
-                ? 'border-brand-primary bg-brand-primary/10'
-                : 'border-line hover:bg-hover'
-            }`}
-          >
-            {p.title || p.slug}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => setSelectedSlug('home')}
-          className="rounded-lg border border-dashed border-line-strong px-4 py-2 text-sm text-text-muted"
-        >
-          + home (on save)
-        </button>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Block key</p>
-          {['elevatorPitch', 'trustPillars', 'ctaBanner', 'featureIntro'].map((key) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => loadBlock(key)}
-              className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
-                blockKey === key ? 'bg-hover-strong' : 'hover:bg-hover'
-              }`}
-            >
-              {key}
-            </button>
-          ))}
-          {block ? (
-            <p className="pt-2 text-xs text-text-muted">Editing existing draft block</p>
-          ) : (
-            <p className="pt-2 text-xs text-text-muted">New block will be created on save</p>
-          )}
-        </div>
-
-        <form
-          className="space-y-3 rounded-xl border border-line bg-bg-card p-5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            saveMutation.mutate();
-          }}
-        >
-          <p className="text-sm text-text-muted">
-            Page: <span className="text-text-primary">{selectedSlug}</span> · Block:{' '}
-            <span className="text-text-primary">{blockKey}</span>
-          </p>
-          <textarea
-            value={json}
-            onChange={(e) => setJson(e.target.value)}
-            rows={16}
-            className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 font-mono text-xs"
+            tabs={pageTabs}
           />
-          <button
-            type="submit"
-            disabled={saveMutation.isPending}
-            className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium disabled:opacity-60"
-          >
-            {saveMutation.isPending ? 'Saving…' : 'Save block'}
-          </button>
-          {saveMutation.error ? (
-            <p className="text-sm text-status-error">{String(saveMutation.error.message)}</p>
-          ) : null}
-        </form>
-      </div>
+
+          <div className="grid items-start gap-6 lg:grid-cols-[220px_1fr]">
+            <nav aria-label="Blocks" className="rounded-xl border border-line-subtle bg-bg-card p-2">
+              <p className="px-3 pb-1 pt-2 text-xs font-medium text-text-muted">Blocks</p>
+              {BLOCK_KEYS.map((key) => {
+                const exists = page?.blocks?.some((b) => b.blockKey === key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => loadBlock(key)}
+                    aria-current={blockKey === key ? 'true' : undefined}
+                    className={cn(
+                      'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left font-mono text-xs',
+                      blockKey === key ? 'bg-accent/10 text-accent' : 'text-text-secondary hover:bg-hover',
+                    )}
+                  >
+                    {key}
+                    {exists ? <span className="h-1.5 w-1.5 rounded-full bg-status-success" aria-label="Has draft" /> : null}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <SectionCard
+              title={
+                <span className="font-mono text-sm">
+                  {selectedSlug} / {blockKey}
+                </span>
+              }
+              actions={<StatusPill status={block ? 'draft' : 'new'} tone={block ? 'info' : 'neutral'} label={block ? 'Existing draft' : 'New block'} />}
+            >
+              <form
+                className="space-y-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveMutation.mutate();
+                }}
+              >
+                <textarea
+                  aria-label="Block JSON"
+                  value={json}
+                  onChange={(e) => setJson(e.target.value)}
+                  rows={16}
+                  spellCheck={false}
+                  className={cn(inputClass, 'font-mono text-xs', parseError && 'border-status-error focus:border-status-error focus:ring-status-error/20')}
+                />
+                {parseError ? <p className="text-xs text-status-error">{parseError}</p> : null}
+                <div className="flex items-center gap-3">
+                  <Button type="submit" size="sm" loading={saveMutation.isPending} disabled={Boolean(parseError)}>
+                    Save block
+                  </Button>
+                  <MutationError error={saveMutation.error} />
+                </div>
+              </form>
+            </SectionCard>
+          </div>
+        </>
+      )}
     </div>
   );
 }

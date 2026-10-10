@@ -7,6 +7,7 @@ import { SessionTokensService } from "./session-tokens.service";
 import { JwtAuthGuard } from "../../common/jwt-auth.guard";
 import { AccountStatusGuard } from "../../common/account-status.guard";
 import { SuperAdminGuard } from "../../common/super-admin.guard";
+import { SupportSessionGuard } from "../../common/support-session.guard";
 import { PermissionsGuard } from "../../common/guards/permissions.guard";
 import { EntitlementGuard } from "../../common/entitlement.guard";
 import { PortalGuard } from "../../common/guards/portal.guard";
@@ -34,6 +35,7 @@ const jwtModule = JwtModule.register({
     SessionTokensService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: AccountStatusGuard },
+    { provide: APP_GUARD, useClass: SupportSessionGuard },
     { provide: APP_GUARD, useClass: PortalGuard },
     { provide: APP_GUARD, useClass: SuperAdminGuard },
     { provide: APP_GUARD, useClass: EntitlementGuard },

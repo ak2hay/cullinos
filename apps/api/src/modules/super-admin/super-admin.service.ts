@@ -31,11 +31,15 @@ import {
   LABS_SQL_TIMEOUT_MS,
   assertSelectOnlySql,
 } from "./labs-sql.util";
+import { orgWhereForGrants, type ScopedGrant } from "../platform-iam/platform-access.util";
+import { summarizeOrgCounts } from "./org-summary.util";
 
 type OrgListFilters = {
   q?: string;
   status?: string;
   planSlug?: string;
+  /** Region / tenant-set grants of a scoped staff member; null or empty = all tenants. */
+  scope?: ScopedGrant[] | null;
 };
 
 function startOfUtcDay(d: Date): Date {
@@ -143,7 +147,8 @@ export class SuperAdminService implements OnModuleDestroy {
   }
 
   private orgListWhere(filters?: OrgListFilters): Prisma.OrganizationWhereInput {
-    const where: Prisma.OrganizationWhereInput = { deletedAt: null };
+    const deleted = filters?.status === "deleted";
+    const where: Prisma.OrganizationWhereInput = { deletedAt: deleted ? { not: null } : null };
     const q = filters?.q?.trim();
     if (q) {
       where.OR = [
@@ -152,13 +157,16 @@ export class SuperAdminService implements OnModuleDestroy {
         { email: { contains: q, mode: "insensitive" } },
       ];
     }
-    if (filters?.status) {
+    if (filters?.status && !deleted) {
       where.status = filters.status as never;
     }
     if (filters?.planSlug) {
       where.subscriptions = {
         some: { plan: { slug: filters.planSlug } },
       };
+    }
+    if (filters?.scope?.length) {
+      where.AND = [orgWhereForGrants(filters.scope) as Prisma.OrganizationWhereInput];
     }
     return where;
   }
@@ -177,14 +185,15 @@ export class SuperAdminService implements OnModuleDestroy {
     subscriptions: Array<{
       status: string;
       trialEndsAt: Date | null;
+      currentPeriodEnd: Date | null;
       graceUntil: Date | null;
+      cancelledAt: Date | null;
       razorpayShortUrl: string | null;
       razorpaySubId: string | null;
       lastRazorpayPaymentId: string | null;
-      plan: { slug: string; priceMonthly: { toString(): string } | number } | null;
+      plan: { slug: string; name: string; priceMonthly: { toString(): string } | number } | null;
     }>;
-    outlets: unknown[];
-    users: unknown[];
+    _count: { outlets: number; users: number };
   }) {
     const sub = org.subscriptions[0];
     const priceMonthly = sub?.plan?.priceMonthly != null ? Number(sub.plan.priceMonthly) : 0;
@@ -200,19 +209,54 @@ export class SuperAdminService implements OnModuleDestroy {
       sandboxSkipSmsOtp: org.sandboxSkipSmsOtp,
       sandboxRelaxPassword: org.sandboxRelaxPassword,
       plan: sub?.plan?.slug ?? null,
+      planName: sub?.plan?.name ?? null,
       priceMonthly,
       mrrContribution:
         sub && ["active", "trial", "past_due"].includes(sub.status) ? priceMonthly : 0,
       subscriptionStatus: sub?.status ?? null,
       trialEndsAt: sub?.trialEndsAt?.toISOString() ?? null,
+      currentPeriodEnd: sub?.currentPeriodEnd?.toISOString() ?? null,
+      autoRenew: Boolean(
+        sub?.razorpaySubId && !sub.cancelledAt && ["active", "trial", "past_due"].includes(sub.status),
+      ),
       graceUntil: sub?.graceUntil?.toISOString() ?? null,
       checkoutUrl: sub?.razorpayShortUrl ?? null,
       razorpaySubId: sub?.razorpaySubId ?? null,
       lastRazorpayPaymentId: sub?.lastRazorpayPaymentId ?? null,
-      outletCount: org.outlets.length,
-      userCount: org.users.length,
+      outletCount: org._count.outlets,
+      userCount: org._count.users,
       createdAt: org.createdAt.toISOString(),
     };
+  }
+
+  /** Tenant KPI cards and status-tab counts, within the caller's scope. */
+  async organizationSummary(scope?: ScopedGrant[] | null) {
+    const scoped: Prisma.OrganizationWhereInput = scope?.length
+      ? (orgWhereForGrants(scope) as Prisma.OrganizationWhereInput)
+      : {};
+    const live: Prisma.OrganizationWhereInput = { ...scoped, deletedAt: null };
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+
+    const [byStatus, deleted, outlets, users, newThisMonth, totalAtMonthStart, usersAtMonthStart] =
+      await Promise.all([
+        this.prisma.organization.groupBy({ by: ["status"], where: live, _count: { _all: true } }),
+        this.prisma.organization.count({ where: { ...scoped, deletedAt: { not: null } } }),
+        this.prisma.outlet.count({ where: { organization: { is: live } } }),
+        this.prisma.user.count({ where: { organization: { is: live } } }),
+        this.prisma.organization.count({ where: { ...live, createdAt: { gte: monthStart } } }),
+        this.prisma.organization.count({ where: { ...live, createdAt: { lt: monthStart } } }),
+        this.prisma.user.count({ where: { organization: { is: live }, createdAt: { lt: monthStart } } }),
+      ]);
+
+    return summarizeOrgCounts(byStatus, {
+      deleted,
+      outlets,
+      users,
+      newThisMonth,
+      totalAtMonthStart,
+      usersAtMonthStart,
+    });
   }
 
   async listOrganizations(page = 1, limit = 20, filters?: OrgListFilters) {
@@ -229,8 +273,7 @@ export class SuperAdminService implements OnModuleDestroy {
             orderBy: { createdAt: "desc" },
             take: 1,
           },
-          outlets: true,
-          users: true,
+          _count: { select: { outlets: true, users: true } },
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -623,15 +666,37 @@ export class SuperAdminService implements OnModuleDestroy {
     };
   }
 
-  async impersonateOrganization(
-    orgId: string,
-    impersonatedBy: string,
-    reason: string,
-  ) {
-    const trimmedReason = reason?.trim();
-    if (!trimmedReason || trimmedReason.length < 8) {
-      throw new BadRequestException("A support reason (min 8 chars) is required");
+  /**
+   * Opens a support session into a tenant. Only possible with an active, approved,
+   * unexpired TenantAccessGrant that belongs to the caller; the session never outlives it.
+   */
+  async impersonateOrganization(orgId: string, impersonatedBy: string, grantId: string) {
+    const grant = await this.prisma.tenantAccessGrant.findUnique({
+      where: { id: grantId },
+      include: { ticket: { select: { id: true, seq: true, subject: true } } },
+    });
+    const now = Date.now();
+    if (
+      !grant ||
+      grant.userId !== impersonatedBy ||
+      grant.organizationId !== orgId ||
+      grant.status !== "active" ||
+      !grant.expiresAt ||
+      grant.expiresAt.getTime() <= now
+    ) {
+      throw new ForbiddenException(
+        "An approved, active tenant access grant from a support ticket is required",
+      );
     }
+    const remainingSeconds = Math.floor((grant.expiresAt.getTime() - now) / 1000);
+    if (remainingSeconds < 60) {
+      throw new ForbiddenException("This access grant is about to expire; request a new one");
+    }
+    const employee = await this.prisma.platformEmployee.findUnique({
+      where: { userId: impersonatedBy },
+      select: { employeeCode: true },
+    });
+    const trimmedReason = `Ticket #${grant.ticket.seq}: ${grant.justification}`.slice(0, 500);
 
     const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
     if (!org) throw new NotFoundException("Organization not found");
@@ -661,7 +726,21 @@ export class SuperAdminService implements OnModuleDestroy {
       throw new NotFoundException("No active user found to impersonate");
     }
 
-    const session = await this.auth.issueImpersonationSession(target, impersonatedBy);
+    const session = await this.auth.issueImpersonationSession(
+      target,
+      impersonatedBy,
+      Math.min(45 * 60, remainingSeconds),
+      {
+        grantId: grant.id,
+        ticketId: grant.ticketId,
+        employeeCode: employee?.employeeCode ?? null,
+        accessLevel: grant.accessLevel,
+      },
+    );
+    await this.prisma.tenantAccessGrant.update({
+      where: { id: grant.id },
+      data: { lastUsedAt: new Date() },
+    });
     const adminBase = this.adminAppUrl();
 
     const code = randomBytes(32).toString("hex");
@@ -693,6 +772,10 @@ export class SuperAdminService implements OnModuleDestroy {
           reason: trimmedReason,
           expiresAt: session.expiresAt,
           handoff: true,
+          grantId: grant.id,
+          ticketId: grant.ticketId,
+          employeeCode: employee?.employeeCode ?? null,
+          accessLevel: grant.accessLevel,
         },
       },
     });
@@ -703,6 +786,8 @@ export class SuperAdminService implements OnModuleDestroy {
       refreshToken: null as string | null,
       handoffCode: code,
       adminUrl,
+      accessLevel: grant.accessLevel,
+      grantExpiresAt: grant.expiresAt.toISOString(),
       organization: { id: org.id, name: org.name, slug: org.slug },
       user: { id: target.id, email: target.email, name: target.name },
     };

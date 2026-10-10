@@ -21,7 +21,7 @@ export function HeldOrdersPanel({
       <button
         type="button"
         onClick={onToggle}
-        className="relative rounded-xl border border-line bg-bg-elevated px-3 py-2 text-sm font-medium transition hover:border-brand-primary/40"
+        className="relative h-9 rounded-lg border border-line bg-bg-elevated px-3 text-sm font-medium transition hover:border-brand-primary/40"
       >
         Held
         {orders.length > 0 ? (

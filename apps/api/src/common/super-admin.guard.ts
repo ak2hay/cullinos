@@ -5,13 +5,16 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { IS_PUBLIC_KEY } from "./decorators";
-import { assertPlatformAccess } from "./platform-access.util";
+import { PlatformAuthorizationService } from "../modules/platform-iam/platform-authorization.service";
 
 @Injectable()
 export class SuperAdminGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private reflector: Reflector,
+    private authz: PlatformAuthorizationService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -22,7 +25,7 @@ export class SuperAdminGuard implements CanActivate {
     const path: string = request.path ?? request.url ?? "";
     if (!path.includes("/super-admin")) return true;
 
-    assertPlatformAccess(this.reflector, context, request.user);
+    await this.authz.authorize(context, request);
     return true;
   }
 }

@@ -1,10 +1,13 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
+import { LoyaltyService } from "../loyalty/loyalty.service";
 import { CashfreeClient } from "./cashfree.client";
 import { PaymentCredentialsService } from "./payment-credentials.service";
 import type {
@@ -14,9 +17,17 @@ import type {
 import { isPaymentGatewayProvider } from "./payment-gateway.types";
 import {
   createTenantRazorpayOrder,
+  refundTenantRazorpayPayment,
   verifyTenantRazorpayPaymentSignature,
   verifyTenantRazorpayWebhookSignature,
 } from "./tenant-razorpay";
+import {
+  EXTERNAL_REFUND_CODE,
+  externalRefundBody,
+  isDuplicateGatewayRefund,
+  planPaymentRefund,
+  type PaymentRefundPlan,
+} from "./payments-refund.util";
 
 type PaymentMetadata = {
   kind?: string;
@@ -29,6 +40,9 @@ type PaymentMetadata = {
   signature?: string;
   method?: string;
   outletId?: string;
+  refundClaim?: string;
+  refundSource?: "cash" | "gateway" | "external_dashboard";
+  gatewayRefundId?: string;
 };
 
 @Injectable()
@@ -37,6 +51,7 @@ export class PaymentsService {
     private prisma: PrismaService,
     private credentials: PaymentCredentialsService,
     private cashfree: CashfreeClient,
+    @Optional() private loyalty?: LoyaltyService,
   ) {}
 
   list(orgId: string) {
@@ -108,6 +123,7 @@ export class PaymentsService {
     });
 
     if (!result) {
+      await this.loyalty?.earnIfOrderSettled(order.id, { organizationId: orgId });
       return {
         success: true,
         orderId: order.id,
@@ -119,6 +135,9 @@ export class PaymentsService {
 
     // Payment settled ≠ kitchen/order completed — leave status for Orders/KDS.
     const left = await this.remainingUnpaid(order.id, Number(order.total));
+    if (left <= 0) {
+      await this.loyalty?.earnIfOrderSettled(order.id, { organizationId: orgId });
+    }
 
     return {
       success: true,
@@ -656,6 +675,16 @@ export class PaymentsService {
     amountPaise?: number;
     currency?: string;
   }) {
+    const result = await this.completeDinerPaymentTx(input);
+    if (result.success && !input.failed) {
+      await this.loyalty?.earnIfOrderSettled(result.orderId, {
+        organizationId: input.organizationId,
+      });
+    }
+    return result;
+  }
+
+  private completeDinerPaymentTx(input: Parameters<PaymentsService["completeDinerPayment"]>[0]) {
     return this.prisma.$transaction(async (tx) => {
       const payment = await this.findDinerPaymentTx(tx, input);
       if (!payment) {
@@ -808,6 +837,242 @@ export class PaymentsService {
       throw new BadRequestException(`Cannot take payment on a ${order.status} order`);
     }
     return order;
+  }
+
+  /**
+   * Refund every completed payment on an order so cancel/void can proceed.
+   * Cash is reversed on the open shift. Razorpay and Cashfree use the tenant
+   * credentials for that outlet. Payments we cannot send to a gateway stay
+   * completed until staff confirm the refund was done in the provider dashboard.
+   */
+  async refundCompletedForOrder(
+    orgId: string,
+    orderId: string,
+    opts: { userId?: string; outletId: string; externalRefundConfirmed?: boolean },
+  ) {
+    const payments = await this.prisma.payment.findMany({
+      where: { organizationId: orgId, orderId, status: "completed" },
+      include: { paymentMethod: true },
+      orderBy: { createdAt: "asc" },
+    });
+    for (const payment of payments) {
+      await this.refundOne(orgId, payment.id, opts);
+    }
+    return { refunded: payments.length };
+  }
+
+  private async refundOne(
+    orgId: string,
+    paymentId: string,
+    opts: { userId?: string; outletId: string; externalRefundConfirmed?: boolean },
+  ) {
+    const preview = await this.prisma.payment.findFirst({
+      where: { id: paymentId, organizationId: orgId },
+      include: { paymentMethod: true },
+    });
+    if (!preview || preview.status !== "completed") return;
+
+    const previewMeta = (preview.metadata ?? {}) as PaymentMetadata;
+    const plan = planPaymentRefund(preview);
+    let recordExternal = plan.action === "unsupported" || Boolean(previewMeta.refundClaim);
+    if (plan.action === "razorpay" || plan.action === "cashfree") {
+      const creds = await this.credentials.resolveForProvider(
+        orgId,
+        plan.action,
+        opts.outletId,
+      );
+      if (!creds) recordExternal = true;
+    }
+    if (recordExternal && !opts.externalRefundConfirmed) {
+      const providerName = plan.action === "cashfree" ? "Cashfree" : "Razorpay";
+      throw new BadRequestException(
+        externalRefundBody(
+          previewMeta.refundClaim
+            ? "A refund was already sent to the payment gateway but not recorded. Check the provider dashboard, then confirm the external refund to cancel."
+            : plan.action === "unsupported"
+              ? plan.reason
+              : `${providerName} credentials are not configured for this outlet, so Cullinos cannot send the refund. If it is already refunded in the provider dashboard, confirm the external refund.`,
+        ),
+      );
+    }
+
+    const gate = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM payments WHERE id = ${paymentId} AND organization_id = ${orgId} FOR UPDATE`;
+      const row = await tx.payment.findFirst({
+        where: { id: paymentId, organizationId: orgId },
+        include: { paymentMethod: true },
+      });
+      if (!row || row.status !== "completed") return { kind: "skip" as const };
+      const meta = (row.metadata ?? {}) as PaymentMetadata;
+      const lockedPlan = planPaymentRefund(row);
+
+      if (
+        opts.externalRefundConfirmed &&
+        (recordExternal || lockedPlan.action === "unsupported" || meta.refundClaim)
+      ) {
+        await this.markRefunded(tx, row.id, orgId, meta, "external_dashboard");
+        return { kind: "done" as const };
+      }
+      if (lockedPlan.action === "unsupported") {
+        return { kind: "needsExternal" as const, message: lockedPlan.reason };
+      }
+      if (meta.refundClaim) {
+        return {
+          kind: "needsExternal" as const,
+          message:
+            "A refund was already sent to the payment gateway but not recorded. Check the provider dashboard, then confirm the external refund to cancel.",
+        };
+      }
+      if (lockedPlan.action === "cash") {
+        await this.markRefunded(tx, row.id, orgId, meta, "cash");
+        if (opts.userId) {
+          const shift = await tx.cashierShift.findFirst({
+            where: { outletId: opts.outletId, userId: opts.userId, status: "open" },
+          });
+          if (shift) {
+            await tx.cashMovement.create({
+              data: {
+                shiftId: shift.id,
+                type: "cash_out",
+                amount: lockedPlan.amount,
+                reason: `Refund · payment ${row.id}`,
+              },
+            });
+          }
+        }
+        return { kind: "done" as const };
+      }
+
+      await tx.payment.update({
+        where: { id: row.id },
+        data: { metadata: { ...meta, refundClaim: row.id } satisfies PaymentMetadata },
+      });
+      return {
+        kind: "gateway" as const,
+        plan: lockedPlan,
+        meta: { ...meta, refundClaim: row.id } satisfies PaymentMetadata,
+      };
+    });
+
+    if (gate.kind === "skip" || gate.kind === "done") return;
+    if (gate.kind === "needsExternal") {
+      throw new BadRequestException(externalRefundBody(gate.message));
+    }
+
+    try {
+      const gatewayRefundId = await this.sendGatewayRefund(orgId, opts.outletId, gate.plan);
+      const { refundClaim: _claim, ...rest } = gate.meta;
+      await this.prisma.payment.updateMany({
+        where: { id: paymentId, organizationId: orgId, status: "completed" },
+        data: {
+          status: "refunded",
+          metadata: {
+            ...rest,
+            refundSource: "gateway",
+            gatewayRefundId,
+          } satisfies PaymentMetadata,
+        },
+      });
+    } catch (err) {
+      if (this.isDuplicateRefundError(err)) {
+        const { refundClaim: _claim, ...rest } = gate.meta;
+        await this.prisma.payment.updateMany({
+          where: { id: paymentId, organizationId: orgId, status: "completed" },
+          data: {
+            status: "refunded",
+            metadata: { ...rest, refundSource: "gateway" } satisfies PaymentMetadata,
+          },
+        });
+        return;
+      }
+      if (err instanceof InternalServerErrorException) {
+        throw new BadRequestException(
+          externalRefundBody(
+            "The payment gateway did not confirm the refund. Check the provider dashboard, then confirm the external refund if it succeeded.",
+          ),
+        );
+      }
+      if (!this.isExternalRefundError(err)) {
+        await this.clearRefundClaim(orgId, paymentId);
+      }
+      throw err;
+    }
+  }
+
+  private async sendGatewayRefund(
+    orgId: string,
+    outletId: string,
+    plan: Extract<PaymentRefundPlan, { action: "razorpay" | "cashfree" }>,
+  ) {
+    const creds = await this.credentials.resolveForProvider(orgId, plan.action, outletId);
+    if (!creds) {
+      throw new BadRequestException(
+        externalRefundBody(
+          `${plan.action === "razorpay" ? "Razorpay" : "Cashfree"} credentials are not configured for this outlet.`,
+        ),
+      );
+    }
+    if (plan.action === "razorpay") {
+      const refund = await refundTenantRazorpayPayment(creds, {
+        paymentId: plan.razorpayPaymentId,
+        amountPaise: plan.amountPaise,
+        receipt: plan.receipt,
+      });
+      return refund.id;
+    }
+    const refund = await this.cashfree.createRefund(creds, {
+      orderId: plan.cashfreeOrderId,
+      refundId: plan.refundId,
+      amount: plan.amount,
+      note: "Order cancel",
+    });
+    return refund.refundId;
+  }
+
+  private async markRefunded(
+    tx: Prisma.TransactionClient,
+    paymentId: string,
+    orgId: string,
+    meta: PaymentMetadata,
+    source: NonNullable<PaymentMetadata["refundSource"]>,
+  ) {
+    const { refundClaim: _claim, ...rest } = meta;
+    await tx.payment.updateMany({
+      where: { id: paymentId, organizationId: orgId, status: "completed" },
+      data: {
+        status: "refunded",
+        metadata: { ...rest, refundSource: source } satisfies PaymentMetadata,
+      },
+    });
+  }
+
+  private async clearRefundClaim(orgId: string, paymentId: string) {
+    const row = await this.prisma.payment.findFirst({
+      where: { id: paymentId, organizationId: orgId, status: "completed" },
+    });
+    if (!row) return;
+    const meta = (row.metadata ?? {}) as PaymentMetadata;
+    if (!meta.refundClaim) return;
+    const { refundClaim: _claim, ...rest } = meta;
+    await this.prisma.payment.updateMany({
+      where: { id: paymentId, organizationId: orgId, status: "completed" },
+      data: { metadata: rest },
+    });
+  }
+
+  private isExternalRefundError(err: unknown): boolean {
+    if (!(err instanceof BadRequestException)) return false;
+    const body = err.getResponse();
+    return (
+      typeof body === "object" &&
+      body !== null &&
+      (body as { code?: string }).code === EXTERNAL_REFUND_CODE
+    );
+  }
+
+  private isDuplicateRefundError(err: unknown): boolean {
+    if (!(err instanceof BadRequestException)) return false;
+    return isDuplicateGatewayRefund(err.message);
   }
 
   async remainingUnpaid(orderId: string, total: number) {

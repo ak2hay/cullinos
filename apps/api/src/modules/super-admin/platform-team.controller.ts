@@ -17,6 +17,13 @@ class InviteStaffDto {
 
   @IsIn(PLATFORM_ROLES)
   platformRole!: string;
+
+  @IsOptional() @IsString() @MaxLength(120) title?: string;
+  @IsOptional() @IsString() departmentId?: string;
+  @IsOptional() @IsString() teamId?: string;
+  @IsOptional() @IsString() managerUserId?: string;
+  @IsOptional() @IsString() @MaxLength(80) region?: string;
+  @IsOptional() @IsString() @MaxLength(120) location?: string;
 }
 
 class ChangeRoleDto {

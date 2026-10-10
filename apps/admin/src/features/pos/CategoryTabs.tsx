@@ -6,11 +6,11 @@ interface CategoryTabsProps {
 
 export function CategoryTabs({ categories, selectedId, onSelect }: CategoryTabsProps) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+    <div className="flex shrink-0 gap-1.5 overflow-x-auto pb-0.5 scrollbar-thin">
       <button
         type="button"
         onClick={() => onSelect(null)}
-        className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold tracking-wide transition active:scale-95 ${
+        className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold tracking-wide transition active:scale-95 ${
           selectedId === null
             ? 'bg-brand-primary text-on-brand shadow-md shadow-brand-primary/25'
             : 'border border-line bg-bg-elevated/80 text-text-secondary hover:border-line-strong hover:text-text-primary'
@@ -23,7 +23,7 @@ export function CategoryTabs({ categories, selectedId, onSelect }: CategoryTabsP
           key={category.id}
           type="button"
           onClick={() => onSelect(category.id)}
-          className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold tracking-wide transition active:scale-95 ${
+          className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold tracking-wide transition active:scale-95 ${
             selectedId === category.id
               ? 'bg-brand-primary text-on-brand shadow-md shadow-brand-primary/25'
               : 'border border-line bg-bg-elevated/80 text-text-secondary hover:border-line-strong hover:text-text-primary'

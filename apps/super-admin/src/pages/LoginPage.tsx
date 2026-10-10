@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, Input, PasswordInput, Turnstile, isTurnstileEnabled } from '@cullinos/ui';
+import { AuthLayout } from '@/components/auth/AuthLayout';
 import { superAdminApi, RKYVES_BRAND } from '@/lib/api';
 import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
 import { useAuthStore, SUPER_ADMIN_REMEMBER_KEY } from '@/stores/auth';
@@ -86,20 +87,14 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg-primary px-4">
-      <div className="w-full max-w-md rounded-2xl border border-line bg-bg-secondary p-8">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-primary font-mono text-lg font-bold text-on-brand">
-            R
-          </div>
-          <h1 className="text-2xl font-semibold">{RKYVES_BRAND.name} Platform Admin</h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            {challengeToken
-              ? 'Enter the verification code sent to your email.'
-              : `Super-admin access for ${RKYVES_BRAND.product} tenant management.`}
-          </p>
-        </div>
-
+    <AuthLayout
+      title={challengeToken ? 'Check your email' : 'Sign in'}
+      subtitle={
+        challengeToken
+          ? 'Enter the 6-digit verification code we sent to your email.'
+          : `${RKYVES_BRAND.name} staff access for ${RKYVES_BRAND.product} platform operations.`
+      }
+    >
         {challengeToken ? (
           <form onSubmit={handleOtpSubmit} className="space-y-4">
             <Input
@@ -174,7 +169,7 @@ export function LoginPage() {
             ) : null}
 
             <div className="flex justify-end">
-              <Link to="/forgot-password" className="text-sm text-brand-primary hover:underline">
+              <Link to="/forgot-password" className="text-sm text-accent hover:underline">
                 Forgot password?
               </Link>
             </div>
@@ -190,7 +185,7 @@ export function LoginPage() {
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
-                className="h-4 w-4 rounded accent-brand-primary"
+                className="h-4 w-4 rounded accent-accent"
               />
               Keep me signed in
             </label>
@@ -200,7 +195,6 @@ export function LoginPage() {
             </Button>
           </form>
         )}
-      </div>
-    </div>
+    </AuthLayout>
   );
 }

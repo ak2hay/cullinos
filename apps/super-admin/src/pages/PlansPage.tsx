@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { Check, Lock, Pencil, Plus, Power, RefreshCcw, Store, Users } from 'lucide-react';
 import { PLAN_MODULES } from '@cullinos/shared';
+import { Button } from '@cullinos/ui';
+import { inputClass, LabeledInput, Notice } from '@/components/common';
+import { ActionMenu, Card, ConfirmDialog, EmptyState, FilterTabs, FormDrawer, PageHeader, StatusPill } from '@/components/ui';
 import { superAdminApi, type PlanSummary } from '@/lib/api';
+import { formatInr } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
 
 function planModules(plan: PlanSummary): string[] {
@@ -14,6 +19,7 @@ type VisibilityFilter = 'all' | PlanVisibility;
 
 type PlanDraft = {
   name: string;
+  slug: string;
   description: string;
   priceMonthly: string;
   priceYearly: string;
@@ -25,22 +31,7 @@ type PlanDraft = {
   modules: string[];
 };
 
-function draftFromPlan(plan: PlanSummary): PlanDraft {
-  return {
-    name: plan.name,
-    description: plan.description ?? '',
-    priceMonthly: String(plan.priceMonthly ?? 0),
-    priceYearly: String(plan.priceYearly ?? 0),
-    maxOutlets: String(plan.maxOutlets ?? 1),
-    maxTerminals: String(plan.maxTerminals ?? 2),
-    maxUsers: String(plan.maxUsers ?? 5),
-    visibility: plan.visibility === 'private' ? 'private' : 'public',
-    isActive: plan.isActive !== false,
-    modules: planModules(plan),
-  };
-}
-
-const emptyCreate: PlanDraft & { slug: string } = {
+const emptyDraft: PlanDraft = {
   name: '',
   slug: '',
   description: '',
@@ -54,34 +45,42 @@ const emptyCreate: PlanDraft & { slug: string } = {
   modules: [],
 };
 
-function ModuleChecklist({
-  selected,
-  onChange,
-  catalog,
-}: {
-  selected: string[];
-  onChange: (next: string[]) => void;
-  catalog: string[];
-}) {
-  function toggle(mod: string) {
-    if (selected.includes(mod)) {
-      onChange(selected.filter((m) => m !== mod));
-    } else {
-      onChange([...selected, mod]);
-    }
-  }
+function draftFromPlan(plan: PlanSummary): PlanDraft {
+  return {
+    name: plan.name,
+    slug: plan.slug,
+    description: plan.description ?? '',
+    priceMonthly: String(plan.priceMonthly ?? 0),
+    priceYearly: String(plan.priceYearly ?? 0),
+    maxOutlets: String(plan.maxOutlets ?? 1),
+    maxTerminals: String(plan.maxTerminals ?? 2),
+    maxUsers: String(plan.maxUsers ?? 5),
+    visibility: plan.visibility === 'private' ? 'private' : 'public',
+    isActive: plan.isActive !== false,
+    modules: planModules(plan),
+  };
+}
 
+function ModuleChecklist({ selected, onChange, catalog }: { selected: string[]; onChange: (next: string[]) => void; catalog: string[] }) {
+  function toggle(mod: string) {
+    onChange(selected.includes(mod) ? selected.filter((m) => m !== mod) : [...selected, mod]);
+  }
   return (
-    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-      {catalog.map((mod) => (
-        <label
-          key={mod}
-          className="flex cursor-pointer items-center gap-2 rounded-lg border border-line bg-bg-elevated px-2 py-1.5 text-xs"
-        >
-          <input type="checkbox" checked={selected.includes(mod)} onChange={() => toggle(mod)} />
-          <span className="font-mono">{mod}</span>
-        </label>
-      ))}
+    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+      {catalog.map((mod) => {
+        const on = selected.includes(mod);
+        return (
+          <label
+            key={mod}
+            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs transition ${
+              on ? 'border-accent/40 bg-accent/8 text-text-primary' : 'border-line text-text-secondary hover:bg-hover'
+            }`}
+          >
+            <input type="checkbox" className="accent-accent" checked={on} onChange={() => toggle(mod)} />
+            <span className="truncate">{mod.replace(/_/g, ' ')}</span>
+          </label>
+        );
+      })}
     </div>
   );
 }
@@ -90,29 +89,29 @@ export function PlansPage() {
   const queryClient = useQueryClient();
   const canManage = useCan()('plans.manage');
   const [filter, setFilter] = useState<VisibilityFilter>('all');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<PlanDraft | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [createDraft, setCreateDraft] = useState(emptyCreate);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<PlanSummary | 'new' | null>(null);
+  const [draft, setDraft] = useState<PlanDraft>(emptyDraft);
+  const [deactivating, setDeactivating] = useState<PlanSummary | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
 
-  const { data: plans = [], isLoading, error } = useQuery({
-    queryKey: ['super-admin', 'plans'],
-    queryFn: () => superAdminApi.listPlans(),
-  });
+  const { data: plans = [], isLoading, error } = useQuery({ queryKey: ['super-admin', 'plans'], queryFn: () => superAdminApi.listPlans() });
 
-  const filteredPlans = useMemo(() => {
-    if (filter === 'all') return plans;
-    return plans.filter((p) => (p.visibility ?? 'public') === filter);
-  }, [plans, filter]);
-
+  const counts = useMemo(
+    () => ({
+      all: plans.length,
+      public: plans.filter((p) => (p.visibility ?? 'public') === 'public').length,
+      private: plans.filter((p) => p.visibility === 'private').length,
+    }),
+    [plans],
+  );
+  const filteredPlans = filter === 'all' ? plans : plans.filter((p) => (p.visibility ?? 'public') === filter);
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['super-admin', 'plans'] });
 
   const syncMutation = useMutation({
     mutationFn: () => superAdminApi.syncPlansToRazorpay(),
     onSuccess: (synced) => {
-      setSaveError(null);
+      setPageError(null);
       setSyncMessage(
         synced.length > 0
           ? `Synced ${synced.length} plan${synced.length === 1 ? '' : 's'} to Razorpay: ${synced.join(', ')}`
@@ -122,61 +121,40 @@ export function PlansPage() {
     },
     onError: (err: Error) => {
       setSyncMessage(null);
-      setSaveError(err.message);
+      setPageError(err.message);
     },
   });
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, next }: { id: string; next: PlanDraft }) => {
-      await superAdminApi.updatePlan(id, {
-        name: next.name,
-        description: next.description || null,
-        priceMonthly: Number(next.priceMonthly) || 0,
-        priceYearly: Number(next.priceYearly) || 0,
-        maxOutlets: Number(next.maxOutlets) || 1,
-        maxTerminals: Number(next.maxTerminals) || 2,
-        maxUsers: Number(next.maxUsers) || 5,
-        visibility: next.visibility,
-        isActive: next.isActive,
-      });
-      return superAdminApi.updatePlanModules(id, next.modules);
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const common = {
+        name: draft.name,
+        priceMonthly: Number(draft.priceMonthly) || 0,
+        priceYearly: Number(draft.priceYearly) || 0,
+        maxOutlets: Number(draft.maxOutlets) || 1,
+        maxTerminals: Number(draft.maxTerminals) || 2,
+        maxUsers: Number(draft.maxUsers) || 5,
+        visibility: draft.visibility,
+      };
+      if (editing === 'new') {
+        return superAdminApi.createPlan({ ...common, slug: draft.slug, description: draft.description || undefined, modules: draft.modules });
+      }
+      if (!editing) return null;
+      await superAdminApi.updatePlan(editing.id, { ...common, description: draft.description || null, isActive: draft.isActive });
+      return superAdminApi.updatePlanModules(editing.id, draft.modules);
     },
     onSuccess: () => {
-      setEditingId(null);
-      setDraft(null);
-      setSaveError(null);
+      setEditing(null);
       invalidate();
     },
-    onError: (err: Error) => setSaveError(err.message),
-  });
-
-  const createMutation = useMutation({
-    mutationFn: () =>
-      superAdminApi.createPlan({
-        name: createDraft.name,
-        slug: createDraft.slug,
-        description: createDraft.description || undefined,
-        priceMonthly: Number(createDraft.priceMonthly) || 0,
-        priceYearly: Number(createDraft.priceYearly) || 0,
-        maxOutlets: Number(createDraft.maxOutlets) || 1,
-        maxTerminals: Number(createDraft.maxTerminals) || 2,
-        maxUsers: Number(createDraft.maxUsers) || 5,
-        visibility: createDraft.visibility,
-        modules: createDraft.modules,
-      }),
-    onSuccess: () => {
-      setShowCreate(false);
-      setCreateDraft(emptyCreate);
-      setSaveError(null);
-      invalidate();
-    },
-    onError: (err: Error) => setSaveError(err.message),
   });
 
   const deactivateMutation = useMutation({
     mutationFn: (id: string) => superAdminApi.deactivatePlan(id),
-    onSuccess: invalidate,
-    onError: (err: Error) => setSaveError(err.message),
+    onSuccess: () => {
+      setDeactivating(null);
+      invalidate();
+    },
   });
 
   const moduleCatalog = useMemo(() => {
@@ -188,424 +166,225 @@ export function PlansPage() {
     return [...set].sort();
   }, [plans]);
 
-  function startEdit(plan: PlanSummary) {
-    setEditingId(plan.id);
-    setDraft(draftFromPlan(plan));
-    setSaveError(null);
+  function openEditor(target: PlanSummary | 'new') {
+    setEditing(target);
+    setDraft(target === 'new' ? emptyDraft : draftFromPlan(target));
+    saveMutation.reset();
   }
 
-  const filterTabs: { id: VisibilityFilter; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'public', label: 'Public' },
-    { id: 'private', label: 'Private' },
-  ];
+  const set = <K extends keyof PlanDraft>(key: K, value: PlanDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
+  const numberField = (key: 'priceMonthly' | 'priceYearly' | 'maxOutlets' | 'maxTerminals' | 'maxUsers', label: string) => (
+    <LabeledInput label={label}>
+      <input type="number" min={0} value={draft[key]} onChange={(e) => set(key, e.target.value)} className={inputClass} />
+    </LabeledInput>
+  );
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Plans</h1>
-          <p className="mt-1 text-text-secondary">
-            Public plans appear on admin billing and marketing. Private plans are custom quotes —
-            assignable to restaurants, never shown publicly.
-          </p>
-        </div>
-        {canManage ? (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={syncMutation.isPending}
-              onClick={() => {
-                setSyncMessage(null);
-                setSaveError(null);
-                syncMutation.mutate();
-              }}
-              className="rounded-lg border border-line bg-bg-elevated px-4 py-2 text-sm font-medium text-text-primary disabled:opacity-50"
-            >
-              {syncMutation.isPending ? 'Syncing…' : 'Sync to Razorpay'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowCreate(true);
-                setCreateDraft(emptyCreate);
-                setSaveError(null);
-                setSyncMessage(null);
-              }}
-              className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand"
-            >
-              Create plan
-            </button>
-          </div>
-        ) : null}
-      </div>
+      <PageHeader
+        title="Plans"
+        description="Public plans appear on admin billing and marketing. Private plans are custom quotes, assignable to restaurants but never shown publicly."
+        actions={
+          canManage ? (
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="gap-2"
+                loading={syncMutation.isPending}
+                onClick={() => {
+                  setSyncMessage(null);
+                  setPageError(null);
+                  syncMutation.mutate();
+                }}
+              >
+                <RefreshCcw size={15} aria-hidden="true" />
+                Sync to Razorpay
+              </Button>
+              <Button size="sm" className="gap-2" onClick={() => openEditor('new')}>
+                <Plus size={16} aria-hidden="true" />
+                Create plan
+              </Button>
+            </>
+          ) : null
+        }
+      />
 
-      <div className="flex flex-wrap gap-2">
-        {filterTabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setFilter(tab.id)}
-            className={`rounded-lg px-3 py-1.5 text-sm ${
-              filter === tab.id
-                ? 'bg-brand-primary text-on-brand'
-                : 'border border-line text-text-secondary hover:bg-hover'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <FilterTabs<VisibilityFilter>
+        label="Plan visibility"
+        value={filter}
+        onChange={setFilter}
+        tabs={[
+          { id: 'all', label: 'All plans', count: counts.all },
+          { id: 'public', label: 'Public', count: counts.public },
+          { id: 'private', label: 'Private', count: counts.private },
+        ]}
+      />
 
-      {error ? (
-        <div className="rounded-xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
-          {error instanceof Error ? error.message : 'Failed to load plans'}
-        </div>
-      ) : null}
-
-      {syncMessage ? (
-        <div className="rounded-xl border border-status-success/30 bg-status-success/10 px-4 py-3 text-sm text-status-success">
-          {syncMessage}
-        </div>
-      ) : null}
-
-      {saveError ? (
-        <div className="rounded-xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
-          {saveError}
-        </div>
-      ) : null}
+      {error ? <Notice tone="error">{error instanceof Error ? error.message : 'Failed to load plans'}</Notice> : null}
+      {syncMessage ? <Notice tone="success">{syncMessage}</Notice> : null}
+      {pageError ? <Notice tone="error">{pageError}</Notice> : null}
 
       {isLoading ? (
-        <p className="text-sm text-text-muted">Loading plans…</p>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="ui-skeleton h-72 rounded-xl" />
+          ))}
+        </div>
       ) : filteredPlans.length === 0 ? (
-        <p className="text-sm text-text-muted">No plans in this filter.</p>
+        <Card>
+          <EmptyState title="No plans in this filter" />
+        </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredPlans.map((plan) => {
             const modules = planModules(plan);
-            const isEditing = editingId === plan.id;
-            const isPrivate = (plan.visibility ?? 'public') === 'private';
+            const isPrivate = plan.visibility === 'private';
+            const inactive = plan.isActive === false;
             return (
-              <div key={plan.id} className="rounded-xl border border-line-subtle bg-bg-card p-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-medium">
-                      {plan.name}
+              <Card key={plan.id} className={`flex flex-col p-5 ${inactive ? 'opacity-70' : ''}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-lg font-semibold tracking-tight">{plan.name}</h2>
                       {isPrivate ? (
-                        <span className="ml-2 rounded bg-hover-strong px-1.5 py-0.5 text-xs font-normal text-text-secondary">
-                          private
+                        <span className="inline-flex items-center gap-1 rounded-md bg-bg-elevated px-1.5 py-0.5 text-xs text-text-secondary">
+                          <Lock size={11} aria-hidden="true" />
+                          Private
                         </span>
                       ) : null}
-                      {plan.isActive === false ? (
-                        <span className="ml-2 text-xs text-status-warning">(inactive)</span>
-                      ) : null}
-                    </h2>
-                    <p className="text-sm text-text-muted">
-                      {plan.slug} · ₹{plan.priceMonthly}/mo · max {plan.maxOutlets ?? 1} outlets ·{' '}
-                      {plan.maxUsers ?? 5} users · {plan.subscriptionCount ?? 0} subs
-                    </p>
+                      {inactive ? <StatusPill status="inactive" /> : null}
+                    </div>
+                    <p className="font-mono text-xs text-text-muted">{plan.slug}</p>
                   </div>
-                  <div className="flex gap-2">
-                    {canManage && !isEditing ? (
-                      <button
-                        type="button"
-                        onClick={() => startEdit(plan)}
-                        className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-hover"
-                      >
-                        Edit
-                      </button>
-                    ) : null}
-                    {canManage && plan.isActive !== false ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (confirm(`Deactivate plan ${plan.name}?`)) {
-                            deactivateMutation.mutate(plan.id);
-                          }
-                        }}
-                        className="rounded-lg border border-line px-3 py-1.5 text-sm text-status-warning hover:bg-hover"
-                      >
-                        Deactivate
-                      </button>
-                    ) : null}
+                  {canManage ? (
+                    <ActionMenu
+                      actions={[
+                        { label: 'Edit plan', icon: Pencil, onSelect: () => openEditor(plan) },
+                        { label: 'Deactivate', icon: Power, danger: true, hidden: inactive, onSelect: () => setDeactivating(plan) },
+                      ]}
+                    />
+                  ) : null}
+                </div>
+
+                <p className="mt-4">
+                  <span className="font-display text-3xl font-bold tracking-tight">{formatInr(plan.priceMonthly)}</span>
+                  <span className="text-sm text-text-muted"> / month</span>
+                </p>
+                {plan.priceYearly ? <p className="text-xs text-text-muted">{formatInr(plan.priceYearly)} billed yearly</p> : null}
+                {plan.description ? <p className="mt-2 line-clamp-2 text-sm text-text-secondary">{plan.description}</p> : null}
+
+                <div className="mt-4 grid grid-cols-3 gap-2 rounded-lg bg-bg-elevated/60 p-3 text-center text-xs">
+                  <div>
+                    <Store size={14} className="mx-auto text-text-muted" aria-hidden="true" />
+                    <p className="mt-1 font-semibold text-text-primary">{plan.maxOutlets ?? 1}</p>
+                    <p className="text-text-muted">outlets</p>
+                  </div>
+                  <div>
+                    <Users size={14} className="mx-auto text-text-muted" aria-hidden="true" />
+                    <p className="mt-1 font-semibold text-text-primary">{plan.maxUsers ?? 5}</p>
+                    <p className="text-text-muted">users</p>
+                  </div>
+                  <div>
+                    <Check size={14} className="mx-auto text-text-muted" aria-hidden="true" />
+                    <p className="mt-1 font-semibold text-text-primary">{plan.subscriptionCount ?? 0}</p>
+                    <p className="text-text-muted">subscribers</p>
                   </div>
                 </div>
 
-                {isEditing && draft ? (
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <label className="block text-sm">
-                      <span className="text-text-muted">Name</span>
-                      <input
-                        value={draft.name}
-                        onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="text-text-muted">Description</span>
-                      <input
-                        value={draft.description}
-                        onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="text-text-muted">Price monthly</span>
-                      <input
-                        type="number"
-                        value={draft.priceMonthly}
-                        onChange={(e) => setDraft({ ...draft, priceMonthly: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="text-text-muted">Price yearly</span>
-                      <input
-                        type="number"
-                        value={draft.priceYearly}
-                        onChange={(e) => setDraft({ ...draft, priceYearly: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="text-text-muted">Max outlets</span>
-                      <input
-                        type="number"
-                        value={draft.maxOutlets}
-                        onChange={(e) => setDraft({ ...draft, maxOutlets: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="text-text-muted">Max terminals</span>
-                      <input
-                        type="number"
-                        value={draft.maxTerminals}
-                        onChange={(e) => setDraft({ ...draft, maxTerminals: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="text-text-muted">Max users</span>
-                      <input
-                        type="number"
-                        value={draft.maxUsers}
-                        onChange={(e) => setDraft({ ...draft, maxUsers: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="text-text-muted">Visibility</span>
-                      <select
-                        value={draft.visibility}
-                        onChange={(e) =>
-                          setDraft({
-                            ...draft,
-                            visibility: e.target.value === 'private' ? 'private' : 'public',
-                          })
-                        }
-                        className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
-                      >
-                        <option value="public">Public (catalog)</option>
-                        <option value="private">Private (custom quote)</option>
-                      </select>
-                    </label>
-                    <label className="flex items-center gap-2 text-sm sm:col-span-2">
-                      <input
-                        type="checkbox"
-                        checked={draft.isActive}
-                        onChange={(e) => setDraft({ ...draft, isActive: e.target.checked })}
-                      />
-                      Active
-                    </label>
-                    <div className="sm:col-span-2">
-                      <span className="text-sm text-text-muted">Modules</span>
-                      <ModuleChecklist
-                        selected={draft.modules}
-                        catalog={moduleCatalog}
-                        onChange={(modules) => setDraft({ ...draft, modules })}
-                      />
-                    </div>
-                    <div className="flex gap-2 sm:col-span-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingId(null);
-                          setDraft(null);
-                        }}
-                        className="rounded-lg px-4 py-2 text-sm hover:bg-hover"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        disabled={updateMutation.isPending}
-                        onClick={() => updateMutation.mutate({ id: plan.id, next: draft })}
-                        className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand disabled:opacity-60"
-                      >
-                        {updateMutation.isPending ? 'Saving…' : 'Save'}
-                      </button>
-                    </div>
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {modules.slice(0, 10).map((m) => (
+                    <span key={m} className="rounded-md bg-accent/8 px-2 py-0.5 text-xs text-accent">
+                      {m.replace(/_/g, ' ')}
+                    </span>
+                  ))}
+                  {modules.length > 10 ? <span className="px-1 text-xs text-text-muted">+{modules.length - 10} more</span> : null}
+                  {modules.length === 0 ? <span className="text-sm text-text-muted">No modules enabled</span> : null}
+                </div>
+
+                {canManage ? (
+                  <div className="mt-auto pt-5">
+                    <Button size="sm" variant="secondary" className="w-full" onClick={() => openEditor(plan)}>
+                      Edit plan
+                    </Button>
                   </div>
-                ) : (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {modules.map((m) => (
-                      <span
-                        key={m}
-                        className="rounded-full bg-hover px-2 py-0.5 text-xs text-text-secondary"
-                      >
-                        {m}
-                      </span>
-                    ))}
-                    {modules.length === 0 ? (
-                      <span className="text-sm text-text-muted">No modules enabled</span>
-                    ) : null}
-                  </div>
-                )}
-              </div>
+                ) : null}
+              </Card>
             );
           })}
         </div>
       )}
 
-      {showCreate ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-line bg-bg-secondary p-6">
-            <h2 className="text-lg font-medium">Create plan</h2>
-            <p className="mt-1 text-sm text-text-muted">
-              Defaults to private so custom quotes stay off the public catalog.
-            </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <label className="block text-sm sm:col-span-2">
-                <span className="text-text-muted">Name</span>
-                <input
-                  value={createDraft.name}
-                  onChange={(e) => setCreateDraft({ ...createDraft, name: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
-                />
-              </label>
-              <label className="block text-sm sm:col-span-2">
-                <span className="text-text-muted">Slug</span>
-                <input
-                  value={createDraft.slug}
-                  onChange={(e) => setCreateDraft({ ...createDraft, slug: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 font-mono"
-                />
-              </label>
-              <label className="block text-sm sm:col-span-2">
-                <span className="text-text-muted">Description</span>
-                <input
-                  value={createDraft.description}
-                  onChange={(e) =>
-                    setCreateDraft({ ...createDraft, description: e.target.value })
-                  }
-                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="text-text-muted">Price monthly</span>
-                <input
-                  type="number"
-                  value={createDraft.priceMonthly}
-                  onChange={(e) =>
-                    setCreateDraft({ ...createDraft, priceMonthly: e.target.value })
-                  }
-                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="text-text-muted">Price yearly</span>
-                <input
-                  type="number"
-                  value={createDraft.priceYearly}
-                  onChange={(e) =>
-                    setCreateDraft({ ...createDraft, priceYearly: e.target.value })
-                  }
-                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="text-text-muted">Max outlets</span>
-                <input
-                  type="number"
-                  value={createDraft.maxOutlets}
-                  onChange={(e) =>
-                    setCreateDraft({ ...createDraft, maxOutlets: e.target.value })
-                  }
-                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="text-text-muted">Max terminals</span>
-                <input
-                  type="number"
-                  value={createDraft.maxTerminals}
-                  onChange={(e) =>
-                    setCreateDraft({ ...createDraft, maxTerminals: e.target.value })
-                  }
-                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="text-text-muted">Max users</span>
-                <input
-                  type="number"
-                  value={createDraft.maxUsers}
-                  onChange={(e) =>
-                    setCreateDraft({ ...createDraft, maxUsers: e.target.value })
-                  }
-                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="text-text-muted">Visibility</span>
-                <select
-                  value={createDraft.visibility}
-                  onChange={(e) =>
-                    setCreateDraft({
-                      ...createDraft,
-                      visibility: e.target.value === 'private' ? 'private' : 'public',
-                    })
-                  }
-                  className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2"
-                >
-                  <option value="private">Private (custom quote)</option>
-                  <option value="public">Public (catalog)</option>
-                </select>
-              </label>
-              <div className="sm:col-span-2">
-                <span className="text-sm text-text-muted">Modules</span>
-                <ModuleChecklist
-                  selected={createDraft.modules}
-                  catalog={moduleCatalog}
-                  onChange={(modules) => setCreateDraft({ ...createDraft, modules })}
-                />
-              </div>
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowCreate(false)}
-                className="rounded-lg px-4 py-2 text-sm hover:bg-hover"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={
-                  !createDraft.name.trim() ||
-                  !createDraft.slug.trim() ||
-                  createMutation.isPending
-                }
-                onClick={() => createMutation.mutate()}
-                className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-on-brand disabled:opacity-60"
-              >
-                {createMutation.isPending ? 'Creating…' : 'Create'}
-              </button>
-            </div>
+      <FormDrawer
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        title={editing === 'new' ? 'Create plan' : `Edit ${editing?.name ?? 'plan'}`}
+        description={editing === 'new' ? 'Defaults to private so custom quotes stay off the public catalog.' : undefined}
+        submitLabel={editing === 'new' ? 'Create plan' : 'Save changes'}
+        width="xl"
+        loading={saveMutation.isPending}
+        error={saveMutation.error}
+        submitDisabled={!draft.name.trim() || (editing === 'new' && !draft.slug.trim())}
+        onSubmit={() => saveMutation.mutate()}
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <LabeledInput label="Name">
+            <input required value={draft.name} onChange={(e) => set('name', e.target.value)} className={inputClass} />
+          </LabeledInput>
+          <LabeledInput label="Slug" hint={editing === 'new' ? 'Lowercase, used in URLs and APIs.' : 'Slug cannot be changed.'}>
+            <input
+              required
+              value={draft.slug}
+              disabled={editing !== 'new'}
+              onChange={(e) => set('slug', e.target.value)}
+              className={`${inputClass} font-mono`}
+            />
+          </LabeledInput>
+          <div className="sm:col-span-2">
+            <LabeledInput label="Description">
+              <input value={draft.description} onChange={(e) => set('description', e.target.value)} className={inputClass} />
+            </LabeledInput>
           </div>
+          {numberField('priceMonthly', 'Price monthly (₹)')}
+          {numberField('priceYearly', 'Price yearly (₹)')}
+          {numberField('maxOutlets', 'Max outlets')}
+          {numberField('maxTerminals', 'Max terminals')}
+          {numberField('maxUsers', 'Max users')}
+          <LabeledInput label="Visibility">
+            <select value={draft.visibility} onChange={(e) => set('visibility', e.target.value === 'private' ? 'private' : 'public')} className={inputClass}>
+              <option value="public">Public (catalog)</option>
+              <option value="private">Private (custom quote)</option>
+            </select>
+          </LabeledInput>
+          {editing !== 'new' ? (
+            <label className="flex items-center gap-2 text-sm sm:col-span-2">
+              <input type="checkbox" className="accent-accent" checked={draft.isActive} onChange={(e) => set('isActive', e.target.checked)} />
+              Active
+            </label>
+          ) : null}
         </div>
-      ) : null}
+        <div>
+          <p className="mb-2 text-sm font-medium text-text-secondary">
+            Modules <span className="font-normal text-text-muted">({draft.modules.length} selected)</span>
+          </p>
+          <ModuleChecklist selected={draft.modules} catalog={moduleCatalog} onChange={(modules) => set('modules', modules)} />
+        </div>
+      </FormDrawer>
+
+      <ConfirmDialog
+        open={Boolean(deactivating)}
+        onClose={() => {
+          setDeactivating(null);
+          deactivateMutation.reset();
+        }}
+        title={`Deactivate ${deactivating?.name ?? 'plan'}?`}
+        description="Existing subscribers keep the plan; it can no longer be assigned."
+        confirmLabel="Deactivate"
+        tone="danger"
+        loading={deactivateMutation.isPending}
+        error={deactivateMutation.error}
+        onConfirm={() => deactivating && deactivateMutation.mutate(deactivating.id)}
+      />
     </div>
   );
 }

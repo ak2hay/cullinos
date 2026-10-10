@@ -82,6 +82,8 @@ export interface PhoneFieldProps {
   className?: string;
   /** Digits-only dial code without +, default "91". */
   defaultDialCode?: string;
+  /** Short controls with a visually hidden label, for dense toolbars. */
+  compact?: boolean;
 }
 
 export function PhoneField({
@@ -95,6 +97,7 @@ export function PhoneField({
   placeholder = '9876543210',
   className,
   defaultDialCode = DEFAULT_DIAL_CODE,
+  compact = false,
 }: PhoneFieldProps) {
   const inputId = fieldId(label, id);
   const { dial, national } = useMemo(
@@ -107,13 +110,24 @@ export function PhoneField({
   }
 
   return (
-    <Field label={label} htmlFor={inputId} error={error} className={className}>
-      <div className="flex w-full min-w-0 items-stretch gap-2">
-        <div className="relative w-[7.5rem] max-w-[7.5rem] flex-none shrink-0">
+    <Field
+      label={label}
+      htmlFor={inputId}
+      error={error}
+      className={cn(compact && 'space-y-0 [&>label]:sr-only', className)}
+    >
+      <div className={cn('flex w-full min-w-0 items-stretch', compact ? 'gap-1.5' : 'gap-2')}>
+        <div
+          className={cn(
+            'relative flex-none shrink-0',
+            compact ? 'w-[5.75rem] max-w-[5.75rem]' : 'w-[7.5rem] max-w-[7.5rem]',
+          )}
+        >
           <select
             aria-label={`${label} country code`}
             className={cn(
-              'h-11 w-full appearance-none overflow-hidden rounded-lg border border-border bg-bg-card pl-2 pr-7 text-sm text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
+              'w-full appearance-none overflow-hidden rounded-lg border border-border bg-bg-card pl-2 pr-7 text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
+              compact ? 'h-8 text-xs' : 'h-11 text-sm',
               error && 'border-status-error',
             )}
             value={dial}
@@ -162,7 +176,8 @@ export function PhoneField({
             disabled={disabled}
             placeholder={placeholder}
             className={cn(
-              'h-11 w-full min-w-0 rounded-lg border border-border bg-bg-card pl-10 pr-3 text-sm text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
+              'w-full min-w-0 rounded-lg border border-border bg-bg-card pl-10 pr-3 text-text-primary outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20',
+              compact ? 'h-8 text-xs' : 'h-11 text-sm',
               error && 'border-status-error',
             )}
             value={national}

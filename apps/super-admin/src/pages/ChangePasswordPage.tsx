@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, PasswordInput } from '@cullinos/ui';
+import { AuthLayout } from '@/components/auth/AuthLayout';
 import { RKYVES_BRAND, superAdminApi } from '@/lib/api';
 import type { PlatformRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/auth';
@@ -47,17 +48,14 @@ export function ChangePasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg-primary px-4">
-      <div className="w-full max-w-md rounded-2xl border border-line bg-bg-secondary p-8">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold">{RKYVES_BRAND.name} Platform Admin</h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            {admin?.mustChangePassword
-              ? 'Set a new password before you continue.'
-              : 'Change your password.'}
-          </p>
-        </div>
-
+    <AuthLayout
+      title={admin?.mustChangePassword ? 'Set a new password' : 'Change password'}
+      subtitle={
+        admin?.mustChangePassword
+          ? `Your ${RKYVES_BRAND.name} account uses a temporary password. Choose a new one to continue.`
+          : 'Update the password for your platform account.'
+      }
+    >
         <form onSubmit={handleSubmit} className="space-y-4">
           <PasswordInput
             label="Current (temporary) password"
@@ -99,7 +97,6 @@ export function ChangePasswordPage() {
             Sign out
           </Button>
         </form>
-      </div>
-    </div>
+    </AuthLayout>
   );
 }

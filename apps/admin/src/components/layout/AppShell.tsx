@@ -119,6 +119,7 @@ const navSections: NavSectionDef[] = [
     items: [
       { to: '/staff', label: 'Staff' },
       { to: '/reports', label: 'Reports' },
+      { to: '/activity-log', label: 'Activity log' },
       { to: '/onboarding', label: 'Setup' },
       { to: '/settings', label: 'Settings' },
       { to: '/billing', label: 'Billing' },
@@ -165,6 +166,7 @@ const NAV_LABEL_KEYS: Record<string, string> = {
   '/sms-campaigns': 'nav.items.smsCampaigns',
   '/staff': 'nav.items.staff',
   '/reports': 'nav.items.reports',
+  '/activity-log': 'nav.items.activityLog',
   '/onboarding': 'nav.items.setup',
   '/settings': 'nav.items.settings',
   '/billing': 'nav.items.billing',

@@ -1071,6 +1071,7 @@ export class MenuService {
         id: c.id,
         name: c.name,
         description: c.description,
+        imageUrl: normalizePublicAssetUrl(c.imageUrl),
       })),
       items: mappedItems,
     };

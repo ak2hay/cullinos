@@ -292,26 +292,28 @@ export class AggregatorsService {
       throw new BadRequestException('Menu sync is disabled for this outlet');
     }
 
+    const adapter = defaultAggregatorRegistry.get(provider);
+    if (!adapter?.syncMenu) {
+      throw new BadRequestException(
+        'Outbound menu sync is not available for Swiggy or Zomato. Incoming order webhooks still apply.',
+      );
+    }
+
     const items = await this.prisma.menuItem.findMany({
       where: { organizationId: orgId, isActive: true },
       select: { id: true, name: true, basePrice: true, description: true },
       take: 500,
     });
 
-    const adapter = defaultAggregatorRegistry.get(provider);
-    if (!adapter?.syncMenu) {
-      return { synced: 0, skipped: items.length, message: 'Sync stub — no external API' };
-    }
-    const result = await adapter.syncMenu(
+    return adapter.syncMenu(
       outletId,
-      items.map((i) => ({
+      items.map((i: { id: string; name: string; basePrice: unknown; description: string | null }) => ({
         id: i.id,
         name: i.name,
         price: Number(i.basePrice),
         description: i.description,
       })),
     );
-    return { ...result, message: 'Menu sync queued (stub)' };
   }
 
   private resolveOutletId(

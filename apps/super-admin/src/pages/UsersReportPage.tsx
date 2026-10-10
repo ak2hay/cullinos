@@ -1,8 +1,13 @@
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Download } from 'lucide-react';
 import { csvRow } from '@cullinos/shared';
-import { Button, Input } from '@cullinos/ui';
+import { Button } from '@cullinos/ui';
+import { inputClass } from '@/components/common';
+import { DataTable, EntityAvatar, FilterSelect, FilterTabs, PageHeader, SearchInput, StatusPill } from '@/components/ui';
 import { superAdminApi } from '@/lib/api';
+import { relativeTime } from '@/lib/format';
 
 function toCsv(rows: Array<Record<string, string>>) {
   if (rows.length === 0) return '';
@@ -20,28 +25,42 @@ function downloadCsv(filename: string, csv: string) {
   URL.revokeObjectURL(url);
 }
 
+type StatusTab = '' | 'active' | 'inactive' | 'invited';
+
 export function UsersReportPage() {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [search, setSearch] = useState('');
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState<StatusTab>('');
   const [organizationId, setOrganizationId] = useState('');
-  const [applied, setApplied] = useState({ q: '', status: '', organizationId: '' });
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQ(search.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const query = useQuery({
-    queryKey: ['super-admin', 'users-report', page, applied],
+    queryKey: ['super-admin', 'users-report', page, pageSize, q, status, organizationId],
     queryFn: () =>
       superAdminApi.listUsers({
         page,
-        limit: 50,
-        q: applied.q || undefined,
-        status: applied.status || undefined,
-        organizationId: applied.organizationId || undefined,
+        limit: pageSize,
+        q: q || undefined,
+        status: status || undefined,
+        organizationId: organizationId.trim() || undefined,
       }),
+    placeholderData: keepPreviousData,
+  });
+  const tenants = useQuery({
+    queryKey: ['super-admin', 'organizations', 'picker'],
+    queryFn: () => superAdminApi.listOrganizations(1, 200),
   });
 
   const rows = query.data?.data ?? [];
-  const meta = query.data?.meta;
-
   const csv = useMemo(
     () =>
       toCsv(
@@ -61,143 +80,114 @@ export function UsersReportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Users report</h1>
-          <p className="mt-1 max-w-2xl text-sm text-text-secondary">
-            Tenant staff across all organizations. Export the current page as CSV.
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={!csv}
-          onClick={() => downloadCsv(`users-report-page-${page}.csv`, csv)}
-        >
-          Export CSV
-        </Button>
-      </div>
+      <PageHeader
+        title="Users"
+        description="Tenant staff accounts across all organizations."
+        actions={
+          <Button size="sm" variant="secondary" className="gap-2" disabled={!csv} onClick={() => downloadCsv(`users-report-page-${page}.csv`, csv)}>
+            <Download size={15} aria-hidden="true" />
+            Export page
+          </Button>
+        }
+      />
 
-      <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
-        <form
-          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setPage(1);
-            setApplied({ q, status, organizationId });
-          }}
-        >
-          <Input
-            label="Search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Name, email, phone"
+      <DataTable
+        rows={rows}
+        loading={query.isLoading}
+        getRowKey={(r) => r.id}
+        emptyMessage="No users found"
+        header={
+          <FilterTabs<StatusTab>
+            label="User status"
+            value={status}
+            onChange={(s) => {
+              setStatus(s);
+              setPage(1);
+            }}
+            tabs={[
+              { id: '', label: 'All users' },
+              { id: 'active', label: 'Active' },
+              { id: 'invited', label: 'Invited' },
+              { id: 'inactive', label: 'Suspended' },
+            ]}
           />
-          <label className="block text-sm">
-            <span className="text-text-muted">Status</span>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 outline-none focus:border-brand-accent"
-            >
-              <option value="">All</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive / suspended</option>
-              <option value="invited">Invited</option>
-            </select>
-          </label>
-          <Input
-            label="Organization ID"
-            value={organizationId}
-            onChange={(e) => setOrganizationId(e.target.value)}
-            placeholder="Optional"
-          />
-          <div className="flex items-end gap-2">
-            <Button type="submit">Apply</Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setQ('');
-                setStatus('');
-                setOrganizationId('');
-                setPage(1);
-                setApplied({ q: '', status: '', organizationId: '' });
-              }}
-            >
-              Clear
-            </Button>
-          </div>
-        </form>
-      </section>
-
-      <section className="overflow-hidden rounded-xl border border-line-subtle bg-bg-card">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-line-subtle bg-bg-secondary text-text-muted">
-              <th className="px-4 py-3 font-medium">User</th>
-              <th className="px-4 py-3 font-medium">Organization</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Last login</th>
-            </tr>
-          </thead>
-          <tbody>
-            {query.isLoading ? (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-text-muted">
-                  Loading…
-                </td>
-              </tr>
-            ) : rows.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-text-muted">
-                  No users found.
-                </td>
-              </tr>
+        }
+        toolbar={
+          <>
+            <SearchInput value={search} onChange={setSearch} placeholder="Name, email, phone…" />
+            {tenants.data && tenants.data.meta.total <= 200 ? (
+              <FilterSelect
+                aria-label="Organization"
+                value={organizationId}
+                onChange={(e) => {
+                  setOrganizationId(e.target.value);
+                  setPage(1);
+                }}
+                className="max-w-56"
+                options={[{ value: '', label: 'All organizations' }, ...tenants.data.data.map((t) => ({ value: t.id, label: t.name }))]}
+              />
             ) : (
-              rows.map((r) => (
-                <tr key={r.id} className="border-b border-line-subtle">
-                  <td className="px-4 py-3">
-                    <p className="font-medium">{r.name}</p>
-                    <p className="text-xs text-text-muted">{r.email}</p>
-                  </td>
-                  <td className="px-4 py-3">
-                    {r.organization.name}
-                    <span className="block text-xs text-text-muted">{r.organization.slug}</span>
-                  </td>
-                  <td className="px-4 py-3 capitalize">{r.status}</td>
-                  <td className="px-4 py-3 text-text-secondary">
-                    {r.lastLoginAt ? new Date(r.lastLoginAt).toLocaleString() : '—'}
-                  </td>
-                </tr>
-              ))
+              <input
+                className={`${inputClass} h-9 w-56 py-0`}
+                placeholder="Organization ID"
+                value={organizationId}
+                onChange={(e) => {
+                  setOrganizationId(e.target.value);
+                  setPage(1);
+                }}
+              />
             )}
-          </tbody>
-        </table>
-        <div className="flex items-center justify-between border-t border-line-subtle px-4 py-3 text-sm">
-          <span className="text-text-muted">
-            {meta ? `${meta.total} total · page ${meta.page}` : ''}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Previous
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={!meta?.hasMore}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      </section>
+          </>
+        }
+        columns={[
+          {
+            key: 'user',
+            header: 'User',
+            cell: (r) => (
+              <div className="flex items-center gap-3">
+                <EntityAvatar name={r.name} seed={r.id} size={32} rounded="full" />
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{r.name}</p>
+                  <p className="truncate text-xs text-text-muted">{r.email}</p>
+                </div>
+              </div>
+            ),
+          },
+          { key: 'phone', header: 'Phone', cell: (r) => r.phone ?? '—', defaultHidden: true },
+          {
+            key: 'org',
+            header: 'Organization',
+            cell: (r) => (
+              <Link to={`/tenants/${r.organization.id}`} className="group" onClick={(e) => e.stopPropagation()}>
+                <span className="block font-medium group-hover:text-accent">{r.organization.name}</span>
+                <span className="block text-xs text-text-muted">{r.organization.slug}</span>
+              </Link>
+            ),
+          },
+          { key: 'status', header: 'Status', cell: (r) => <StatusPill status={r.status === 'inactive' ? 'suspended' : r.status} /> },
+          {
+            key: 'login',
+            header: 'Last login',
+            cell: (r) => (
+              <span className="text-text-secondary" title={r.lastLoginAt ? new Date(r.lastLoginAt).toLocaleString() : undefined}>
+                {r.lastLoginAt ? relativeTime(r.lastLoginAt) : 'Never'}
+              </span>
+            ),
+          },
+        ]}
+        pagination={{
+          page,
+          pageSize,
+          total: query.data?.meta.total ?? 0,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => {
+            setPageSize(n);
+            setPage(1);
+          },
+          pageSizeOptions: [25, 50, 100],
+          itemLabel: 'users',
+        }}
+      />
     </div>
   );
 }

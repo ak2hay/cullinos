@@ -31,7 +31,15 @@ import {
 } from "class-validator";
 import type { JwtPayload } from "@cullinos/auth";
 import { BUSINESS_TYPES } from "@cullinos/shared";
-import { CurrentUser, Public, RequirePlatformPermission } from "../../common/decorators";
+import {
+  CurrentUser,
+  PlatformScope,
+  Public,
+  RequirePlatformPermission,
+  RequiresApproval,
+  SkipStepUp,
+} from "../../common/decorators";
+import type { ScopedGrant } from "../platform-iam/platform-access.util";
 import { AuditService } from "../audit/audit.service";
 import { MailService } from "../mail/mail.service";
 import { SuperAdminGuard } from "../marketing/guards/super-admin.guard";
@@ -74,8 +82,8 @@ class SuspendDto {
 class ImpersonateDto {
   @IsString()
   @MinLength(8)
-  @MaxLength(500)
-  reason!: string;
+  @MaxLength(40)
+  grantId!: string;
 }
 
 const RESTAURANT_SIZES = ["small", "medium", "large"] as const;
@@ -300,28 +308,40 @@ export class SuperAdminController {
 
   @Get("organizations")
   @RequirePlatformPermission("tenants.read")
+  @PlatformScope("list")
   listOrganizations(
+    @Req() req: { platformScope?: ScopedGrant[] | null },
     @Query("page") page?: string,
     @Query("limit") limit?: string,
     @Query("q") q?: string,
     @Query("status") status?: string,
     @Query("planSlug") planSlug?: string,
   ) {
-    return this.service.listOrganizations(Number(page) || 1, Number(limit) || 20, {
+    return this.service.listOrganizations(Number(page) || 1, Math.min(Number(limit) || 20, 200), {
       q,
       status,
       planSlug,
+      scope: req.platformScope,
     });
+  }
+
+  @Get("organizations/summary")
+  @RequirePlatformPermission("tenants.read")
+  @PlatformScope("list")
+  organizationSummary(@Req() req: { platformScope?: ScopedGrant[] | null }) {
+    return this.service.organizationSummary(req.platformScope);
   }
 
   @Get("organizations/:id")
   @RequirePlatformPermission("tenants.read")
+  @PlatformScope("param")
   getOrganization(@Param("id") id: string) {
     return this.service.getOrganization(id);
   }
 
   @Patch("organizations/:id/environment")
   @RequirePlatformPermission("tenants.write")
+  @PlatformScope("param")
   updateOrganizationEnvironment(
     @Param("id") id: string,
     @Body() body: UpdateOrgEnvironmentDto,
@@ -332,6 +352,7 @@ export class SuperAdminController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("labs/step-up")
   @RequirePlatformPermission("labs.sql")
+  @SkipStepUp()
   startLabsStepUp(@CurrentUser() user: JwtPayload) {
     return this.service.startLabsStepUp(user.sub, user.email);
   }
@@ -339,6 +360,7 @@ export class SuperAdminController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post("labs/step-up/verify")
   @RequirePlatformPermission("labs.sql")
+  @SkipStepUp()
   verifyLabsStepUp(@Body() dto: VerifyOtpDto, @CurrentUser() user: JwtPayload) {
     return this.service.verifyLabsStepUp(user.sub, dto.challengeToken, dto.otp);
   }
@@ -363,12 +385,14 @@ export class SuperAdminController {
 
   @Get("organizations/:id/users")
   @RequirePlatformPermission("tenants.read")
+  @PlatformScope("param")
   listOrganizationUsers(@Param("id") id: string) {
     return this.service.listOrganizationUsers(id);
   }
 
   @Post("organizations/:id/users/:userId/reset-password")
   @RequirePlatformPermission("tenant_users.manage")
+  @PlatformScope("param")
   resetOrganizationUserPassword(
     @Param("id") id: string,
     @Param("userId") userId: string,
@@ -379,6 +403,7 @@ export class SuperAdminController {
 
   @Patch("organizations/:id/users/:userId/deactivate")
   @RequirePlatformPermission("tenant_users.manage")
+  @PlatformScope("param")
   deactivateOrganizationUser(
     @Param("id") id: string,
     @Param("userId") userId: string,
@@ -390,6 +415,7 @@ export class SuperAdminController {
 
   @Patch("organizations/:id/users/:userId/activate")
   @RequirePlatformPermission("tenant_users.manage")
+  @PlatformScope("param")
   activateOrganizationUser(
     @Param("id") id: string,
     @Param("userId") userId: string,
@@ -400,12 +426,13 @@ export class SuperAdminController {
 
   @Post("organizations/:id/impersonate")
   @RequirePlatformPermission("tenants.impersonate")
+  @PlatformScope("param")
   impersonate(
     @Param("id") id: string,
     @CurrentUser() user: JwtPayload,
     @Body() dto: ImpersonateDto,
   ) {
-    return this.service.impersonateOrganization(id, user.sub, dto.reason);
+    return this.service.impersonateOrganization(id, user.sub, dto.grantId);
   }
 
   @Get("audit-logs")
@@ -445,6 +472,7 @@ export class SuperAdminController {
 
   @Delete("organizations/:id")
   @RequirePlatformPermission("tenants.delete")
+  @RequiresApproval("tenants.delete", "Delete tenant")
   deleteOrganization(@Param("id") id: string) {
     return this.service.deleteOrganization(id);
   }
@@ -457,6 +485,8 @@ export class SuperAdminController {
 
   @Patch("organizations/:id/suspend")
   @RequirePlatformPermission("tenants.suspend")
+  @PlatformScope("param")
+  @RequiresApproval("tenants.suspend", "Suspend tenant")
   suspendOrganization(
     @Param("id") id: string,
     @Body() body: SuspendDto,
@@ -467,12 +497,15 @@ export class SuperAdminController {
 
   @Patch("organizations/:id/activate")
   @RequirePlatformPermission("tenants.suspend")
+  @PlatformScope("param")
   activateOrganization(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
     return this.service.reactivateTenant(id, user.sub);
   }
 
   @Put("organizations/:id/subscription")
   @RequirePlatformPermission("subscriptions.manage")
+  @PlatformScope("param")
+  @RequiresApproval("subscriptions.change", "Change tenant subscription")
   manageSubscription(
     @Param("id") id: string,
     @Body() body: { planId?: string; planSlug?: string; status: string },
@@ -482,6 +515,7 @@ export class SuperAdminController {
 
   @Post("organizations/:id/subscription/collect")
   @RequirePlatformPermission("subscriptions.manage")
+  @PlatformScope("param")
   collectSubscription(@Param("id") id: string) {
     return this.service.collectSubscription(id);
   }
@@ -502,12 +536,14 @@ export class SuperAdminController {
 
   @Post("plans")
   @RequirePlatformPermission("plans.manage")
+  @RequiresApproval("plans.create", "Create plan")
   createPlan(@Body() body: CreatePlanDto) {
     return this.service.createPlan(body);
   }
 
   @Patch("plans/:id")
   @RequirePlatformPermission("plans.manage")
+  @RequiresApproval("plans.update", "Change plan price or limits")
   updatePlan(@Param("id") id: string, @Body() body: UpdatePlanDto) {
     return this.service.updatePlan(id, body);
   }
@@ -538,6 +574,9 @@ export class SuperAdminController {
 
   @Put("settings/:group")
   @RequirePlatformPermission("settings.manage")
+  @RequiresApproval("settings.update", "Change platform settings / integration keys", {
+    sensitiveBody: true,
+  })
   async updateSettingsGroup(
     @Param("group") group: string,
     @Body() body: UpdateSettingsGroupDto,
@@ -585,12 +624,15 @@ export class SuperAdminController {
 
   @Patch("tenants/:id/suspend")
   @RequirePlatformPermission("tenants.suspend")
+  @PlatformScope("param")
+  @RequiresApproval("tenants.suspend", "Suspend tenant")
   suspend(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
     return this.service.suspendTenant(id, undefined, user.sub);
   }
 
   @Patch("tenants/:id/reactivate")
   @RequirePlatformPermission("tenants.suspend")
+  @PlatformScope("param")
   reactivate(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
     return this.service.reactivateTenant(id, user.sub);
   }

@@ -18,6 +18,7 @@ import { GuestsPage } from '@/pages/GuestsPage';
 import { DisplaysPage } from '@/pages/DisplaysPage';
 import { StationsPage } from '@/pages/StationsPage';
 import { ProfilePage } from '@/pages/ProfilePage';
+import { ActivityLogPage } from '@/pages/ActivityLogPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { LoyaltyPage } from '@/pages/LoyaltyPage';
@@ -273,6 +274,16 @@ export default function App() {
           }
         />
         <Route path="profile" element={<ProfilePage />} />
+        <Route
+          path="activity-log"
+          element={
+            <ErpPage>
+              <PermissionRoute allOf={[PERMISSIONS.ORDER_REFUND]}>
+                <ActivityLogPage />
+              </PermissionRoute>
+            </ErpPage>
+          }
+        />
         <Route
           path="stations"
           element={

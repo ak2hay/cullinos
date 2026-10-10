@@ -47,6 +47,10 @@ export type StaffAccessPayload = {
   portal?: string;
   impersonation?: boolean;
   impersonatedBy?: string;
+  grantId?: string;
+  ticketId?: string;
+  employeeCode?: string;
+  accessLevel?: "read_only" | "full";
   /** users.token_version at issue time; tokens without it predate revocation support. */
   tv?: number;
 };

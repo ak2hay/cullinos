@@ -28,6 +28,7 @@ import { generatePickupCode } from "../../common/pickup-code.util";
 import { loadActiveHappyHourRules } from "../../common/happy-hour.util";
 import { normalizeOrderStatusFilter } from "../../common/status.util";
 import { toPaise } from "../../common/money.util";
+import { REFUND_PIN_REQUIRED_CODE } from "../refund-pin/refund-pin.util";
 import { orderGrandTotal, orderLineTotal, pickDefaultTaxGroup } from "./order-tax.util";
 import { matchDeliveryZone } from "../delivery/delivery-zone.util";
 import { groupItemsByStation, kotNumberFor, stationCodeFor } from "./kot-routing.util";
@@ -53,6 +54,7 @@ import { Msg91Service } from "../sms/msg91.service";
 import { WhatsappService } from "../sms/whatsapp.service";
 import { FeedbackService } from "../feedback/feedback.service";
 import { WalletService, smsSegments } from "../wallet/wallet.service";
+import { PaymentsService } from "../payments/payments.service";
 import { smsEbill } from "../sms/sms-templates";
 
 type TaxComputation = {
@@ -144,6 +146,8 @@ export class OrdersService {
     private feedback?: FeedbackService,
     @Optional()
     private wallet?: WalletService,
+    @Optional()
+    private payments?: PaymentsService,
   ) {}
 
   private async computeTax(
@@ -636,6 +640,9 @@ export class OrdersService {
         couponCode: dto.couponCode.trim(),
       });
     }
+    if (internal.prepaid) {
+      await this.loyalty?.earnIfOrderSettled(order.id, { organizationId: orgId });
+    }
     this.ws.emitToOutlet(dto.outletId, "order.updated", mapped);
     for (const kot of kots) {
       this.ws.emitToOutlet(dto.outletId, "kot.created", { order: mapped, kot });
@@ -852,15 +859,19 @@ export class OrdersService {
     orgId: string,
     orderId: string,
     status: string,
-    opts: { allowUnpaidComplete?: boolean } = {},
+    opts: {
+      allowUnpaidComplete?: boolean;
+      userId?: string;
+      externalRefundConfirmed?: boolean;
+    } = {},
   ) {
     const apiStatus = normalizeOrderStatusFilter(status ?? "");
     if (apiStatus === "cancelled") {
-      return this.cancel(orgId, orderId);
+      return this.cancel(orgId, orderId, undefined, opts);
     }
     const existing = await this.prisma.order.findFirst({
       where: { id: orderId, organizationId: orgId },
-      select: { status: true, readyAt: true, metadata: true, total: true },
+      select: { status: true, readyAt: true, metadata: true, total: true, outletId: true },
     });
     if (!existing) throw new NotFoundException("Order not found");
     if (!canTransitionOrder(existing.status, apiStatus)) {
@@ -884,8 +895,8 @@ export class OrdersService {
         );
       }
     }
-    if (apiStatus === "voided" && paid > 0) {
-      throw new BadRequestException("Order has payments — refund them before voiding");
+    if (apiStatus === "voided") {
+      await this.settlePaymentsBeforeClose(orgId, orderId, existing.outletId, opts);
     }
 
     const order = await this.prisma.order.update({
@@ -949,15 +960,19 @@ export class OrdersService {
         });
       }
     }
-    if (apiStatus === "completed" && this.loyalty) {
-      const total = Number(order.total ?? 0);
-      await this.loyalty.earnForOrder(orgId, order.id, order.customerId, total);
+    if (apiStatus === "completed") {
+      await this.loyalty?.earnIfOrderSettled(order.id, { organizationId: orgId, force: true });
     }
     return mapped;
   }
 
-  /** Cancel order (refund stub — marks cancelled and appends notes). */
-  async cancel(orgId: string, orderId: string, notes?: string) {
+  /** Cancel order. Completed payments are refunded first so a paid ticket is not stuck. */
+  async cancel(
+    orgId: string,
+    orderId: string,
+    notes?: string,
+    opts: { userId?: string; externalRefundConfirmed?: boolean; refundAuthorized?: boolean } = {},
+  ) {
     const existing = await this.prisma.order.findFirst({
       where: { id: orderId, organizationId: orgId },
     });
@@ -965,9 +980,7 @@ export class OrdersService {
     if (!canTransitionOrder(existing.status, "cancelled")) {
       throw new BadRequestException(`Cannot cancel order in status ${existing.status}`);
     }
-    if ((await this.completedPaymentsTotal(orderId)) > 0) {
-      throw new BadRequestException("Order has payments — refund them before cancelling");
-    }
+    await this.settlePaymentsBeforeClose(orgId, orderId, existing.outletId, opts);
 
     const refundNote = notes?.trim() || "Cancelled";
     const mergedNotes = [existing.notes, refundNote].filter(Boolean).join("\n");
@@ -1007,6 +1020,36 @@ export class OrdersService {
       });
     }
     return mapped;
+  }
+
+  private async settlePaymentsBeforeClose(
+    orgId: string,
+    orderId: string,
+    outletId: string,
+    opts: { userId?: string; externalRefundConfirmed?: boolean; refundAuthorized?: boolean },
+  ) {
+    const paid = await this.completedPaymentsTotal(orderId);
+    if (paid <= 0) return;
+    if (!opts.refundAuthorized) {
+      throw new BadRequestException({
+        message: "This order has payments. Use Refund and enter your passcode to cancel it.",
+        code: REFUND_PIN_REQUIRED_CODE,
+      });
+    }
+    if (!this.payments) {
+      throw new BadRequestException(
+        "Order has payments and refunds are unavailable, so it cannot be cancelled.",
+      );
+    }
+    await this.payments.refundCompletedForOrder(orgId, orderId, {
+      userId: opts.userId,
+      outletId,
+      externalRefundConfirmed: opts.externalRefundConfirmed,
+    });
+    const stillPaid = await this.completedPaymentsTotal(orderId);
+    if (stillPaid > 0) {
+      throw new BadRequestException("Order still has completed payments after refund");
+    }
   }
 
   /** Free the table (and end its session) once the last open order on it closes. */
@@ -1083,6 +1126,16 @@ export class OrdersService {
 
   async hold(orgId: string, orderId: string) {
     return this.updateStatus(orgId, orderId, "DRAFT");
+  }
+
+  /** Rupees collected on an order (completed payments only), scoped to the org. */
+  async paidTotal(orgId: string, orderId: string): Promise<number> {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, organizationId: orgId },
+      select: { id: true },
+    });
+    if (!order) throw new NotFoundException("Order not found");
+    return this.completedPaymentsTotal(orderId);
   }
 
   private async completedPaymentsTotal(orderId: string): Promise<number> {

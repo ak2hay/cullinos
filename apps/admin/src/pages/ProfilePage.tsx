@@ -2,9 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Card, CardHeader, Input, PageShell, useToast } from '@cullinos/ui';
+import { PERMISSIONS, hasPermission } from '@cullinos/shared';
 import { ImageUploadField } from '@/components/ImageUploadField';
+import { PinInput } from '@/components/PinInput';
 import { UserAvatar } from '@/components/layout/UserMenu';
-import { profileApi, type UserProfile } from '@/lib/api';
+import { profileApi, refundPinApi, type UserProfile } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
 function splitName(name: string) {
@@ -17,6 +19,7 @@ export function ProfilePage() {
   const toast = useToast();
   const updateUser = useAuthStore((s) => s.updateUser);
   const impersonation = useAuthStore((s) => s.impersonation);
+  const canRefund = hasPermission(useAuthStore((s) => s.permissions), PERMISSIONS.ORDER_REFUND);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
 
@@ -155,7 +158,92 @@ export function ProfilePage() {
             </p>
           ) : null}
         </Card>
+
+        {canRefund ? <RefundPasscodeCard disabled={impersonation} /> : null}
       </div>
     </PageShell>
+  );
+}
+
+function RefundPasscodeCard({ disabled }: { disabled: boolean }) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [password, setPassword] = useState('');
+  const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const statusQuery = useQuery({ queryKey: ['refund-pin', 'status'], queryFn: refundPinApi.status });
+  const isSet = statusQuery.data?.isSet ?? false;
+
+  const saveMutation = useMutation({
+    mutationFn: () => refundPinApi.set({ currentPassword: password, pin }),
+    onSuccess: () => {
+      setPassword('');
+      setPin('');
+      setConfirmPin('');
+      setError(null);
+      queryClient.invalidateQueries({ queryKey: ['refund-pin', 'status'] });
+      toast.success(isSet ? 'Refund passcode changed.' : 'Refund passcode set.');
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  return (
+    <Card>
+      <CardHeader title="Refund passcode" />
+      <p className="mb-4 text-sm text-text-secondary">
+        Your personal 4-digit passcode for refunding paid orders. Every refund is logged under your
+        name, so do not share it.{' '}
+        <span className={isSet ? 'text-status-success' : 'text-status-warning'}>
+          {statusQuery.isLoading ? '' : isSet ? 'Passcode is set.' : 'Not set yet.'}
+        </span>
+      </p>
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!/^\d{4}$/.test(pin)) {
+            setError('Passcode must be exactly 4 digits.');
+            return;
+          }
+          if (pin !== confirmPin) {
+            setError('Passcodes do not match.');
+            return;
+          }
+          if (!password) {
+            setError('Enter your account password.');
+            return;
+          }
+          setError(null);
+          saveMutation.mutate();
+        }}
+      >
+        <PinInput
+          label={isSet ? 'New passcode' : 'Passcode'}
+          value={pin}
+          onChange={setPin}
+          disabled={disabled}
+        />
+        <PinInput
+          label="Confirm passcode"
+          value={confirmPin}
+          onChange={setConfirmPin}
+          disabled={disabled}
+        />
+        <Input
+          label="Account password"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          disabled={disabled}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        {error ? <p className="text-sm text-status-error">{error}</p> : null}
+        <Button type="submit" loading={saveMutation.isPending} disabled={disabled}>
+          {isSet ? 'Change passcode' : 'Set passcode'}
+        </Button>
+      </form>
+    </Card>
   );
 }

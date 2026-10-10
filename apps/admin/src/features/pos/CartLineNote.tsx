@@ -18,7 +18,7 @@ export function CartLineNote({ notes, onSave }: CartLineNoteProps) {
           setDraft(notes);
           setEditing(true);
         }}
-        className="mt-1 block w-full truncate text-left text-xs italic text-brand-primary/90"
+        className="block w-full truncate text-left text-[11px] italic leading-tight text-brand-primary/90"
         title="Edit note"
       >
         Note: {notes}
@@ -30,7 +30,7 @@ export function CartLineNote({ notes, onSave }: CartLineNoteProps) {
           setDraft('');
           setEditing(true);
         }}
-        className="mt-1 text-xs text-text-muted underline-offset-2 hover:text-brand-primary hover:underline"
+        className="text-[11px] leading-tight text-text-muted underline-offset-2 hover:text-brand-primary hover:underline"
       >
         + Add note
       </button>
@@ -43,7 +43,7 @@ export function CartLineNote({ notes, onSave }: CartLineNoteProps) {
   };
 
   return (
-    <div className="mt-2 flex items-center gap-2">
+    <div className="mt-1 flex items-center gap-1.5">
       <input
         autoFocus
         value={draft}

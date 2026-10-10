@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PasswordInput, Turnstile, isTurnstileEnabled } from '@cullinos/ui';
+import { AuthLayout } from '@/components/auth/AuthLayout';
 import { RKYVES_BRAND, superAdminApi } from '@/lib/api';
 import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
 
@@ -63,21 +64,14 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg-primary px-4">
-      <div className="w-full max-w-md rounded-2xl border border-line bg-bg-secondary p-8">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-primary font-mono text-lg font-bold">
-            R
-          </div>
-          <h1 className="text-2xl font-semibold">
-            {step === 'email' ? 'Forgot password' : 'Reset password'}
-          </h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            {step === 'email'
-              ? `Reset access for ${RKYVES_BRAND.name} platform admin.`
-              : 'Enter the email code and your new password.'}
-          </p>
-        </div>
+    <AuthLayout
+      title={step === 'email' ? 'Forgot password' : 'Reset password'}
+      subtitle={
+        step === 'email'
+          ? `Reset access for ${RKYVES_BRAND.name} platform admin.`
+          : 'Enter the email code and your new password.'
+      }
+    >
 
         {step === 'email' ? (
           <form onSubmit={handleRequestCode} className="space-y-4">
@@ -88,7 +82,7 @@ export function ForgotPasswordPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                className="mt-1 h-11 w-full rounded-lg border border-line bg-bg-card px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
               />
             </label>
             {turnstileOn ? (
@@ -107,12 +101,12 @@ export function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-brand-primary py-2.5 text-sm font-medium disabled:opacity-60"
+              className="h-11 w-full rounded-lg bg-brand-primary text-sm font-semibold text-on-brand hover:bg-brand-primary-dark disabled:opacity-60"
             >
               {loading ? 'Sending…' : 'Send reset code'}
             </button>
             <p className="text-center text-sm text-text-secondary">
-              <Link to="/login" className="text-brand-primary hover:underline">
+              <Link to="/login" className="text-accent hover:underline">
                 Back to sign in
               </Link>
             </p>
@@ -138,7 +132,7 @@ export function ForgotPasswordPage() {
                 maxLength={6}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="mt-1 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
+                className="mt-1 h-11 w-full rounded-lg border border-line bg-bg-card px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
               />
             </label>
             <PasswordInput
@@ -160,18 +154,17 @@ export function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-brand-primary py-2.5 text-sm font-medium disabled:opacity-60"
+              className="h-11 w-full rounded-lg bg-brand-primary text-sm font-semibold text-on-brand hover:bg-brand-primary-dark disabled:opacity-60"
             >
               {loading ? 'Updating…' : 'Update password'}
             </button>
             <p className="text-center text-sm text-text-secondary">
-              <Link to="/login" className="text-brand-primary hover:underline">
+              <Link to="/login" className="text-accent hover:underline">
                 Back to sign in
               </Link>
             </p>
           </form>
         )}
-      </div>
-    </div>
+    </AuthLayout>
   );
 }

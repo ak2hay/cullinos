@@ -14,6 +14,22 @@ export class CustomersController {
     return this.service.list(orgId, q);
   }
 
+  @Get("overview")
+  overview(
+    @OrgId() orgId: string,
+    @Query("q") q?: string,
+    @Query("sort") sort?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.service.overview(orgId, {
+      q,
+      sort,
+      page: page ? Number(page) || 1 : undefined,
+      limit: limit ? Number(limit) || undefined : undefined,
+    });
+  }
+
   @Get(":id")
   get(@OrgId() orgId: string, @Param("id") id: string) {
     return this.service.get(orgId, id);

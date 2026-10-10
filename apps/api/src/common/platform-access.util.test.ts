@@ -4,6 +4,7 @@ import type { Reflector } from "@nestjs/core";
 import { describe, expect, it } from "vitest";
 import { assertPlatformAccess } from "./platform-access.util";
 import { SuperAdminGuard } from "./super-admin.guard";
+import type { PlatformAuthorizationService } from "../modules/platform-iam/platform-authorization.service";
 
 function reflector(required?: string[], isPublic = false): Reflector {
   return {
@@ -71,22 +72,35 @@ describe("assertPlatformAccess", () => {
   });
 });
 
+function guardFor(r: Reflector) {
+  const calls: unknown[] = [];
+  const authz = {
+    authorize: async (context: ExecutionContext, request: { user?: Record<string, unknown> }) => {
+      calls.push(request);
+      assertPlatformAccess(r, context, request.user as never);
+    },
+  } as unknown as PlatformAuthorizationService;
+  return { guard: new SuperAdminGuard(r, authz), calls };
+}
+
 describe("SuperAdminGuard (global)", () => {
-  it("ignores non super-admin paths", () => {
-    const guard = new SuperAdminGuard(reflector(undefined));
-    expect(guard.canActivate(ctx(undefined, "/api/v1/orders"))).toBe(true);
+  it("ignores non super-admin paths", async () => {
+    const { guard, calls } = guardFor(reflector(undefined));
+    await expect(guard.canActivate(ctx(undefined, "/api/v1/orders"))).resolves.toBe(true);
+    expect(calls).toHaveLength(0);
   });
 
-  it("skips public super-admin routes such as login", () => {
-    const guard = new SuperAdminGuard(reflector(undefined, true));
-    expect(guard.canActivate(ctx(undefined, "/api/v1/super-admin/login"))).toBe(true);
+  it("skips public super-admin routes such as login", async () => {
+    const { guard, calls } = guardFor(reflector(undefined, true));
+    await expect(guard.canActivate(ctx(undefined, "/api/v1/super-admin/login"))).resolves.toBe(true);
+    expect(calls).toHaveLength(0);
   });
 
-  it("enforces role permissions on super-admin paths", () => {
-    const guard = new SuperAdminGuard(reflector(["plans.manage"]));
-    expect(() =>
-      guard.canActivate(ctx({ isSuperAdmin: true, platformRole: "sales" })),
-    ).toThrow(ForbiddenException);
-    expect(guard.canActivate(ctx({ isSuperAdmin: true, platformRole: "finance" }))).toBe(true);
+  it("delegates super-admin paths to platform authorization", async () => {
+    const { guard } = guardFor(reflector(["plans.manage"]));
+    await expect(guard.canActivate(ctx({ isSuperAdmin: true, platformRole: "sales" }))).rejects.toThrow(
+      ForbiddenException,
+    );
+    await expect(guard.canActivate(ctx({ isSuperAdmin: true, platformRole: "finance" }))).resolves.toBe(true);
   });
 });

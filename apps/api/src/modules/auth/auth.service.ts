@@ -45,6 +45,10 @@ import {
   shouldFailPhoneOtpWhenUnsent,
 } from "../customers/phone-otp-request.util";
 import {
+  EMAIL_OTP_SEND_FAILED_MESSAGE,
+  shouldFailEmailOtpWhenUnsent,
+} from "./email-otp-send.util";
+import {
   normalizePhoneE164,
   normalizeStaffPhone,
   staffPhoneLookupVariants,
@@ -292,13 +296,18 @@ export class AuthService {
     return { challengeToken };
   }
 
-  async verifyStepUp(userId: string, challengeToken: string, otp: string) {
+  async verifyStepUp(
+    userId: string,
+    challengeToken: string,
+    otp: string,
+    scope: "labs_sql" | "platform" = "labs_sql",
+  ) {
     const record = await this.consumeOtp(challengeToken, otp, "labs_step_up");
     if (record.userId !== userId) {
       throw new UnauthorizedException("Step-up belongs to another user");
     }
     const stepUpToken = this.jwt.sign(
-      { sub: userId, type: "step_up", scope: "labs_sql" },
+      { sub: userId, type: "step_up", scope },
       { expiresIn: STEP_UP_TTL },
     );
     return { stepUpToken, expiresInSeconds: 600 };
@@ -313,7 +322,11 @@ export class AuthService {
     }
     try {
       const payload = this.jwt.verify<{ sub?: string; type?: string; scope?: string }>(token);
-      if (payload.type === "step_up" && payload.scope === "labs_sql" && payload.sub === userId) {
+      if (
+        payload.type === "step_up" &&
+        (payload.scope === "labs_sql" || payload.scope === "platform") &&
+        payload.sub === userId
+      ) {
         return;
       }
     } catch {
@@ -353,7 +366,14 @@ export class AuthService {
       },
     });
     if (user) {
-      await this.createAndSendOtp(user.id, user.email, "password_reset");
+      try {
+        await this.createAndSendOtp(user.id, user.email, "password_reset");
+      } catch (err) {
+        // Same response as unknown email (enumeration resistance); failure is in MailService logs.
+        if (!(err instanceof ServiceUnavailableException)) throw err;
+        this.logger.error(`Password reset OTP email not sent for user ${user.id}`);
+        return { ok: true as const };
+      }
       await this.logAuthEvent({
         organizationId: user.organizationId,
         userId: user.id,
@@ -531,7 +551,13 @@ export class AuthService {
       },
     });
 
-    await this.mail.sendOtpEmail(email, code, purpose);
+    const sent = await this.mail.sendOtpEmail(email, code, purpose);
+    if (shouldFailEmailOtpWhenUnsent(sent)) {
+      await this.prisma.emailOtp
+        .deleteMany({ where: { challengeToken } })
+        .catch(() => undefined);
+      throw new ServiceUnavailableException(EMAIL_OTP_SEND_FAILED_MESSAGE);
+    }
     return challengeToken;
   }
 
@@ -611,6 +637,12 @@ export class AuthService {
     },
     impersonatedBy: string,
     expiresInSeconds = 45 * 60,
+    support?: {
+      grantId: string;
+      ticketId: string;
+      employeeCode?: string | null;
+      accessLevel: "read_only" | "full";
+    },
   ) {
     const permissions = await this.getUserPermissions(user.id);
     const expiresIn = expiresInSeconds;
@@ -627,6 +659,14 @@ export class AuthService {
         permissions,
         impersonation: true,
         impersonatedBy,
+        ...(support
+          ? {
+              grantId: support.grantId,
+              ticketId: support.ticketId,
+              accessLevel: support.accessLevel,
+              ...(support.employeeCode ? { employeeCode: support.employeeCode } : {}),
+            }
+          : {}),
       },
       tokenVersion,
       expiresIn,
@@ -661,6 +701,7 @@ export class AuthService {
       permissions,
       impersonation: true as const,
       impersonatedBy,
+      ...(support ? { accessLevel: support.accessLevel, ticketId: support.ticketId } : {}),
     };
   }
 
