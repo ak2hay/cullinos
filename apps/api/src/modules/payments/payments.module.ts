@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { LoyaltyModule } from "../loyalty/loyalty.module";
 import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { CashfreeClient } from "./cashfree.client";
 import { PaymentCredentialsService } from "./payment-credentials.service";
@@ -7,7 +8,7 @@ import { PaymentsService } from "./payments.service";
 import { RazorpayModule } from "./razorpay.module";
 
 @Module({
-  imports: [RazorpayModule, SubscriptionsModule],
+  imports: [RazorpayModule, SubscriptionsModule, LoyaltyModule],
   controllers: [PaymentsController],
   providers: [PaymentsService, PaymentCredentialsService, CashfreeClient],
   exports: [PaymentsService, PaymentCredentialsService, RazorpayModule],

@@ -1,9 +1,23 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { BrandWordmark, PhoneField } from '@cullinos/ui';
 import { AppBanner } from '@/components/AppBanner';
 import { ModifierModal, type ModifierSelection } from '@/components/ModifierModal';
+import { CartDock } from '@/components/menu/CartDock';
+import { CategoryRail } from '@/components/menu/CategoryRail';
+import { DishCard } from '@/components/menu/DishCard';
+import { MenuHero } from '@/components/menu/MenuHero';
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  CloseIcon,
+  FlameIcon,
+  MinusIcon,
+  PlusIcon,
+  SearchIcon,
+  SparkIcon,
+} from '@/components/menu/icons';
 import {
   formatPrice,
   orderApi,
@@ -38,6 +52,8 @@ export function MenuPage() {
 
   const [step, setStep] = useState<Step>('menu');
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const [lines, setLines] = useState<CartLine[]>([]);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [guestName, setGuestName] = useState('');
@@ -49,6 +65,8 @@ export function MenuPage() {
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
   const [receiptLines, setReceiptLines] = useState<CartLine[]>([]);
   const [error, setError] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const fullMenuRef = useRef<HTMLDivElement>(null);
 
   const storefront = useQuery({
     queryKey: ['storefront', orgSlug, outletSlug],
@@ -94,16 +112,56 @@ export function MenuPage() {
     () => categories.filter((c) => availableItems.some((i) => i.categoryId === c.id)),
     [categories, availableItems],
   );
-  const items = useMemo(
-    () => (categoryId ? availableItems.filter((i) => i.categoryId === categoryId) : availableItems),
-    [availableItems, categoryId],
+  const popularIds = useMemo(() => new Set(data?.popularItemIds ?? []), [data?.popularItemIds]);
+  const popularItems = useMemo(
+    () =>
+      (data?.popularItemIds ?? [])
+        .map((id) => availableItems.find((i) => i.id === id))
+        .filter((i): i is MenuItem => Boolean(i)),
+    [data?.popularItemIds, availableItems],
   );
+  const searchTerm = search.trim().toLowerCase();
+  const searchResults = useMemo(
+    () =>
+      searchTerm
+        ? availableItems.filter(
+            (i) =>
+              i.name.toLowerCase().includes(searchTerm) ||
+              (i.description ?? '').toLowerCase().includes(searchTerm),
+          )
+        : [],
+    [availableItems, searchTerm],
+  );
+  const sections = useMemo(() => {
+    const cats = categoryId ? visibleCategories.filter((c) => c.id === categoryId) : visibleCategories;
+    const grouped = cats.map((c) => ({
+      id: c.id,
+      name: c.name,
+      items: availableItems.filter((i) => i.categoryId === c.id),
+    }));
+    if (!categoryId) {
+      const known = new Set(visibleCategories.map((c) => c.id));
+      const other = availableItems.filter((i) => !i.categoryId || !known.has(i.categoryId));
+      if (other.length) grouped.push({ id: 'other', name: 'More', items: other });
+    }
+    return grouped;
+  }, [availableItems, visibleCategories, categoryId]);
+
+  const qtyByItem = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const l of lines) map.set(l.menuItemId, (map.get(l.menuItemId) ?? 0) + l.quantity);
+    return map;
+  }, [lines]);
 
   const itemCount = lines.reduce((s, l) => s + l.quantity, 0);
   const total = lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
   const hasAlcohol = lines.some((l) => l.isAlcohol);
   const nameError = submitted && !guestName.trim() ? 'Enter your name' : '';
   const phoneFieldError = submitted ? phoneError(phone) ?? '' : '';
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
 
   function addLine(line: Omit<CartLine, 'key'>) {
     const key = [
@@ -135,6 +193,11 @@ export function MenuPage() {
       quantity: 1,
       modifiers: [],
     });
+  }
+
+  function removeOne(item: MenuItem) {
+    const last = [...lines].reverse().find((l) => l.menuItemId === item.id);
+    if (last) updateQty(last.key, last.quantity - 1);
   }
 
   function updateQty(key: string, quantity: number) {
@@ -174,6 +237,7 @@ export function MenuPage() {
         await orderApi.addSessionItems(sessionToken, {
           items: payloadItems,
           customerName: name,
+          customerPhone: phone,
           notes: orderNotes,
           ageConfirmed: hasAlcohol ? true : undefined,
         });
@@ -185,6 +249,7 @@ export function MenuPage() {
         outletSlug,
         type: orderType,
         customerName: name,
+        customerPhone: phone,
         notes: orderNotes,
         items: payloadItems,
         ageConfirmed: hasAlcohol ? true : undefined,
@@ -266,36 +331,42 @@ export function MenuPage() {
 
   if (step === 'done' && placed) {
     return (
-      <div className="min-h-screen bg-bg-primary">
+      <div className="qr-light min-h-screen">
         {banner}
-        <main className="mx-auto flex max-w-lg flex-col items-center gap-5 px-5 py-10 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-primary">
-            {data.outletName}
-          </p>
-          <h1 className="font-display text-3xl font-bold">Order placed</h1>
+        <main className="mx-auto flex max-w-md flex-col items-center gap-5 px-5 py-10 text-center">
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-qr-yellow-soft text-qr-yellow-deep">
+            <SparkIcon size={30} />
+          </span>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-qr-yellow-deep">{data.outletName}</p>
+          <h1 className="font-display text-3xl font-extrabold">Order placed</h1>
           <p className="text-text-secondary">
             {tableName
-              ? `We'll send this to the kitchen for ${tableName}. Pay at the table.`
+              ? `We'll send this to the kitchen for table ${tableName}. Pay at the table.`
               : 'Show this at the counter to pay.'}
           </p>
-          <p className="font-mono text-4xl font-black tracking-wide text-brand-primary">{placed.orderNumber}</p>
-          {placed.pickupCode ? (
-            <p className="text-sm text-text-secondary">
-              Pickup code <span className="font-mono font-bold text-text-primary">{placed.pickupCode}</span>
-            </p>
-          ) : null}
-          {tableName ? <p className="text-sm text-text-muted">Table {tableName}</p> : null}
-          <ul className="w-full space-y-1 text-left text-sm text-text-secondary">
-            {receiptLines.map((line) => (
-              <li key={line.key} className="flex justify-between gap-4">
-                <span>
-                  {line.quantity}× {line.name}
-                  {line.variantName ? ` (${line.variantName})` : ''}
-                </span>
-                <span className="font-mono">{formatPrice(line.unitPrice * line.quantity)}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="w-full rounded-2xl bg-bg-card p-5 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-text-muted">Order number</p>
+            <p className="font-display text-4xl font-black tracking-wide text-qr-ink">{placed.orderNumber}</p>
+            {placed.pickupCode ? (
+              <p className="mt-1 text-sm text-text-secondary">
+                Pickup code <span className="font-mono font-bold text-text-primary">{placed.pickupCode}</span>
+              </p>
+            ) : null}
+            <ul className="mt-4 space-y-1.5 border-t border-line-subtle pt-4 text-left text-sm text-text-secondary">
+              {receiptLines.map((line) => (
+                <li key={line.key} className="flex justify-between gap-4">
+                  <span>
+                    {line.quantity}× {line.name}
+                    {line.variantName ? ` (${line.variantName})` : ''}
+                  </span>
+                  <span className="font-semibold text-text-primary">{formatPrice(line.unitPrice * line.quantity)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <p className="rounded-2xl bg-qr-yellow-soft px-4 py-3 text-sm text-qr-ink">
+            Loyalty points will be added to <span className="font-semibold">{phone}</span> once the bill is paid.
+          </p>
           <button
             type="button"
             onClick={() => {
@@ -306,7 +377,7 @@ export function MenuPage() {
               setSubmitted(false);
               setStep('menu');
             }}
-            className="h-12 w-full rounded-xl bg-brand-primary font-bold text-on-brand"
+            className="h-12 w-full rounded-2xl bg-qr-ink font-display font-bold text-white"
           >
             Order something else
           </button>
@@ -317,80 +388,97 @@ export function MenuPage() {
 
   if (step === 'cart') {
     return (
-      <div className="flex min-h-screen flex-col bg-bg-primary">
+      <div className="qr-light flex min-h-screen flex-col">
         {banner}
-        <header className="flex items-center gap-3 border-b border-line-subtle px-4 py-3">
+        <header className="sticky top-0 z-20 flex items-center gap-3 bg-bg-primary/95 px-4 py-3 backdrop-blur">
           <button
             type="button"
             onClick={() => setStep('menu')}
-            className="rounded-xl bg-bg-card px-3 py-2 text-sm font-semibold text-text-secondary"
+            aria-label="Back to menu"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-bg-card shadow-sm"
           >
-            ← Menu
+            <ArrowLeftIcon size={18} />
           </button>
-          <h1 className="font-display text-lg font-bold">Your order</h1>
+          <div>
+            <h1 className="font-display text-lg font-extrabold leading-tight">Your cart</h1>
+            <p className="text-xs text-text-muted">
+              {data.outletName}
+              {tableName ? ` · Table ${tableName}` : ''}
+            </p>
+          </div>
         </header>
-        <div className="mx-auto w-full max-w-lg flex-1 space-y-3 overflow-y-auto p-4 pb-40">
-          {lines.length === 0 ? <p className="py-10 text-center text-text-muted">Your order is empty.</p> : null}
+        <div className="mx-auto w-full max-w-md flex-1 space-y-3 px-4 pb-44 pt-1">
+          {lines.length === 0 ? <p className="py-10 text-center text-text-muted">Your cart is empty.</p> : null}
           {lines.map((line) => (
-            <div
-              key={line.key}
-              className="flex items-center justify-between gap-3 rounded-2xl border border-line-subtle bg-bg-card p-3"
-            >
+            <div key={line.key} className="flex items-center justify-between gap-3 rounded-2xl bg-bg-card p-3 shadow-sm">
               <div className="min-w-0">
-                <p className="font-semibold">
+                <p className="font-display font-bold">
                   {line.name}
                   {line.variantName ? (
                     <span className="text-sm font-normal text-text-muted"> · {line.variantName}</span>
                   ) : null}
                 </p>
                 {line.modifiers.length ? (
-                  <p className="truncate text-sm text-text-muted">{line.modifiers.map((m) => m.name).join(', ')}</p>
+                  <p className="truncate text-xs text-text-muted">{line.modifiers.map((m) => m.name).join(', ')}</p>
                 ) : null}
-                <p className="font-mono text-sm text-brand-primary">{formatPrice(line.unitPrice * line.quantity)}</p>
+                <p className="mt-0.5 font-display text-sm font-extrabold text-qr-yellow-deep">
+                  {formatPrice(line.unitPrice * line.quantity)}
+                </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2 rounded-xl bg-qr-yellow-soft p-1">
                 <QtyButton label={`Remove one ${line.name}`} onClick={() => updateQty(line.key, line.quantity - 1)}>
-                  −
+                  <MinusIcon size={16} />
                 </QtyButton>
-                <span className="min-w-[1.5rem] text-center font-mono">{line.quantity}</span>
+                <span className="min-w-[1.25rem] text-center font-display font-bold">{line.quantity}</span>
                 <QtyButton label={`Add one ${line.name}`} onClick={() => updateQty(line.key, line.quantity + 1)}>
-                  +
+                  <PlusIcon size={16} />
                 </QtyButton>
               </div>
             </div>
           ))}
 
-          <label className="block text-sm font-semibold text-text-secondary" htmlFor="guest-name">
-            Name
-          </label>
-          <input
-            id="guest-name"
-            type="text"
-            value={guestName}
-            maxLength={60}
-            autoComplete="name"
-            onChange={(e) => setGuestName(e.target.value)}
-            className="w-full rounded-xl border border-line bg-bg-elevated px-4 py-3 outline-none focus:border-brand-primary"
-            placeholder="Your name"
-          />
-          {nameError ? <p className="text-sm text-status-error">{nameError}</p> : null}
+          <section className="space-y-3 rounded-2xl bg-bg-card p-4 shadow-sm">
+            <h2 className="font-display font-bold">Your details</h2>
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-text-secondary" htmlFor="guest-name">
+                Name
+              </label>
+              <input
+                id="guest-name"
+                type="text"
+                value={guestName}
+                maxLength={60}
+                autoComplete="name"
+                onChange={(e) => setGuestName(e.target.value)}
+                className="w-full rounded-xl border border-line bg-bg-elevated px-4 py-3 outline-none focus:border-qr-yellow"
+                placeholder="Your name"
+              />
+              {nameError ? <p className="mt-1 text-sm text-status-error">{nameError}</p> : null}
+            </div>
 
-          <PhoneField label="Phone" value={phone} onChange={setPhone} required error={phoneFieldError || undefined} />
+            <PhoneField label="Phone" value={phone} onChange={setPhone} required error={phoneFieldError || undefined} />
+            <p className="flex items-start gap-2 rounded-xl bg-qr-yellow-soft px-3 py-2 text-xs text-qr-ink">
+              <SparkIcon size={14} className="mt-0.5 shrink-0 text-qr-yellow-deep" />
+              Earn loyalty points on this order. They're added to this phone number once the bill is paid.
+            </p>
 
-          <label className="block text-sm font-semibold text-text-secondary" htmlFor="order-notes">
-            Note for the kitchen
-          </label>
-          <textarea
-            id="order-notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-            className="w-full rounded-xl border border-line bg-bg-elevated px-4 py-3 outline-none focus:border-brand-primary"
-            placeholder="Optional"
-          />
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-text-secondary" htmlFor="order-notes">
+                Note for the kitchen
+              </label>
+              <textarea
+                id="order-notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                className="w-full rounded-xl border border-line bg-bg-elevated px-4 py-3 outline-none focus:border-qr-yellow"
+                placeholder="Optional"
+              />
+            </div>
+          </section>
 
           {isTableFlow ? (
-            <p className="rounded-xl bg-bg-card px-4 py-3 text-sm text-text-secondary">
+            <p className="rounded-2xl bg-bg-card px-4 py-3 text-sm text-text-secondary shadow-sm">
               {tableName ? `Table ${tableName}. ` : ''}
               Pay at the table when you are ready.
             </p>
@@ -401,10 +489,8 @@ export function MenuPage() {
                   key={type}
                   type="button"
                   onClick={() => setOrderType(type)}
-                  className={`rounded-xl border py-3 text-sm font-semibold ${
-                    orderType === type
-                      ? 'border-brand-primary bg-brand-primary text-on-brand'
-                      : 'border-line bg-bg-card'
+                  className={`rounded-2xl py-3 text-sm font-semibold shadow-sm ${
+                    orderType === type ? 'bg-qr-yellow text-qr-ink' : 'bg-bg-card'
                   }`}
                 >
                   {type === 'dine_in' ? 'Eat in' : 'Takeaway'}
@@ -414,7 +500,7 @@ export function MenuPage() {
           )}
 
           {hasAlcohol ? (
-            <label className="flex items-start gap-3 rounded-xl border border-line bg-bg-card px-4 py-3 text-sm">
+            <label className="flex items-start gap-3 rounded-2xl bg-bg-card px-4 py-3 text-sm shadow-sm">
               <input
                 type="checkbox"
                 className="mt-1"
@@ -427,23 +513,20 @@ export function MenuPage() {
 
           {error ? <p className="rounded-xl bg-status-error/10 px-4 py-3 text-sm text-status-error">{error}</p> : null}
         </div>
-        <div className="fixed inset-x-0 bottom-0 border-t border-line bg-bg-secondary/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
-          <div className="mx-auto w-full max-w-lg">
-            <div className="mb-3 flex justify-between">
-              <span>Total</span>
-              <span className="font-mono font-bold text-brand-primary">{formatPrice(total)}</span>
+        <div className="fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="mx-auto flex max-w-md items-center gap-3 rounded-[22px] bg-qr-ink p-2 pl-4 text-white shadow-lg">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-white/60">Total</p>
+              <p className="font-display text-lg font-extrabold">{formatPrice(total)}</p>
             </div>
             <button
               type="button"
               disabled={lines.length === 0 || placeMutation.isPending}
               onClick={tryPlace}
-              className="h-12 w-full rounded-xl bg-brand-primary font-bold text-on-brand disabled:opacity-40"
+              className="flex h-12 shrink-0 items-center gap-2 rounded-2xl bg-qr-yellow px-5 font-display text-[15px] font-bold text-qr-ink disabled:opacity-40"
             >
-              {placeMutation.isPending
-                ? 'Sending order…'
-                : isTableFlow
-                  ? 'Send order · Pay at table'
-                  : 'Send order · Pay at counter'}
+              {placeMutation.isPending ? 'Sending…' : isTableFlow ? 'Send to kitchen' : 'Place Order'}
+              {placeMutation.isPending ? null : <ArrowRightIcon size={18} />}
             </button>
           </div>
         </div>
@@ -451,100 +534,98 @@ export function MenuPage() {
     );
   }
 
+  const showPopular = !categoryId && !searchTerm && popularItems.length > 0;
+
   return (
-    <div className="flex min-h-screen flex-col bg-bg-primary">
+    <div className="qr-light flex min-h-screen flex-col">
       {banner}
-      <header className="flex items-center gap-3 border-b border-line-subtle px-4 py-3">
-        {data.logoUrl ? (
-          <img src={data.logoUrl} alt="" className="h-10 w-10 rounded-xl object-cover" />
-        ) : (
-          <BrandWordmark size="sm" showMark />
-        )}
-        <div className="min-w-0">
-          <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-brand-primary">
-            {data.organizationName}
-          </p>
-          <h1 className="truncate font-display text-lg font-bold">{data.outletName}</h1>
-          {tableName ? <p className="text-xs text-text-secondary">Table {tableName}</p> : null}
+      <div className="mx-auto w-full max-w-md">
+        <MenuHero data={data} tableName={tableName} onSearch={() => setSearchOpen(true)} />
+
+        <div className="sticky top-0 z-20 -mt-3 rounded-t-3xl bg-bg-primary">
+          {searchOpen ? (
+            <div className="px-4 pt-3">
+              <label className="flex h-12 items-center gap-2 rounded-2xl bg-bg-card px-4 shadow-sm">
+                <SearchIcon size={18} className="text-text-muted" />
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search dishes"
+                  className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+                />
+                <button
+                  type="button"
+                  aria-label="Close search"
+                  onClick={() => {
+                    setSearch('');
+                    setSearchOpen(false);
+                  }}
+                  className="text-text-muted"
+                >
+                  <CloseIcon size={18} />
+                </button>
+              </label>
+            </div>
+          ) : null}
+          {!searchTerm ? (
+            <CategoryRail categories={visibleCategories} activeId={categoryId} onSelect={setCategoryId} />
+          ) : null}
         </div>
-      </header>
 
-      <nav className="flex gap-2 overflow-x-auto px-4 py-3">
-        <CategoryChip label="All" active={!categoryId} onClick={() => setCategoryId(null)} />
-        {visibleCategories.map((cat) => (
-          <CategoryChip
-            key={cat.id}
-            label={cat.name}
-            active={categoryId === cat.id}
-            onClick={() => setCategoryId(cat.id)}
-          />
-        ))}
-      </nav>
+        <main className="space-y-7 px-4 pb-32 pt-2">
+          {searchTerm ? (
+            <MenuSection title={`Results for "${search.trim()}"`} subtitle={`${searchResults.length} dishes`}>
+              {searchResults.length === 0 ? (
+                <p className="py-10 text-center text-sm text-text-muted">No dishes match your search.</p>
+              ) : (
+                searchResults.map((item) => renderCard(item))
+              )}
+            </MenuSection>
+          ) : (
+            <>
+              {showPopular ? (
+                <MenuSection
+                  title="Popular Picks"
+                  subtitle="Most ordered dishes at our restaurant"
+                  icon={<FlameIcon size={22} className="text-orange-500" />}
+                  action={
+                    <button
+                      type="button"
+                      onClick={() => fullMenuRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                      className="flex h-9 items-center gap-1.5 rounded-full border border-qr-yellow/50 bg-qr-yellow-soft px-4 text-sm font-semibold text-qr-yellow-deep"
+                    >
+                      View all
+                      <ArrowRightIcon size={15} />
+                    </button>
+                  }
+                >
+                  {popularItems.map((item) => renderCard(item))}
+                </MenuSection>
+              ) : null}
 
-      <main className="mx-auto w-full max-w-lg flex-1 space-y-2 px-4 pb-28">
-        {items.length === 0 ? (
-          <p className="py-16 text-center text-text-muted">No items available right now.</p>
-        ) : (
-          items.map((item) => {
-            const inCart = lines.filter((l) => l.menuItemId === item.id).reduce((s, l) => s + l.quantity, 0);
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => handleItemTap(item)}
-                className="flex w-full items-center gap-3 rounded-2xl border border-line bg-bg-card p-3 text-left"
-              >
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-bg-elevated">
-                  {item.imageUrl ? (
-                    <img src={item.imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
-                  ) : null}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold leading-tight">
-                    {item.isVeg != null ? (
-                      <span
-                        aria-label={item.isVeg ? 'Vegetarian' : 'Non-vegetarian'}
-                        className={`mr-2 inline-block h-2.5 w-2.5 rounded-sm border-2 align-middle ${
-                          item.isVeg ? 'border-green-500 bg-green-500/40' : 'border-red-500 bg-red-500/40'
-                        }`}
-                      />
-                    ) : null}
-                    {item.name}
-                  </p>
-                  {item.description ? (
-                    <p className="mt-0.5 line-clamp-2 text-xs text-text-muted">{item.description}</p>
-                  ) : null}
-                  <p className="mt-1 font-mono text-sm font-bold text-brand-primary">{formatPrice(item.price)}</p>
-                </div>
-                {inCart > 0 ? (
-                  <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-primary px-2 font-mono text-sm font-bold text-on-brand">
-                    {inCart}
-                  </span>
+              <div ref={fullMenuRef} className="scroll-mt-20 space-y-7">
+                {sections.length === 0 ? (
+                  <p className="py-16 text-center text-text-muted">No items available right now.</p>
                 ) : (
-                  <span className="text-xl text-brand-primary" aria-hidden>
-                    +
-                  </span>
+                  sections.map((section) => (
+                    <MenuSection
+                      key={section.id}
+                      title={section.name}
+                      subtitle={`${section.items.length} ${section.items.length === 1 ? 'dish' : 'dishes'}`}
+                    >
+                      {section.items.map((item) => renderCard(item))}
+                    </MenuSection>
+                  ))
                 )}
-              </button>
-            );
-          })
-        )}
-      </main>
+              </div>
+            </>
+          )}
+        </main>
+      </div>
 
-      {itemCount > 0 ? (
-        <div className="fixed inset-x-0 bottom-0 border-t border-line bg-bg-secondary/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
-          <button
-            type="button"
-            onClick={() => setStep('cart')}
-            className="mx-auto flex h-12 w-full max-w-lg items-center justify-between rounded-xl bg-brand-primary px-4 font-bold text-on-brand"
-          >
-            <span>
-              View order · {itemCount} {itemCount === 1 ? 'item' : 'items'}
-            </span>
-            <span className="font-mono">{formatPrice(total)}</span>
-          </button>
-        </div>
-      ) : null}
+      {itemCount > 0 ? <CartDock itemCount={itemCount} total={total} onOpen={() => setStep('cart')} /> : null}
 
       <ModifierModal
         item={selectedItem}
@@ -567,19 +648,48 @@ export function MenuPage() {
       />
     </div>
   );
+
+  function renderCard(item: MenuItem) {
+    return (
+      <DishCard
+        key={item.id}
+        item={item}
+        quantity={qtyByItem.get(item.id) ?? 0}
+        bestseller={popularIds.has(item.id)}
+        onAdd={() => handleItemTap(item)}
+        onRemove={() => removeOne(item)}
+      />
+    );
+  }
 }
 
-function CategoryChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function MenuSection({
+  title,
+  subtitle,
+  icon,
+  action,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  icon?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`h-9 shrink-0 rounded-full px-4 text-sm font-semibold ${
-        active ? 'bg-brand-primary text-on-brand' : 'border border-line bg-bg-card text-text-secondary'
-      }`}
-    >
-      {label}
-    </button>
+    <section>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-2">
+          {icon ? <span className="mt-0.5">{icon}</span> : null}
+          <div className="min-w-0">
+            <h2 className="truncate font-display text-xl font-extrabold">{title}</h2>
+            {subtitle ? <p className="text-xs text-text-muted">{subtitle}</p> : null}
+          </div>
+        </div>
+        {action}
+      </div>
+      <div className="space-y-3">{children}</div>
+    </section>
   );
 }
 
@@ -596,7 +706,7 @@ function QtyButton({
     <button
       type="button"
       aria-label={label}
-      className="flex h-10 w-10 items-center justify-center rounded-xl bg-bg-elevated text-xl"
+      className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-qr-yellow-deep shadow-sm"
       onClick={onClick}
     >
       {children}
@@ -606,7 +716,7 @@ function QtyButton({
 
 function RetryButton({ onClick }: { onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="h-11 rounded-xl bg-brand-primary px-6 font-bold text-on-brand">
+    <button type="button" onClick={onClick} className="h-11 rounded-2xl bg-qr-yellow px-6 font-bold text-qr-ink">
       Try again
     </button>
   );
@@ -614,9 +724,9 @@ function RetryButton({ onClick }: { onClick: () => void }) {
 
 function FullMessage({ title, body, action }: { title: string; body?: string; action?: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
+    <div className="qr-light flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
       <BrandWordmark size="lg" />
-      <h1 className="text-2xl font-bold">{title}</h1>
+      <h1 className="font-display text-2xl font-bold">{title}</h1>
       {body ? <p className="max-w-md text-text-secondary">{body}</p> : null}
       {action}
     </div>

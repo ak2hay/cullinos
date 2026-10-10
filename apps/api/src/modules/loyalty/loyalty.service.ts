@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
@@ -45,8 +46,12 @@ export function capRedemption(
   };
 }
 
+const NON_EARNING_ORDER_STATUSES = ["draft", "cancelled", "voided"];
+
 @Injectable()
 export class LoyaltyService {
+  private readonly logger = new Logger(LoyaltyService.name);
+
   constructor(private prisma: PrismaService) {}
 
   list(orgId: string) {
@@ -253,6 +258,44 @@ export class LoyaltyService {
         });
       }
       throw err;
+    }
+  }
+
+  /**
+   * Earn for an order once it is fully paid (or explicitly completed). Never throws:
+   * a loyalty failure must not fail the payment or status change that triggered it.
+   */
+  async earnIfOrderSettled(
+    orderId: string | null | undefined,
+    opts: { organizationId?: string; force?: boolean } = {},
+  ) {
+    if (!orderId) return null;
+    try {
+      const order = await this.prisma.order.findFirst({
+        where: {
+          id: orderId,
+          ...(opts.organizationId ? { organizationId: opts.organizationId } : {}),
+        },
+        select: { id: true, organizationId: true, customerId: true, status: true, total: true },
+      });
+      if (!order?.customerId) return null;
+      if (NON_EARNING_ORDER_STATUSES.includes(order.status)) return null;
+
+      const total = Number(order.total ?? 0);
+      if (!opts.force && order.status !== "completed") {
+        const paid = await this.prisma.payment.aggregate({
+          where: { orderId: order.id, status: "completed" },
+          _sum: { amount: true },
+        });
+        if (roundMoney(Number(paid._sum.amount ?? 0)) < roundMoney(total)) return null;
+      }
+
+      return await this.earnForOrder(order.organizationId, order.id, order.customerId, total);
+    } catch (err) {
+      this.logger.warn(
+        `Loyalty earn failed for order ${orderId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return null;
     }
   }
 

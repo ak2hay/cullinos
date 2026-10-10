@@ -636,6 +636,9 @@ export class OrdersService {
         couponCode: dto.couponCode.trim(),
       });
     }
+    if (internal.prepaid) {
+      await this.loyalty?.earnIfOrderSettled(order.id, { organizationId: orgId });
+    }
     this.ws.emitToOutlet(dto.outletId, "order.updated", mapped);
     for (const kot of kots) {
       this.ws.emitToOutlet(dto.outletId, "kot.created", { order: mapped, kot });
@@ -949,9 +952,8 @@ export class OrdersService {
         });
       }
     }
-    if (apiStatus === "completed" && this.loyalty) {
-      const total = Number(order.total ?? 0);
-      await this.loyalty.earnForOrder(orgId, order.id, order.customerId, total);
+    if (apiStatus === "completed") {
+      await this.loyalty?.earnIfOrderSettled(order.id, { organizationId: orgId, force: true });
     }
     return mapped;
   }
