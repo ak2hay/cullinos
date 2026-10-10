@@ -11,7 +11,10 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { CurrentUser, OrgId, Public, RequireModule } from "../../common/decorators";
-import { provePublicCustomerId } from "../../common/public-customer.util";
+import {
+  provePublicCustomerId,
+  resolvePublicCustomerByPhone,
+} from "../../common/public-customer.util";
 import type { JwtPayload } from "@cullinos/auth";
 import { PrismaService } from "../../prisma/prisma.service";
 import { OrdersService } from "./orders.service";
@@ -273,13 +276,20 @@ export class PublicOrdersController {
       outletSlug,
     );
 
-    const customerId = await provePublicCustomerId(
-      this.jwt,
-      this.prisma,
-      organization.id,
-      typeof body.customerId === "string" ? body.customerId : undefined,
-      authorization,
-    );
+    const customerId =
+      (await provePublicCustomerId(
+        this.jwt,
+        this.prisma,
+        organization.id,
+        typeof body.customerId === "string" ? body.customerId : undefined,
+        authorization,
+      )) ??
+      (await resolvePublicCustomerByPhone(
+        this.prisma,
+        organization.id,
+        body.customerPhone,
+        body.customerName,
+      ));
 
     return this.service.create(organization.id, null, {
       ...pickPublicOrderFields(body),

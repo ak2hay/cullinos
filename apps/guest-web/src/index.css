@@ -2,6 +2,52 @@
 @import '@cullinos/ui/theme.css';
 @source '../../../packages/ui/src';
 
+@theme {
+  --color-qr-ink: #111318;
+  --color-qr-ink-soft: #1d2029;
+  --color-qr-yellow: #f7b928;
+  --color-qr-yellow-deep: #d99a00;
+  --color-qr-yellow-soft: #fdf1d3;
+  --color-qr-veg: #16a34a;
+  --color-qr-nonveg: #dc2626;
+}
+
+/* QR menu is always the light "reference" look, whatever the device theme. */
+.qr-light {
+  color-scheme: light;
+  --color-brand-primary: #f7b928;
+  --color-brand-primary-dark: #d99a00;
+  --color-brand-accent: #f7b928;
+  --color-on-brand: #111318;
+  --color-bg-primary: #f4f4f6;
+  --color-bg-secondary: #ffffff;
+  --color-bg-card: #ffffff;
+  --color-bg-elevated: #f1f2f5;
+  --color-bg-overlay: rgba(15, 23, 42, 0.45);
+  --color-text-primary: #16181d;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #7a7f8c;
+  --color-border: #e5e7eb;
+  --color-line-subtle: rgba(15, 23, 42, 0.06);
+  --color-line: rgba(15, 23, 42, 0.12);
+  --color-line-strong: rgba(15, 23, 42, 0.2);
+  --color-hover: rgba(15, 23, 42, 0.04);
+  --color-hover-strong: rgba(15, 23, 42, 0.08);
+  --color-scrim: rgba(15, 23, 42, 0.45);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05), 0 2px 8px rgba(16, 24, 40, 0.05);
+  --shadow-md: 0 8px 24px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 16px 48px rgba(16, 24, 40, 0.14);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 html,
 body {
   margin: 0;
