@@ -5,6 +5,11 @@ import { BUSINESS_TYPE_DEFAULTS, BUSINESS_TYPES, type BusinessType } from './bus
  * tags every item with one of these ids; business-type rules pick which
  * sections each kind of business sees.
  */
+/** Trial length for new tenants (self-signup and super-admin onboarding). */
+export const DEFAULT_TRIAL_DAYS = 30;
+/** Furthest a super admin may set or extend a trial end date. */
+export const MAX_TRIAL_DAYS = 365;
+
 export const CATALOG_SECTIONS = [
   // Indian
   { id: 'indian_starters', label: 'Indian Starters', group: 'food' },

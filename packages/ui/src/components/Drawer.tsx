@@ -1,6 +1,8 @@
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { usePresence } from '../use-presence';
 import { cn } from '../utils';
+import { CloseIcon } from './CloseIcon';
 
 export interface DrawerProps {
   open: boolean;
@@ -46,7 +48,7 @@ export function Drawer({
   }, [open, onClose]);
 
   const { mounted, state } = usePresence(open, 220);
-  if (!mounted) return null;
+  if (!mounted || typeof document === 'undefined') return null;
   const closing = state === 'closing';
   const slide =
     side === 'right'
@@ -57,7 +59,9 @@ export function Drawer({
         ? 'animate-[ui-slide-out-left_220ms_ease-in_both]'
         : 'animate-slide-in-left';
 
-  return (
+  // Portalled to <body>: an ancestor with a transform (page enter animations) would otherwise
+  // become the containing block for `fixed`, sizing the drawer to the page instead of the viewport.
+  return createPortal(
     <div className={cn('fixed inset-0 z-50', closing && 'pointer-events-none')} role="presentation">
       <button
         type="button"
@@ -73,14 +77,14 @@ export function Drawer({
         aria-modal="true"
         aria-labelledby={title ? 'ui-drawer-title' : undefined}
         className={cn(
-          'absolute top-0 flex h-full w-full flex-col border-line bg-bg-secondary shadow-lg',
+          'absolute top-0 flex h-dvh max-h-dvh w-full flex-col border-line bg-bg-secondary shadow-lg',
           widthMap[width],
           side === 'right' ? 'right-0 border-l' : 'left-0 border-r',
           slide,
           className,
         )}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-line-subtle px-5 py-4">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line-subtle px-5 py-4">
           <div className="min-w-0">
             {title ? (
               <h2 id="ui-drawer-title" className="font-display text-lg font-semibold tracking-tight">
@@ -92,17 +96,20 @@ export function Drawer({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-line px-2.5 py-1.5 text-sm text-text-secondary hover:text-text-primary"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line text-text-secondary hover:bg-hover hover:text-text-primary"
             aria-label="Close"
           >
-            ✕
+            <CloseIcon />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
         {footer ? (
-          <div className="flex flex-wrap justify-end gap-2 border-t border-line-subtle px-5 py-4">{footer}</div>
+          <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-line-subtle bg-bg-secondary px-5 py-4">
+            {footer}
+          </div>
         ) : null}
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -7,6 +7,11 @@ import { resolvePublicImageSrc } from '@/components/ImageUploadField';
 import { useAuthStore } from '@/stores/auth';
 import { PortalModeSwitch } from './PortalModeSwitch';
 
+const SUPPORT_PORTAL_URL = (
+  import.meta.env.VITE_SUPPORT_URL?.trim() ||
+  (import.meta.env.PROD ? 'https://support.cullinos.com' : 'http://localhost:5185')
+).replace(/\/$/, '');
+
 export function UserAvatar({
   name,
   avatarUrl,
@@ -139,6 +144,18 @@ export function UserMenu({ showModeSwitch = false }: { showModeSwitch?: boolean 
               >
                 Change password
               </Link>
+            ) : null}
+            {!impersonation ? (
+              <a
+                role="menuitem"
+                href={SUPPORT_PORTAL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={itemClass}
+                onClick={() => setOpen(false)}
+              >
+                Help &amp; support
+              </a>
             ) : null}
             <button
               type="button"

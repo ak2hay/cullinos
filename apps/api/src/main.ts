@@ -75,6 +75,7 @@ async function bootstrap() {
       "http://localhost:5178",
       "http://localhost:5180",
       "http://localhost:5183",
+      "http://localhost:5185",
       "http://127.0.0.1:5173",
       "http://127.0.0.1:5174",
     ]) {

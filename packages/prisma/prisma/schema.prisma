@@ -3356,6 +3356,12 @@ model SupportTicket {
   firstResponseAt DateTime?              @map("first_response_at")
   resolvedAt      DateTime?              @map("resolved_at")
   tags            String[]               @default([])
+  /// portal | email | phone | internal
+  channel         String                 @default("internal")
+  /// 1-5 rating left by the requester after resolution.
+  satisfaction    Int?
+  satisfactionComment String?            @map("satisfaction_comment")
+  closedReason    String?                @map("closed_reason")
   createdAt       DateTime               @default(now()) @map("created_at")
   updatedAt       DateTime               @updatedAt @map("updated_at")
 
@@ -3375,6 +3381,8 @@ model SupportTicketComment {
   authorId    String?  @map("author_id")
   body        String
   isInternal  Boolean  @default(true) @map("is_internal")
+  /// Written by the tenant requester through the support portal (not platform staff).
+  fromCustomer Boolean @default(false) @map("from_customer")
   /// [{ name, url }]
   attachments Json?
   createdAt   DateTime @default(now()) @map("created_at")
@@ -3383,6 +3391,24 @@ model SupportTicketComment {
 
   @@index([ticketId, createdAt])
   @@map("support_ticket_comments")
+}
+
+/// Self-service help articles shown on the support portal.
+model KnowledgeArticle {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  summary     String?
+  body        String
+  category    String   @default("general")
+  published   Boolean  @default(false)
+  viewCount   Int      @default(0) @map("view_count")
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([published, category])
+  @@map("knowledge_articles")
 }
 
 /// Time-boxed, ticket-backed permission for one employee to open a tenant account.

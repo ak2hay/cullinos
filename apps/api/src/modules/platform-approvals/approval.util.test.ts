@@ -60,6 +60,12 @@ describe("decisions", () => {
     expect(decisionBlocker({ ...base, approverId: "z" })).toMatch(/not an approver/);
   });
 
+  it("lets a platform owner approve their own request", () => {
+    expect(decisionBlocker({ ...base, approverId: "r", actorIsOwner: true })).toBeNull();
+    expect(decisionBlocker({ ...base, approverId: "r", actorIsOwner: true, alreadyDecided: true })).toMatch(/already/);
+    expect(decisionBlocker({ ...base, approverId: "r", actorIsOwner: false })).toMatch(/own request/);
+  });
+
   it("rejects on any rejection and approves at quorum", () => {
     expect(statusAfterDecisions([{ decision: "approved" }], 2)).toBe("pending");
     expect(statusAfterDecisions([{ decision: "approved" }, { decision: "approved" }], 2)).toBe("approved");

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { Type } from "class-transformer";
 import {
   ArrayMaxSize,
@@ -64,6 +64,15 @@ class GrantRequestDto {
   @IsIn(["read_only", "full"]) accessLevel!: "read_only" | "full";
   @IsInt() @Min(15) @Max(480) durationMinutes!: number;
   @IsString() @MinLength(15) @MaxLength(2000) justification!: string;
+}
+
+class ArticleDto {
+  @IsString() @MinLength(3) @MaxLength(200) title!: string;
+  @IsOptional() @IsString() @MaxLength(80) slug?: string;
+  @IsOptional() @IsString() @MaxLength(500) summary?: string | null;
+  @IsString() @MinLength(1) @MaxLength(50_000) body!: string;
+  @IsOptional() @IsString() @MaxLength(40) category?: string;
+  @IsOptional() @IsBoolean() published?: boolean;
 }
 
 type Req = { platformAccess?: EffectiveAccess };
@@ -160,5 +169,29 @@ export class PlatformSupportController {
   @RequirePlatformPermission("tenants.impersonate", "tenant_access.revoke")
   revoke(@CurrentUser() user: JwtPayload, @Req() req: Req, @Param("id") id: string) {
     return this.support.revokeGrant(user, req.platformAccess, id);
+  }
+
+  @Get("articles")
+  @RequirePlatformPermission("tickets.read")
+  articles(@Query("drafts") drafts?: string) {
+    return this.support.listArticles(drafts !== "false");
+  }
+
+  @Post("articles")
+  @RequirePlatformPermission("tickets.write")
+  createArticle(@CurrentUser() user: JwtPayload, @Body() dto: ArticleDto) {
+    return this.support.saveArticle(user, null, dto);
+  }
+
+  @Patch("articles/:id")
+  @RequirePlatformPermission("tickets.write")
+  updateArticle(@CurrentUser() user: JwtPayload, @Param("id") id: string, @Body() dto: ArticleDto) {
+    return this.support.saveArticle(user, id, dto);
+  }
+
+  @Delete("articles/:id")
+  @RequirePlatformPermission("tickets.write")
+  deleteArticle(@Param("id") id: string) {
+    return this.support.deleteArticle(id);
   }
 }

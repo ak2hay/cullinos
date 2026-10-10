@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CreditCard, ExternalLink, KeyRound, Pause, Play, ReceiptText, Store, UserCheck, UserX, Users, Wallet } from 'lucide-react';
+import { CalendarClock, CreditCard, ExternalLink, KeyRound, Pause, Play, ReceiptText, Store, UserCheck, UserX, Users, Wallet } from 'lucide-react';
 import { Button } from '@cullinos/ui';
 import { inputClass, Notice } from '@/components/common';
 import {
@@ -21,6 +21,7 @@ import { formatDate, formatInr, relativeTime } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
 import { supportApi } from '@/lib/platform-api';
 import { openRazorpaySubscriptionCheckout } from '@/lib/razorpay-subscription-checkout';
+import { ExtendTrialDialog } from './ExtendTrialDialog';
 
 type Tab = 'overview' | 'outlets' | 'users' | 'subscription' | 'audit';
 type OrgUser = { id: string; name: string; email: string; status: string; roles: Array<{ name: string; slug: string }> };
@@ -33,6 +34,7 @@ export function TenantDetailPage() {
   const [tab, setTab] = useState<Tab>('overview');
   const [suspendReason, setSuspendReason] = useState('');
   const [showSuspend, setShowSuspend] = useState(false);
+  const [showTrial, setShowTrial] = useState(false);
   const [userToSuspend, setUserToSuspend] = useState<OrgUser | null>(null);
   const [userSuspendReason, setUserSuspendReason] = useState('');
   const [resetResult, setResetResult] = useState<{ email: string; temporaryPassword: string; emailSent: boolean } | null>(null);
@@ -234,6 +236,12 @@ export function TenantDetailPage() {
                 </Link>
               )
             ) : null}
+            {can('tenants.write') && sub && sub.status !== 'active' ? (
+              <Button size="sm" variant="secondary" className="gap-2" onClick={() => setShowTrial(true)}>
+                <CalendarClock size={15} aria-hidden="true" />
+                Extend trial
+              </Button>
+            ) : null}
             {can('subscriptions.manage') ? (
               <Button size="sm" variant="secondary" className="gap-2" onClick={() => collectMutation.mutate()} loading={collectMutation.isPending}>
                 <CreditCard size={15} aria-hidden="true" />
@@ -250,6 +258,12 @@ export function TenantDetailPage() {
             ) : null}
           </>
         }
+      />
+
+      <ExtendTrialDialog
+        tenant={showTrial ? { id: org.id, name: org.name, trialEndsAt: sub?.trialEndsAt ?? null } : null}
+        onClose={() => setShowTrial(false)}
+        onDone={(end) => setMessage({ tone: 'success', text: `Trial now ends ${formatDate(end)}.` })}
       />
 
       {message ? (

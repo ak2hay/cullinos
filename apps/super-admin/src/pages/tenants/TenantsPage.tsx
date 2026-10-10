@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Building2, Pause, Play, Plus, Store, Trash2, Users } from 'lucide-react';
+import { Building2, CalendarClock, Pause, Play, Plus, Store, Trash2, Users } from 'lucide-react';
 import { Button } from '@cullinos/ui';
 import { inputClass, Notice } from '@/components/common';
 import {
@@ -24,6 +24,7 @@ import { superAdminApi, type Tenant } from '@/lib/api';
 import { formatDate, formatInr, percentChange, relativeTime } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
 import { CredentialsDialog } from './CredentialsDialog';
+import { ExtendTrialDialog } from './ExtendTrialDialog';
 import { OnboardTenantDrawer, type OnboardCredentials } from './OnboardTenantDrawer';
 
 type StatusTab = '' | 'active' | 'trial' | 'suspended' | 'cancelled' | 'deleted';
@@ -66,6 +67,7 @@ export function TenantsPage() {
   const [suspendTarget, setSuspendTarget] = useState<Tenant | null>(null);
   const [reason, setReason] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<Tenant | null>(null);
+  const [trialTarget, setTrialTarget] = useState<Tenant | null>(null);
 
   useEffect(() => {
     if (searchParams.get('onboard') === '1') {
@@ -199,6 +201,16 @@ export function TenantsPage() {
             viewHref={`/tenants/${t.id}`}
             actions={[
               {
+                label: 'Extend trial',
+                icon: CalendarClock,
+                hidden:
+                  status === 'deleted' ||
+                  !can('tenants.write') ||
+                  !t.subscriptionStatus ||
+                  t.subscriptionStatus.toLowerCase() === 'active',
+                onSelect: () => setTrialTarget(t),
+              },
+              {
                 label: 'Suspend',
                 icon: Pause,
                 hidden: status === 'deleted' || !can('tenants.suspend') || !active,
@@ -330,6 +342,8 @@ export function TenantsPage() {
           itemLabel: 'tenants',
         }}
       />
+
+      <ExtendTrialDialog tenant={trialTarget} onClose={() => setTrialTarget(null)} />
 
       <OnboardTenantDrawer
         open={showOnboard}

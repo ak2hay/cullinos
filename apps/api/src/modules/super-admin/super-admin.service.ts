@@ -19,6 +19,8 @@ import {
   smsPasswordReset,
 } from "../sms/sms-templates";
 import { TenantProvisioningService } from "../organizations/tenant-provisioning.service";
+import { assertTrialEnd } from "../organizations/trial.util";
+import { DEFAULT_TRIAL_DAYS } from "@cullinos/shared";
 import { SaasBillingService } from "../subscriptions/saas-billing.service";
 import {
   TENANT_ENV_LIVE,
@@ -836,6 +838,52 @@ export class SuperAdminService implements OnModuleDestroy {
     return org;
   }
 
+  /** Set or extend a tenant trial. Revives expired trials; a suspended org returns to `trial`. */
+  async setTrialEnd(id: string, trialEndsAtInput: string, actorUserId?: string) {
+    const trialEndsAt = assertTrialEnd(trialEndsAtInput);
+    const org = await this.prisma.organization.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, status: true },
+    });
+    if (!org) throw new NotFoundException("Organization not found");
+    const sub = await this.prisma.subscription.findFirst({
+      where: { organizationId: id },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, status: true, trialEndsAt: true },
+    });
+    if (!sub) throw new BadRequestException("Tenant has no subscription to extend");
+    if (sub.status === "active") {
+      throw new BadRequestException("Tenant is on a paid subscription; there is no trial to extend");
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.subscription.update({
+        where: { id: sub.id },
+        data: { status: "trial", trialEndsAt, currentPeriodEnd: trialEndsAt },
+      }),
+      this.prisma.organization.update({
+        where: { id },
+        data: { status: "trial" },
+      }),
+      this.prisma.auditLog.create({
+        data: {
+          organizationId: id,
+          userId: actorUserId ?? null,
+          action: "trial.extended",
+          entityType: "subscription",
+          entityId: sub.id,
+          metadata: {
+            previousTrialEndsAt: sub.trialEndsAt?.toISOString() ?? null,
+            previousStatus: sub.status,
+            previousOrgStatus: org.status,
+            trialEndsAt: trialEndsAt.toISOString(),
+          },
+        },
+      }),
+    ]);
+    return { organizationId: id, trialEndsAt: trialEndsAt.toISOString(), status: "trial" as const };
+  }
+
   async deleteOrganization(id: string, actorUserId?: string) {
     const org = await this.prisma.organization.findFirst({ where: { id, deletedAt: null } });
     if (!org) throw new NotFoundException("Organization not found");
@@ -944,8 +992,10 @@ export class SuperAdminService implements OnModuleDestroy {
     outletName?: string;
     businessType?: string;
     restaurantSize?: string | null;
+    trialEndsAt?: string;
   }) {
     const ownerEmail = input.ownerEmail.trim().toLowerCase();
+    const trialEndsAt = input.trialEndsAt ? assertTrialEnd(input.trialEndsAt) : undefined;
     const existingUser = await this.prisma.user.findFirst({
       where: { email: ownerEmail },
     });
@@ -975,7 +1025,8 @@ export class SuperAdminService implements OnModuleDestroy {
       businessType: input.businessType,
       restaurantSize:
         input.businessType === "restaurant" ? (input.restaurantSize ?? null) : null,
-      trialDays: 15,
+      trialDays: DEFAULT_TRIAL_DAYS,
+      trialEndsAt,
     });
 
     const emailSent = await this.mail.sendOwnerCredentials({

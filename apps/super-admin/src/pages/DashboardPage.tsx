@@ -17,7 +17,7 @@ import {
   StatusPill,
 } from '@/components/ui';
 import { superAdminApi, type AnalyticsRange } from '@/lib/api';
-import { formatDate, formatInr, relativeTime } from '@/lib/format';
+import { formatDate, formatInr, formatInrCompact, relativeTime } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
 import { approvalsApi } from '@/lib/platform-api';
 import { useAuthStore } from '@/stores/auth';
@@ -142,9 +142,23 @@ export function DashboardPage() {
         </Notice>
       ))}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <KpiCard label="MRR" icon={IndianRupee} tone="indigo" value={v(saas ? formatInr(saas.mrr) : undefined)} hint="Monthly recurring revenue" />
-        <KpiCard label="ARR" icon={TrendingUp} tone="violet" value={v(saas ? formatInr(saas.arr) : undefined)} hint="Annualised" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <KpiCard
+          label="MRR"
+          icon={IndianRupee}
+          tone="indigo"
+          value={v(saas ? formatInrCompact(saas.mrr) : undefined)}
+          title={saas ? formatInr(saas.mrr) : undefined}
+          hint={saas ? `Monthly recurring · ${formatInr(saas.mrr)}` : 'Monthly recurring revenue'}
+        />
+        <KpiCard
+          label="ARR"
+          icon={TrendingUp}
+          tone="violet"
+          value={v(saas ? formatInrCompact(saas.arr) : undefined)}
+          title={saas ? formatInr(saas.arr) : undefined}
+          hint={saas ? `Annualised · ${formatInr(saas.arr)}` : 'Annualised'}
+        />
         <KpiCard label="Active orgs" icon={Building2} tone="green" value={v(ops?.activeOrganizations)} hint="Live tenants" />
         <KpiCard label="Trials" icon={CalendarClock} tone="blue" value={v(saas?.trialCount)} hint={`${saas?.trialsEndingSoon.length ?? 0} ending this week`} />
         <KpiCard label="Orders today" icon={ReceiptText} tone="orange" value={v(ops?.ordersToday)} hint="Across all tenants" />

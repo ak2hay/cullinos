@@ -37,6 +37,7 @@ import {
 } from "../sms/msg91-widget-messages";
 import { smsOwnerCredentials } from "../sms/sms-templates";
 import { TenantProvisioningService } from "../organizations/tenant-provisioning.service";
+import { DEFAULT_TRIAL_DAYS } from "@cullinos/shared";
 import { generateTemporaryPassword } from "../../common/generate-password";
 import {
   assertPhoneOtpSendAllowed,
@@ -1193,7 +1194,7 @@ export class AuthService {
       adminPhone: phone,
       status: "trial",
       mustChangePassword: true,
-      trialDays: 15,
+      trialDays: DEFAULT_TRIAL_DAYS,
     });
 
     const emailSent = await this.mail.sendOwnerCredentials({

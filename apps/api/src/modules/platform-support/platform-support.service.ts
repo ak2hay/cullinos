@@ -13,6 +13,7 @@ import type {
   Prisma,
 } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
+import { MailService } from "../mail/mail.service";
 import { PlatformApprovalsService } from "../platform-approvals/platform-approvals.service";
 import { grantCoversOrg, type EffectiveAccess } from "../platform-iam/platform-access.util";
 import { PlatformNotificationsService } from "../platform-iam/platform-notifications.service";
@@ -28,6 +29,18 @@ export function formatTicketRef(seq: number) {
   return `TKT-${String(seq).padStart(6, "0")}`;
 }
 
+function supportPortalUrl() {
+  return (process.env.SUPPORT_PORTAL_URL?.trim() || "https://support.cullinos.com").replace(/\/+$/, "");
+}
+
+export function slugify(s: string) {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+}
+
 /** Support desk and ticket-backed tenant access grants. */
 @Injectable()
 export class PlatformSupportService implements OnApplicationBootstrap {
@@ -35,6 +48,7 @@ export class PlatformSupportService implements OnApplicationBootstrap {
     private prisma: PrismaService,
     private approvals: PlatformApprovalsService,
     private notifications: PlatformNotificationsService,
+    private mail: MailService,
   ) {}
 
   onApplicationBootstrap() {
@@ -294,7 +308,66 @@ export class PlatformSupportService implements OnApplicationBootstrap {
       body: input.body.slice(0, 300),
       link: `/support/tickets/${id}`,
     });
+    if (input.isInternal === false && t.requesterEmail) {
+      await this.emailRequester(t, input.body);
+    }
     return this.getTicket(id);
+  }
+
+  private async emailRequester(t: { id: string; seq: number; subject: string; requesterEmail: string | null; requesterName: string | null }, body: string) {
+    if (!t.requesterEmail) return;
+    const ref = formatTicketRef(t.seq);
+    const link = `${supportPortalUrl()}/tickets/${t.id}`;
+    const greeting = t.requesterName ? `Hi ${t.requesterName},` : "Hi,";
+    const safe = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+    await this.mail.sendMail({
+      to: t.requesterEmail,
+      subject: `[${ref}] ${t.subject}`,
+      text: `${greeting}\n\nCullinos support replied to your ticket ${ref}:\n\n${body}\n\nView or reply: ${link}`,
+      html: `<p>${safe(greeting)}</p><p>Cullinos support replied to your ticket <strong>${ref}</strong>:</p><blockquote style="border-left:3px solid #D4A017;padding-left:12px;white-space:pre-wrap">${safe(body)}</blockquote><p><a href="${link}">View or reply in the support portal</a></p>`,
+    });
+  }
+
+  // ─── Knowledge base ───────────────────────────────────────────────────────
+
+  listArticles(includeDrafts: boolean) {
+    return this.prisma.knowledgeArticle.findMany({
+      where: includeDrafts ? {} : { published: true },
+      orderBy: { updatedAt: "desc" },
+      take: 500,
+    });
+  }
+
+  async saveArticle(
+    actor: SupportActor,
+    id: string | null,
+    input: { title: string; slug?: string; summary?: string | null; body: string; category?: string; published?: boolean },
+  ) {
+    const slug = slugify(input.slug?.trim() || input.title);
+    if (!slug) throw new BadRequestException("Article needs a title");
+    const clash = await this.prisma.knowledgeArticle.findFirst({
+      where: { slug, ...(id ? { NOT: { id } } : {}) },
+      select: { id: true },
+    });
+    if (clash) throw new ConflictException(`An article with slug "${slug}" already exists`);
+    const data = {
+      title: input.title.trim(),
+      slug,
+      summary: input.summary?.trim() || null,
+      body: input.body,
+      category: input.category?.trim() || "general",
+      published: input.published ?? false,
+    };
+    if (!id) return this.prisma.knowledgeArticle.create({ data: { ...data, createdById: actor.sub } });
+    const existing = await this.prisma.knowledgeArticle.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) throw new NotFoundException("Article not found");
+    return this.prisma.knowledgeArticle.update({ where: { id }, data });
+  }
+
+  async deleteArticle(id: string) {
+    const res = await this.prisma.knowledgeArticle.deleteMany({ where: { id } });
+    if (!res.count) throw new NotFoundException("Article not found");
+    return { deleted: true, id };
   }
 
   // ─── Tenant access grants ─────────────────────────────────────────────────

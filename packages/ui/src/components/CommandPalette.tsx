@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../utils';
 
 export interface CommandPaletteItem {
@@ -80,9 +81,9 @@ export function CommandPalette({
     return () => document.removeEventListener('keydown', onKey);
   }, [open, filtered, activeIndex, onClose]);
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-[12vh]" role="presentation">
       <button
         type="button"
@@ -141,6 +142,7 @@ export function CommandPalette({
           ↑↓ navigate · Enter open · Esc close
         </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

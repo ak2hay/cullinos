@@ -1,6 +1,8 @@
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { usePresence } from '../use-presence';
 import { cn } from '../utils';
+import { CloseIcon } from './CloseIcon';
 
 export interface DialogProps {
   open: boolean;
@@ -44,10 +46,10 @@ export function Dialog({
   }, [open, onClose]);
 
   const { mounted, state } = usePresence(open, 160);
-  if (!mounted) return null;
+  if (!mounted || typeof document === 'undefined') return null;
   const closing = state === 'closing';
 
-  return (
+  return createPortal(
     <div
       className={cn(
         'fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center',
@@ -71,7 +73,7 @@ export function Dialog({
         aria-modal="true"
         aria-labelledby={title ? 'ui-dialog-title' : undefined}
         className={cn(
-          'relative z-10 w-full rounded-2xl border border-line bg-bg-secondary shadow-lg',
+          'relative z-10 flex max-h-[calc(100dvh-2rem)] w-full flex-col rounded-2xl border border-line bg-bg-secondary shadow-lg',
           closing
             ? 'animate-[ui-scale-out_160ms_ease_both]'
             : 'animate-[ui-scale-in_var(--duration-normal)_var(--ease-out)_both]',
@@ -80,20 +82,31 @@ export function Dialog({
         )}
       >
         {(title || description) && (
-          <div className="border-b border-line-subtle px-5 py-4">
-            {title ? (
-              <h2 id="ui-dialog-title" className="font-display text-lg font-semibold tracking-tight">
-                {title}
-              </h2>
-            ) : null}
-            {description ? <p className="mt-1 text-sm text-text-secondary">{description}</p> : null}
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line-subtle px-5 py-4">
+            <div className="min-w-0">
+              {title ? (
+                <h2 id="ui-dialog-title" className="font-display text-lg font-semibold tracking-tight">
+                  {title}
+                </h2>
+              ) : null}
+              {description ? <p className="mt-1 text-sm text-text-secondary">{description}</p> : null}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-secondary hover:bg-hover hover:text-text-primary"
+              aria-label="Close"
+            >
+              <CloseIcon />
+            </button>
           </div>
         )}
-        <div className="px-5 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
         {footer ? (
-          <div className="flex flex-wrap justify-end gap-2 border-t border-line-subtle px-5 py-4">{footer}</div>
+          <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-line-subtle px-5 py-4">{footer}</div>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -18,6 +18,7 @@ import {
   formatApprovalRef,
   parseConditions,
   payloadHash,
+  selfApprovalBlocked,
   statusAfterDecisions,
   type PolicyCondition,
   type ReplayPayload,
@@ -244,6 +245,10 @@ export class PlatformApprovalsService {
     return [...new Set([...byRole, ...byTeam.map((e) => e.userId), ...owners])];
   }
 
+  private async isOwner(userId: string): Promise<boolean> {
+    return (await this.access.userIdsWithRoles(["owner"])).includes(userId);
+  }
+
   async expireStale() {
     const stale = await this.prisma.platformApprovalRequest.findMany({
       where: { status: { in: ["pending", "approved"] }, expiresAt: { lt: new Date() } },
@@ -287,8 +292,18 @@ export class PlatformApprovalsService {
     let page = rows;
     if (filter.box === "pending_for_me") {
       const eligible: typeof rows = [];
+      const actorIsOwner = await this.isOwner(actor.sub);
       for (const r of rows) {
-        if (r.blockSelfApproval && r.requestedById === actor.sub) continue;
+        if (
+          selfApprovalBlocked({
+            approverId: actor.sub,
+            requestedById: r.requestedById,
+            blockSelfApproval: r.blockSelfApproval,
+            actorIsOwner,
+          })
+        ) {
+          continue;
+        }
         const ids = new Set(await this.eligibleApprovers(r));
         if (ids.has(actor.sub)) eligible.push(r);
         if (eligible.length > limit) break;
@@ -327,6 +342,7 @@ export class PlatformApprovalsService {
             blockSelfApproval: r.blockSelfApproval,
             eligibleApproverIds: new Set(approvers),
             alreadyDecided: r.decisions.some((d) => d.approverId === actor.sub),
+            actorIsOwner: await this.isOwner(actor.sub),
           })
         : "Request is no longer pending";
     return {
@@ -356,6 +372,7 @@ export class PlatformApprovalsService {
       blockSelfApproval: r.blockSelfApproval,
       eligibleApproverIds: new Set(await this.eligibleApprovers(r)),
       alreadyDecided: r.decisions.some((d) => d.approverId === actor.sub),
+      actorIsOwner: await this.isOwner(actor.sub),
     });
     if (blocker) throw new ForbiddenException(blocker);
 

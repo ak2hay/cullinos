@@ -16,6 +16,7 @@ import { inputClass, LabeledInput } from '@/components/common';
 import { FormDrawer } from '@/components/ui';
 import { superAdminApi, type PlanSummary } from '@/lib/api';
 import { formatInr } from '@/lib/format';
+import { DEFAULT_TRIAL_DAYS, MAX_TRIAL_DAYS, dateInputPlusDays, dateInputToTrialIso } from '@/lib/trial';
 
 export type OnboardCredentials = {
   ownerEmail: string;
@@ -46,6 +47,7 @@ export function OnboardTenantDrawer({
   const [parentType, setParentType] = useState<BusinessTypeParent>('restaurant');
   const [qsrSubtype, setQsrSubtype] = useState<QsrSubtype>('cafe');
   const [restaurantSize, setRestaurantSize] = useState<RestaurantSize>('medium');
+  const [trialEndsOn, setTrialEndsOn] = useState(() => dateInputPlusDays(DEFAULT_TRIAL_DAYS));
 
   const businessType = useMemo(() => resolveBusinessTypeFromParent(parentType, qsrSubtype), [parentType, qsrSubtype]);
 
@@ -57,6 +59,7 @@ export function OnboardTenantDrawer({
     setParentType('restaurant');
     setQsrSubtype('cafe');
     setRestaurantSize('medium');
+    setTrialEndsOn(dateInputPlusDays(DEFAULT_TRIAL_DAYS));
   }
 
   const onboard = useMutation({
@@ -92,6 +95,7 @@ export function OnboardTenantDrawer({
           planSlug,
           businessType,
           restaurantSize: parentType === 'restaurant' ? restaurantSize : null,
+          trialEndsAt: trialEndsOn ? dateInputToTrialIso(trialEndsOn) : undefined,
         })
       }
     >
@@ -163,6 +167,19 @@ export function OnboardTenantDrawer({
               </label>
             ),
           )}
+        </div>
+        <div className="pt-2">
+          <LabeledInput label="Trial ends on" hint={`Defaults to ${DEFAULT_TRIAL_DAYS} days from today. You can extend it later from the tenant page.`}>
+            <input
+              type="date"
+              required
+              value={trialEndsOn}
+              min={dateInputPlusDays(1)}
+              max={dateInputPlusDays(MAX_TRIAL_DAYS)}
+              onChange={(e) => setTrialEndsOn(e.target.value)}
+              className={inputClass}
+            />
+          </LabeledInput>
         </div>
       </fieldset>
 

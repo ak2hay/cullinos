@@ -19,6 +19,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
+  IsDateString,
   IsEmail,
   IsIn,
   IsNumber,
@@ -120,6 +121,15 @@ class OnboardRestaurantDto {
   @IsString()
   @IsIn([...RESTAURANT_SIZES])
   restaurantSize?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  trialEndsAt?: string;
+}
+
+class SetTrialDto {
+  @IsDateString()
+  trialEndsAt!: string;
 }
 
 class UpdatePlanModulesDto {
@@ -500,6 +510,17 @@ export class SuperAdminController {
   @PlatformScope("param")
   activateOrganization(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
     return this.service.reactivateTenant(id, user.sub);
+  }
+
+  @Patch("organizations/:id/trial")
+  @RequirePlatformPermission("tenants.write")
+  @PlatformScope("param")
+  setTrialEnd(
+    @Param("id") id: string,
+    @Body() body: SetTrialDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.setTrialEnd(id, body.trialEndsAt, user.sub);
   }
 
   @Put("organizations/:id/subscription")

@@ -813,6 +813,12 @@ export const superAdminApi = {
   activateOrganization: (id: string) =>
     apiRequest(`/super-admin/organizations/${id}/activate`, { method: 'PATCH' }),
 
+  setTrialEnd: (id: string, trialEndsAt: string) =>
+    apiRequest<{ organizationId: string; trialEndsAt: string; status: 'trial' }>(
+      `/super-admin/organizations/${id}/trial`,
+      { method: 'PATCH', body: JSON.stringify({ trialEndsAt }) },
+    ),
+
   manageSubscription: (id: string, payload: ManageSubscriptionPayload) =>
     apiRequest(`/super-admin/organizations/${id}/subscription`, {
       method: 'PUT',
@@ -895,6 +901,7 @@ export const superAdminApi = {
     outletName?: string;
     businessType?: string;
     restaurantSize?: string | null;
+    trialEndsAt?: string;
   }) =>
     apiRequest<{
       organizationId: string;

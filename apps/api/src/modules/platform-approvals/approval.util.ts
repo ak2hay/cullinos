@@ -84,11 +84,23 @@ export type DecisionContext = {
   blockSelfApproval: boolean;
   eligibleApproverIds: ReadonlySet<string>;
   alreadyDecided: boolean;
+  /** Platform owners may decide on their own requests regardless of `blockSelfApproval`. */
+  actorIsOwner?: boolean;
 };
+
+/** True when the policy's self-approval block applies to this actor. */
+export function selfApprovalBlocked(ctx: {
+  approverId: string;
+  requestedById: string;
+  blockSelfApproval: boolean;
+  actorIsOwner?: boolean;
+}): boolean {
+  return ctx.blockSelfApproval && !ctx.actorIsOwner && ctx.approverId === ctx.requestedById;
+}
 
 /** Returns the reason an approver may not decide, or null when allowed. */
 export function decisionBlocker(ctx: DecisionContext): string | null {
-  if (ctx.blockSelfApproval && ctx.approverId === ctx.requestedById) {
+  if (selfApprovalBlocked(ctx)) {
     return "You cannot approve your own request";
   }
   if (ctx.alreadyDecided) return "You have already decided on this request";

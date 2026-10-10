@@ -25,6 +25,7 @@ export function KpiCard({
   icon: Icon,
   tone = 'indigo',
   trend,
+  title,
   className,
 }: {
   label: string;
@@ -33,9 +34,12 @@ export function KpiCard({
   icon?: LucideIcon;
   tone?: KpiTone;
   trend?: KpiTrend | null;
+  /** Full value for the hover tooltip when `value` is abbreviated. */
+  title?: string;
   className?: string;
 }) {
   const direction = trend?.direction ?? 'flat';
+  const tooltip = title ?? (typeof value === 'string' || typeof value === 'number' ? String(value) : undefined);
   return (
     <Card className={cn('flex items-start gap-4 p-5', className)}>
       {Icon ? (
@@ -45,8 +49,13 @@ export function KpiCard({
       ) : null}
       <div className="min-w-0 flex-1">
         <p className="text-sm text-text-secondary">{label}</p>
-        <div className="mt-1 flex items-center justify-between gap-2">
-          <p className="truncate font-display text-2xl font-semibold tracking-tight">{value}</p>
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <p
+            title={tooltip}
+            className="min-w-0 break-words font-display text-xl font-semibold tabular-nums tracking-tight 2xl:text-2xl"
+          >
+            {value}
+          </p>
           {trend ? (
             <span
               className={cn(
@@ -62,7 +71,7 @@ export function KpiCard({
             </span>
           ) : null}
         </div>
-        {hint ? <p className="mt-1 truncate text-xs text-text-muted">{hint}</p> : null}
+        {hint ? <p className="mt-1 line-clamp-2 text-xs text-text-muted">{hint}</p> : null}
       </div>
     </Card>
   );

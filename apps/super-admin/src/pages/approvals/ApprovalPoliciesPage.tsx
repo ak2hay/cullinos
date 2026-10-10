@@ -158,7 +158,7 @@ export function ApprovalPoliciesPage() {
                 checked={draft.blockSelfApproval}
                 onChange={(e) => setDraft({ ...draft, blockSelfApproval: e.target.checked })}
               />
-              Requester cannot approve their own request
+              Requester cannot approve their own request (platform owners are exempt)
             </label>
             <LabeledInput label="Expires after (hours)">
               <input

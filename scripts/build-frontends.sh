@@ -14,6 +14,7 @@ export VITE_ADMIN_URL="${VITE_ADMIN_URL:-https://admin.cullinos.com}"
 export VITE_GUEST_APP_URL="${VITE_GUEST_APP_URL:-https://guest.cullinos.com}"
 export VITE_PLATFORM_URL="${VITE_PLATFORM_URL:-https://platform.cullinos.com}"
 export VITE_APP_OPS_URL="${VITE_APP_OPS_URL:-https://app.cullinos.com}"
+export VITE_SUPPORT_URL="${VITE_SUPPORT_URL:-https://support.cullinos.com}"
 export VITE_MARKETING_WEB_URL="${VITE_MARKETING_WEB_URL:-https://cullinos.com}"
 export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.cullinos.com/api/v1}"
 
@@ -21,7 +22,7 @@ export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.cullinos.com/api/
 echo ">>> Building shared packages"
 npm run build -w @cullinos/shared -w @cullinos/ui
 
-APPS=(admin management super-admin app-ops pos kds kiosk)
+APPS=(admin management super-admin app-ops pos kds kiosk support)
 
 for app in "${APPS[@]}"; do
   echo ">>> Building @cullinos/$app"

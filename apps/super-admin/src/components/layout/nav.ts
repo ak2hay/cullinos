@@ -35,6 +35,11 @@ const appOpsUrl = (
   (import.meta.env.PROD ? 'https://app.cullinos.com' : 'http://localhost:5184')
 ).replace(/\/$/, '');
 
+const supportPortalUrl = (
+  import.meta.env.VITE_SUPPORT_URL?.trim() ||
+  (import.meta.env.PROD ? 'https://support.cullinos.com' : 'http://localhost:5185')
+).replace(/\/$/, '');
+
 export const NAV: NavEntry[] = [
   { kind: 'leaf', id: 'dashboard', to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, permission: 'dashboard.read', section: 'Home' },
   {
@@ -88,6 +93,13 @@ export const NAV: NavEntry[] = [
     icon: Headset,
     children: [
       { to: '/support/tickets', label: 'Tickets', permission: 'tickets.read', keywords: 'helpdesk sla' },
+      {
+        to: `${supportPortalUrl}/agent`,
+        label: 'Support portal',
+        permission: 'tickets.read',
+        external: true,
+        keywords: 'servicenow agent workspace knowledge base',
+      },
       {
         to: '/support/grants',
         label: 'Tenant access grants',

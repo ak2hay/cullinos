@@ -161,6 +161,19 @@ export function TicketDetailPage() {
             {t.slaBreached ? <StatusPill status="breached" label="SLA breached" tone="error" /> : null}
           </>
         }
+        actions={
+          canWrite ? (
+            isOpen ? (
+              <Button size="sm" loading={update.isPending} onClick={() => update.mutate({ status: 'resolved' })}>
+                Resolve
+              </Button>
+            ) : (
+              <Button size="sm" variant="secondary" loading={update.isPending} onClick={() => update.mutate({ status: 'open' })}>
+                Reopen
+              </Button>
+            )
+          ) : null
+        }
       />
       <MutationError error={update.error} />
 

@@ -18,6 +18,7 @@ Env:
   DEPLOY_WEB=0              skip marketing web rebuild
   DEPLOY_NGINX=0            skip nginx config install
   ALLOW_SANDBOX_OTP_SKIP    if set (true/false), written to the VM .env before the API is recreated
+  DEPLOY_CERT_ADD           comma-separated hostnames to add to the admin.cullinos.com cert (DNS must resolve first)
   ANDROID_ASSETLINKS_SHA256 comma-separated cert fingerprints for guest-landing assetlinks.json
 """
 from __future__ import annotations
@@ -68,8 +69,12 @@ SPA_PUBLISH = {
     "pos": "pos",
     "kds": "kds",
     "kiosk": "kiosk",
+    "support": "support",
     "guest-web": "guest-landing",
 }
+
+# Origins the API must allow; appended to CORS_ORIGINS on the VM when missing.
+REQUIRED_CORS_ORIGINS = ["https://support.cullinos.com"]
 
 LANDINGS = ["waiter-landing"]
 
@@ -275,6 +280,41 @@ def set_env_flag(ssh: paramiko.SSHClient, key: str, value: str) -> None:
     )
 
 
+def ensure_cors_origins(ssh: paramiko.SSHClient) -> None:
+    for origin in REQUIRED_CORS_ORIGINS:
+        run(
+            ssh,
+            f"cd {APP_DIR} && grep -q '^CORS_ORIGINS=' .env && "
+            f"(grep '^CORS_ORIGINS=' .env | grep -q '{origin}' || "
+            f"(cp .env /tmp/cullinos.env.bak-$(date +%s) && "
+            f"sed -i 's|^CORS_ORIGINS=\\(.*\\)|CORS_ORIGINS=\\1,{origin}|' .env && echo 'CORS added {origin}')) || "
+            f"echo 'CORS_ORIGINS not set; API uses built-in defaults'",
+        )
+
+
+def expand_cert(ssh: paramiko.SSHClient, hosts: list[str]) -> str:
+    """Re-issue the shared admin.cullinos.com lineage with its current SANs plus `hosts`."""
+    _, sans, _ = run(
+        ssh,
+        "openssl x509 -in /etc/letsencrypt/live/admin.cullinos.com/fullchain.pem -noout -ext subjectAltName "
+        "| tr ',' '\\n' | sed -n 's/.*DNS://p'",
+    )
+    names = [n.strip() for n in sans.splitlines() if n.strip()]
+    if not names:
+        return "FAILED(no existing SANs)"
+    missing = [h for h in hosts if h not in names]
+    if not missing:
+        return "already covered"
+    flags = " ".join(f"-d {n}" for n in names + missing)
+    code, _, _ = run(
+        ssh,
+        "certbot certonly --nginx --expand --non-interactive --agree-tos "
+        f"--cert-name admin.cullinos.com {flags} && nginx -t && systemctl reload nginx",
+        timeout=300,
+    )
+    return f"added {', '.join(missing)}" if code == 0 else f"FAILED({code})"
+
+
 def main() -> int:
     password = os.environ.get("DEPLOY_PASSWORD", "").strip()
     if not password:
@@ -310,6 +350,7 @@ def main() -> int:
         allow_skip = os.environ.get("ALLOW_SANDBOX_OTP_SKIP", "").strip().lower()
         if allow_skip in {"true", "false"}:
             set_env_flag(ssh, "ALLOW_SANDBOX_OTP_SKIP", allow_skip)
+        ensure_cors_origins(ssh)
 
         safe_print("\n=== Build api (cached) + recreate ===")
         code, log = run_detached(
@@ -376,6 +417,12 @@ def main() -> int:
         else:
             run(ssh, "nginx -t && systemctl reload nginx")
 
+        cert_result = "skipped"
+        cert_hosts = [h.strip() for h in os.environ.get("DEPLOY_CERT_ADD", "").split(",") if h.strip()]
+        if cert_hosts:
+            safe_print(f"\n=== TLS: add {', '.join(cert_hosts)} to admin.cullinos.com cert ===")
+            cert_result = expand_cert(ssh, cert_hosts)
+
         web_result = "skipped"
         if os.environ.get("DEPLOY_WEB", "1") == "1":
             safe_print("\n=== Rebuild marketing web ===")
@@ -392,9 +439,10 @@ def main() -> int:
         safe_print(f"Health: {health_body.strip()}")
         safe_print(f"Published: {', '.join(targets)}")
         safe_print(f"nginx frontends: {nginx_result}")
+        safe_print(f"TLS cert: {cert_result}")
         safe_print(f"Marketing web: {web_result}")
         safe_print("=========================================")
-        return 0 if "FAILED" not in nginx_result + web_result else 1
+        return 0 if "FAILED" not in nginx_result + web_result + cert_result else 1
     finally:
         try:
             ssh.close()
