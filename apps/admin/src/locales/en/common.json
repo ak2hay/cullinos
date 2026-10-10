@@ -228,6 +228,7 @@
     "description": "Restaurant details, tax, devices and payment configuration.",
     "tabs": {
       "general": "General",
+      "pos": "POS & service",
       "tax": "Tax",
       "devices": "Devices",
       "payments": "Payments"

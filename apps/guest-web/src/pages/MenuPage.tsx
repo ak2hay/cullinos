@@ -45,7 +45,7 @@ type Step = 'menu' | 'cart' | 'done';
 
 export function MenuPage() {
   const { orgSlug = '', outletSlug = '' } = useParams();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const sessionParam = searchParams.get('session')?.trim() ?? '';
   const tableParam = searchParams.get('table')?.trim() ?? '';
   const isTableFlow = Boolean(sessionParam || tableParam);
@@ -308,9 +308,25 @@ export function MenuPage() {
   if (sessionParam && (sessionLookup.isError || !sessionOk)) {
     return (
       <FullMessage
-        title="This table link has expired"
-        body="Ask the staff for a new QR code."
-        action={<RetryButton onClick={() => void sessionLookup.refetch()} />}
+        title="Session expired"
+        body="Your table session has ended. Scan the QR code on your table again to start a new order."
+        action={
+          tableParam ? (
+            <button
+              type="button"
+              onClick={() => {
+                const next = new URLSearchParams(searchParams);
+                next.delete('session');
+                setSearchParams(next, { replace: true });
+              }}
+              className="h-11 rounded-2xl bg-qr-yellow px-6 font-bold text-qr-ink"
+            >
+              Start a new session
+            </button>
+          ) : (
+            <RetryButton onClick={() => void sessionLookup.refetch()} />
+          )
+        }
       />
     );
   }

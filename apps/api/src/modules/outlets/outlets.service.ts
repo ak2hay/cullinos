@@ -12,6 +12,12 @@ import {
   normalizeOpeningHours,
 } from "../../common/opening-hours.util";
 import { ensureBarStationsIfServingAlcohol } from "../../common/kitchen-stations.util";
+import {
+  outletOpsSettings,
+  parseKdsServedCompletesOrder,
+  parsePosQuickKeys,
+  parseQrSessionTimeoutMinutes,
+} from "../../common/outlet-ops-settings.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import { assertPlanCapacity } from "../../common/plan-limits.util";
 import { MarketingUploadService } from "../marketing/marketing-upload.service";
@@ -95,6 +101,7 @@ export class OutletsService {
           averagePrepMinutes: outlet.averagePrepMinutes,
           openingHours: openingHoursFromSettings(outlet.settings?.settings),
           ...themeFieldsFromSettings(outlet.settings?.settings),
+          ...outletOpsSettings(outlet.settings?.settings),
         })),
       );
   }
@@ -257,6 +264,27 @@ export class OutletsService {
         settingsPatch.openingHours = normalized;
       }
     }
+    if (data.qrSessionTimeoutMinutes !== undefined) {
+      settingsPatch.qrSessionTimeoutMinutes = parseQrSessionTimeoutMinutes(
+        data.qrSessionTimeoutMinutes,
+      );
+    }
+    if (data.kdsServedCompletesOrder !== undefined) {
+      settingsPatch.kdsServedCompletesOrder = parseKdsServedCompletesOrder(
+        data.kdsServedCompletesOrder,
+      );
+    }
+    if (data.posQuickKeys !== undefined) {
+      const keys = parsePosQuickKeys(data.posQuickKeys ?? []);
+      const ids = [...new Set(keys.map((k) => k.menuItemId))];
+      const owned = await this.prisma.menuItem.count({
+        where: { id: { in: ids }, organizationId: orgId },
+      });
+      if (owned !== ids.length) {
+        throw new BadRequestException("Quick keys can only use this restaurant's menu items");
+      }
+      settingsPatch.posQuickKeys = keys;
+    }
 
     const nextLat =
       allowed.latitude !== undefined
@@ -342,6 +370,7 @@ export class OutletsService {
       averagePrepMinutes: updated.averagePrepMinutes,
       openingHours: openingHoursFromSettings(settingsRow?.settings),
       ...themeFieldsFromSettings(settingsRow?.settings),
+      ...outletOpsSettings(settingsRow?.settings),
     };
   }
 

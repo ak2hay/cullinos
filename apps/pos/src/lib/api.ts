@@ -151,6 +151,7 @@ export interface Outlet {
   city: string | null;
   operatingMode?: string;
   isActive: boolean;
+  posQuickKeys?: Array<{ slot: number; menuItemId: string }>;
 }
 
 export interface MenuCategory {
@@ -168,6 +169,7 @@ export interface OutletMenuItem {
   /** Present when happy hour discounts `price` */
   regularPrice?: number;
   isAvailable: boolean;
+  shortCode?: string | null;
   variants?: Array<{ id: string; name: string; price: number }>;
   modifierGroups?: Array<{
     id: string;

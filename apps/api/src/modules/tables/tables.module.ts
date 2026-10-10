@@ -7,13 +7,19 @@ import {
   TablesController,
 } from "./tables.controller";
 import { ServiceRequestsService } from "./service-requests.service";
+import { TableSessionExpiryService } from "./table-session-expiry.service";
 import { TableSessionsService } from "./table-sessions.service";
 import { TablesService } from "./tables.service";
 
 @Module({
   imports: [WebsocketModule, forwardRef(() => OrdersModule)],
   controllers: [TablesController, PublicTablesController, PublicSessionsController],
-  providers: [TablesService, TableSessionsService, ServiceRequestsService],
+  providers: [
+    TablesService,
+    TableSessionsService,
+    ServiceRequestsService,
+    TableSessionExpiryService,
+  ],
   exports: [TablesService, TableSessionsService, ServiceRequestsService],
 })
 export class TablesModule {}

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -59,6 +60,17 @@ function slugify(text: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+/** POS short codes: 1-8 letters/digits, stored upper-case. Empty clears the code. */
+export function normalizeShortCode(raw: unknown): string | null {
+  if (raw == null) return null;
+  const code = String(raw).trim().toUpperCase();
+  if (!code) return null;
+  if (!/^[A-Z0-9]{1,8}$/.test(code)) {
+    throw new BadRequestException("Short code must be 1-8 letters or digits");
+  }
+  return code;
 }
 
 function withPaisePrice<T extends { basePrice: unknown }>(item: T) {
@@ -323,6 +335,26 @@ export class MenuService {
       .then((items) => items.map(mapItemDetail));
   }
 
+  /**
+   * Validate a POS short code and make sure no live item in the org uses it. Deleted
+   * (inactive) items give up their code so it can be reused.
+   */
+  private async claimShortCode(orgId: string, raw: unknown, itemId?: string) {
+    const code = normalizeShortCode(raw);
+    if (!code) return null;
+    const holder = await this.prisma.menuItem.findFirst({
+      where: { organizationId: orgId, shortCode: code, ...(itemId ? { id: { not: itemId } } : {}) },
+      select: { id: true, name: true, isActive: true },
+    });
+    if (holder?.isActive) {
+      throw new ConflictException(`Short code ${code} is already used by ${holder.name}`);
+    }
+    if (holder) {
+      await this.prisma.menuItem.update({ where: { id: holder.id }, data: { shortCode: null } });
+    }
+    return code;
+  }
+
   async getItem(orgId: string, id: string) {
     const item = await this.prisma.menuItem.findFirst({
       where: { id, organizationId: orgId, isActive: true },
@@ -413,6 +445,7 @@ export class MenuService {
       stockBasedAvailability?: boolean;
       taxGroupId?: string | null;
       hsnCode?: string | null;
+      shortCode?: string | null;
       isTaxExempt?: boolean;
       kitchenStationCode?: string | null;
       variants?: VariantInput[];
@@ -434,6 +467,7 @@ export class MenuService {
       });
       if (!group) throw new BadRequestException("Invalid taxGroupId");
     }
+    const shortCode = await this.claimShortCode(orgId, data.shortCode);
     const slug = slugify(data.name);
     const created = await this.prisma.menuItem.create({
       data: {
@@ -453,6 +487,7 @@ export class MenuService {
         stockBasedAvailability: data.stockBasedAvailability ?? false,
         taxGroupId: data.isTaxExempt === true ? null : data.taxGroupId || null,
         hsnCode: data.hsnCode?.trim() || null,
+        shortCode,
         isTaxExempt: data.isTaxExempt === true,
         kitchenStationCode: normalizeStationCode(data.kitchenStationCode),
       },
@@ -483,6 +518,7 @@ export class MenuService {
       categoryId: string;
       taxGroupId: string | null;
       hsnCode: string | null;
+      shortCode: string | null;
       isTaxExempt: boolean;
       kitchenStationCode: string | null;
       variants: VariantInput[];
@@ -534,6 +570,9 @@ export class MenuService {
     }
     if (data.hsnCode !== undefined) {
       update.hsnCode = data.hsnCode?.trim() || null;
+    }
+    if (data.shortCode !== undefined) {
+      update.shortCode = await this.claimShortCode(orgId, data.shortCode, id);
     }
     if (data.taxGroupId !== undefined) {
       update.taxGroupId = data.taxGroupId || null;
@@ -1037,6 +1076,7 @@ export class MenuService {
         isVeg: item.isVeg,
         isSpecial: item.isSpecial,
         isAlcohol,
+        shortCode: item.shortCode,
         allergens: item.allergens,
         variants: item.variants.map((v) => {
           const variantPrice = Number(v.price);

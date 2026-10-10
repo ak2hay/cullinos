@@ -22,7 +22,14 @@ import {
 } from '@/lib/api';
 import { formatMoney, generateIdempotencyKey } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
-import { getPosOrderTypes, isBusinessType } from '@cullinos/shared';
+import {
+  findItemByShortCode,
+  getPosOrderTypes,
+  isBusinessType,
+  matchesPosSearch,
+  posQuickKeyLabel,
+  posQuickKeySlot,
+} from '@cullinos/shared';
 import { CartSidebar, type PosCustomer, type PosOrderType } from './CartSidebar';
 import { CategoryTabs } from './CategoryTabs';
 import { HeldOrdersPanel } from './HeldOrdersPanel';
@@ -134,6 +141,9 @@ export function PortalPosPage() {
   const [splitSelectIds, setSplitSelectIds] = useState<string[]>([]);
   const [recentIds, setRecentIds] = useState<string[]>(() => loadRecentIds());
   const [mobileView, setMobileView] = useState<'menu' | 'cart'>('menu');
+  const handleAddItemRef = useRef<(item: { id: string; name: string; price: number }) => void>(
+    () => {},
+  );
   const redeemAppliedOrderId = useRef<string | null>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
   const prevLineCount = useRef(lines.length);
@@ -284,10 +294,19 @@ export function PortalPosPage() {
     const query = search.trim().toLowerCase();
     return items.filter((item) => {
       const matchesCategory = !selectedCategoryId || item.categoryId === selectedCategoryId;
-      const matchesSearch = !query || item.name.toLowerCase().includes(query);
-      return matchesCategory && matchesSearch && item.isAvailable !== false;
+      return matchesCategory && matchesPosSearch(item, query) && item.isAvailable !== false;
     });
   }, [menuQuery.data?.items, selectedCategoryId, search]);
+
+  const quickKeyItems = useMemo(() => {
+    const items = menuQuery.data?.items ?? [];
+    return (selectedOutlet?.posQuickKeys ?? [])
+      .map((k) => ({ slot: k.slot, item: items.find((i) => i.id === k.menuItemId) }))
+      .filter(
+        (k): k is { slot: number; item: NonNullable<typeof k.item> } =>
+          Boolean(k.item) && k.item!.isAvailable !== false,
+      );
+  }, [menuQuery.data?.items, selectedOutlet?.posQuickKeys]);
 
   const recentItems = useMemo(() => {
     const items = menuQuery.data?.items ?? [];
@@ -664,10 +683,10 @@ export function PortalPosPage() {
     mutationFn: async () => {
       const q = customerPhone.trim();
       if (!q) throw new Error('Enter a phone number');
-      const matches = await customersApi.list(q);
-      const exact =
-        matches.find((c) => c.phone?.replace(/\D/g, '').endsWith(q.replace(/\D/g, ''))) ??
-        matches[0];
+      const local = q.replace(/\D/g, '').slice(-10);
+      if (local.length < 10) throw new Error('Enter a 10-digit phone number');
+      const matches = await customersApi.list(local);
+      const exact = matches.find((c) => c.phone?.replace(/\D/g, '').slice(-10) === local);
       if (exact) {
         return {
           id: exact.id,
@@ -676,7 +695,7 @@ export function PortalPosPage() {
           loyaltyPoints: exact.loyaltyPoints,
         };
       }
-      const name = customerName.trim() || `Guest ${q.slice(-4)}`;
+      const name = customerName.trim() || `Guest ${local.slice(-4)}`;
       const created = await customersApi.create({ name, phone: q });
       return {
         id: created.id,
@@ -802,6 +821,16 @@ export function PortalPosPage() {
         return;
       }
 
+      const slot = posQuickKeySlot(e);
+      if (slot != null && !optionsItem) {
+        const bound = quickKeyItems.find((k) => k.slot === slot);
+        if (bound) {
+          e.preventDefault();
+          handleAddItemRef.current(bound.item);
+        }
+        return;
+      }
+
       if (isInput && e.key !== 'Escape') return;
 
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -819,7 +848,7 @@ export function PortalPosPage() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleCash, handleHold, clearCart]);
+  }, [handleCash, handleHold, clearCart, quickKeyItems, optionsItem]);
 
   useEffect(() => {
     if (!statusMessage) return;
@@ -837,6 +866,19 @@ export function PortalPosPage() {
     addItem(item);
     setRecentIds(pushRecentId(item.id));
     setStatusMessage(`Added ${item.name}`);
+  }
+  handleAddItemRef.current = handleAddItem;
+
+  function handleSearchSubmit(value: string) {
+    const items = (menuQuery.data?.items ?? []).filter((i) => i.isAvailable !== false);
+    const match =
+      findItemByShortCode(items, value) ?? (filteredItems.length === 1 ? filteredItems[0] : undefined);
+    if (!match) {
+      if (value.trim()) setStatusMessage(`No item with code “${value.trim()}”`);
+      return;
+    }
+    handleAddItem(match);
+    setSearch('');
   }
 
   function handleOptionsConfirm(selection: ItemOptionsSelection) {
@@ -866,7 +908,12 @@ export function PortalPosPage() {
     <div className="flex h-full min-h-0 flex-col bg-[radial-gradient(ellipse_at_top,_var(--color-bg-secondary)_0%,_var(--color-bg-primary)_55%)]">
       <div className="flex shrink-0 items-center gap-2 border-b border-line-subtle px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
         <div className="min-w-0 flex-1">
-          <SearchBar ref={searchRef} value={search} onChange={setSearch} />
+          <SearchBar
+            ref={searchRef}
+            value={search}
+            onChange={setSearch}
+            onSubmit={handleSearchSubmit}
+          />
         </div>
         <div className="hidden lg:block">
           <KeyboardHints />
@@ -983,6 +1030,28 @@ export function PortalPosPage() {
                 selectedId={selectedCategoryId}
                 onSelect={setSelectedCategoryId}
               />
+              {quickKeyItems.length > 0 ? (
+                <section className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    Quick keys
+                  </p>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {quickKeyItems.map(({ slot, item }) => (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => handleAddItem(item)}
+                        className="flex shrink-0 items-center gap-2 rounded-xl border border-brand-primary/30 bg-brand-primary/10 px-3 py-2 text-sm font-medium transition hover:border-brand-primary/60 active:scale-95"
+                      >
+                        <kbd className="rounded border border-line bg-bg-elevated px-1.5 py-0.5 font-mono text-[10px] text-text-secondary">
+                          {posQuickKeyLabel(slot)}
+                        </kbd>
+                        {item.name}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
               {recentItems.length > 0 && !search && !selectedCategoryId ? (
                 <section className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">

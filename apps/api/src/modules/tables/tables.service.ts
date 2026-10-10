@@ -181,6 +181,11 @@ export class TablesService {
         section: { include: { floor: true } },
         mergedInto: { select: { id: true, name: true } },
         mergedTables: { select: { id: true, name: true }, orderBy: { sortOrder: "asc" } },
+        tableSessions: {
+          where: { status: "active", staleAlertedAt: { not: null } },
+          select: { staleAlertedAt: true },
+          take: 1,
+        },
       },
       orderBy: [
         { section: { floor: { sortOrder: "asc" } } },
@@ -189,9 +194,10 @@ export class TablesService {
       ],
     });
 
-    return tables.map((table) =>
-      this.mapTable(table, outletId, outlet.organization.slug, outlet.slug),
-    );
+    return tables.map((table) => ({
+      ...this.mapTable(table, outletId, outlet.organization.slug, outlet.slug),
+      staleSince: table.tableSessions[0]?.staleAlertedAt?.toISOString() ?? null,
+    }));
   }
 
   async listFloors(orgId: string, outletId: string) {

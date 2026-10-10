@@ -29,7 +29,7 @@ import {
   DPDP_NOTICE_VERSION,
   DPDP_PURPOSES,
 } from "../privacy/privacy.constants";
-import { newUnsubscribeToken } from "../privacy/privacy.crypto";
+import { findOrCreateCustomerByPhone } from "../../common/public-customer.util";
 import { ConsentService } from "../privacy/consent.service";
 import { LoyaltyService } from "../loyalty/loyalty.service";
 import { FirebaseAdminService } from "./firebase-admin.service";
@@ -715,30 +715,19 @@ export class GuestService {
       };
     }
 
-    const displayName =
-      name?.trim() || guest.name?.trim() || `Guest ${guest.phone!.slice(-4)}`;
-
-    let customer = await this.prisma.customer.findFirst({
-      where: { organizationId: orgId, phone: guest.phone! },
+    const resolved = await findOrCreateCustomerByPhone(this.prisma, orgId, guest.phone!, {
+      name: name?.trim() || guest.name?.trim() || null,
+      email: guest.email,
+      marketingEmailOptIn: guest.marketingEmailOptIn,
+      marketingSmsOptIn: guest.marketingSmsOptIn,
+      marketingOptInAt:
+        guest.marketingEmailOptIn || guest.marketingSmsOptIn ? new Date() : undefined,
     });
-    const createdFromGuest = !customer;
-    if (!customer) {
-      customer = await this.prisma.customer.create({
-        data: {
-          organizationId: orgId,
-          phone: guest.phone!,
-          name: displayName,
-          email: guest.email,
-          marketingEmailOptIn: guest.marketingEmailOptIn,
-          marketingSmsOptIn: guest.marketingSmsOptIn,
-          marketingOptInAt:
-            guest.marketingEmailOptIn || guest.marketingSmsOptIn
-              ? new Date()
-              : undefined,
-          unsubscribeToken: newUnsubscribeToken(),
-        },
-      });
+    if (!resolved) {
+      throw new BadRequestException("Enter a valid 10-digit mobile number");
     }
+    const customer = resolved.customer;
+    const createdFromGuest = resolved.created;
 
     const membership = await this.prisma.guestOrgMembership.create({
       data: {

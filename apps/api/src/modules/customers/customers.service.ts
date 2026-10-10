@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { normalizePhoneE164 } from "../../common/phone.util";
+import { findCustomerByPhone } from "../../common/public-customer.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { ConsentService } from "../privacy/consent.service";
@@ -219,6 +221,17 @@ export class CustomersService {
     };
   }
 
+  /** One customer per handset per org, whatever format the number was stored in. */
+  private async assertPhoneAvailable(orgId: string, phone: string, exceptId?: string) {
+    const existing = await findCustomerByPhone(this.prisma, orgId, phone);
+    if (existing && existing.id !== exceptId && !existing.anonymizedAt) {
+      throw new ConflictException({
+        message: `${existing.name} already uses this phone number`,
+        existingCustomer: { id: existing.id, name: existing.name, phone: existing.phone },
+      });
+    }
+  }
+
   async create(
     orgId: string,
     data: {
@@ -234,14 +247,14 @@ export class CustomersService {
 
     const emailOptIn = Boolean(data.marketingEmailOptIn);
     const smsOptIn = Boolean(data.marketingSmsOptIn);
+    const phone = data.phone?.trim() ? normalizePhoneE164(data.phone) : null;
+    if (phone) await this.assertPhoneAvailable(orgId, phone);
 
     const customer = await this.prisma.customer.create({
       data: {
         organizationId: orgId,
         name: data.name.trim(),
-        phone: data.phone?.trim()
-          ? normalizePhoneE164(data.phone.trim())
-          : null,
+        phone,
         email: data.email?.trim() || null,
         unsubscribeToken: newUnsubscribeToken(),
       },
@@ -292,17 +305,14 @@ export class CustomersService {
     actorUserId?: string,
   ) {
     await this.get(orgId, id);
-    const updated = await this.prisma.customer.update({
+    const phone =
+      data.phone !== undefined && data.phone?.trim() ? normalizePhoneE164(data.phone) : null;
+    if (phone) await this.assertPhoneAvailable(orgId, phone, id);
+    await this.prisma.customer.update({
       where: { id },
       data: {
         ...(data.name !== undefined ? { name: data.name.trim() } : {}),
-        ...(data.phone !== undefined
-          ? {
-              phone: data.phone?.trim()
-                ? normalizePhoneE164(data.phone.trim())
-                : null,
-            }
-          : {}),
+        ...(data.phone !== undefined ? { phone } : {}),
         ...(data.email !== undefined ? { email: data.email?.trim() || null } : {}),
       },
     });
