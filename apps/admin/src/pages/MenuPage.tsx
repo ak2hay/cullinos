@@ -80,6 +80,7 @@ export function MenuPage() {
     productType: 'other',
     taxGroupId: '',
     hsnCode: '996331',
+    shortCode: '',
     isTaxExempt: false,
     kitchenStationCode: '',
     imageUrl: '' as string,
@@ -265,6 +266,7 @@ export function MenuPage() {
         productType: itemForm.productType === 'other' ? null : itemForm.productType,
         taxGroupId: itemForm.isTaxExempt ? null : itemForm.taxGroupId || null,
         hsnCode: itemForm.hsnCode.trim() || null,
+        shortCode: itemForm.shortCode.trim() || null,
         isTaxExempt: itemForm.isTaxExempt,
         kitchenStationCode: itemForm.kitchenStationCode || null,
         variants,
@@ -419,6 +421,7 @@ export function MenuPage() {
       productType: getProductTypePreset(item.productType).id,
       taxGroupId: item.taxGroupId ?? '',
       hsnCode: item.hsnCode ?? '996331',
+      shortCode: item.shortCode ?? '',
       isTaxExempt: item.isTaxExempt === true,
       kitchenStationCode: item.kitchenStationCode ?? '',
       imageUrl: item.imageUrl ?? '',
@@ -448,6 +451,7 @@ export function MenuPage() {
       productType: 'other',
       taxGroupId: '',
       hsnCode: '996331',
+      shortCode: '',
       isTaxExempt: false,
       kitchenStationCode: '',
       imageUrl: '',
@@ -473,6 +477,7 @@ export function MenuPage() {
       productType: 'other',
       taxGroupId: '',
       hsnCode: '996331',
+      shortCode: '',
       isTaxExempt: false,
       kitchenStationCode: '',
       imageUrl: '',
@@ -890,6 +895,23 @@ export function MenuPage() {
                     onChange={(e) => setItemForm((f) => ({ ...f, hsnCode: e.target.value }))}
                   />
                 </div>
+              </div>
+              <div className="space-y-1">
+                <Input
+                  label="POS short code"
+                  placeholder="e.g. 101"
+                  maxLength={8}
+                  value={itemForm.shortCode}
+                  onChange={(e) =>
+                    setItemForm((f) => ({
+                      ...f,
+                      shortCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''),
+                    }))
+                  }
+                />
+                <p className="text-xs text-text-muted">
+                  Type this code in POS search and press Enter to add the item instantly.
+                </p>
               </div>
               {stations.length > 0 ? (
                 <div className="space-y-1">

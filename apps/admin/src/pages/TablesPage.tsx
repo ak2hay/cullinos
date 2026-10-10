@@ -94,6 +94,7 @@ export function TablesPage() {
     queryKey: ['tables', outletId],
     queryFn: () => tablesApi.listByOutlet(outletId!),
     enabled: !!outletId,
+    refetchInterval: 60_000,
   });
 
   const {
@@ -729,6 +730,14 @@ export function TablesPage() {
                       {mergedNames.length > 0 ? ` · +${mergedNames.join(', ')}` : ''}
                     </Badge>
                   )}
+                  {table.staleSince ? (
+                    <span
+                      className="absolute right-2 top-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-600"
+                      title={`QR session idle since ${new Date(table.staleSince).toLocaleTimeString()}`}
+                    >
+                      Stale
+                    </span>
+                  ) : null}
                 </button>
               );
             })}

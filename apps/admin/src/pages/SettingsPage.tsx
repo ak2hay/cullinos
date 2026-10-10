@@ -31,9 +31,10 @@ import {
   type LanguageCode,
 } from '@/i18n';
 import { PaymentsSettingsPanel } from './settings/PaymentsSettingsPanel';
+import { PosSettingsPanel } from './settings/PosSettingsPanel';
 import { DevicesSettingsPanel, PrintProfilesSettingsPanel, TaxGroupsSettingsPanel } from './settings/TaxAndDevicesPanels';
 
-const SETTINGS_TAB_IDS = ['general', 'tax', 'devices', 'payments'] as const;
+const SETTINGS_TAB_IDS = ['general', 'pos', 'tax', 'devices', 'payments'] as const;
 
 type SettingsTab = (typeof SETTINGS_TAB_IDS)[number];
 
@@ -720,6 +721,9 @@ export function SettingsPage() {
       </Button>
       </TabPanel>
 
+      <TabPanel active={activeTab === 'pos'}>
+        <PosSettingsPanel />
+      </TabPanel>
       <TabPanel active={activeTab === 'tax'}>
         <TaxGroupsSettingsPanel />
       </TabPanel>

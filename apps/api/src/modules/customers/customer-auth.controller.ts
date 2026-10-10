@@ -23,7 +23,7 @@ import {
   DPDP_NOTICE_VERSION,
   DPDP_PURPOSES,
 } from "../privacy/privacy.constants";
-import { newUnsubscribeToken } from "../privacy/privacy.crypto";
+import { findOrCreateCustomerByPhone } from "../../common/public-customer.util";
 import {
   assertPhoneOtpSendAllowed,
   consumePhoneOtpChallenge,
@@ -264,37 +264,25 @@ export class CustomerAuthController {
     marketingEmailOptIn?: boolean;
     marketingSmsOptIn?: boolean;
   }) {
-    const displayPhone =
-      input.phone.startsWith("91") && input.phone.length === 12
-        ? input.phone.slice(2)
-        : input.phone;
-
-    let customer = await this.prisma.customer.findFirst({
-      where: {
-        organizationId: input.organizationId,
-        anonymizedAt: null,
-        phone: { in: [input.phone, displayPhone, `+${input.phone}`] },
+    const resolved = await findOrCreateCustomerByPhone(
+      this.prisma,
+      input.organizationId,
+      input.phone,
+      {
+        name: input.name?.trim() || null,
+        marketingEmailOptIn: Boolean(input.marketingEmailOptIn),
+        marketingSmsOptIn: Boolean(input.marketingSmsOptIn),
+        marketingOptInAt:
+          input.marketingEmailOptIn || input.marketingSmsOptIn ? new Date() : null,
       },
-    });
+    );
+    if (!resolved || resolved.customer.anonymizedAt) {
+      throw new BadRequestException("Enter a valid mobile number");
+    }
+    let customer = resolved.customer;
+    const isNew = resolved.created;
 
-    const isNew = !customer;
-
-    if (!customer) {
-      customer = await this.prisma.customer.create({
-        data: {
-          organizationId: input.organizationId,
-          phone: displayPhone,
-          name: input.name?.trim() || `Guest ${displayPhone.slice(-4)}`,
-          unsubscribeToken: newUnsubscribeToken(),
-          marketingEmailOptIn: Boolean(input.marketingEmailOptIn),
-          marketingSmsOptIn: Boolean(input.marketingSmsOptIn),
-          marketingOptInAt:
-            input.marketingEmailOptIn || input.marketingSmsOptIn
-              ? new Date()
-              : null,
-        },
-      });
-    } else if (input.name?.trim() && customer.name.startsWith("Guest ")) {
+    if (!isNew && input.name?.trim() && customer.name.startsWith("Guest ")) {
       customer = await this.prisma.customer.update({
         where: { id: customer.id },
         data: { name: input.name.trim() },

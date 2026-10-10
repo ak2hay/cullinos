@@ -1,11 +1,13 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WebsocketGateway } from "../../websocket/websocket.gateway";
+import { OrdersService } from "../orders/orders.service";
 import { RecipesService } from "../recipes/recipes.service";
 
 type UiStatus = "NEW" | "PREPARING" | "READY" | "SERVED" | "CANCELLED";
@@ -46,11 +48,15 @@ function toDbStatus(status: string): string {
 
 @Injectable()
 export class KitchenService {
+  private readonly logger = new Logger(KitchenService.name);
+
   constructor(
     private prisma: PrismaService,
     private ws: WebsocketGateway,
     @Optional()
     private recipes?: RecipesService,
+    @Optional()
+    private orders?: OrdersService,
   ) {}
 
   list(orgId: string) {
@@ -385,6 +391,13 @@ export class KitchenService {
           tableName: updatedOrder.table?.name ?? null,
           status: "READY",
         });
+      }
+      if (orderStatus === "served" && this.orders) {
+        await this.orders.completeAfterKitchenServe(orgId, orderId).catch((err) =>
+          this.logger.warn(
+            `Auto-complete after serve failed for ${orderId}: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
       }
     }
 

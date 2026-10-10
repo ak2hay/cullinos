@@ -206,7 +206,14 @@ export interface Outlet {
   guestThemeKey?: string | null;
   primaryColor?: string | null;
   accentColor?: string | null;
+  /** Idle minutes before a QR table session expires; 0 = never. */
+  qrSessionTimeoutMinutes?: number;
+  kdsServedCompletesOrder?: KdsServedCompletesOrder;
+  posQuickKeys?: PosQuickKey[];
 }
+
+export type KdsServedCompletesOrder = 'always' | 'paid_only' | 'off';
+export type PosQuickKey = { slot: number; menuItemId: string };
 
 export interface DailyDashboard {
   date: string;
@@ -353,6 +360,8 @@ export interface MenuItem {
   productType?: string | null;
   taxGroupId?: string | null;
   hsnCode?: string | null;
+  /** POS quick-entry code, unique per org. */
+  shortCode?: string | null;
   isTaxExempt?: boolean;
   kitchenStationCode?: string | null;
   sortOrder: number;
@@ -701,6 +710,9 @@ export const outletsApi = {
       primaryColor: string | null;
       accentColor: string | null;
       openingHours: unknown;
+      qrSessionTimeoutMinutes: number;
+      kdsServedCompletesOrder: KdsServedCompletesOrder;
+      posQuickKeys: PosQuickKey[];
     }>,
   ) => apiRequest<Outlet>(`/outlets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   uploadCoverImage: async (id: string, file: File): Promise<{ coverImageUrl: string }> => {
@@ -972,6 +984,7 @@ export const menuApi = {
     productType?: string | null;
     taxGroupId?: string | null;
     hsnCode?: string | null;
+    shortCode?: string | null;
     isTaxExempt?: boolean;
     kitchenStationCode?: string | null;
     variants?: MenuItemVariant[];
@@ -996,6 +1009,7 @@ export const menuApi = {
       productType: string | null;
       taxGroupId: string | null;
       hsnCode: string | null;
+      shortCode: string | null;
       isTaxExempt: boolean;
       kitchenStationCode: string | null;
       variants: MenuItemVariant[];
@@ -1441,6 +1455,8 @@ export interface DiningTable {
   mergedIntoTableName?: string | null;
   mergedTableIds?: string[];
   mergedTableNames?: string[];
+  /** Set when an idle QR session still has open orders and staff were alerted. */
+  staleSince?: string | null;
   section: {
     id: string;
     name: string;

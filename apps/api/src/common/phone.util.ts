@@ -36,3 +36,10 @@ export function staffPhoneLookupVariants(normalized: string): string[] {
   }
   return [...variants].filter((v) => v.length >= 10);
 }
+
+/** Every stored form of a customer phone (E.164, 91…, bare 10-digit) for exact `in` lookups. */
+export function customerPhoneLookupVariants(phone: string): string[] {
+  const e164 = normalizePhoneE164(phone.trim());
+  if (!e164) return [];
+  return [...new Set([e164, ...staffPhoneLookupVariants(e164)])];
+}

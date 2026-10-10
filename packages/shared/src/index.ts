@@ -20,3 +20,4 @@ export * from './marketing';
 export * from './guest-themes';
 export * from './csv';
 export * from './theme-css';
+export * from './pos-shortcuts';

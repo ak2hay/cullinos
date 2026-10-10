@@ -176,6 +176,10 @@ export class CreateMenuItemDto {
   hsnCode?: string;
 
   @IsOptional()
+  @IsString()
+  shortCode?: string;
+
+  @IsOptional()
   @IsInt()
   preparationTime?: number;
 
@@ -268,6 +272,10 @@ export class UpdateMenuItemDto {
   @IsOptional()
   @IsString()
   hsnCode?: string;
+
+  @IsOptional()
+  @IsString()
+  shortCode?: string;
 
   @IsOptional()
   @IsInt()

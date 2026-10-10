@@ -48,6 +48,7 @@ import {
   TERMINAL_STATUSES,
 } from "./order-reversal.util";
 import { releaseMergedTables } from "../tables/table-merge.util";
+import { outletOpsSettings } from "../../common/outlet-ops-settings.util";
 import { MailService } from "../mail/mail.service";
 import { buildReceiptEmail } from "../mail/templates";
 import { Msg91Service } from "../sms/msg91.service";
@@ -863,6 +864,7 @@ export class OrdersService {
       allowUnpaidComplete?: boolean;
       userId?: string;
       externalRefundConfirmed?: boolean;
+      timelineMetadata?: Record<string, unknown>;
     } = {},
   ) {
     const apiStatus = normalizeOrderStatusFilter(status ?? "");
@@ -908,11 +910,20 @@ export class OrdersService {
           : {}),
         completedAt: apiStatus === "completed" ? new Date() : undefined,
         timeline: {
-          create: { event: "order.status_changed", metadata: { status } },
+          create: {
+            event: "order.status_changed",
+            metadata: { ...opts.timelineMetadata, status } as never,
+          },
         },
       },
       include: ORDER_CLIENT_INCLUDE,
     });
+    if (order.tableSessionId) {
+      await this.prisma.tableSession.updateMany({
+        where: { id: order.tableSessionId, status: "active" },
+        data: { lastActivityAt: new Date(), staleAlertedAt: null },
+      });
+    }
 
     if (apiStatus === "completed" || apiStatus === "served" || apiStatus === "voided") {
       await this.closeOpenKots(order.id, order.outletId, apiStatus === "voided" ? "cancelled" : "served");
@@ -964,6 +975,36 @@ export class OrdersService {
       await this.loyalty?.earnIfOrderSettled(order.id, { organizationId: orgId, force: true });
     }
     return mapped;
+  }
+
+  /**
+   * The kitchen served every item: close the order per the outlet's `kdsServedCompletesOrder`
+   * rule. `always` may close with a balance; the outstanding amount is kept on the timeline.
+   */
+  async completeAfterKitchenServe(orgId: string, orderId: string): Promise<boolean> {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, organizationId: orgId },
+      select: {
+        status: true,
+        total: true,
+        outlet: { select: { settings: { select: { settings: true } } } },
+      },
+    });
+    if (!order || order.status !== "served") return false;
+    const mode = outletOpsSettings(order.outlet.settings?.settings).kdsServedCompletesOrder;
+    if (mode === "off") return false;
+    const paid = await this.completedPaymentsTotal(orderId);
+    const outstanding = Math.max(0, Math.round((Number(order.total) - paid) * 100) / 100);
+    if (mode === "paid_only" && outstanding > 0) return false;
+    await this.updateStatus(orgId, orderId, "completed", {
+      allowUnpaidComplete: true,
+      timelineMetadata: {
+        source: "kds",
+        autoCompleted: true,
+        ...(outstanding > 0 ? { unpaidBalance: outstanding } : {}),
+      },
+    });
+    return true;
   }
 
   /** Cancel order. Completed payments are refunded first so a paid ticket is not stuck. */

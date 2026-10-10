@@ -1,7 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPosOrderTypes, isBusinessType } from '@cullinos/shared';
+import {
+  findItemByShortCode,
+  getPosOrderTypes,
+  isBusinessType,
+  matchesPosSearch,
+  posQuickKeyLabel,
+  posQuickKeySlot,
+} from '@cullinos/shared';
 import {
   ItemOptionsDialog,
   itemNeedsOptions,
@@ -102,6 +109,9 @@ export function PosPage() {
   const [ebillOrderId, setEbillOrderId] = useState<string | null>(null);
   const [recentIds, setRecentIds] = useState<string[]>(() => loadRecentIds());
   const [mobileView, setMobileView] = useState<'menu' | 'cart'>('menu');
+  const handleAddItemRef = useRef<(item: { id: string; name: string; price: number }) => void>(
+    () => {},
+  );
   const redeemAppliedOrderId = useRef<string | null>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
   const [optionsItem, setOptionsItem] = useState<ItemOptionsItem | null>(null);
@@ -269,10 +279,19 @@ export function PosPage() {
     const query = search.trim().toLowerCase();
     return items.filter((item) => {
       const matchesCategory = !selectedCategoryId || item.categoryId === selectedCategoryId;
-      const matchesSearch = !query || item.name.toLowerCase().includes(query);
-      return matchesCategory && matchesSearch && item.isAvailable;
+      return matchesCategory && matchesPosSearch(item, query) && item.isAvailable;
     });
   }, [menuQuery.data?.items, selectedCategoryId, search]);
+
+  const quickKeyItems = useMemo(() => {
+    const items = menuQuery.data?.items ?? [];
+    return (selectedOutlet?.posQuickKeys ?? [])
+      .map((k) => ({ slot: k.slot, item: items.find((i) => i.id === k.menuItemId) }))
+      .filter(
+        (k): k is { slot: number; item: NonNullable<typeof k.item> } =>
+          Boolean(k.item?.isAvailable),
+      );
+  }, [menuQuery.data?.items, selectedOutlet?.posQuickKeys]);
 
   const recentItems = useMemo(() => {
     const items = menuQuery.data?.items ?? [];
@@ -608,12 +627,12 @@ export function PosPage() {
     mutationFn: async () => {
       const q = customerPhone.trim();
       if (!q) throw new Error('Enter a phone number');
-      const matches = await customersApi.search(q);
-      const exact =
-        matches.find((c) => c.phone?.replace(/\D/g, '').endsWith(q.replace(/\D/g, ''))) ??
-        matches[0];
+      const local = q.replace(/\D/g, '').slice(-10);
+      if (local.length < 10) throw new Error('Enter a 10-digit phone number');
+      const matches = await customersApi.search(local);
+      const exact = matches.find((c) => c.phone?.replace(/\D/g, '').slice(-10) === local);
       if (exact) return exact;
-      const name = customerName.trim() || `Guest ${q.slice(-4)}`;
+      const name = customerName.trim() || `Guest ${local.slice(-4)}`;
       return customersApi.create({ name, phone: q });
     },
     onSuccess: (customer) => {
@@ -737,6 +756,16 @@ export function PosPage() {
         return;
       }
 
+      const slot = posQuickKeySlot(e);
+      if (slot != null && !optionsItem) {
+        const bound = quickKeyItems.find((k) => k.slot === slot);
+        if (bound) {
+          e.preventDefault();
+          handleAddItemRef.current(bound.item);
+        }
+        return;
+      }
+
       if (isInput && e.key !== 'Escape') return;
 
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -754,7 +783,7 @@ export function PosPage() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleCash, handleHold, clearCart]);
+  }, [handleCash, handleHold, clearCart, quickKeyItems, optionsItem]);
 
   useEffect(() => {
     if (!statusMessage) return;
@@ -776,6 +805,19 @@ export function PosPage() {
     addItem(item);
     setRecentIds(pushRecentId(item.id));
     setStatusMessage(`Added ${item.name}`);
+  }
+  handleAddItemRef.current = handleAddItem;
+
+  function handleSearchSubmit(value: string) {
+    const items = (menuQuery.data?.items ?? []).filter((i) => i.isAvailable);
+    const match =
+      findItemByShortCode(items, value) ?? (filteredItems.length === 1 ? filteredItems[0] : undefined);
+    if (!match) {
+      if (value.trim()) setStatusMessage(`No item with code “${value.trim()}”`);
+      return;
+    }
+    handleAddItem(match);
+    setSearch('');
   }
 
   function handleOptionsConfirm(selection: ItemOptionsSelection) {
@@ -810,7 +852,12 @@ export function PosPage() {
         </div>
 
         <div className="hidden flex-1 px-4 md:block">
-          <SearchBar ref={searchRef} value={search} onChange={setSearch} />
+          <SearchBar
+            ref={searchRef}
+            value={search}
+            onChange={setSearch}
+            onSubmit={handleSearchSubmit}
+          />
         </div>
 
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -850,7 +897,12 @@ export function PosPage() {
       </header>
 
       <div className="border-b border-line-subtle px-3 py-2 md:hidden">
-        <SearchBar ref={searchRef} value={search} onChange={setSearch} />
+        <SearchBar
+          ref={searchRef}
+          value={search}
+          onChange={setSearch}
+          onSubmit={handleSearchSubmit}
+        />
       </div>
 
       {outletId ? (
@@ -946,6 +998,28 @@ export function PosPage() {
                 selectedId={selectedCategoryId}
                 onSelect={setSelectedCategoryId}
               />
+              {quickKeyItems.length > 0 ? (
+                <section className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    Quick keys
+                  </p>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {quickKeyItems.map(({ slot, item }) => (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => handleAddItem(item)}
+                        className="flex shrink-0 items-center gap-2 rounded-xl border border-brand-primary/30 bg-brand-primary/10 px-3 py-2 text-sm font-medium transition hover:border-brand-primary/60 active:scale-95"
+                      >
+                        <kbd className="rounded border border-line bg-bg-elevated px-1.5 py-0.5 font-mono text-[10px] text-text-secondary">
+                          {posQuickKeyLabel(slot)}
+                        </kbd>
+                        {item.name}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
               {recentItems.length > 0 && !search && !selectedCategoryId ? (
                 <section className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">

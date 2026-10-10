@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { describe, expect, it, vi } from "vitest";
 import { phoneSearchTerm } from "../modules/customers/customers.service";
-import { resolvePublicCustomerByPhone } from "./public-customer.util";
+import { findOrCreateCustomerByPhone, resolvePublicCustomerByPhone } from "./public-customer.util";
 
 type Row = { id: string; organizationId: string; phone: string; anonymizedAt: Date | null };
 
@@ -67,6 +67,34 @@ describe("resolvePublicCustomerByPhone", () => {
     });
 
     expect(await resolvePublicCustomerByPhone(prisma as never, "org_1", "9876543210", "x")).toBe("raced");
+  });
+});
+
+describe("findOrCreateCustomerByPhone", () => {
+  it.each(["917057026024", "7057026024", "+917057026024"])(
+    "reuses a customer stored as %s instead of creating a duplicate",
+    async (stored) => {
+      const prisma = makePrisma([
+        { id: "legacy", organizationId: "org_1", phone: stored, anonymizedAt: null },
+      ]);
+      for (const input of ["+91 70570 26024", "917057026024", "7057026024"]) {
+        const result = await findOrCreateCustomerByPhone(prisma as never, "org_1", input);
+        expect(result?.customer.id).toBe("legacy");
+        expect(result?.created).toBe(false);
+      }
+      expect(prisma.customer.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it("stores E.164 and names new guests by the normalized number", async () => {
+    const rows: Row[] = [];
+    const prisma = makePrisma(rows);
+    await findOrCreateCustomerByPhone(prisma as never, "org_1", "917057026024");
+    expect(prisma.customer.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ phone: "+917057026024", name: "Guest 6024" }),
+      }),
+    );
   });
 });
 

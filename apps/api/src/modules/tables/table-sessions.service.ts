@@ -256,6 +256,14 @@ export class TableSessionsService {
     return table;
   }
 
+  /** Guest activity restarts the idle clock and re-arms the one-time stale alert. */
+  private touchSession(sessionId: string) {
+    return this.prisma.tableSession.updateMany({
+      where: { id: sessionId, status: "active" },
+      data: { lastActivityAt: new Date(), staleAlertedAt: null },
+    });
+  }
+
   private findActiveSession(tableId: string) {
     return this.prisma.tableSession.findFirst({
       where: { tableId, status: "active" },
@@ -382,6 +390,7 @@ export class TableSessionsService {
       include: { order: true },
     });
     if (existing) {
+      await this.touchSession(existing.id);
       return {
         ...this.mapSessionResponse(existing, table, org.slug, outlet.slug),
         organizationId: org.id,
@@ -547,6 +556,7 @@ export class TableSessionsService {
     if (!items.length) {
       throw new BadRequestException("At least one item is required");
     }
+    await this.touchSession(session.id);
 
     const existingOrder = session.order;
 
@@ -592,6 +602,7 @@ export class TableSessionsService {
     if (!session.order) {
       throw new BadRequestException("No items in this session order yet");
     }
+    await this.touchSession(session.id);
 
     const order = session.order;
     if (order.status === "draft") {
@@ -629,7 +640,9 @@ export class TableSessionsService {
 
     if (!session) throw new NotFoundException("Session not found");
     if (session.status !== "active") {
-      throw new BadRequestException("This dining session has ended");
+      throw new BadRequestException(
+        "This dining session has expired. Scan the table QR code again to start a new one.",
+      );
     }
 
     return session;

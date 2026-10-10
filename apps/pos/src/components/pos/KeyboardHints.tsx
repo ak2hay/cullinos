@@ -1,6 +1,8 @@
 export function KeyboardHints() {
   const hints = [
     { key: '/', label: 'Search' },
+    { key: 'Code ↵', label: 'Add by code' },
+    { key: 'F1–F12', label: 'Quick keys' },
     { key: 'Enter', label: 'Cash' },
     { key: 'H', label: 'Hold order' },
     { key: 'Esc', label: 'Clear cart' },

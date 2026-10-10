@@ -880,6 +880,8 @@ model MenuItem {
   allergens      String[] @default([])
   sortOrder      Int      @default(0) @map("sort_order")
   sku            String?
+  /// POS quick-entry code, unique per org (e.g. "101").
+  shortCode      String?  @map("short_code")
   hsnCode        String?  @map("hsn_code")
   packagingCharge Decimal @default(0) @map("packaging_charge") @db.Decimal(12, 2)
   onlineAvailable Boolean @default(true) @map("online_available")
@@ -906,6 +908,7 @@ model MenuItem {
   guestFavorites GuestFavoriteItem[]
 
   @@unique([organizationId, slug])
+  @@unique([organizationId, shortCode])
   @@index([organizationId, catalogItemId])
   @@map("menu_items")
 }
@@ -1122,12 +1125,17 @@ model TableSession {
   startedAt    DateTime           @default(now()) @map("started_at")
   endedAt      DateTime?          @map("ended_at")
   guestCount   Int?               @map("guest_count")
+  /// Bumped on guest/order activity; drives QR session expiry.
+  lastActivityAt DateTime         @default(now()) @map("last_activity_at")
+  /// Set once when an expired session still has kitchen orders and staff were alerted.
+  staleAlertedAt DateTime?        @map("stale_alerted_at")
 
   table           Table            @relation(fields: [tableId], references: [id], onDelete: Cascade)
   order           Order?
   serviceRequests ServiceRequest[]
 
   @@index([tableId, status])
+  @@index([status, lastActivityAt])
   @@map("table_sessions")
 }
 
