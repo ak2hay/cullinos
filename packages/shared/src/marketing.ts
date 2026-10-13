@@ -190,14 +190,14 @@ export const PRODUCT_MODULES = [
   },
   {
     title: 'Enterprise Console',
-    description: 'Multi-outlet management with consolidated analytics, franchise, and aggregators.',
+    description: 'Multi-outlet management with consolidated analytics and franchise tools.',
     icon: 'enterprise',
   },
 ] as const;
 
 export const TRUST_PILLARS = [
   { title: 'GST-ready billing', description: 'CGST, SGST, and IGST built into every bill.' },
-  { title: 'Every order channel', description: 'POS, Waiter, QR, Guest app, and aggregators — one kitchen.' },
+  { title: 'Every order channel', description: 'POS, Waiter, QR and Guest app — one kitchen. Delivery apps coming soon.' },
   { title: 'Scales with you', description: 'From one outlet to hotel chains — same platform.' },
 ] as const;
 
@@ -308,7 +308,7 @@ export const FEATURE_SECTIONS = [
       {
         name: 'Delivery & Aggregators',
         description: 'Manage delivery orders plus Swiggy / Zomato connect and settlements.',
-        status: 'available' as const,
+        status: 'coming_soon' as const,
       },
       {
         name: 'Guest App Marketing',
@@ -387,7 +387,7 @@ export const INTEGRATION_CATEGORIES = [
   {
     title: 'Delivery aggregators',
     description: 'Connect marketplace delivery channels alongside your own orders.',
-    status: 'available' as const,
+    status: 'coming_soon' as const,
     items: [
       'Swiggy connect & webhooks',
       'Zomato connect & webhooks',
@@ -459,7 +459,7 @@ export const CULLINOS_ELEVATOR_PITCH = {
     },
     {
       title: 'Every order channel',
-      description: 'Cashier, waiter, QR menu, Guest app, and aggregators all reach your kitchen.',
+      description: 'Cashier, waiter, QR menu and Guest app all reach your kitchen.',
       icon: 'channels',
     },
     {
@@ -486,7 +486,7 @@ export const HOW_IT_WORKS_STEPS = [
   {
     step: 3,
     title: 'Kitchen stays in sync',
-    description: 'Orders appear on KDS instantly — from floor, web, app, or aggregators.',
+    description: 'Orders appear on KDS instantly — from the floor, POS or QR table orders.',
     icon: 'kitchen',
   },
   {
@@ -548,7 +548,7 @@ export const APP_SHOWCASE_ITEMS = [
   },
   {
     title: 'Enterprise Console',
-    benefit: 'Compare outlets, aggregators, and franchises from one screen.',
+    benefit: 'Compare outlets and franchises from one screen.',
     imageKey: 'mockupEnterprise' as MarketingImageKey,
     href: '/features#enterprise',
   },

@@ -29,7 +29,7 @@ export function HowItWorks() {
           </div>
         </Reveal>
 
-        <Stagger className="relative hidden gap-6 sm:grid-cols-2 md:grid lg:grid-cols-4">
+        <Stagger className="relative grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {HOW_IT_WORKS_STEPS.map((step, index) => (
             <StaggerItem key={step.step} as="article">
               <MarketingCard className="relative p-6">
@@ -45,20 +45,6 @@ export function HowItWorks() {
             </StaggerItem>
           ))}
         </Stagger>
-
-        <div className="mt-8 md:hidden">
-          <div className="relative ml-5 border-l-2 border-brand-gold/30 pl-8">
-            {HOW_IT_WORKS_STEPS.map((step) => (
-              <div key={step.step} className="relative pb-8 last:pb-0">
-                <span className="absolute -left-[2.55rem] flex h-8 w-8 items-center justify-center rounded-full bg-bg-dark text-xs font-medium text-brand-gold">
-                  {step.step}
-                </span>
-                <h3 className="font-serif text-base font-medium">{step.title}</h3>
-                <p className="mt-1 text-sm text-text-secondary">{step.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </section>
   );

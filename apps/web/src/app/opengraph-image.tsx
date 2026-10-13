@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'Cullinos — Restaurant Operating System';
+export const alt = 'Cullinos POS: Restaurant OS for India | Cullinos, by Rkyves';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 

@@ -26,7 +26,7 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "connect-src 'self' https: https://challenges.cloudflare.com https://cloudflareinsights.com https://static.cloudflareinsights.com",
-  "frame-src https://challenges.cloudflare.com https://maps.google.com https://www.google.com",
+  "frame-src https://challenges.cloudflare.com",
   "frame-ancestors 'self'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -41,12 +41,15 @@ const securityHeaders = [
     value: 'camera=(), microphone=(), geolocation=(), payment=()',
   },
   { key: 'Content-Security-Policy', value: contentSecurityPolicy },
+  // No includeSubDomains until every *.cullinos.com host is confirmed HTTPS-only.
+  { key: 'Strict-Transport-Security', value: 'max-age=31536000' },
 ];
 
 const nextConfig: NextConfig = {
   output: 'standalone',
   transpilePackages: ['@cullinos/shared', '@cullinos/ui'],
   images: {
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com', pathname: '/**' },
       ...(r2Pattern ? [r2Pattern] : []),

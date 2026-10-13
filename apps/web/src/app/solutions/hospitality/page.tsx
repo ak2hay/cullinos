@@ -3,6 +3,7 @@ import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
 import { MarketingImage } from '@/components/marketing/MarketingImage';
+import { BreadcrumbJsonLd } from '@/components/marketing/JsonLd';
 import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
@@ -24,6 +25,7 @@ const modules = [
 export default function HospitalitySolutionPage() {
   return (
     <>
+      <BreadcrumbJsonLd trail={[{ name: 'Hotels & Resorts', path: '/solutions/hospitality' }]} />
       <Hero
         eyebrow="Solutions"
         title="F&B operations for hotels and resorts"

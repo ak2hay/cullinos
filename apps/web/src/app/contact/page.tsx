@@ -5,8 +5,9 @@ import { BUSINESS_ADDRESS_LINE, BUSINESS_NAP } from '@/lib/business';
 import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
-  title: 'Contact',
-  description: 'Book a demo or contact the Cullinos sales team about Enterprise and Hospitality plans.',
+  title: 'Contact Cullinos, by Rkyves | Book a Demo',
+  description:
+    'Talk to the Cullinos team at Rkyves about restaurant POS, KDS and QR ordering for your outlet anywhere in India.',
   path: '/contact',
 });
 

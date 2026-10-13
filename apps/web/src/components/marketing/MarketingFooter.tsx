@@ -1,10 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { CULLINOS_BRAND } from '@cullinos/shared';
 import { useMemo } from 'react';
 import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
-import { BUSINESS_ADDRESS_LINE, BUSINESS_NAP, MAPS_EMBED_QUERY } from '@/lib/business';
+import { BUSINESS_NAP, BUSINESS_SERVICE_AREA } from '@/lib/business';
 
 const fallbackColumns = [
   {
@@ -14,6 +13,7 @@ const fallbackColumns = [
       { href: '/features', label: 'Features' },
       { href: '/pricing', label: 'Pricing' },
       { href: '/integrations', label: 'Integrations' },
+      { href: '/compare', label: 'Compare' },
       { href: '/blog', label: 'Blog' },
     ],
   },
@@ -22,6 +22,9 @@ const fallbackColumns = [
     groupKey: 'solutions',
     links: [
       { href: '/solutions/restaurants', label: 'Restaurants' },
+      { href: '/solutions/cafes', label: 'Cafes' },
+      { href: '/solutions/food-trucks', label: 'Food trucks' },
+      { href: '/solutions/bakeries', label: 'Bakeries' },
       { href: '/solutions/chains', label: 'Chains' },
       { href: '/solutions/hospitality', label: 'Hotels' },
     ],
@@ -39,9 +42,8 @@ const fallbackColumns = [
 ];
 
 const socialLinks = [
-  { label: 'LinkedIn', href: '#', icon: 'in' },
-  { label: 'Twitter', href: '#', icon: 'X' },
-  { label: 'Instagram', href: '#', icon: 'ig' },
+  { label: 'Rkyves on LinkedIn', href: BUSINESS_NAP.linkedin, icon: 'in' },
+  { label: 'Rkyves on Instagram', href: BUSINESS_NAP.instagram, icon: 'ig' },
 ];
 
 export function MarketingFooter() {
@@ -84,12 +86,12 @@ export function MarketingFooter() {
           {columns.map((col) => (
             <div key={col.title}>
               <h3 className="font-serif text-lg font-medium">{col.title}</h3>
-              <ul className="mt-4 space-y-2.5">
+              <ul className="mt-4 md:space-y-2.5">
                 {col.links.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="group relative inline-block text-sm text-text-secondary transition hover:text-text-primary"
+                      className="group relative inline-flex min-h-11 items-center text-sm text-text-secondary transition hover:text-text-primary md:min-h-0"
                     >
                       {link.label}
                       <span className="absolute -bottom-0.5 left-0 h-px w-0 bg-brand-gold transition-all duration-300 group-hover:w-full" />
@@ -100,31 +102,30 @@ export function MarketingFooter() {
             </div>
           ))}
 
-          <div className="overflow-hidden rounded-2xl border border-border bg-bg-card shadow-card">
-            <iframe
-              title={`${BUSINESS_NAP.brand} office location — ${BUSINESS_ADDRESS_LINE}`}
-              src={`https://maps.google.com/maps?q=${MAPS_EMBED_QUERY}&z=12&output=embed`}
-              className="h-44 w-full border-0"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-            <p className="border-t border-border-light px-4 py-3 text-xs text-text-muted">
-              {BUSINESS_NAP.legalName} · {BUSINESS_ADDRESS_LINE}
-              {BUSINESS_NAP.telephone ? (
-                <>
-                  {' · '}
-                  <a
-                    href={`tel:${BUSINESS_NAP.telephone.replace(/\s/g, '')}`}
-                    className="text-brand-gold hover:underline"
-                  >
-                    {BUSINESS_NAP.telephone}
-                  </a>
-                </>
-              ) : null}
-              {' · '}
-              <a href={`mailto:${contactEmail}`} className="text-brand-gold hover:underline">
+          <div className="rounded-2xl border border-border bg-bg-card p-5 shadow-card">
+            <p className="font-serif text-lg font-medium">{BUSINESS_NAP.brandLine}</p>
+            <p className="mt-2 text-sm text-text-secondary">{BUSINESS_SERVICE_AREA}</p>
+            <p className="mt-3 text-sm">
+              <a
+                href={`tel:${BUSINESS_NAP.telephone.replace(/\s/g, '')}`}
+                className="inline-flex min-h-11 items-center text-brand-gold hover:underline md:min-h-0"
+              >
+                {BUSINESS_NAP.telephone}
+              </a>
+              <br />
+              <a
+                href={`mailto:${contactEmail}`}
+                className="inline-flex min-h-11 items-center text-brand-gold hover:underline md:min-h-0"
+              >
                 {contactEmail}
               </a>
+            </p>
+            <p className="mt-3 text-xs text-text-muted">
+              Built by{' '}
+              <a href="https://www.rkyves.com" className="text-brand-gold hover:underline">
+                Rkyves
+              </a>
+              , an Indian software company.
             </p>
           </div>
         </div>
@@ -136,7 +137,9 @@ export function MarketingFooter() {
                 key={social.label}
                 href={social.href}
                 aria-label={social.label}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-border-light bg-bg-card text-[10px] font-semibold uppercase text-text-secondary transition hover:border-brand-gold hover:bg-brand-gold hover:text-white"
+                target="_blank"
+                rel="noopener"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-border-light bg-bg-card text-[10px] font-semibold uppercase text-text-secondary transition hover:border-brand-gold hover:bg-brand-gold hover:text-white"
               >
                 {social.icon}
               </a>
@@ -144,16 +147,14 @@ export function MarketingFooter() {
           </div>
           <div className="text-right">
             <p className="text-sm text-text-muted">
-              © {new Date().getFullYear()} {CULLINOS_BRAND.name}. {CULLINOS_BRAND.poweredBy}
+              © {new Date().getFullYear()} {BUSINESS_NAP.brandLine}
             </p>
-            <p className="mt-1 text-xs text-text-muted">
-              {BUSINESS_NAP.legalName} · {BUSINESS_ADDRESS_LINE}
-            </p>
+            <p className="mt-1 text-xs text-text-muted">{BUSINESS_SERVICE_AREA}</p>
             <div className="mt-2 flex gap-4 text-xs text-text-muted">
-              <Link href="/privacy" className="transition hover:text-text-primary">
+              <Link href="/privacy" className="inline-flex min-h-11 items-center transition hover:text-text-primary md:min-h-0">
                 Privacy
               </Link>
-              <Link href="/terms" className="transition hover:text-text-primary">
+              <Link href="/terms" className="inline-flex min-h-11 items-center transition hover:text-text-primary md:min-h-0">
                 Terms
               </Link>
             </div>

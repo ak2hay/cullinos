@@ -6,8 +6,8 @@ import { formatInr, MARKETING_PLANS } from '@cullinos/shared';
 import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
-  title: 'Pricing',
-  description: `Cullinos pricing from ${formatInr(MARKETING_PLANS[0].priceMonthly)}/month. Compare Starter, QSR / Food SMB, Professional, Enterprise, and Hospitality plans.`,
+  title: 'Cullinos Pricing: Restaurant POS Plans',
+  description: `Cullinos, by Rkyves pricing from ${formatInr(MARKETING_PLANS[0].priceMonthly)}/month for restaurants across India. Compare Starter, QSR / Food SMB, Professional, Enterprise and Hospitality plans.`,
   path: '/pricing',
 });
 
@@ -17,13 +17,13 @@ export default function PricingPage() {
       <Hero
         eyebrow="Pricing"
         title="Simple plans, powerful platform"
-        subtitle="Start with Starter or Professional. Talk to us for Enterprise and Hospitality deployments."
+        subtitle="Start with Starter, QSR / Food SMB or Professional. Talk to us for Enterprise and Hospitality deployments."
         primaryCta={{ label: 'Start free trial', href: 'https://admin.cullinos.com/register' }}
         secondaryCta={{ label: 'Contact sales', href: '/contact' }}
       />
       <Section
         title="Choose your plan"
-        description="Every plan includes cloud hosting, software updates, and support. Pick Starter or Professional to begin — contact us for Enterprise and Hospitality."
+        description="Every plan includes cloud hosting, software updates, and support. Pick Starter, QSR / Food SMB or Professional to begin — contact us for Enterprise and Hospitality."
       >
         <PricingTable />
       </Section>

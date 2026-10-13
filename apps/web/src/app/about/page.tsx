@@ -5,8 +5,9 @@ import { CULLINOS_BRAND, CULLINOS_ELEVATOR_PITCH } from '@cullinos/shared';
 import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
-  title: 'About',
-  description: `Learn about ${CULLINOS_BRAND.name} by ${CULLINOS_BRAND.parent} — a Restaurant Operating System built for India.`,
+  title: 'About Cullinos, by Rkyves | Restaurant OS made in India',
+  description:
+    'Cullinos is a restaurant operating system built by Rkyves, an Indian software company, for restaurants, cafés and food businesses across India.',
   path: '/about',
 });
 
@@ -15,8 +16,8 @@ export default function AboutPage() {
     <>
       <Hero
         eyebrow="About"
-        title={`${CULLINOS_BRAND.name} by ${CULLINOS_BRAND.parent}`}
-        subtitle="We're building the operating system for modern restaurants — starting in India, designed to scale globally."
+        title={`${CULLINOS_BRAND.name}, by ${CULLINOS_BRAND.parent}`}
+        subtitle="We're building the operating system for restaurants, cafés and food businesses across India."
       />
       <Section title="Our mission">
         <div className="max-w-3xl space-y-4 text-text-secondary">
@@ -28,7 +29,10 @@ export default function AboutPage() {
             with one unified platform.
           </p>
           <p>
-            {CULLINOS_BRAND.parent} created {CULLINOS_BRAND.name} to give operators a single source of truth —
+            <a href="https://www.rkyves.com" className="text-brand-gold hover:underline">
+              {CULLINOS_BRAND.parent}
+            </a>{' '}
+            is an Indian software company. We created {CULLINOS_BRAND.name} to give operators a single source of truth —
             from the cashier and kitchen to the back office and enterprise console. Every order, regardless of
             channel, flows through one engine.
           </p>

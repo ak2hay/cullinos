@@ -3,6 +3,7 @@ import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
 import { MarketingImage } from '@/components/marketing/MarketingImage';
+import { BreadcrumbJsonLd } from '@/components/marketing/JsonLd';
 import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
@@ -23,6 +24,7 @@ const modules = [
 export default function FoodTrucksSolutionPage() {
   return (
     <>
+      <BreadcrumbJsonLd trail={[{ name: 'Food trucks', path: '/solutions/food-trucks' }]} />
       <Hero
         eyebrow="Solutions"
         title="Built for food trucks and pop-ups"

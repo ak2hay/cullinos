@@ -7,7 +7,7 @@ import { MarketingCmsProvider } from '@/components/marketing/MarketingCmsProvide
 import { MarketingThemeStyles } from '@/components/marketing/MarketingThemeStyles';
 import { MarketingChromeExtras } from '@/components/marketing/MarketingChromeExtras';
 import { CloudflareAnalytics } from '@/components/marketing/CloudflareAnalytics';
-import { OrganizationJsonLd, WebSiteJsonLd } from '@/components/marketing/JsonLd';
+import { SiteJsonLd } from '@/components/marketing/JsonLd';
 import { createMetadata } from '@/lib/metadata';
 import { getMarketingContent } from '@/lib/marketing-content';
 import './globals.css';
@@ -47,10 +47,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const cms = await getMarketingContent();
 
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en-IN" className={`${inter.variable} ${playfair.variable} ${jetbrainsMono.variable}`}>
       <head>
-        <OrganizationJsonLd />
-        <WebSiteJsonLd />
+        <SiteJsonLd />
         <MarketingThemeStyles theme={cms.theme} />
       </head>
       <body className="bg-bg-primary text-text-primary antialiased pb-20 md:pb-0">

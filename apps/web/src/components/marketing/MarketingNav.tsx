@@ -77,7 +77,7 @@ export function MarketingNav() {
 
         <button
           type="button"
-          className="rounded-md p-2 text-text-secondary lg:hidden"
+          className="flex h-11 w-11 items-center justify-center rounded-md text-text-secondary lg:hidden"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label="Toggle menu"
           aria-expanded={mobileOpen}
@@ -109,12 +109,12 @@ export function MarketingNav() {
               transition={{ duration: 0.2 }}
               className="relative z-50 border-t border-border-light bg-bg-primary px-6 py-4 lg:hidden"
             >
-              <nav className="flex flex-col gap-4">
+              <nav className="flex flex-col">
                 {navItems.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`text-xs font-medium tracking-[0.15em] uppercase ${
+                    className={`flex min-h-11 items-center text-xs font-medium tracking-[0.15em] uppercase ${
                       pathname === item.href ? 'text-brand-gold' : 'text-text-secondary'
                     }`}
                     onClick={() => setMobileOpen(false)}

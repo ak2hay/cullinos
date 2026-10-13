@@ -1,4 +1,3 @@
-import { SoftwareApplicationJsonLd } from '@/components/marketing/JsonLd';
 import { CTABanner } from '@/components/marketing/CTABanner';
 import { AllAppsShowcase } from '@/components/marketing/home/AllAppsShowcase';
 import { ElevatorPitch } from '@/components/marketing/home/ElevatorPitch';
@@ -10,12 +9,11 @@ import { IndiaDifferentiators } from '@/components/marketing/home/IndiaDifferent
 import { ReviewsSection } from '@/components/marketing/home/ReviewsSection';
 import { createMetadata } from '@/lib/metadata';
 
-export const metadata = createMetadata({});
+export const metadata = createMetadata({ path: '' });
 
 export default function HomePage() {
   return (
     <>
-      <SoftwareApplicationJsonLd />
       <HomeHeroCarousel />
       <ElevatorPitch />
       <HowItWorks />

@@ -3,16 +3,19 @@ import Link from 'next/link';
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
+import { JsonLd } from '@/components/marketing/JsonLd';
 import { CULLINOS_BRAND } from '@cullinos/shared';
 import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
-  title: 'FAQ',
-  description: `Answers to common questions about ${CULLINOS_BRAND.name}: setup, billing and tax, devices, apps, and support.`,
+  title: 'Cullinos FAQ: Setup, Billing, Devices & Support',
+  description:
+    'Answers about Cullinos, by Rkyves: getting started, POS billing and tax setup, kitchen display, devices and support.',
   path: '/faq',
 });
 
-const faqs: Array<{ q: string; a: ReactNode }> = [
+/** `text` is the plain-text answer for FAQPage JSON-LD when `a` is JSX. */
+const faqs: Array<{ q: string; a: ReactNode; text?: string }> = [
   {
     q: `What is ${CULLINOS_BRAND.name}?`,
     a: `${CULLINOS_BRAND.name} is a restaurant operating system: POS, kitchen display, menu, inventory, staff, orders and reports in one platform, run from a web admin portal.`,
@@ -28,6 +31,7 @@ const faqs: Array<{ q: string; a: ReactNode }> = [
         . Setup walks you through restaurant details, outlets, menu and staff.
       </>
     ),
+    text: 'Start a free trial from the admin portal or talk to our team. Setup walks you through restaurant details, outlets, menu and staff.',
   },
   {
     q: 'How does GST work on bills?',
@@ -64,12 +68,34 @@ const faqs: Array<{ q: string; a: ReactNode }> = [
         .
       </>
     ),
+    text: 'Reach us through the contact page.',
+  },
+  {
+    q: 'How do you spell Cullinos?',
+    a: (
+      <>
+        It&apos;s <strong>Cullinos</strong>: double &quot;l&quot;, one &quot;n&quot;, ending in &quot;-os&quot;. People
+        sometimes search for Culinos, Cullinose or Kullinos. They all mean Cullinos, by Rkyves, the restaurant OS at
+        cullinos.com.
+      </>
+    ),
+    text: 'It\'s Cullinos: double "l", one "n", ending in "-os". People sometimes search for Culinos, Cullinose or Kullinos. They all mean Cullinos, by Rkyves, the restaurant OS at cullinos.com.',
   },
 ];
 
 export default function FaqPage() {
   return (
     <>
+      <JsonLd
+        data={{
+          '@type': 'FAQPage',
+          mainEntity: faqs.map((f) => ({
+            '@type': 'Question',
+            name: f.q,
+            acceptedAnswer: { '@type': 'Answer', text: typeof f.a === 'string' ? f.a : f.text },
+          })),
+        }}
+      />
       <Hero
         eyebrow="FAQ"
         title="Frequently asked questions"

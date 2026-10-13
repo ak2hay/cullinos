@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {
   ALL_COMPARISON_FEATURES,
+  DEFAULT_TRIAL_DAYS,
   FEATURE_LABELS,
   formatInr,
   isContactPricing,
@@ -47,10 +48,15 @@ export function PricingTable() {
   }, [cms.pricingCards]);
 
   const [yearly, setYearly] = useState(false);
+  const monthsSaved = Math.min(
+    ...plans
+      .filter((p) => !isContactPricing(p))
+      .map((p) => Math.round(yearlySavings(p) / p.priceMonthly)),
+  );
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-center gap-3">
+      <div className="mb-3 flex items-center justify-center gap-3">
         <button
           type="button"
           onClick={() => setYearly(false)}
@@ -68,10 +74,18 @@ export function PricingTable() {
           }`}
         >
           Yearly
+          {Number.isFinite(monthsSaved) && monthsSaved > 0 ? (
+            <span className="ml-2 rounded-full bg-status-success/15 px-2 py-0.5 text-xs text-status-success">
+              {monthsSaved} months free
+            </span>
+          ) : null}
         </button>
       </div>
+      <p className="mb-8 text-center text-xs text-text-muted">
+        {DEFAULT_TRIAL_DAYS}-day free trial on self-serve plans. Prices in INR.
+      </p>
 
-      <div className="grid gap-6 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {plans.map((plan) => (
           <PricingCard key={plan.id} plan={plan} yearly={yearly} registerUrl={registerUrl} />
         ))}
@@ -194,7 +208,7 @@ export function PricingTeaser() {
   }, [cms.pricingCards]);
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
       {plans.map((plan) => (
         <div key={plan.id} className="rounded-2xl border border-border-light bg-bg-card p-5 shadow-card">
           <h3 className="font-serif font-medium">{plan.name}</h3>

@@ -4,6 +4,7 @@ import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
 import { MarketingImage } from '@/components/marketing/MarketingImage';
+import { BreadcrumbJsonLd } from '@/components/marketing/JsonLd';
 import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
@@ -25,6 +26,7 @@ const modules = [
 export default function ChainsSolutionPage() {
   return (
     <>
+      <BreadcrumbJsonLd trail={[{ name: 'Chains', path: '/solutions/chains' }]} />
       <Hero
         eyebrow="Solutions"
         title="Scale across outlets without losing control"

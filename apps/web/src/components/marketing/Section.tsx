@@ -16,12 +16,14 @@ export function Section({ eyebrow, title, description, children, className = '',
             {eyebrow}
           </p>
         )}
-        <div className="mb-10 max-w-2xl">
-          <h2 className="font-serif text-3xl font-medium md:text-4xl">{title}</h2>
-          {description && (
-            <p className="mt-4 leading-relaxed text-text-secondary">{description}</p>
-          )}
-        </div>
+        {(title || description) && (
+          <div className="mb-10 max-w-2xl">
+            {title && <h2 className="font-serif text-3xl font-medium md:text-4xl">{title}</h2>}
+            {description && (
+              <p className="mt-4 leading-relaxed text-text-secondary">{description}</p>
+            )}
+          </div>
+        )}
         {children}
       </div>
     </section>

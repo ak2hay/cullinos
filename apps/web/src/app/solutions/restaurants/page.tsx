@@ -5,11 +5,13 @@ import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
 import { MarketingImage } from '@/components/marketing/MarketingImage';
 import { CULLINOS_ELEVATOR_PITCH } from '@cullinos/shared';
+import { BreadcrumbJsonLd } from '@/components/marketing/JsonLd';
 import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
-  title: 'Restaurants',
-  description: 'Cullinos for single-outlet and full-service restaurants. POS, KDS, tables, ordering, and back office.',
+  title: 'Cullinos for Restaurants: POS, KDS & QR Ordering | India',
+  description:
+    'Run dine-in service across India with Cullinos, by Rkyves: POS billing, kitchen display, QR table ordering and inventory with live stock.',
   path: '/solutions/restaurants',
 });
 
@@ -25,6 +27,7 @@ const modules = [
 export default function RestaurantsSolutionPage() {
   return (
     <>
+      <BreadcrumbJsonLd trail={[{ name: 'Restaurants', path: '/solutions/restaurants' }]} />
       <Hero
         eyebrow="Solutions"
         title="Built for full-service restaurants"

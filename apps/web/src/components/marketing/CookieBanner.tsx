@@ -36,22 +36,24 @@ export function CookieBanner({ onOpenChange }: { onOpenChange?: (open: boolean) 
     <div
       role="dialog"
       aria-label="Cookie notice"
-      className="fixed inset-x-0 bottom-0 z-[60] border-t border-border-light bg-bg-primary/95 p-4 shadow-soft backdrop-blur-md md:p-5"
+      className="fixed inset-x-0 bottom-0 z-[60] border-t border-border-light bg-bg-primary/95 px-4 py-2 shadow-soft backdrop-blur-md md:p-5"
     >
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between lg:px-4">
-        <p className="text-sm leading-relaxed text-text-secondary">
-          We use essential cookies for security (Cloudflare Turnstile on forms) and cookieless analytics.
-          See our{' '}
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 lg:px-4">
+        <p className="text-xs leading-snug text-text-secondary md:text-sm">
+          Essential cookies only (security) and cookieless analytics.{' '}
           <Link href="/privacy" className="text-brand-gold hover:underline">
-            Privacy Policy
+            Privacy
           </Link>
-          .
         </p>
-        <div className="flex shrink-0 gap-3">
-          <button type="button" onClick={() => choose('declined')} className="btn-pill text-sm">
+        <div className="flex shrink-0 gap-2 md:gap-3">
+          <button type="button" onClick={() => choose('declined')} className="btn-pill min-h-11 px-4! md:px-7!">
             Decline
           </button>
-          <button type="button" onClick={() => choose('accepted')} className="btn-pill-filled btn-pill text-sm">
+          <button
+            type="button"
+            onClick={() => choose('accepted')}
+            className="btn-pill-filled btn-pill min-h-11 px-4! md:px-7!"
+          >
             Accept
           </button>
         </div>

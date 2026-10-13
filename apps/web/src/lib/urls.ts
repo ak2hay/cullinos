@@ -12,7 +12,7 @@ export function getAdminUrl(): string {
   return process.env.NEXT_PUBLIC_ADMIN_URL ?? MARKETING_URLS.admin;
 }
 
-export const SITE_NAME = 'Cullinos';
-export const SITE_TAGLINE = 'Restaurant Operating System';
+export const SITE_NAME = 'Cullinos, by Rkyves';
+export const SITE_DEFAULT_TITLE = 'Cullinos POS: Restaurant OS for India | Cullinos, by Rkyves';
 export const SITE_DESCRIPTION =
-  'Run your restaurant from one place. Menu, orders, inventory, staff, and analytics — unified for modern restaurant operations.';
+  'Cullinos, by Rkyves: restaurant POS billing, kitchen display (KDS), QR table ordering, live stock, wastage log and recipe-wise food cost for India.';

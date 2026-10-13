@@ -68,7 +68,7 @@ export function HomeHeroCarousel() {
     >
       <div className="relative overflow-hidden rounded-[2rem] shadow-soft">
         <div className="relative aspect-[16/7] min-h-[360px] w-full md:aspect-[16/6]">
-          <AnimatePresence mode="sync">
+          <AnimatePresence mode="sync" initial={false}>
             {slides.map((s, i) =>
               i === current ? (
                 <motion.div
@@ -102,7 +102,7 @@ export function HomeHeroCarousel() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20" />
 
           <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={current}
                 initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 20 }}
@@ -114,7 +114,7 @@ export function HomeHeroCarousel() {
                   Restaurant Operating System
                 </p>
                 <h1 className="max-w-3xl font-serif text-4xl leading-tight text-white md:text-5xl lg:text-6xl">
-                  {slide.headline}
+                  {slide.headline.includes('Cullinos') ? slide.headline : `Cullinos: ${slide.headline}`}
                   <br />
                   <span className="text-brand-gold">{slide.headlineAccent}</span>
                 </h1>
