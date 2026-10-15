@@ -10,13 +10,17 @@ import {
   Max,
   MaxLength,
   Min,
+  MinLength,
 } from "class-validator";
+import { Throttle } from "@nestjs/throttler";
 import type { JwtPayload } from "@cullinos/auth";
 import {
   AnyPlatformStaff,
   CurrentUser,
+  Public,
   RequirePlatformPermission,
   SkipActivityLog,
+  SkipStepUp,
 } from "../../common/decorators";
 import { SuperAdminGuard } from "../marketing/guards/super-admin.guard";
 import type { EffectiveAccess } from "../platform-iam/platform-access.util";
@@ -111,5 +115,35 @@ export class PlatformApprovalsController {
   @RequirePlatformPermission("approvals.policies")
   updatePolicy(@Param("id") id: string, @Body() dto: PolicyDto) {
     return this.approvals.updatePolicy(id, dto);
+  }
+}
+
+class EmailTokenDto {
+  @IsString() @MinLength(20) @MaxLength(200) token!: string;
+}
+
+class EmailDecisionDto extends EmailTokenDto {
+  @IsIn(["approved", "rejected"]) decision!: "approved" | "rejected";
+  @IsOptional() @IsString() @MaxLength(1000) comment?: string;
+}
+
+/** Approve / reject from the emailed one-time link; the token itself is the credential. */
+@Controller("super-admin/approvals/email-action")
+@Public()
+@SkipStepUp()
+@SkipActivityLog()
+export class ApprovalEmailActionController {
+  constructor(private approvals: PlatformApprovalsService) {}
+
+  @Post("preview")
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  preview(@Body() dto: EmailTokenDto) {
+    return this.approvals.emailActionPreview(dto.token);
+  }
+
+  @Post("decide")
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  decide(@Body() dto: EmailDecisionDto) {
+    return this.approvals.decideFromEmail(dto.token, dto.decision, dto.comment);
   }
 }

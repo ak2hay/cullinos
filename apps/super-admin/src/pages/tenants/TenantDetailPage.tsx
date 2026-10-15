@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CalendarClock, CreditCard, ExternalLink, KeyRound, Pause, Play, ReceiptText, Store, UserCheck, UserX, Users, Wallet } from 'lucide-react';
+import { CalendarClock, CreditCard, ExternalLink, Gift, KeyRound, Pause, Play, ReceiptText, Store, UserCheck, UserX, Users, Wallet } from 'lucide-react';
 import { Button } from '@cullinos/ui';
 import { inputClass, Notice } from '@/components/common';
 import {
@@ -16,11 +16,11 @@ import {
   SectionCard,
   StatusPill,
 } from '@/components/ui';
-import { superAdminApi } from '@/lib/api';
+import { superAdminApi, SUPPORT_PORTAL_URL } from '@/lib/api';
 import { formatDate, formatInr, relativeTime } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
-import { supportApi } from '@/lib/platform-api';
 import { openRazorpaySubscriptionCheckout } from '@/lib/razorpay-subscription-checkout';
+import { ActivateComplimentaryDialog } from './ActivateComplimentaryDialog';
 import { ExtendTrialDialog } from './ExtendTrialDialog';
 
 type Tab = 'overview' | 'outlets' | 'users' | 'subscription' | 'audit';
@@ -35,6 +35,7 @@ export function TenantDetailPage() {
   const [suspendReason, setSuspendReason] = useState('');
   const [showSuspend, setShowSuspend] = useState(false);
   const [showTrial, setShowTrial] = useState(false);
+  const [showComp, setShowComp] = useState(false);
   const [userToSuspend, setUserToSuspend] = useState<OrgUser | null>(null);
   const [userSuspendReason, setUserSuspendReason] = useState('');
   const [resetResult, setResetResult] = useState<{ email: string; temporaryPassword: string; emailSent: boolean } | null>(null);
@@ -58,13 +59,6 @@ export function TenantDetailPage() {
     queryFn: () => superAdminApi.getOrganizationWallet(id),
     enabled: Boolean(id),
   });
-  const myGrantsQuery = useQuery({
-    queryKey: ['super-admin', 'access-grants', 'tenant', id],
-    queryFn: () => supportApi.grants({ mine: true, status: 'active', organizationId: id }),
-    enabled: Boolean(id) && can('tenants.impersonate'),
-  });
-  const activeGrant = myGrantsQuery.data?.find((g) => g.expiresAt && new Date(g.expiresAt) > new Date());
-
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['super-admin', 'organization', id] });
     queryClient.invalidateQueries({ queryKey: ['super-admin', 'organizations'] });
@@ -135,17 +129,6 @@ export function TenantDetailPage() {
     },
     onError: fail,
   });
-  const impersonateMutation = useMutation({
-    mutationFn: (grantId: string) => superAdminApi.impersonateOrganization(id, grantId),
-    onSuccess: (result) => {
-      window.open(result.adminUrl, '_blank', 'noopener,noreferrer');
-      setMessage({
-        tone: 'info',
-        text: `Opened ${result.accessLevel === 'full' ? 'full' : 'read-only'} support session as ${result.user.email} (expires ${new Date(result.expiresAt).toLocaleString()}). Every action is logged with your employee ID.`,
-      });
-    },
-    onError: fail,
-  });
   const walletAdjustMutation = useMutation({
     mutationFn: (payload: { amountPaise: number; note: string }) => superAdminApi.adjustOrganizationWallet(id, payload),
     onSuccess: (bal) => {
@@ -213,30 +196,19 @@ export function TenantDetailPage() {
         }
         actions={
           <>
-            {can('tenants.impersonate') ? (
-              activeGrant ? (
-                <Button
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => impersonateMutation.mutate(activeGrant.id)}
-                  loading={impersonateMutation.isPending}
-                  disabled={!isActive}
-                  title={`${activeGrant.accessLevel.replace('_', '-')} access via ${activeGrant.ticketRef}`}
-                >
-                  <ExternalLink size={15} aria-hidden="true" />
-                  Open as tenant ({activeGrant.accessLevel === 'full' ? 'full' : 'read-only'})
-                </Button>
-              ) : (
-                <Link
-                  to={`/support/tickets?organizationId=${id}&status=open_all`}
-                  className="inline-flex h-9 items-center rounded-lg border border-line bg-bg-card px-3 text-sm font-medium hover:bg-hover"
-                  title="Tenant access needs an approved grant on an open support ticket"
-                >
-                  Request access via ticket
-                </Link>
-              )
+            {can(['tickets.read', 'tenants.impersonate']) ? (
+              <a
+                href={`${SUPPORT_PORTAL_URL}/agent/tickets/new`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-bg-card px-3 text-sm font-medium hover:bg-hover"
+                title="Tickets, tenant access and support passwords are handled in the support portal"
+              >
+                <ExternalLink size={15} aria-hidden="true" />
+                Raise support ticket
+              </a>
             ) : null}
-            {can('tenants.write') && sub && sub.status !== 'active' ? (
+            {can('tenants.write') && sub && (sub.status !== 'active' || sub.isComplimentary) ? (
               <Button size="sm" variant="secondary" className="gap-2" onClick={() => setShowTrial(true)}>
                 <CalendarClock size={15} aria-hidden="true" />
                 Extend trial
@@ -246,6 +218,12 @@ export function TenantDetailPage() {
               <Button size="sm" variant="secondary" className="gap-2" onClick={() => collectMutation.mutate()} loading={collectMutation.isPending}>
                 <CreditCard size={15} aria-hidden="true" />
                 Collect payment
+              </Button>
+            ) : null}
+            {can('subscriptions.manage') ? (
+              <Button size="sm" variant="secondary" className="gap-2" onClick={() => setShowComp(true)}>
+                <Gift size={15} aria-hidden="true" />
+                Activate without payment
               </Button>
             ) : null}
             {can('tenants.suspend') ? (
@@ -264,6 +242,10 @@ export function TenantDetailPage() {
         tenant={showTrial ? { id: org.id, name: org.name, trialEndsAt: sub?.trialEndsAt ?? null } : null}
         onClose={() => setShowTrial(false)}
         onDone={(end) => setMessage({ tone: 'success', text: `Trial now ends ${formatDate(end)}.` })}
+      />
+      <ActivateComplimentaryDialog
+        tenant={showComp ? { id: org.id, name: org.name, plan: sub?.planSlug ?? null } : null}
+        onClose={() => setShowComp(false)}
       />
 
       {message ? (
@@ -480,7 +462,19 @@ export function TenantDetailPage() {
                 columns={3}
                 items={[
                   { label: 'Plan', value: `${sub.planName} (${sub.planSlug})` },
-                  { label: 'Status', value: <StatusPill status={sub.status} /> },
+                  {
+                    label: 'Status',
+                    value: (
+                      <span className="inline-flex items-center gap-2">
+                        <StatusPill status={sub.status} />
+                        {sub.isComplimentary ? (
+                          <span className="rounded-md bg-violet-500/10 px-1.5 py-0.5 text-xs font-medium text-violet-600">
+                            Complimentary until {formatDate(sub.currentPeriodEnd)}
+                          </span>
+                        ) : null}
+                      </span>
+                    ),
+                  },
                   { label: 'Price / month', value: formatInr(sub.priceMonthly) },
                   { label: 'Trial ends', value: formatDate(sub.trialEndsAt) },
                   { label: 'Current period ends', value: formatDate(sub.currentPeriodEnd) },

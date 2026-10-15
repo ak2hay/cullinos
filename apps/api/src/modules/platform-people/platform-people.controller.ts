@@ -127,6 +127,12 @@ export class PlatformPeopleController {
     return this.people.offboard(user, userId, dto);
   }
 
+  @Delete("directory/:userId")
+  @RequirePlatformPermission("team.manage")
+  remove(@CurrentUser() user: JwtPayload, @Param("userId") userId: string, @Body() dto: OffboardDto) {
+    return this.people.remove(user, userId, dto ?? {});
+  }
+
   @Post("bulk-invite")
   @RequirePlatformPermission("team.manage")
   bulkInvite(@CurrentUser() user: JwtPayload, @Body() dto: BulkInviteDto) {

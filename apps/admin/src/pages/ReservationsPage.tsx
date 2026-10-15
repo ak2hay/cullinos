@@ -16,6 +16,7 @@ export function ReservationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState(false);
+  const [showManual, setShowManual] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     customerName: '',
     customerPhone: '',
@@ -93,6 +94,7 @@ export function ReservationsPage() {
         slotStart: '',
         notes: '',
       });
+      setShowManual(false);
       setError(null);
       const parts = [
         'Reservation created.',
@@ -222,7 +224,10 @@ export function ReservationsPage() {
             variant="secondary"
             disabled={!outletId}
             onClick={() => {
-              document.getElementById('manual-reservation')?.scrollIntoView({ behavior: 'smooth' });
+              setShowManual(true);
+              setTimeout(() => {
+                document.getElementById('manual-reservation')?.scrollIntoView({ behavior: 'smooth' });
+              }, 0);
             }}
           >
             Manual reservation
@@ -311,6 +316,7 @@ export function ReservationsPage() {
         </form>
       ) : null}
 
+      {showManual ? (
       <form
         id="manual-reservation"
         onSubmit={handleCreate}
@@ -411,12 +417,16 @@ export function ReservationsPage() {
             className="w-full rounded-lg border border-line bg-bg-elevated px-3 py-2.5 text-sm outline-none focus:border-brand-accent"
           />
         </label>
-        <div className="md:col-span-2">
+        <div className="flex gap-2 md:col-span-2">
           <Button type="submit" loading={createMutation.isPending} disabled={!outletId}>
             Create reservation
           </Button>
+          <Button type="button" variant="ghost" onClick={() => setShowManual(false)}>
+            Cancel
+          </Button>
         </div>
       </form>
+      ) : null}
 
       <section className="rounded-xl border border-line-subtle bg-bg-card p-6">
         <h2 className="mb-4 font-medium">Upcoming reservations</h2>

@@ -150,7 +150,7 @@ export function MarketplaceListingPage() {
     const lat = form.latitude.trim();
     const lng = form.longitude.trim();
     if (!lat || !lng || Number.isNaN(Number(lat)) || Number.isNaN(Number(lng))) {
-      return 'Latitude and longitude are required to list on the marketplace.';
+      return "Set your outlet location to list on the marketplace: use the map below (search an address, tap 'Use my location', or drag the pin) or type the latitude and longitude.";
     }
     const hasOpenDay = DAY_KEYS.some((d) => !openingHours[d].closed);
     if (!hasOpenDay) {
@@ -342,13 +342,15 @@ export function MarketplaceListingPage() {
           </Suspense>
         </div>
         <Input
-          label="Latitude *"
+          label="Latitude"
+          required={form.marketplaceListed}
           placeholder="12.9716"
           value={form.latitude}
           onChange={(e) => setForm({ ...form, latitude: e.target.value })}
         />
         <Input
-          label="Longitude *"
+          label="Longitude"
+          required={form.marketplaceListed}
           placeholder="77.5946"
           value={form.longitude}
           onChange={(e) => setForm({ ...form, longitude: e.target.value })}

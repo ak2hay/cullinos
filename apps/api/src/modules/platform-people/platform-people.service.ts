@@ -76,7 +76,10 @@ export class PlatformPeopleService {
       ...(filter.teamId ? { teamId: filter.teamId } : {}),
       ...(filter.status ? { employmentStatus: filter.status as PlatformEmploymentStatus } : {}),
       ...(filter.managerUserId ? { manager: { userId: filter.managerUserId } } : {}),
-      ...(filter.role && isPlatformRole(filter.role) ? { user: { platformRole: filter.role } } : {}),
+      user: {
+        deletedAt: null,
+        ...(filter.role && isPlatformRole(filter.role) ? { platformRole: filter.role } : {}),
+      },
       ...(q
         ? {
             OR: [
@@ -107,7 +110,7 @@ export class PlatformPeopleService {
 
   async orgChart() {
     const rows = await this.prisma.platformEmployee.findMany({
-      where: { employmentStatus: { not: "exited" } },
+      where: { employmentStatus: { not: "exited" }, user: { deletedAt: null } },
       include: EMPLOYEE_INCLUDE,
       orderBy: { employeeCode: "asc" },
     });
@@ -305,7 +308,7 @@ export class PlatformPeopleService {
       await this.sessions.revokeAllForUser(userId);
     }
     const now = new Date();
-    const [assignments, grants, tickets, approvals, rotations] = await Promise.all([
+    const [assignments, grants, , tickets, approvals, rotations] = await Promise.all([
       this.prisma.platformRoleAssignment.updateMany({
         where: { userId, revokedAt: null },
         data: { revokedAt: now, revokedById: actor.sub },
@@ -313,6 +316,10 @@ export class PlatformPeopleService {
       this.prisma.tenantAccessGrant.updateMany({
         where: { userId, status: { in: ["pending", "active"] } },
         data: { status: "revoked", revokedAt: now, revokedById: actor.sub },
+      }),
+      this.prisma.supportLoginCredential.updateMany({
+        where: { createdById: userId, revokedAt: null },
+        data: { revokedAt: now },
       }),
       this.prisma.supportTicket.updateMany({
         where: { assigneeUserId: userId, status: { in: ["open", "in_progress", "waiting_customer"] } },
@@ -352,6 +359,13 @@ export class PlatformPeopleService {
       cancelledApprovals: approvals.count,
       rotationsUpdated: rotations.length,
     };
+  }
+
+  /** Removes a member from the team (soft delete): offboards them, then hides the account. */
+  async remove(actor: PeopleActor, userId: string, input: { reason?: string; transferToUserId?: string | null }) {
+    const summary = await this.offboard(actor, userId, input);
+    await this.team.markDeleted(actor, userId);
+    return { ...summary, deleted: true };
   }
 
   /** Joiner (bulk): creates each account via the normal invite flow. */
@@ -398,7 +412,7 @@ export class PlatformPeopleService {
           email: row.email,
           ok: true,
           employeeCode: res.member.employeeCode,
-          temporaryPassword: res.emailSent ? undefined : res.temporaryPassword,
+          temporaryPassword: res.temporaryPassword,
           emailSent: res.emailSent,
         });
       } catch (err) {

@@ -30,7 +30,7 @@
 </style>
 </head>
 <body><h1 id="cullinos-qa--whats-new-for-testers">Cullinos QA — What&#39;s New for Testers</h1>
-<p><strong>Cycle:</strong> 2026-09 (share with the latest QA pack)<br><strong>Case count:</strong> <strong>190</strong> test cases (was 160)</p>
+<p><strong>Cycle:</strong> 2026-09 (share with the latest QA pack)<br><strong>Case count:</strong> <strong>232</strong> test cases (was 190) — new: web kiosk (2.8), token ordering (2.9), table system / UrbanPiper / Online panel / customer merge (TC-3-46..57), platform employees / approvals / people (TC-5-31..37), Support portal (Phase 8), App Ops (Phase 9)</p>
 <p>Read this before Day 1. Full click-by-click steps: <strong><a href="./COMPLETE_FEATURE_TEST_GUIDE.md">COMPLETE_FEATURE_TEST_GUIDE.md</a></strong>. Day plan: <a href="./TESTER_HANDBOOK.md">TESTER_HANDBOOK.md</a>.</p>
 <hr>
 <h2 id="production-apps-updated">Production apps (updated)</h2>
@@ -126,9 +126,9 @@
 <td>Delivery orders UI</td>
 </tr>
 <tr>
-<td><strong>Aggregators</strong></td>
+<td><strong>Swiggy &amp; Zomato</strong></td>
 <td><code>/aggregators</code></td>
-<td>Swiggy / Zomato connect &amp; settlements</td>
+<td>UrbanPiper connect (sandbox/production), webhook URLs + secret, per-outlet store link, menu push, store pause, per-outlet item stock, unknown-item linking, settlement CSV import</td>
 </tr>
 <tr>
 <td><strong>Payments</strong></td>
@@ -163,12 +163,22 @@
 <tr>
 <td><strong>Portal POS</strong></td>
 <td><code>/pos</code></td>
-<td>Hold / resume / checkout in Admin</td>
+<td>Hold / resume / checkout in Admin. Start typing anywhere to search (no <code>/</code> needed); Hold is now <strong>Alt+H</strong>. <strong>Online</strong> panel shows Swiggy/Zomato orders with chime, accept timer, Accept (prep time) / Reject (reason) / Food ready / Handed to rider, KOT prints on accept</td>
 </tr>
 <tr>
 <td><strong>Settings</strong></td>
 <td><code>/settings</code></td>
 <td><strong>Form UI</strong> (restaurant details, order types, locations, tax, devices) — <strong>not</strong> a JSON editor</td>
+</tr>
+<tr>
+<td><strong>Table system (per outlet)</strong></td>
+<td><code>/settings</code> → General → <strong>Table system</strong></td>
+<td>Toggle &quot;Use tables at this outlet&quot; for any business category; &quot;Use category default&quot; resets it. <strong>Off:</strong> Tables / Reservations disappear from nav for that outlet, a <strong>Counter QR</strong> card appears (also on <code>/kiosk</code>), table QR links show the counter flow, new table sessions are rejected. <strong>On</strong> (e.g. QSR): Tables nav appears (needs the Tables plan module) and table QR sessions work</td>
+</tr>
+<tr>
+<td><strong>Token ordering</strong></td>
+<td>Counter QR → guest web</td>
+<td>Guest picks Eat in / Takeaway, places order, sees <strong>Your token</strong> (pickup code) + order number. KDS ticket shows <strong>Token XXXXXX</strong> for orders without a table; pickup / CDS display lists the same code</td>
 </tr>
 <tr>
 <td><strong>Forgot / Change password</strong></td>
@@ -288,8 +298,12 @@
 <td>POS/KDS “local only”</td>
 </tr>
 <tr>
-<td>Aggregator menu sync may be partial</td>
+<td>Swiggy/Zomato needs an UrbanPiper account; without it, test on UrbanPiper sandbox or mark <strong>N/A</strong></td>
 <td>Settings as JSON editor</td>
+</tr>
+<tr>
+<td>Direct Swiggy/Zomato webhook menu sync is rejected (use UrbanPiper menu push)</td>
+<td>Aggregators &quot;Coming soon&quot; page</td>
 </tr>
 <tr>
 <td>Admin <code>/promo-email</code> 404</td>
@@ -309,6 +323,6 @@
 <p>Regenerate Excel/PDF after markdown changes:</p>
 <pre><code class="language-bash">npm run qa:export
 </code></pre>
-<p>Then share <code>export/pdf/</code> + <code>export/excel/</code> with testers. Case count in Excel should match <strong>190</strong> after regenerate.</p>
+<p>Then share <code>export/pdf/</code> + <code>export/excel/</code> with testers. Case count in Excel should match <strong>232</strong> after regenerate.</p>
 </body>
 </html>

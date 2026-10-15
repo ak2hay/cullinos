@@ -50,7 +50,7 @@ export const COMPARE_PAGES: ComparePage[] = [
       },
       {
         q: 'How do I try Cullinos?',
-        a: 'Talk to the Cullinos team through the contact page, or start a free trial from the admin portal.',
+        a: 'Talk to the Cullinos team through the contact page, or start a 30-day free trial from the admin portal.',
       },
     ],
   },

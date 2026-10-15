@@ -8,6 +8,7 @@ import { Prisma } from "@prisma/client";
 import { normalizePhoneE164 } from "../../common/phone.util";
 import { findCustomerByPhone } from "../../common/public-customer.util";
 import { PrismaService } from "../../prisma/prisma.service";
+import { applyMergeGroup, findDuplicateGroups, isGuestName } from "./customer-merge";
 import { AuditService } from "../audit/audit.service";
 import { ConsentService } from "../privacy/consent.service";
 import { CustomerPrivacyService } from "../privacy/customer-privacy.service";
@@ -245,20 +246,31 @@ export class CustomersService {
   ) {
     if (!data.name?.trim()) throw new BadRequestException("name is required");
 
-    const emailOptIn = Boolean(data.marketingEmailOptIn);
-    const smsOptIn = Boolean(data.marketingSmsOptIn);
     const phone = data.phone?.trim() ? normalizePhoneE164(data.phone) : null;
-    if (phone) await this.assertPhoneAvailable(orgId, phone);
+    const existing = phone ? await findCustomerByPhone(this.prisma, orgId, phone) : null;
+    if (existing && !existing.anonymizedAt) {
+      return this.foldIntoExisting(orgId, existing, data, actorUserId);
+    }
 
-    const customer = await this.prisma.customer.create({
-      data: {
-        organizationId: orgId,
-        name: data.name.trim(),
-        phone,
-        email: data.email?.trim() || null,
-        unsubscribeToken: newUnsubscribeToken(),
-      },
-    });
+    let customer;
+    try {
+      customer = await this.prisma.customer.create({
+        data: {
+          organizationId: orgId,
+          name: data.name.trim(),
+          phone,
+          email: data.email?.trim() || null,
+          unsubscribeToken: newUnsubscribeToken(),
+        },
+      });
+    } catch (err) {
+      if (phone && err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        const raced = await findCustomerByPhone(this.prisma, orgId, phone);
+        if (raced && !raced.anonymizedAt) return this.foldIntoExisting(orgId, raced, data, actorUserId);
+        await this.assertPhoneAvailable(orgId, phone);
+      }
+      throw err;
+    }
 
     await this.consent.record({
       organizationId: orgId,
@@ -269,27 +281,55 @@ export class CustomersService {
       source: "admin_crm",
       actorUserId,
     });
+    await this.applyCreateOptIns(orgId, customer.id, data, actorUserId);
 
-    if (emailOptIn) {
-      await this.customerPrivacy.setMarketingEmailOptIn(
-        orgId,
-        customer.id,
-        true,
-        "admin_crm",
-        { actorUserId },
-      );
-    }
-    if (smsOptIn) {
-      await this.customerPrivacy.setMarketingSmsOptIn(
-        orgId,
-        customer.id,
-        true,
-        "admin_crm",
-        { actorUserId },
-      );
-    }
+    return {
+      ...(await this.prisma.customer.findUniqueOrThrow({ where: { id: customer.id } })),
+      merged: false,
+    };
+  }
 
-    return this.prisma.customer.findUniqueOrThrow({ where: { id: customer.id } });
+  /** Adding a customer whose phone already exists updates that customer instead of duplicating it. */
+  private async foldIntoExisting(
+    orgId: string,
+    existing: { id: string; name: string; email: string | null },
+    data: { name: string; email?: string; marketingEmailOptIn?: boolean; marketingSmsOptIn?: boolean },
+    actorUserId?: string,
+  ) {
+    const email = data.email?.trim();
+    await this.prisma.customer.update({
+      where: { id: existing.id },
+      data: {
+        ...(isGuestName(existing.name) ? { name: data.name.trim() } : {}),
+        ...(!existing.email && email ? { email } : {}),
+      },
+    });
+    await this.applyCreateOptIns(orgId, existing.id, data, actorUserId);
+    await this.audit.log({
+      organizationId: orgId,
+      userId: actorUserId,
+      action: "customer_matched_existing",
+      entityType: "Customer",
+      entityId: existing.id,
+    });
+    return {
+      ...(await this.prisma.customer.findUniqueOrThrow({ where: { id: existing.id } })),
+      merged: true,
+    };
+  }
+
+  private async applyCreateOptIns(
+    orgId: string,
+    customerId: string,
+    data: { marketingEmailOptIn?: boolean; marketingSmsOptIn?: boolean },
+    actorUserId?: string,
+  ) {
+    if (data.marketingEmailOptIn) {
+      await this.customerPrivacy.setMarketingEmailOptIn(orgId, customerId, true, "admin_crm", { actorUserId });
+    }
+    if (data.marketingSmsOptIn) {
+      await this.customerPrivacy.setMarketingSmsOptIn(orgId, customerId, true, "admin_crm", { actorUserId });
+    }
   }
 
   async update(
@@ -345,5 +385,55 @@ export class CustomersService {
     });
 
     return this.prisma.customer.findUniqueOrThrow({ where: { id } });
+  }
+
+  /** Finds (and with `apply`, merges) customers sharing a handset in this org. */
+  async mergeDuplicates(
+    orgId: string,
+    apply: boolean,
+    actorUserId?: string,
+    source: "manual" | "auto" = "manual",
+  ) {
+    const customers = await this.prisma.customer.findMany({
+      where: { organizationId: orgId, phone: { not: null }, anonymizedAt: null },
+      orderBy: { createdAt: "asc" },
+    });
+    const { groups, toNormalize } = findDuplicateGroups(customers);
+
+    if (apply) {
+      for (const group of groups) {
+        await this.prisma.$transaction((tx) => applyMergeGroup(tx, orgId, group));
+      }
+      for (const { customer, phone } of toNormalize) {
+        await this.prisma.customer.update({ where: { id: customer.id }, data: { phone } });
+      }
+      if (groups.length || toNormalize.length) {
+        await this.audit.log({
+          organizationId: orgId,
+          userId: actorUserId,
+          action: "customers_merged",
+          entityType: "Customer",
+          metadata: {
+            source,
+            groups: groups.map((g) => ({
+              keptId: g.primary.id,
+              mergedIds: g.duplicates.map((d) => d.id),
+            })),
+            normalized: toNormalize.length,
+          },
+        });
+      }
+    }
+
+    return {
+      applied: apply,
+      duplicateCount: groups.reduce((s, g) => s + g.duplicates.length, 0),
+      normalizedCount: toNormalize.length,
+      groups: groups.map((g) => ({
+        phone: g.phone,
+        keep: { id: g.primary.id, name: g.primary.name, phone: g.primary.phone },
+        merge: g.duplicates.map((d) => ({ id: d.id, name: d.name, phone: d.phone })),
+      })),
+    };
   }
 }

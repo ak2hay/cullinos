@@ -14,6 +14,11 @@ function isHttpLike(err: unknown): err is { getStatus?: () => number } {
   return typeof err === "object" && err !== null && "getStatus" in err;
 }
 
+/** Contact-sales slugs are custom-priced even if a stale DB row still carries a price. */
+function isCustomPriced(plan: Pick<Plan, "slug" | "priceMonthly">) {
+  return isContactSalesPlanSlug(plan.slug) || Number(plan.priceMonthly) <= 0;
+}
+
 @Injectable()
 export class SaasBillingService {
   private readonly logger = new Logger(SaasBillingService.name);
@@ -51,7 +56,7 @@ export class SaasBillingService {
     const plans = await this.prisma.plan.findMany({ where: { isActive: true } });
     const synced: string[] = [];
     for (const plan of plans) {
-      if (Number(plan.priceMonthly) <= 0) continue;
+      if (isCustomPriced(plan)) continue;
       await this.ensureRazorpayPlan(plan);
       synced.push(plan.slug);
     }
@@ -59,7 +64,7 @@ export class SaasBillingService {
   }
 
   async ensureRazorpayPlan(plan: Plan) {
-    if (Number(plan.priceMonthly) <= 0) {
+    if (isCustomPriced(plan)) {
       throw new BadRequestException(
         `${plan.name} is custom-priced. Contact us for pricing to activate billing.`,
       );
@@ -393,6 +398,8 @@ export class SaasBillingService {
         pendingPlanId: null,
         pendingRazorpaySubId: null,
         cancelledAt: null,
+        isComplimentary: false,
+        compTicketId: null,
         ...(currentEnd ? { currentPeriodEnd: currentEnd } : {}),
         ...(paymentId ? { lastRazorpayPaymentId: paymentId } : {}),
       });
@@ -425,6 +432,8 @@ export class SaasBillingService {
       currentPeriodEnd?: Date;
       lastRazorpayPaymentId?: string;
       cancelledAt?: Date | null;
+      isComplimentary?: boolean;
+      compTicketId?: string | null;
     } = {};
 
     if (currentEnd) data.currentPeriodEnd = currentEnd;
@@ -433,6 +442,8 @@ export class SaasBillingService {
     if (status === "cancelled") data.cancelledAt = new Date();
     if (status === "active") {
       data.cancelledAt = null;
+      data.isComplimentary = false;
+      data.compTicketId = null;
       await this.prisma.organization.update({
         where: { id: subscription.organizationId },
         data: { status: "active" },

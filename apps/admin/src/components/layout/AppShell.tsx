@@ -24,6 +24,7 @@ import {
 } from '@cullinos/ui';
 import { CalendarDays, LogOut, Menu, Search } from 'lucide-react';
 import { organizationsApi } from '@/lib/api';
+import { useSelectedOutletTables } from '@/lib/outlet-tables';
 import { useOpenOrders } from '@/lib/useShellAlerts';
 import { useAuthStore } from '@/stores/auth';
 import { ImpersonationBanner } from '@/components/auth/ImpersonationBanner';
@@ -66,9 +67,9 @@ const navSections: NavSectionDef[] = [
       { to: '/reservations', label: 'Reservations' },
       { to: '/displays', label: 'Displays' },
       { to: '/stations', label: 'Kitchen stations' },
-      { to: '/kiosk', label: 'Digital Ordering' },
+      { to: '/kiosk', label: 'Self-order (kiosk & QR)' },
       { to: '/delivery', label: 'Delivery' },
-      { to: '/aggregators', label: 'Aggregators (Coming soon)' },
+      { to: '/aggregators', label: 'Swiggy & Zomato' },
     ],
   },
   {
@@ -227,6 +228,7 @@ function SidebarNav({
 
   const businessType = parseBusinessType(org?.businessType);
   const restaurantSize = parseRestaurantSize(org?.restaurantSize);
+  const { tablesEnabled } = useSelectedOutletTables();
 
   const visibleSections = useMemo(() => {
     return translateSections(t, navSections)
@@ -234,13 +236,23 @@ function SidebarNav({
         ...section,
         items: section.items
           .filter((item) =>
-            isAdminNavPathVisible(businessType, item.to, restaurantSize, org?.enabledModules),
+            isAdminNavPathVisible(businessType, item.to, restaurantSize, org?.enabledModules, {
+              tablesEnabled,
+            }),
           )
           .filter((item) => isErpNavPathAllowed(permissions, item.to))
           .filter((item) => item.to !== '/onboarding' || org?.setupCompleted !== true),
       }))
       .filter((section) => section.items.length > 0);
-  }, [t, businessType, restaurantSize, org?.enabledModules, org?.setupCompleted, permissions]);
+  }, [
+    t,
+    businessType,
+    restaurantSize,
+    org?.enabledModules,
+    org?.setupCompleted,
+    permissions,
+    tablesEnabled,
+  ]);
 
   const openOrders = useOpenOrders();
   const canSeeBilling = isErpNavPathAllowed(permissions, '/billing');
@@ -376,18 +388,29 @@ export function AppShell({ compact, children }: AppShellProps) {
   const canPos = canAccessPortalMode(permissions, 'pos');
   const posOnly = canPos && !canErp;
   const inPosMode = !compact && canPos && (posOnly || location.pathname === '/pos');
+  const { tablesEnabled } = useSelectedOutletTables();
 
   const visibleNavItems = useMemo(() => {
     return translateSections(t, navSections).flatMap((section) =>
       section.items
         .filter((item) =>
-          isAdminNavPathVisible(businessType, item.to, restaurantSize, org?.enabledModules),
+          isAdminNavPathVisible(businessType, item.to, restaurantSize, org?.enabledModules, {
+            tablesEnabled,
+          }),
         )
         .filter((item) => isErpNavPathAllowed(permissions, item.to))
         .filter((item) => item.to !== '/onboarding' || org?.setupCompleted !== true)
         .map((item) => ({ ...item, group: section.label })),
     );
-  }, [t, businessType, restaurantSize, org?.enabledModules, org?.setupCompleted, permissions]);
+  }, [
+    t,
+    businessType,
+    restaurantSize,
+    org?.enabledModules,
+    org?.setupCompleted,
+    permissions,
+    tablesEnabled,
+  ]);
 
   const commandItems: CommandPaletteItem[] = useMemo(
     () =>

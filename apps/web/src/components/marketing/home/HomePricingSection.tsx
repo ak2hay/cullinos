@@ -99,7 +99,7 @@ export function HomePricingSection() {
               </div>
               <div className="p-6 pt-4">
                 <Link href={getRegisterUrl()} className="btn-pill-filled btn-pill w-full text-center">
-                  Start free trial
+                  Start 30-day free trial
                 </Link>
               </div>
             </motion.article>

@@ -49,17 +49,7 @@ import { Msg91Service } from "../sms/msg91.service";
 import { WhatsappService } from "../sms/whatsapp.service";
 import { SuperAdminService } from "./super-admin.service";
 import { RefreshCookieInterceptor } from "../auth/refresh-cookie.interceptor";
-import { LabsSqlDto, UpdateOrgEnvironmentDto } from "./dto/super-admin.dto";
-
-class SuperAdminLoginDto {
-  @IsEmail()
-  email!: string;
-
-  @IsString()
-  @MinLength(4)
-  @MaxLength(128)
-  password!: string;
-}
+import { LabsSqlDto, SuperAdminLoginDto, UpdateOrgEnvironmentDto } from "./dto/super-admin.dto";
 
 class VerifyOtpDto {
   @IsString()
@@ -130,6 +120,35 @@ class OnboardRestaurantDto {
 class SetTrialDto {
   @IsDateString()
   trialEndsAt!: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(40)
+  ticketId!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}
+
+class ComplimentarySubscriptionDto {
+  @IsString()
+  @MinLength(1)
+  planId!: string;
+
+  @IsDateString()
+  periodEnd!: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(40)
+  ticketId!: string;
+
+  @IsString()
+  @MinLength(10)
+  @MaxLength(500)
+  reason!: string;
 }
 
 class UpdatePlanModulesDto {
@@ -520,7 +539,22 @@ export class SuperAdminController {
     @Body() body: SetTrialDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.service.setTrialEnd(id, body.trialEndsAt, user.sub);
+    return this.service.setTrialEnd(id, body.trialEndsAt, user.sub, {
+      ticketId: body.ticketId,
+      note: body.note,
+    });
+  }
+
+  @Post("organizations/:id/subscription/complimentary")
+  @RequirePlatformPermission("subscriptions.manage")
+  @PlatformScope("param")
+  @RequiresApproval("subscriptions.change", "Activate subscription without payment")
+  activateComplimentary(
+    @Param("id") id: string,
+    @Body() body: ComplimentarySubscriptionDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.activateComplimentarySubscription(id, body, user.sub);
   }
 
   @Put("organizations/:id/subscription")

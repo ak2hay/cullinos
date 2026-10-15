@@ -36,8 +36,13 @@ export function useKitchenSocket(outletId: string | null): KitchenSocketStatus {
     });
     socketRef.current = socket;
 
+    // One server change fans out to several events (kot + order, each as `.` and `:`).
+    let debounce: ReturnType<typeof setTimeout> | undefined;
     const invalidate = () => {
-      queryClient.invalidateQueries({ queryKey: ['kitchen-display', outletId] });
+      clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['kitchen-display', outletId] });
+      }, 300);
     };
 
     socket.on('connect', () => {
@@ -72,16 +77,13 @@ export function useKitchenSocket(outletId: string | null): KitchenSocketStatus {
       }
     });
 
-    socket.on('kot:created', invalidate);
-    socket.on('kot:updated', invalidate);
     socket.on('kot.created', invalidate);
     socket.on('kot.updated', invalidate);
-    socket.on('order:created', invalidate);
-    socket.on('order:updated', invalidate);
     socket.on('order.created', invalidate);
     socket.on('order.updated', invalidate);
 
     return () => {
+      clearTimeout(debounce);
       socket.emit('leave_outlet', outletId);
       socket.disconnect();
       socketRef.current = null;

@@ -3,7 +3,10 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AgentShell } from '@/components/AgentShell';
 import { PortalShell } from '@/components/PortalShell';
 import { LoginPage } from '@/pages/LoginPage';
+import { AgentDashboardPage } from '@/pages/agent/AgentDashboardPage';
+import { AgentGrantsPage } from '@/pages/agent/AgentGrantsPage';
 import { AgentKnowledgePage } from '@/pages/agent/AgentKnowledgePage';
+import { AgentShiftsPage } from '@/pages/agent/AgentShiftsPage';
 import { AgentNewTicketPage } from '@/pages/agent/AgentNewTicketPage';
 import { AgentQueuePage } from '@/pages/agent/AgentQueuePage';
 import { AgentTicketPage } from '@/pages/agent/AgentTicketPage';
@@ -41,6 +44,9 @@ export default function App() {
         <Route path="tickets/new" element={<AgentNewTicketPage />} />
         <Route path="tickets/:id" element={<AgentTicketPage />} />
         <Route path="knowledge" element={<AgentKnowledgePage />} />
+        <Route path="dashboard" element={<AgentDashboardPage />} />
+        <Route path="grants" element={<AgentGrantsPage />} />
+        <Route path="shifts" element={<AgentShiftsPage />} />
       </Route>
       <Route
         path="/"

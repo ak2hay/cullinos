@@ -3,8 +3,13 @@ import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
+import { BreadcrumbJsonLd } from '@/components/marketing/JsonLd';
 import { getBlogPost, getBlogSlugs } from '@/lib/blog';
 import { createMetadata } from '@/lib/metadata';
+
+// notFound() on an on-demand slug still answered 200; unknown slugs must 404 at the router.
+// shortcut: CMS posts published after a build 404 until the next web deploy, switch to a slug check in middleware once the CMS blog is used.
+export const dynamicParams = false;
 
 export async function generateStaticParams() {
   const slugs = await getBlogSlugs();
@@ -33,6 +38,12 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   return (
     <>
+      <BreadcrumbJsonLd
+        trail={[
+          { name: 'Blog', path: '/blog' },
+          { name: post.title, path: `/blog/${slug}` },
+        ]}
+      />
       <Hero
         eyebrow={post.date}
         title={post.title}

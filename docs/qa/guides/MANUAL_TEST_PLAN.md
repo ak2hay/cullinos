@@ -6,7 +6,7 @@ Full functionality manual QA for production, starting from a **fresh tenant** on
 **Tenant:** New restaurant (Enterprise plan)  
 **Staff:** 1 employee (Waiter role)
 
-**Exhaustive click-paths:** [COMPLETE_FEATURE_TEST_GUIDE.md](./COMPLETE_FEATURE_TEST_GUIDE.md) · **Score sheet:** [TEST_RUN_SHEET.md](../sheets/TEST_RUN_SHEET.md) (**190** cases)
+**Exhaustive click-paths:** [COMPLETE_FEATURE_TEST_GUIDE.md](./COMPLETE_FEATURE_TEST_GUIDE.md) · **Score sheet:** [TEST_RUN_SHEET.md](../sheets/TEST_RUN_SHEET.md) (**232** cases)
 
 ---
 

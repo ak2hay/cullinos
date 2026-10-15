@@ -460,12 +460,15 @@ export function isNavFeatureVisible(
  * `enabledModules` is the active subscription's enabled entitlement modules.
  * Pass null/undefined when unknown (loading, no active subscription) to skip
  * the plan check and fall back to business-type visibility only.
+ * `tablesEnabled` is the selected outlet's table-system setting; when set it
+ * replaces the business-type default for table pages.
  */
 export function isAdminNavPathVisible(
   type: BusinessType | null | undefined,
   path: string,
   size?: RestaurantSize | null,
   enabledModules?: readonly string[] | null,
+  options: { tablesEnabled?: boolean | null } = {},
 ): boolean {
   const planModule = ADMIN_NAV_PLAN_MODULE_MAP[path];
   if (planModule && enabledModules && !enabledModules.includes(planModule)) {
@@ -480,5 +483,8 @@ export function isAdminNavPathVisible(
   }
   const feature = ADMIN_NAV_FEATURE_MAP[path];
   if (!feature) return true;
+  if (feature === FEATURES.TABLES && typeof options.tablesEnabled === 'boolean') {
+    return options.tablesEnabled;
+  }
   return isNavFeatureVisible(type, feature, size);
 }

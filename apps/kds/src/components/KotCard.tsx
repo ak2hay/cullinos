@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button, colors } from '@cullinos/ui';
-import type { Kot, KotItemStatus } from '@/lib/api';
+import type { KitchenDisplayData, Kot, KotItemStatus } from '@/lib/api';
 import { kitchenApi } from '@/lib/api';
 import { OrderTimer } from './OrderTimer';
 
@@ -27,6 +27,31 @@ const statusStyles: Record<string, { border: string; badge: string; label: strin
   },
 };
 
+/** Served tickets leave the board; other bumps move every open item to the new status. */
+function bumpKotInDisplay(
+  data: KitchenDisplayData,
+  kotId: string,
+  status: KotItemStatus,
+): KitchenDisplayData {
+  const bump = (kots: Kot[]): Kot[] =>
+    status === 'SERVED'
+      ? kots.filter((k) => k.id !== kotId)
+      : kots.map((k) =>
+          k.id === kotId
+            ? {
+                ...k,
+                status,
+                items: k.items.map((i) => (i.status === 'SERVED' ? i : { ...i, status })),
+              }
+            : k,
+        );
+  return {
+    ...data,
+    allKots: bump(data.allKots),
+    stations: data.stations.map((s) => ({ ...s, kots: bump(s.kots) })),
+  };
+}
+
 function nextStatus(current: string): KotItemStatus | null {
   if (current === 'NEW') return 'PREPARING';
   if (current === 'PREPARING') return 'READY';
@@ -43,27 +68,30 @@ export function KotCard({ kot, outletId }: KotCardProps) {
   const queryClient = useQueryClient();
   const style = statusStyles[kot.status] ?? statusStyles.NEW;
   const tableLabel = kot.order.table?.name ?? kot.order.orderType;
+  const token = !kot.order.table && kot.order.pickupCode ? kot.order.pickupCode : null;
 
+  const displayKey = ['kitchen-display', outletId];
   const updateMutation = useMutation({
-    mutationFn: ({ itemId, status }: { itemId: string; status: KotItemStatus }) =>
-      kitchenApi.updateItemStatus(itemId, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kitchen-display', outletId] });
+    mutationFn: (status: KotItemStatus) => kitchenApi.updateKotStatus(kot.id, status),
+    onMutate: async (status) => {
+      await queryClient.cancelQueries({ queryKey: displayKey });
+      const previous = queryClient.getQueriesData<KitchenDisplayData>({ queryKey: displayKey });
+      queryClient.setQueriesData<KitchenDisplayData>({ queryKey: displayKey }, (data) =>
+        data ? bumpKotInDisplay(data, kot.id, status) : data,
+      );
+      return { previous };
+    },
+    onError: (_err, _status, context) => {
+      for (const [key, data] of context?.previous ?? []) queryClient.setQueryData(key, data);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: displayKey });
     },
   });
 
-  async function bumpAllItems() {
+  function bumpAllItems() {
     const next = nextStatus(kot.status);
-    if (!next) return;
-    try {
-      for (const item of kot.items) {
-        if (item.status !== 'SERVED') {
-          await updateMutation.mutateAsync({ itemId: item.id, status: next });
-        }
-      }
-    } catch {
-      // Error surface via updateMutation.error below.
-    }
+    if (next) updateMutation.mutate(next);
   }
 
   const next = nextStatus(kot.status);
@@ -89,6 +117,11 @@ export function KotCard({ kot, outletId }: KotCardProps) {
               </span>
             ) : null}
           </div>
+          {token ? (
+            <p className="font-mono text-base font-bold tracking-wider text-text-primary">
+              Token {token}
+            </p>
+          ) : null}
           <p className="text-sm text-text-secondary">
             {tableLabel} · Order {kot.order.orderNumber}
           </p>
@@ -134,7 +167,7 @@ export function KotCard({ kot, outletId }: KotCardProps) {
           variant={next === 'READY' ? 'success' : next === 'PREPARING' ? 'warning' : 'primary'}
           className="w-full"
           loading={updateMutation.isPending}
-          onClick={() => void bumpAllItems()}
+          onClick={bumpAllItems}
         >
           Mark {next === 'PREPARING' ? 'Preparing' : next === 'READY' ? 'Ready' : 'Served'}
         </Button>

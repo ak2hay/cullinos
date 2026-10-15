@@ -19,6 +19,12 @@ const API_BASE = resolveViteApiBase({
 });
 export { API_BASE };
 
+/** Absolute URL for an API path, e.g. webhook URLs shown to tenants. */
+export function absoluteApiUrl(path: string) {
+  const base = API_BASE.startsWith('http') ? API_BASE : `${window.location.origin}${API_BASE}`;
+  return `${base.replace(/\/$/, '')}${path}`;
+}
+
 const refreshSession = createSessionRefresher({
   apiBase: API_BASE,
   portalId: PORTAL_ID,
@@ -106,11 +112,9 @@ export async function apiRequest<T>(
   headers.set('Content-Type', 'application/json');
   headers.set('X-Cullinos-Portal', PORTAL_ID);
 
-  if (authenticated) {
-    const token = useAuthStore.getState().accessToken;
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
-    }
+  const sentToken = authenticated ? useAuthStore.getState().accessToken : null;
+  if (sentToken) {
+    headers.set('Authorization', `Bearer ${sentToken}`);
   }
 
   const response = await fetch(`${API_BASE}${path}`, {
@@ -122,11 +126,17 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     const err = await parseError(response);
-    if (err.status === 401 && authenticated && useAuthStore.getState().accessToken) {
-      if (!retried && (await tryRefreshSession())) {
-        return apiRequest<T>(path, options, authenticated, true);
+    if (err.status === 401 && sentToken) {
+      const currentToken = useAuthStore.getState().accessToken;
+      if (currentToken !== sentToken) {
+        // Token changed mid-flight (new login or concurrent refresh): this 401 is stale, never log the new session out.
+        if (currentToken && !retried) return apiRequest<T>(path, options, authenticated, true);
+      } else {
+        if (!retried && (await tryRefreshSession())) {
+          return apiRequest<T>(path, options, authenticated, true);
+        }
+        useAuthStore.getState().logout();
       }
-      useAuthStore.getState().logout();
     }
     if (err.status === 503 && err.code === 'PORTAL_DISABLED') {
       usePortalStore.getState().setDisabled(err.message);
@@ -210,6 +220,8 @@ export interface Outlet {
   qrSessionTimeoutMinutes?: number;
   kdsServedCompletesOrder?: KdsServedCompletesOrder;
   posQuickKeys?: PosQuickKey[];
+  /** Table-system override for this outlet; null follows the business type. */
+  tablesEnabled?: boolean | null;
 }
 
 export type KdsServedCompletesOrder = 'always' | 'paid_only' | 'off';
@@ -512,6 +524,17 @@ export interface CustomerOverview {
   summary: { totalCustomers: number; totalPoints: number };
 }
 
+export interface CustomerMergeResult {
+  applied: boolean;
+  duplicateCount: number;
+  normalizedCount: number;
+  groups: {
+    phone: string;
+    keep: { id: string; name: string; phone: string | null };
+    merge: { id: string; name: string; phone: string | null }[];
+  }[];
+}
+
 export interface LoyaltySettings {
   pointsPerCurrency: number;
   redemptionValue: number;
@@ -713,6 +736,7 @@ export const outletsApi = {
       qrSessionTimeoutMinutes: number;
       kdsServedCompletesOrder: KdsServedCompletesOrder;
       posQuickKeys: PosQuickKey[];
+      tablesEnabled: boolean | null;
     }>,
   ) => apiRequest<Outlet>(`/outlets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   uploadCoverImage: async (id: string, file: File): Promise<{ coverImageUrl: string }> => {
@@ -1229,7 +1253,7 @@ export const customersApi = {
     marketingEmailOptIn?: boolean;
     marketingSmsOptIn?: boolean;
   }) =>
-    apiRequest<Customer>('/customers', {
+    apiRequest<Customer & { merged?: boolean }>('/customers', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
@@ -1246,6 +1270,11 @@ export const customersApi = {
     apiRequest<Customer>(`/customers/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
+    }),
+  mergeDuplicates: (apply: boolean) =>
+    apiRequest<CustomerMergeResult>('/customers/merge-duplicates', {
+      method: 'POST',
+      body: JSON.stringify({ apply }),
     }),
   export: (id: string) => apiRequest<unknown>(`/customers/${id}/export`),
   erase: (id: string) =>
@@ -2183,6 +2212,150 @@ export const aggregatorsApi = {
   },
 };
 
+export type UrbanPiperPlatform = 'swiggy' | 'zomato';
+
+export interface UrbanPiperOutletRow {
+  connected: boolean;
+  storeRefId?: string;
+  platforms: Record<UrbanPiperPlatform, boolean>;
+  disabledItemIds?: string[];
+  storeOnline?: boolean;
+  lastMenuPushAt?: string;
+  lastMenuPushError?: string | null;
+  itemSkuMap?: Record<string, string>;
+}
+
+export interface UrbanPiperUnmappedItem {
+  externalItemId: string;
+  name: string;
+  platform?: string;
+  outletId: string;
+  lastSeenAt: string;
+  count: number;
+}
+
+export interface UrbanPiperSettings {
+  provider: 'urbanpiper';
+  isActive: boolean;
+  username: string;
+  mode: 'sandbox' | 'production';
+  apiKeyConfigured: boolean;
+  apiKeyFingerprint: string | null;
+  webhookSecretFingerprint: string | null;
+  /** Only returned right after the secret is created or rotated. */
+  webhookSecret: string | null;
+  webhookPaths: { orders: string; status: string; rider: string };
+  acceptTimeoutMinutes: number;
+  autoRejectOnTimeout: boolean;
+  defaultPrepTimeMinutes: number;
+  autoPushMenu: boolean;
+  outlets: Record<string, UrbanPiperOutletRow>;
+  unmappedItems: UrbanPiperUnmappedItem[];
+}
+
+export interface AggregatorOrder {
+  id: string;
+  outletId: string;
+  orderNumber: string;
+  status: string;
+  total: number;
+  customerName: string | null;
+  notes: string | null;
+  createdAt: string;
+  items: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    notes: string | null;
+    unitPrice: number;
+    modifiers: string[];
+  }>;
+  aggregator: {
+    platform: string;
+    externalOrderId: string;
+    channelOrderId: string | null;
+    orderType: string;
+    acceptBy: string | null;
+    prepTimeMinutes: number | null;
+    rejectReason: string | null;
+    rider: { state: string; name?: string; phone?: string; updatedAt: string } | null;
+    statusSync: { status: string; ok: boolean; error?: string; at: string } | null;
+    unmappedItems: string[];
+  } | null;
+}
+
+export const urbanPiperApi = {
+  getSettings: () => apiRequest<UrbanPiperSettings>('/urbanpiper/settings'),
+  updateSettings: (payload: {
+    isActive?: boolean;
+    username?: string;
+    apiKey?: string;
+    mode?: 'sandbox' | 'production';
+    acceptTimeoutMinutes?: number;
+    autoRejectOnTimeout?: boolean;
+    defaultPrepTimeMinutes?: number;
+    autoPushMenu?: boolean;
+  }) =>
+    apiRequest<UrbanPiperSettings>('/urbanpiper/settings', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  regenerateWebhookSecret: () =>
+    apiRequest<UrbanPiperSettings>('/urbanpiper/settings/regenerate-webhook-secret', {
+      method: 'POST',
+    }),
+  updateOutlet: (
+    outletId: string,
+    payload: {
+      connected?: boolean;
+      storeRefId?: string | null;
+      platforms?: Partial<Record<UrbanPiperPlatform, boolean>>;
+    },
+  ) =>
+    apiRequest<UrbanPiperSettings>(`/urbanpiper/outlets/${outletId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  pushMenu: (outletId: string) =>
+    apiRequest<{ ok: boolean; items: number; categories: number; skippedAlcohol: number; pushedAt: string }>(
+      `/urbanpiper/outlets/${outletId}/menu-push`,
+      { method: 'POST' },
+    ),
+  setItemsAvailability: (outletId: string, itemIds: string[], available: boolean) =>
+    apiRequest<{ ok: boolean; disabledItemIds: string[] }>(
+      `/urbanpiper/outlets/${outletId}/items/availability`,
+      { method: 'POST', body: JSON.stringify({ itemIds, available }) },
+    ),
+  setStoreOnline: (outletId: string, online: boolean) =>
+    apiRequest<{ ok: boolean; storeOnline: boolean }>(`/urbanpiper/outlets/${outletId}/store-status`, {
+      method: 'POST',
+      body: JSON.stringify({ online }),
+    }),
+  mapItem: (outletId: string, externalItemId: string, menuItemId: string | null) =>
+    apiRequest<UrbanPiperSettings>(`/urbanpiper/outlets/${outletId}/item-map`, {
+      method: 'POST',
+      body: JSON.stringify({ externalItemId, menuItemId }),
+    }),
+  listOrders: (outletId: string) =>
+    apiRequest<AggregatorOrder[]>(`/urbanpiper/orders?outletId=${encodeURIComponent(outletId)}`),
+  accept: (orderId: string, prepTimeMinutes?: number) =>
+    apiRequest<AggregatorOrder>(`/urbanpiper/orders/${orderId}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ prepTimeMinutes }),
+    }),
+  reject: (orderId: string, reason: string) =>
+    apiRequest<AggregatorOrder>(`/urbanpiper/orders/${orderId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  markReady: (orderId: string) =>
+    apiRequest<AggregatorOrder>(`/urbanpiper/orders/${orderId}/ready`, { method: 'POST' }),
+  dispatch: (orderId: string) =>
+    apiRequest<AggregatorOrder>(`/urbanpiper/orders/${orderId}/dispatch`, { method: 'POST' }),
+  retrySync: (orderId: string) =>
+    apiRequest<AggregatorOrder>(`/urbanpiper/orders/${orderId}/retry-sync`, { method: 'POST' }),
+};
+
 export const reportsApi = {
   smbSummary: (params?: { outletId?: string; date?: string }) => {
     const search = new URLSearchParams();
@@ -2596,6 +2769,7 @@ export interface TenantSubscription {
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
   graceUntil: string | null;
+  isComplimentary?: boolean;
   razorpaySubId: string | null;
   razorpayShortUrl: string | null;
   plan: {

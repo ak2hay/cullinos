@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, ErrorBanner, Input, useToast } from '@cullinos/ui';
-import { outletsApi, paymentGatewaysApi, type PaymentGatewayRow } from '@/lib/api';
+import {
+  absoluteApiUrl,
+  outletsApi,
+  paymentGatewaysApi,
+  type PaymentGatewayRow,
+} from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 
 type Provider = 'razorpay' | 'cashfree';
@@ -48,11 +53,6 @@ export function PaymentsSettingsPanel() {
     setIsActive(providerData.isActive);
     setOverrideOutletId(null);
   }, [providerData, activeProvider]);
-
-  const apiBase = useMemo(() => {
-    const env = import.meta.env.VITE_API_URL as string | undefined;
-    return (env?.replace(/\/$/, '') || window.location.origin).replace(/\/api\/?$/, '') + '/api';
-  }, []);
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -232,8 +232,7 @@ export function PaymentsSettingsPanel() {
           <p>
             <span className="text-text-muted">Webhook URL:</span>{' '}
             <code className="text-xs break-all">
-              {apiBase}
-              {providerData?.webhookPath ?? `/payments/webhooks/${activeProvider}`}
+              {absoluteApiUrl(providerData?.webhookPath ?? `/payments/webhooks/${activeProvider}`)}
             </code>
           </p>
           <p className="text-text-muted text-xs">

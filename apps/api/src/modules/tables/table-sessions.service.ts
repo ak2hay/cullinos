@@ -10,7 +10,7 @@ import { IncomingOrderItem } from "../../common/order-items.util";
 import { OrdersService } from "../orders/orders.service";
 import { toApiTableStatus } from "../../common/status.util";
 import { releaseMergedTables, repointMergedTables } from "./table-merge.util";
-import { businessTypeUsesTables } from "./business-type-tables.util";
+import { outletUsesTablesFor, TABLES_OFF_MESSAGE } from "./business-type-tables.util";
 
 const GUEST_APP_BASE =
   process.env.GUEST_APP_URL ?? "https://guest.cullinos.com";
@@ -248,7 +248,11 @@ export class TableSessionsService {
         section: { floor: { outletId, outlet: { organizationId: orgId } } },
       },
       include: {
-        section: { include: { floor: { include: { outlet: { include: { organization: true } } } } } },
+        section: {
+          include: {
+            floor: { include: { outlet: { include: { organization: true, settings: true } } } },
+          },
+        },
         mergedInto: { select: { id: true, name: true } },
       },
     });
@@ -292,8 +296,9 @@ export class TableSessionsService {
     guestCount?: number,
   ) {
     const table = await this.assertTable(orgId, outletId, tableId);
-    if (!businessTypeUsesTables(table.section.floor.outlet.organization?.businessType)) {
-      throw new BadRequestException("This business type does not use tables");
+    const tableOutlet = table.section.floor.outlet;
+    if (!outletUsesTablesFor(tableOutlet.organization?.businessType, tableOutlet.settings?.settings)) {
+      throw new BadRequestException("Tables are turned off for this outlet. Turn them on in Settings.");
     }
     if (table.mergedIntoTableId) {
       throw new BadRequestException(
@@ -360,7 +365,7 @@ export class TableSessionsService {
     const tableInclude = {
       section: {
         include: {
-          floor: { include: { outlet: { include: { organization: true } } } },
+          floor: { include: { outlet: { include: { organization: true, settings: true } } } },
         },
       },
     } as const;
@@ -383,6 +388,9 @@ export class TableSessionsService {
     const org = outlet.organization;
     if (outlet.status !== "active" || org.status === "suspended" || org.status === "cancelled") {
       throw new BadRequestException("This restaurant is not accepting QR orders right now");
+    }
+    if (!outletUsesTablesFor(org.businessType, outlet.settings?.settings)) {
+      throw new BadRequestException(TABLES_OFF_MESSAGE);
     }
 
     const existing = await this.prisma.tableSession.findFirst({

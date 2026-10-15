@@ -8,6 +8,7 @@ import {
 import { PrismaService } from "../../prisma/prisma.service";
 import { WebsocketGateway } from "../../websocket/websocket.gateway";
 import { OrdersService } from "../orders/orders.service";
+import { OrderStatusNotifier } from "../orders/order-status.notifier";
 import { RecipesService } from "../recipes/recipes.service";
 
 type UiStatus = "NEW" | "PREPARING" | "READY" | "SERVED" | "CANCELLED";
@@ -57,6 +58,8 @@ export class KitchenService {
     private recipes?: RecipesService,
     @Optional()
     private orders?: OrdersService,
+    @Optional()
+    private statusNotifier?: OrderStatusNotifier,
   ) {}
 
   list(orgId: string) {
@@ -86,6 +89,7 @@ export class KitchenService {
     }>;
     order: {
       orderNumber: string;
+      pickupCode: string | null;
       type: string;
       tableId: string | null;
       customerName: string | null;
@@ -129,6 +133,7 @@ export class KitchenService {
       })),
       order: {
         orderNumber: kot.order.orderNumber,
+        pickupCode: kot.order.pickupCode,
         tableId: kot.order.tableId,
         orderType: kot.order.type,
         table: kot.order.table,
@@ -177,6 +182,7 @@ export class KitchenService {
           order: {
             select: {
               orderNumber: true,
+              pickupCode: true,
               customerName: true,
               type: true,
               tableId: true,
@@ -282,88 +288,83 @@ export class KitchenService {
     const dbStatus = toDbStatus(status);
     const item = await this.prisma.kOTItem.findFirst({
       where: { id: itemId, kot: { order: { organizationId: orgId } } },
-      include: {
-        orderItem: true,
-        kot: {
-          include: {
-            items: true,
-            order: true,
-            kitchenStation: true,
-          },
-        },
-      },
+      select: { kotId: true },
     });
     if (!item) throw new NotFoundException("Kitchen item not found");
+    const kot = await this.loadKot(orgId, item.kotId);
+    const [mappedItem] = await this.applyItemStatuses(orgId, kot, [itemId], dbStatus);
+    return mappedItem;
+  }
 
-    const updatedItem = await this.prisma.kOTItem.update({
-      where: { id: itemId },
-      data: { status: dbStatus },
-      include: { orderItem: true },
-    });
+  /** Bumps every open item on a ticket in one round trip (KDS "Mark …" button). */
+  async updateKotStatus(orgId: string, kotId: string, status: string) {
+    const dbStatus = toDbStatus(status);
+    const kot = await this.loadKot(orgId, kotId);
+    const itemIds = kot.items
+      .filter((i) => !["served", "cancelled"].includes(i.status.toLowerCase()))
+      .map((i) => i.id);
+    if (!itemIds.length) return { kotId, items: [] };
+    const items = await this.applyItemStatuses(orgId, kot, itemIds, dbStatus);
+    return { kotId, items };
+  }
 
-    const siblings = await this.prisma.kOTItem.findMany({
-      where: { kotId: item.kotId },
+  private async loadKot(orgId: string, kotId: string) {
+    const kot = await this.prisma.kOT.findFirst({
+      where: { id: kotId, order: { organizationId: orgId } },
+      include: {
+        items: { include: { orderItem: true } },
+        order: { include: { table: { select: { name: true } } } },
+      },
     });
-    const ranks = { pending: 0, preparing: 1, ready: 2, served: 3, cancelled: -1 };
-    const active = siblings.map((s) =>
-      s.id === itemId ? dbStatus : s.status.toLowerCase(),
-    );
-    const minRank = Math.min(
-      ...active
-        .filter((s) => s !== "cancelled")
-        .map((s) => ranks[s as keyof typeof ranks] ?? 0),
-    );
-    let kotStatus: "pending" | "preparing" | "ready" | "served" | "cancelled" = "pending";
-    if (active.every((s) => s === "cancelled")) {
-      kotStatus = "cancelled";
-    } else if (active.every((s) => s === "served" || s === "cancelled")) {
-      kotStatus = "served";
-    } else if (active.every((s) => s === "ready" || s === "served" || s === "cancelled")) {
-      kotStatus = "ready";
-    } else if (minRank >= 1) {
-      kotStatus = "preparing";
-    }
+    if (!kot) throw new NotFoundException("Kitchen ticket not found");
+    return kot;
+  }
 
-    await this.prisma.kOT.update({
-      where: { id: item.kotId },
-      data: { status: kotStatus },
-    });
+  private async applyItemStatuses(
+    orgId: string,
+    kot: Awaited<ReturnType<KitchenService["loadKot"]>>,
+    itemIds: string[],
+    dbStatus: string,
+  ) {
+    const changed = new Set(itemIds);
+    const statusOf = (i: { id: string; status: string }) =>
+      changed.has(i.id) ? dbStatus : i.status.toLowerCase();
+    const kotStatus = rollUpKotStatus(kot.items.map(statusOf));
+    const order = kot.order;
+    const orderId = kot.orderId;
+    const outletId = order.outletId;
+
+    const [, , otherItems] = await Promise.all([
+      this.prisma.kOTItem.updateMany({
+        where: { id: { in: itemIds }, kotId: kot.id },
+        data: { status: dbStatus as never },
+      }),
+      kotStatus !== kot.status
+        ? this.prisma.kOT.update({ where: { id: kot.id }, data: { status: kotStatus } })
+        : Promise.resolve(null),
+      this.prisma.kOTItem.findMany({
+        where: { kot: { orderId, id: { not: kot.id } } },
+        select: { status: true },
+      }),
+    ]);
 
     // Roll up parent order for CDS board
-    const orderId = item.kot.orderId;
-    const outletId = item.kot.order.outletId;
-    const allKots = await this.prisma.kOT.findMany({
-      where: { orderId },
-      include: { items: true },
-    });
-    const allItemStatuses = allKots.flatMap((k) =>
-      k.items.map((i) => (i.id === itemId ? dbStatus : i.status.toLowerCase())),
-    );
-    let orderStatus: string | null = null;
-    // Cancelled lines don't count as fulfilment; an all-cancelled order needs a staff cancel/void.
-    const liveItemStatuses = allItemStatuses.filter((s) => s !== "cancelled");
-    if (liveItemStatuses.length === 0) {
-      orderStatus = null;
-    } else if (liveItemStatuses.every((s) => s === "served")) {
-      orderStatus = "served";
-    } else if (liveItemStatuses.every((s) => s === "ready" || s === "served")) {
-      orderStatus = "ready";
-    } else if (allItemStatuses.some((s) => s === "preparing" || s === "ready" || s === "served")) {
-      orderStatus = "preparing";
-    }
+    const allItemStatuses = [
+      ...kot.items.map(statusOf),
+      ...otherItems.map((i) => i.status.toLowerCase()),
+    ];
+    const orderStatus = rollUpOrderStatus(allItemStatuses);
 
     if (
       orderStatus &&
-      ["confirmed", "preparing", "ready"].includes(item.kot.order.status)
+      orderStatus !== order.status &&
+      ["confirmed", "preparing", "ready"].includes(order.status)
     ) {
-      const now = new Date();
       const updatedOrder = await this.prisma.order.update({
         where: { id: orderId },
         data: {
           status: orderStatus as never,
-          ...(orderStatus === "ready" && item.kot.order.status !== "ready"
-            ? { readyAt: now }
-            : {}),
+          ...(orderStatus === "ready" ? { readyAt: new Date() } : {}),
           timeline: {
             create: {
               event: "order.status_changed",
@@ -371,55 +372,94 @@ export class KitchenService {
             },
           },
         },
-        include: { items: true, table: true },
+        select: { id: true, orderNumber: true, status: true, tableId: true, metadata: true },
       });
-      if (orderStatus === "served" && this.recipes) {
-        await this.recipes.deductForOrder(orgId, orderId);
-      }
+      this.statusNotifier?.changed({
+        organizationId: orgId,
+        id: updatedOrder.id,
+        outletId,
+        status: updatedOrder.status,
+        metadata: updatedOrder.metadata,
+      });
+      const tableName = order.table?.name ?? null;
       this.ws.emitToOutlet(outletId, "order.updated", {
         id: updatedOrder.id,
         orderNumber: updatedOrder.orderNumber,
         status: updatedOrder.status,
         tableId: updatedOrder.tableId,
-        tableName: updatedOrder.table?.name ?? null,
+        tableName,
       });
       if (orderStatus === "ready") {
         this.ws.emitToOutlet(outletId, "order.ready", {
           id: updatedOrder.id,
           orderNumber: updatedOrder.orderNumber,
           tableId: updatedOrder.tableId,
-          tableName: updatedOrder.table?.name ?? null,
+          tableName,
           status: "READY",
         });
       }
-      if (orderStatus === "served" && this.orders) {
-        await this.orders.completeAfterKitchenServe(orgId, orderId).catch((err) =>
-          this.logger.warn(
-            `Auto-complete after serve failed for ${orderId}: ${err instanceof Error ? err.message : String(err)}`,
-          ),
-        );
-      }
+      if (orderStatus === "served") this.finishServedOrder(orgId, orderId);
     }
 
-    const mappedItem = {
-      id: updatedItem.id,
-      kotId: updatedItem.kotId,
-      kitchenStationId: item.kot.kitchenStationId,
-      name: updatedItem.orderItem.name,
-      quantity: updatedItem.orderItem.quantity,
-      status: toUiStatus(updatedItem.status),
-      notes: updatedItem.orderItem.notes,
-      startedAt: null as string | null,
-      readyAt: null as string | null,
-      createdAt: item.kot.createdAt.toISOString(),
-    };
+    const mappedItems = kot.items
+      .filter((i) => changed.has(i.id))
+      .map((i) => ({
+        id: i.id,
+        kotId: i.kotId,
+        kitchenStationId: kot.kitchenStationId,
+        name: i.orderItem.name,
+        quantity: i.orderItem.quantity,
+        status: toUiStatus(dbStatus),
+        notes: i.orderItem.notes,
+        startedAt: null as string | null,
+        readyAt: null as string | null,
+        createdAt: kot.createdAt.toISOString(),
+      }));
 
     this.ws.emitToOutlet(outletId, "kot.updated", {
-      kotId: item.kotId,
-      item: mappedItem,
+      kotId: kot.id,
+      status: toUiStatus(kotStatus),
+      item: mappedItems[0],
+      items: mappedItems,
       orgId,
     });
 
-    return mappedItem;
+    return mappedItems;
   }
+
+  /** Stock deduction and auto-complete are slow; the kitchen shouldn't wait on them. */
+  private finishServedOrder(orgId: string, orderId: string) {
+    void (async () => {
+      try {
+        await this.recipes?.deductForOrder(orgId, orderId);
+        await this.orders?.completeAfterKitchenServe(orgId, orderId);
+      } catch (err) {
+        this.logger.warn(
+          `Post-serve processing failed for ${orderId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    })();
+  }
+}
+
+type KotStatus = "pending" | "preparing" | "ready" | "served" | "cancelled";
+
+export function rollUpKotStatus(statuses: string[]): KotStatus {
+  const ranks: Record<string, number> = { pending: 0, preparing: 1, ready: 2, served: 3 };
+  const live = statuses.filter((s) => s !== "cancelled");
+  if (!live.length) return "cancelled";
+  if (live.every((s) => s === "served")) return "served";
+  if (live.every((s) => s === "ready" || s === "served")) return "ready";
+  if (Math.min(...live.map((s) => ranks[s] ?? 0)) >= 1) return "preparing";
+  return "pending";
+}
+
+/** Cancelled lines don't count as fulfilment; an all-cancelled order needs a staff cancel/void. */
+export function rollUpOrderStatus(statuses: string[]): string | null {
+  const live = statuses.filter((s) => s !== "cancelled");
+  if (!live.length) return null;
+  if (live.every((s) => s === "served")) return "served";
+  if (live.every((s) => s === "ready" || s === "served")) return "ready";
+  if (statuses.some((s) => s === "preparing" || s === "ready" || s === "served")) return "preparing";
+  return null;
 }

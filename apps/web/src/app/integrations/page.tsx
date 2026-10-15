@@ -1,6 +1,7 @@
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
+import { BreadcrumbJsonLd } from '@/components/marketing/JsonLd';
 import { INTEGRATION_CATEGORIES } from '@cullinos/shared';
 import { createMetadata } from '@/lib/metadata';
 
@@ -14,6 +15,7 @@ export const metadata = createMetadata({
 export default function IntegrationsPage() {
   return (
     <>
+      <BreadcrumbJsonLd trail={[{ name: 'Integrations', path: '/integrations' }]} />
       <Hero
         eyebrow="Integrations"
         title="Connect your existing stack"

@@ -73,7 +73,7 @@ export function OrderDisplayLauncherPage() {
     {
       id: 'cds',
       title: 'Customer display (CDS)',
-      description: 'McD-style board: huge order numbers, Preparing | Ready. Open on a TV facing customers.',
+      description: 'Order status board: huge order numbers, Preparing | Ready. Open on a TV facing customers.',
       url: cdsUrl,
     },
     {

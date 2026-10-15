@@ -19,7 +19,7 @@ export function PasswordInput({
   const inputId = fieldId(label, id);
 
   return (
-    <Field label={label} htmlFor={inputId} error={error}>
+    <Field label={label} htmlFor={inputId} error={error} required={props.required}>
       <div className="relative">
         <input
           id={inputId}

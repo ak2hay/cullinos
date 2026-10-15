@@ -13,6 +13,7 @@ import {
   UserCog,
   Users,
 } from 'lucide-react';
+import { APP_OPS_URL, SUPPORT_PORTAL_URL } from '@/lib/api';
 import type { PlatformPermission } from '@/lib/permissions';
 
 export type NavLeaf = {
@@ -22,6 +23,8 @@ export type NavLeaf = {
   permission?: PlatformPermission | PlatformPermission[];
   end?: boolean;
   external?: boolean;
+  /** Only staff whose primary platform role is owner; custom roles do not unlock it. */
+  ownerOnly?: boolean;
   keywords?: string;
   badge?: 'approvals';
 };
@@ -29,16 +32,6 @@ export type NavLeaf = {
 export type NavEntry =
   | (NavLeaf & { kind: 'leaf'; id: string; icon: LucideIcon; section?: string })
   | { kind: 'group'; id: string; label: string; icon: LucideIcon; children: NavLeaf[] };
-
-const appOpsUrl = (
-  import.meta.env.VITE_APP_OPS_URL?.trim() ||
-  (import.meta.env.PROD ? 'https://app.cullinos.com' : 'http://localhost:5184')
-).replace(/\/$/, '');
-
-const supportPortalUrl = (
-  import.meta.env.VITE_SUPPORT_URL?.trim() ||
-  (import.meta.env.PROD ? 'https://support.cullinos.com' : 'http://localhost:5185')
-).replace(/\/$/, '');
 
 export const NAV: NavEntry[] = [
   { kind: 'leaf', id: 'dashboard', to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, permission: 'dashboard.read', section: 'Home' },
@@ -79,35 +72,22 @@ export const NAV: NavEntry[] = [
     label: 'Platform Ops',
     icon: Server,
     children: [
-      { to: '/reports', label: 'Ops overview', permission: 'reports.read', keywords: 'sla workload metrics' },
       { to: '/labs', label: 'Tenant labs', permission: 'labs.sql', keywords: 'sql sandbox' },
       { to: '/reports/jobs', label: 'Exports & bulk jobs', permission: ['reports.export', 'bulk.run'] },
-      { to: '/health', label: 'System health', permission: 'health.read' },
-      { to: appOpsUrl, label: 'Cullinos App Ops', permission: 'guest_ops.manage', external: true },
+      { to: '/health', label: 'System health', permission: 'health.read', keywords: 'tenants by status staff by department' },
+      { to: APP_OPS_URL, label: 'Cullinos App Ops', permission: 'guest_ops.manage', external: true },
     ],
   },
   {
-    kind: 'group',
+    kind: 'leaf',
     id: 'support',
-    label: 'Support',
+    to: `${SUPPORT_PORTAL_URL}/agent`,
+    label: 'Support portal',
     icon: Headset,
-    children: [
-      { to: '/support/tickets', label: 'Tickets', permission: 'tickets.read', keywords: 'helpdesk sla' },
-      {
-        to: `${supportPortalUrl}/agent`,
-        label: 'Support portal',
-        permission: 'tickets.read',
-        external: true,
-        keywords: 'servicenow agent workspace knowledge base',
-      },
-      {
-        to: '/support/grants',
-        label: 'Tenant access grants',
-        permission: ['tenants.impersonate', 'tenant_access.revoke', 'tickets.read'],
-        keywords: 'impersonate open as tenant',
-      },
-      { to: '/people/shifts', label: 'Shifts & on-call', permission: ['directory.read', 'tickets.read'] },
-    ],
+    permission: ['tickets.read', 'tenants.impersonate', 'reports.read'],
+    external: true,
+    keywords: 'tickets helpdesk sla tenant access grants impersonate shifts on-call ops overview knowledge base',
+    section: 'Support',
   },
   {
     kind: 'group',
@@ -131,16 +111,30 @@ export const NAV: NavEntry[] = [
   { kind: 'leaf', id: 'media', to: '/marketing/media', label: 'Media', icon: Image, permission: 'marketing.manage', section: 'Marketing CMS' },
   {
     kind: 'group',
+    id: 'employees',
+    label: 'Employees',
+    icon: Users,
+    children: [
+      {
+        to: '/employees',
+        label: 'Manage employees',
+        permission: 'team.manage',
+        keywords: 'staff team platform accounts edit delete deactivate reset password resend invite',
+      },
+      { to: '/employees?onboard=1', label: 'Onboard employee', permission: 'team.manage', keywords: 'invite new hire add staff' },
+      { to: '/people', label: 'Directory', permission: 'directory.read', keywords: 'employees staff bulk invite' },
+      { to: '/people/org-chart', label: 'Org chart', permission: 'directory.read' },
+      { to: '/iam/org', label: 'Departments & teams', permission: ['iam.read', 'directory.read'] },
+    ],
+  },
+  {
+    kind: 'group',
     id: 'people',
-    label: 'People & Access',
+    label: 'Access',
     icon: UserCog,
     children: [
-      { to: '/people', label: 'Directory', permission: 'directory.read', keywords: 'employees staff' },
-      { to: '/people/org-chart', label: 'Org chart', permission: 'directory.read' },
-      { to: '/team', label: 'Platform accounts', permission: 'team.manage', keywords: 'invite staff' },
-      { to: '/iam/org', label: 'Departments & teams', permission: ['iam.read', 'directory.read'] },
       { to: '/iam/roles', label: 'Roles', permission: ['iam.read', 'iam.assign'], keywords: 'permissions rbac' },
-      { to: '/iam/assignments', label: 'Role assignments', permission: ['iam.read', 'iam.assign'] },
+      { to: '/iam/assignments', label: 'Role assignments', ownerOnly: true },
       { to: '/access/my-reviews', label: 'My access reviews', keywords: 'certify' },
     ],
   },

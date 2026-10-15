@@ -125,8 +125,8 @@ export function DirectoryPage() {
               <Button size="sm" variant="secondary" onClick={() => setBulkOpen(true)}>
                 Bulk invite
               </Button>
-              <Button size="sm" onClick={() => navigate('/team')}>
-                Invite one
+              <Button size="sm" onClick={() => navigate('/employees?onboard=1')}>
+                Onboard one
               </Button>
             </>
           ) : null

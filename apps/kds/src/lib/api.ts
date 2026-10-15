@@ -217,6 +217,7 @@ export interface Kot {
   items: KotItem[];
   order: {
     orderNumber: string;
+    pickupCode?: string | null;
     tableId: string | null;
     orderType: string;
     table: { name: string } | null;
@@ -246,6 +247,12 @@ export const kitchenApi = {
 
   updateItemStatus: (itemId: string, status: KotItemStatus) =>
     apiRequest<KotItem>(`/kitchen/items/${itemId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+
+  updateKotStatus: (kotId: string, status: KotItemStatus) =>
+    apiRequest<{ kotId: string; items: KotItem[] }>(`/kitchen/kots/${kotId}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }),

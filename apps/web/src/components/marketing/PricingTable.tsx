@@ -82,7 +82,7 @@ export function PricingTable() {
         </button>
       </div>
       <p className="mb-8 text-center text-xs text-text-muted">
-        {DEFAULT_TRIAL_DAYS}-day free trial on self-serve plans. Prices in INR.
+        {DEFAULT_TRIAL_DAYS}-day free trial on self-serve plans. Prices in INR, excl. GST.
       </p>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -142,7 +142,7 @@ function PricingCard({
   const ctaLabel = contactPricing
     ? 'Contact us for pricing'
     : plan.cta === 'register'
-      ? 'Start free trial'
+      ? 'Start 30-day free trial'
       : 'Contact sales';
 
   return (
@@ -166,7 +166,7 @@ function PricingCard({
         ) : (
           <>
             {formatInr(price)}
-            <span className="text-sm font-normal text-text-muted">{period}</span>
+            <span className="text-sm font-normal text-text-muted">{period}, excl. GST</span>
           </>
         )}
       </p>
@@ -211,7 +211,7 @@ export function PricingTeaser() {
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
       {plans.map((plan) => (
         <div key={plan.id} className="rounded-2xl border border-border-light bg-bg-card p-5 shadow-card">
-          <h3 className="font-serif font-medium">{plan.name}</h3>
+          <p className="font-serif font-medium">{plan.name}</p>
           <p className="mt-2 font-serif text-2xl font-medium text-brand-gold">
             {isContactPricing(plan) ? (
               'Contact us'

@@ -30,7 +30,8 @@ const OPEN_KEY = 'cullinos-super-admin-nav-open';
 
 function useVisibleNav(): NavEntry[] {
   const can = useCan();
-  const allowed = (leaf: NavLeaf) => !leaf.permission || can(leaf.permission);
+  const isOwner = useAuthStore((s) => s.admin?.platformRole === 'owner');
+  const allowed = (leaf: NavLeaf) => (leaf.ownerOnly ? isOwner : !leaf.permission || can(leaf.permission));
   return NAV.flatMap((entry): NavEntry[] => {
     if (entry.kind === 'leaf') return allowed(entry) ? [entry] : [];
     const children = entry.children.filter(allowed);
@@ -147,6 +148,27 @@ function SidebarContent({
       <nav aria-label="Main" className="sa-scroll flex-1 space-y-1 overflow-y-auto px-3 py-2">
         {entries.map((entry) => {
           const Icon = entry.icon;
+          if (entry.kind === 'leaf' && entry.external) {
+            return (
+              <a
+                key={entry.id}
+                href={entry.to}
+                target="_blank"
+                rel="noreferrer"
+                onClick={onNavigate}
+                title={rail ? entry.label : undefined}
+                className={cn(rowBase, rowPad, idle)}
+              >
+                <Icon size={18} strokeWidth={1.8} aria-hidden="true" className="shrink-0" />
+                {!rail ? (
+                  <>
+                    <span className="truncate">{entry.label}</span>
+                    <ExternalLink size={13} aria-hidden="true" className="ml-auto shrink-0" />
+                  </>
+                ) : null}
+              </a>
+            );
+          }
           if (entry.kind === 'leaf') {
             const isActive = active?.entryId === entry.id;
             const badge = entry.badge === 'approvals' && pending ? pending : 0;

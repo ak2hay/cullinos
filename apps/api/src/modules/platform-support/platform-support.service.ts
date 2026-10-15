@@ -12,6 +12,8 @@ import type {
   PlatformTicketStatus,
   Prisma,
 } from "@prisma/client";
+import { hashPassword } from "@cullinos/auth";
+import { generateTemporaryPassword } from "../../common/generate-password";
 import { PrismaService } from "../../prisma/prisma.service";
 import { MailService } from "../mail/mail.service";
 import { PlatformApprovalsService } from "../platform-approvals/platform-approvals.service";
@@ -23,7 +25,8 @@ export type SupportActor = { sub: string; email?: string };
 
 const OPEN_STATUSES: PlatformTicketStatus[] = ["open", "in_progress", "waiting_customer"];
 const MIN_GRANT_MINUTES = 15;
-const MAX_GRANT_MINUTES = 8 * 60;
+export const MAX_GRANT_MINUTES = 4 * 60;
+const SUPPORT_PASSWORD_LENGTH = 16;
 
 export function formatTicketRef(seq: number) {
   return `TKT-${String(seq).padStart(6, "0")}`;
@@ -266,6 +269,10 @@ export class PlatformSupportService implements OnApplicationBootstrap {
         where: { ticketId: id, status: { in: ["pending", "active"] } },
         data: { status: "revoked", revokedAt: now, revokedById: actor.sub },
       });
+      await this.prisma.supportLoginCredential.updateMany({
+        where: { ticketId: id, revokedAt: null },
+        data: { revokedAt: now },
+      });
     }
     const newAssignee = updated.assigneeUserId;
     if (newAssignee && newAssignee !== t.assigneeUserId && newAssignee !== actor.sub) {
@@ -472,9 +479,14 @@ export class PlatformSupportService implements OnApplicationBootstrap {
       throw new ForbiddenException("You can only revoke your own grants");
     }
     if (g.status !== "pending" && g.status !== "active") return g;
+    const now = new Date();
     const updated = await this.prisma.tenantAccessGrant.update({
       where: { id },
-      data: { status: "revoked", revokedAt: new Date(), revokedById: actor.sub },
+      data: { status: "revoked", revokedAt: now, revokedById: actor.sub },
+    });
+    await this.prisma.supportLoginCredential.updateMany({
+      where: { grantId: id, revokedAt: null },
+      data: { revokedAt: now },
     });
     if (g.userId !== actor.sub) {
       await this.notifications.notify([g.userId], {
@@ -487,10 +499,135 @@ export class PlatformSupportService implements OnApplicationBootstrap {
   }
 
   async expireGrants() {
+    const now = new Date();
     await this.prisma.tenantAccessGrant.updateMany({
-      where: { status: "active", expiresAt: { lt: new Date() } },
+      where: { status: "active", expiresAt: { lt: now } },
       data: { status: "expired" },
     });
+    await this.prisma.supportLoginCredential.updateMany({
+      where: { revokedAt: null, expiresAt: { lt: now } },
+      data: { revokedAt: now },
+    });
+  }
+
+  // ─── Support login passwords ──────────────────────────────────────────────
+
+  /** Credential summary for a grant; the plain password is only ever returned by `createSupportPassword`. */
+  async getSupportPassword(actor: SupportActor, grantId: string) {
+    const g = await this.prisma.tenantAccessGrant.findUnique({
+      where: { id: grantId },
+      include: { loginCredential: true },
+    });
+    if (!g) throw new NotFoundException("Grant not found");
+    if (g.userId !== actor.sub) throw new ForbiddenException("You can only view your own grant's password");
+    return g.loginCredential ? await this.credentialSummary(g.loginCredential) : null;
+  }
+
+  async createSupportPassword(actor: SupportActor, grantId: string, input: { targetUserId?: string }) {
+    const g = await this.prisma.tenantAccessGrant.findUnique({ where: { id: grantId } });
+    if (!g) throw new NotFoundException("Grant not found");
+    if (g.userId !== actor.sub) throw new ForbiddenException("You can only create a password for your own grant");
+    const now = Date.now();
+    if (g.status !== "active" || !g.expiresAt || g.expiresAt.getTime() - now < 60_000) {
+      throw new BadRequestException("An active access grant with at least one minute left is required");
+    }
+
+    const target = input.targetUserId
+      ? await this.prisma.user.findFirst({
+          where: { id: input.targetUserId, organizationId: g.organizationId, status: "active", isSuperAdmin: false },
+          select: { id: true, email: true, name: true },
+        })
+      : await this.defaultTargetUser(g.organizationId);
+    if (!target) throw new BadRequestException("No active tenant user to sign in as");
+
+    const password = generateTemporaryPassword(SUPPORT_PASSWORD_LENGTH);
+    const passwordHash = await hashPassword(password);
+    const data = {
+      organizationId: g.organizationId,
+      targetUserId: target.id,
+      ticketId: g.ticketId,
+      createdById: actor.sub,
+      passwordHash,
+      expiresAt: g.expiresAt,
+      revokedAt: null,
+      lastUsedAt: null,
+      useCount: 0,
+      createdAt: new Date(now),
+    };
+    const credential = await this.prisma.supportLoginCredential.upsert({
+      where: { grantId },
+      create: { grantId, ...data },
+      update: data,
+    });
+    await this.prisma.supportTicketComment.create({
+      data: {
+        ticketId: g.ticketId,
+        authorId: actor.sub,
+        body: `Support login password generated for ${target.email}, valid until ${g.expiresAt.toISOString()}.`,
+        isInternal: true,
+      },
+    });
+    return { ...(await this.credentialSummary(credential)), password };
+  }
+
+  async revokeSupportPassword(actor: SupportActor, access: EffectiveAccess | undefined, grantId: string) {
+    const c = await this.prisma.supportLoginCredential.findUnique({ where: { grantId } });
+    if (!c) throw new NotFoundException("No support password for this grant");
+    if (c.createdById !== actor.sub && !access?.global.includes("tenant_access.revoke")) {
+      throw new ForbiddenException("You can only revoke your own support password");
+    }
+    if (c.revokedAt) return this.credentialSummary(c);
+    const updated = await this.prisma.supportLoginCredential.update({
+      where: { grantId },
+      data: { revokedAt: new Date() },
+    });
+    return this.credentialSummary(updated);
+  }
+
+  private async defaultTargetUser(organizationId: string) {
+    const select = { id: true, email: true, name: true } as const;
+    const owner = await this.prisma.user.findFirst({
+      where: {
+        organizationId,
+        status: "active",
+        isSuperAdmin: false,
+        userRoles: { some: { role: { slug: "owner" } } },
+      },
+      select,
+    });
+    if (owner) return owner;
+    return this.prisma.user.findFirst({
+      where: { organizationId, status: "active", isSuperAdmin: false },
+      orderBy: { createdAt: "asc" },
+      select,
+    });
+  }
+
+  private async credentialSummary(c: {
+    id: string;
+    grantId: string;
+    targetUserId: string;
+    expiresAt: Date;
+    revokedAt: Date | null;
+    lastUsedAt: Date | null;
+    useCount: number;
+    createdAt: Date;
+  }) {
+    const target = await this.prisma.user.findUnique({
+      where: { id: c.targetUserId },
+      select: { id: true, email: true, name: true },
+    });
+    return {
+      id: c.id,
+      grantId: c.grantId,
+      targetUser: target,
+      expiresAt: c.expiresAt,
+      revokedAt: c.revokedAt,
+      lastUsedAt: c.lastUsedAt,
+      useCount: c.useCount,
+      createdAt: c.createdAt,
+      active: !c.revokedAt && c.expiresAt.getTime() > Date.now(),
+    };
   }
 
   private async activateGrant(grantId: string) {

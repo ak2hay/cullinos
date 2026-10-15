@@ -98,6 +98,17 @@ describe('isAdminNavPathVisible plan modules', () => {
     expect(isAdminNavPathVisible('food_truck', '/tables', null, ['tables'])).toBe(false);
   });
 
+  it('lets the outlet table setting override the business type for table pages', () => {
+    const on = { tablesEnabled: true };
+    const off = { tablesEnabled: false };
+    expect(isAdminNavPathVisible('food_truck', '/tables', null, ['tables'], on)).toBe(true);
+    expect(isAdminNavPathVisible('qsr', '/reservations', null, null, on)).toBe(true);
+    expect(isAdminNavPathVisible('restaurant', '/tables', null, ['tables'], off)).toBe(false);
+    expect(isAdminNavPathVisible('cafe', '/reservations', null, null, off)).toBe(false);
+    expect(isAdminNavPathVisible('food_truck', '/tables', null, ['pos'], on)).toBe(false);
+    expect(isAdminNavPathVisible('restaurant', '/inventory', null, null, off)).toBe(true);
+  });
+
   it('shows stock pages whenever the plan includes inventory', () => {
     for (const path of ['/inventory', '/recipes', '/purchasing', '/suppliers']) {
       expect(isAdminNavPathVisible('restaurant', path, 'small', ['inventory']), path).toBe(true);

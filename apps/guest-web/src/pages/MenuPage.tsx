@@ -48,7 +48,6 @@ export function MenuPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const sessionParam = searchParams.get('session')?.trim() ?? '';
   const tableParam = searchParams.get('table')?.trim() ?? '';
-  const isTableFlow = Boolean(sessionParam || tableParam);
 
   const [step, setStep] = useState<Step>('menu');
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -75,10 +74,15 @@ export function MenuPage() {
     refetchInterval: 5 * 60_000,
   });
 
+  // Outlets that turned tables off run a counter with tokens; stale table links fall back to that.
+  const tablesOff = storefront.data?.tablesEnabled === false;
+  const ignoredTableLink = tablesOff && Boolean(sessionParam || tableParam);
+  const isTableFlow = Boolean(sessionParam || tableParam) && !tablesOff;
+
   const sessionLookup = useQuery({
     queryKey: ['public-session', sessionParam],
     queryFn: () => orderApi.validateSession(sessionParam),
-    enabled: Boolean(sessionParam),
+    enabled: Boolean(sessionParam) && !tablesOff,
     retry: false,
   });
 
@@ -87,22 +91,34 @@ export function MenuPage() {
   const joinLookup = useQuery({
     queryKey: ['join-table', tableParam],
     queryFn: () => orderApi.joinTable(tableParam),
-    enabled: Boolean(tableParam) && !sessionParam,
+    enabled: Boolean(tableParam) && !sessionParam && !tablesOff,
     retry: false,
   });
 
-  const sessionToken = sessionOk
-    ? sessionLookup.data?.sessionToken
-    : !sessionParam
-      ? joinLookup.data?.sessionToken
-      : undefined;
-  const tableName = sessionOk
-    ? sessionLookup.data?.tableName
-    : !sessionParam
-      ? joinLookup.data?.tableName
-      : undefined;
+  const sessionToken = !isTableFlow
+    ? undefined
+    : sessionOk
+      ? sessionLookup.data?.sessionToken
+      : !sessionParam
+        ? joinLookup.data?.sessionToken
+        : undefined;
+  const tableName = !isTableFlow
+    ? undefined
+    : sessionOk
+      ? sessionLookup.data?.tableName
+      : !sessionParam
+        ? joinLookup.data?.tableName
+        : undefined;
 
   const data = storefront.data;
+  const counterOrderTypes = useMemo(() => {
+    const modes = data?.orderModes;
+    const allowed: Array<'dine_in' | 'takeaway'> = [];
+    if (!modes || modes.dineIn) allowed.push('dine_in');
+    if (!modes || modes.takeaway) allowed.push('takeaway');
+    return allowed.length ? allowed : (['takeaway'] as Array<'dine_in' | 'takeaway'>);
+  }, [data?.orderModes]);
+  const counterOrderType = counterOrderTypes.includes(orderType) ? orderType : counterOrderTypes[0];
   const categories = data?.menu.categories ?? [];
   const availableItems = useMemo(
     () => (data?.menu.items ?? []).filter((i) => i.isAvailable !== false),
@@ -247,7 +263,7 @@ export function MenuPage() {
       return orderApi.placeOrder({
         orgSlug,
         outletSlug,
-        type: orderType,
+        type: counterOrderType,
         customerName: name,
         customerPhone: phone,
         notes: orderNotes,
@@ -280,8 +296,9 @@ export function MenuPage() {
   }
 
   const linkLoading =
-    (Boolean(sessionParam) && sessionLookup.isLoading) ||
-    (Boolean(tableParam) && !sessionParam && joinLookup.isLoading);
+    isTableFlow &&
+    ((Boolean(sessionParam) && sessionLookup.isLoading) ||
+      (Boolean(tableParam) && !sessionParam && joinLookup.isLoading));
 
   if (!orgSlug || !outletSlug) {
     return <FullMessage title="This ordering link is incomplete" />;
@@ -305,7 +322,7 @@ export function MenuPage() {
     );
   }
 
-  if (sessionParam && (sessionLookup.isError || !sessionOk)) {
+  if (isTableFlow && sessionParam && (sessionLookup.isError || !sessionOk)) {
     return (
       <FullMessage
         title="Session expired"
@@ -331,7 +348,7 @@ export function MenuPage() {
     );
   }
 
-  if (!sessionParam && tableParam && joinLookup.isError) {
+  if (isTableFlow && !sessionParam && tableParam && joinLookup.isError) {
     return (
       <FullMessage
         title="This table QR could not be opened"
@@ -342,7 +359,12 @@ export function MenuPage() {
   }
 
   const banner = (
-    <AppBanner org={orgSlug} outlet={outletSlug} table={tableParam || undefined} session={sessionToken || sessionParam || undefined} />
+    <AppBanner
+      org={orgSlug}
+      outlet={outletSlug}
+      table={isTableFlow ? tableParam || undefined : undefined}
+      session={isTableFlow ? sessionToken || sessionParam || undefined : undefined}
+    />
   );
 
   if (step === 'done' && placed) {
@@ -358,16 +380,27 @@ export function MenuPage() {
           <p className="text-text-secondary">
             {tableName
               ? `We'll send this to the kitchen for table ${tableName}. Pay at the table.`
-              : 'Show this at the counter to pay.'}
+              : 'Show this token at the counter to pay. Collect your order when it shows on the pickup screen.'}
           </p>
           <div className="w-full rounded-2xl bg-bg-card p-5 shadow-sm">
-            <p className="text-xs uppercase tracking-wide text-text-muted">Order number</p>
-            <p className="font-display text-4xl font-black tracking-wide text-qr-ink">{placed.orderNumber}</p>
-            {placed.pickupCode ? (
-              <p className="mt-1 text-sm text-text-secondary">
-                Pickup code <span className="font-mono font-bold text-text-primary">{placed.pickupCode}</span>
-              </p>
-            ) : null}
+            {tableName ? (
+              <>
+                <p className="text-xs uppercase tracking-wide text-text-muted">Order number</p>
+                <p className="font-display text-4xl font-black tracking-wide text-qr-ink">{placed.orderNumber}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs uppercase tracking-wide text-text-muted">Your token</p>
+                <p className="font-mono text-5xl font-black tracking-widest text-qr-ink">
+                  {placed.pickupCode || placed.orderNumber}
+                </p>
+                {placed.pickupCode ? (
+                  <p className="mt-1 text-sm text-text-secondary">
+                    Order <span className="font-semibold text-text-primary">{placed.orderNumber}</span>
+                  </p>
+                ) : null}
+              </>
+            )}
             <ul className="mt-4 space-y-1.5 border-t border-line-subtle pt-4 text-left text-sm text-text-secondary">
               {receiptLines.map((line) => (
                 <li key={line.key} className="flex justify-between gap-4">
@@ -499,20 +532,33 @@ export function MenuPage() {
               Pay at the table when you are ready.
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {(['dine_in', 'takeaway'] as const).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setOrderType(type)}
-                  className={`rounded-2xl py-3 text-sm font-semibold shadow-sm ${
-                    orderType === type ? 'bg-qr-yellow text-qr-ink' : 'bg-bg-card'
-                  }`}
-                >
-                  {type === 'dine_in' ? 'Eat in' : 'Takeaway'}
-                </button>
-              ))}
-            </div>
+            <>
+              {ignoredTableLink ? (
+                <p className="rounded-2xl bg-qr-yellow-soft px-4 py-3 text-sm text-qr-ink">
+                  This outlet takes orders at the counter. You'll get a token to collect your order.
+                </p>
+              ) : null}
+              {counterOrderTypes.length > 1 ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {counterOrderTypes.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setOrderType(type)}
+                      className={`rounded-2xl py-3 text-sm font-semibold shadow-sm ${
+                        counterOrderType === type ? 'bg-qr-yellow text-qr-ink' : 'bg-bg-card'
+                      }`}
+                    >
+                      {type === 'dine_in' ? 'Eat in' : 'Takeaway'}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-2xl bg-bg-card px-4 py-3 text-sm text-text-secondary shadow-sm">
+                  {counterOrderType === 'dine_in' ? 'Eat in' : 'Takeaway'} · Pay at the counter and collect with your token.
+                </p>
+              )}
+            </>
           )}
 
           {hasAlcohol ? (

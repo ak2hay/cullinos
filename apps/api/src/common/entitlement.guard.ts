@@ -52,6 +52,8 @@ export class EntitlementGuard implements CanActivate {
     status: string;
     trialEndsAt: Date | null;
     graceUntil: Date | null;
+    currentPeriodEnd: Date | null;
+    isComplimentary: boolean;
   }) {
     const now = Date.now();
     const graceOk = subscription.graceUntil ? subscription.graceUntil.getTime() > now : false;
@@ -70,6 +72,11 @@ export class EntitlementGuard implements CanActivate {
       return graceOk;
     }
 
-    return subscription.status === "active";
+    if (subscription.status !== "active") return false;
+    // Complimentary subscriptions have no gateway to move them to past_due, so they lapse at period end.
+    if (subscription.isComplimentary && subscription.currentPeriodEnd) {
+      return subscription.currentPeriodEnd.getTime() > now;
+    }
+    return true;
   }
 }

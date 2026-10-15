@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button, Input, PageHeader, useToast } from '@cullinos/ui';
 import { ImageUploadField } from '@/components/ImageUploadField';
 import { couponsApi, type CouponRow } from '@/lib/api';
+import { formatDay } from '@/lib/format';
 
 type FormState = {
   code: string;
@@ -256,7 +257,9 @@ export function CouponsPage() {
           <p className="mt-3 text-sm text-text-muted">No coupons yet.</p>
         ) : (
           <ul className="mt-4 divide-y divide-line-subtle">
-            {coupons.map((c) => (
+            {coupons.map((c) => {
+              const expired = Boolean(c.expiresAt && new Date(c.expiresAt).getTime() <= Date.now());
+              return (
               <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div>
                   <p className="font-medium">
@@ -266,13 +269,13 @@ export function CouponsPage() {
                     </span>
                     {!c.isActive ? (
                       <span className="ml-2 text-xs text-status-warning">Inactive</span>
+                    ) : expired ? (
+                      <span className="ml-2 text-xs text-status-warning">Expired</span>
                     ) : null}
                   </p>
                   <p className="text-sm text-text-secondary">
                     {c.title || 'Untitled'}
-                    {c.expiresAt
-                      ? ` · expires ${new Date(c.expiresAt).toLocaleDateString()}`
-                      : ''}
+                    {c.expiresAt ? ` · expires ${formatDay(c.expiresAt)}` : ''}
                     {c.usedCount != null ? ` · used ${c.usedCount}` : ''}
                   </p>
                 </div>
@@ -280,7 +283,7 @@ export function CouponsPage() {
                   <Button type="button" variant="ghost" onClick={() => startEdit(c)}>
                     Edit
                   </Button>
-                  {c.isActive ? (
+                  {c.isActive && !expired ? (
                     <Button
                       type="button"
                       variant="ghost"
@@ -310,7 +313,8 @@ export function CouponsPage() {
                   </Button>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </section>

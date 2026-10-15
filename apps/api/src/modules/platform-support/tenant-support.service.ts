@@ -236,6 +236,10 @@ export class TenantSupportService {
         where: { ticketId: id, status: { in: ["pending", "active"] } },
         data: { status: "revoked", revokedAt: now },
       });
+      await this.prisma.supportLoginCredential.updateMany({
+        where: { ticketId: id, revokedAt: null },
+        data: { revokedAt: now },
+      });
     } else {
       if (OPEN_STATUSES.includes(t.status)) return this.get(actor, id);
       await this.prisma.supportTicket.update({

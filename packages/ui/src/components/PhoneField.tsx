@@ -49,6 +49,8 @@ export function parsePhoneValue(
 ): { dial: string; national: string } {
   const digits = digitsOnly(value);
   if (!digits) return { dial: defaultDial, national: '' };
+  // A bare 10-digit number is a national number even when it starts like a dial code (91…, 60…, 97…).
+  if (!value.trim().startsWith('+') && digits.length === 10) return { dial: defaultDial, national: digits };
 
   const sorted = [...DIAL_CODES].sort((a, b) => b.dial.length - a.dial.length);
   for (const opt of sorted) {
@@ -105,6 +107,10 @@ export function PhoneField({
     [value, defaultDialCode],
   );
 
+  // shortcut: caret jumps to the end on mid-number edits of a grouped +91 number; track selection if users complain.
+  const displayNational =
+    dial === '91' && national.length > 5 ? `${national.slice(0, 5)} ${national.slice(5)}` : national;
+
   function emit(nextDial: string, nextNational: string) {
     onChange(composePhone(nextDial, nextNational));
   }
@@ -114,6 +120,7 @@ export function PhoneField({
       label={label}
       htmlFor={inputId}
       error={error}
+      required={required}
       className={cn(compact && 'space-y-0 [&>label]:sr-only', className)}
     >
       <div className={cn('flex w-full min-w-0 items-stretch', compact ? 'gap-1.5' : 'gap-2')}>
@@ -180,7 +187,7 @@ export function PhoneField({
               compact ? 'h-8 text-xs' : 'h-11 text-sm',
               error && 'border-status-error',
             )}
-            value={national}
+            value={displayNational}
             onChange={(e) => emit(dial, e.target.value.replace(/\D/g, ''))}
           />
         </div>

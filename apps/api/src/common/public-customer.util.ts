@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import type { PrismaService } from "../prisma/prisma.service";
 import { newUnsubscribeToken } from "../modules/privacy/privacy.crypto";
 import { getJwtSecret } from "./jwt-secret.util";
+import { isGuestName } from "../modules/customers/customer-merge";
 import { customerPhoneLookupVariants, normalizePhoneE164 } from "./phone.util";
 
 type CustomerDb = Pick<PrismaService, "customer"> | Prisma.TransactionClient;
@@ -37,10 +38,17 @@ export async function findOrCreateCustomerByPhone(
   const digits = normalized.replace(/\D/g, "");
   if (digits.length < 10 || digits.length > 15) return null;
 
+  const realName = createData.name?.trim() ? createData.name.trim().slice(0, 120) : null;
   const existing = await findCustomerByPhone(db, orgId, normalized);
-  if (existing) return { customer: existing, created: false };
+  if (existing) {
+    if (realName && !existing.anonymizedAt && isGuestName(existing.name) && !isGuestName(realName)) {
+      const renamed = await db.customer.update({ where: { id: existing.id }, data: { name: realName } });
+      return { customer: renamed, created: false };
+    }
+    return { customer: existing, created: false };
+  }
 
-  const name = createData.name?.trim() ? createData.name.trim().slice(0, 120) : guestNameForPhone(normalized);
+  const name = realName ?? guestNameForPhone(normalized);
   try {
     const customer = await db.customer.create({
       data: {

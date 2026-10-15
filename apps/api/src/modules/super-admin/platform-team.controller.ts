@@ -26,6 +26,12 @@ class InviteStaffDto {
   @IsOptional() @IsString() @MaxLength(120) location?: string;
 }
 
+class UpdateStaffDto {
+  @IsOptional() @IsString() @MinLength(2) @MaxLength(120) name?: string;
+  @IsOptional() @IsEmail() email?: string;
+  @IsOptional() @IsString() @MaxLength(20) phone?: string | null;
+}
+
 class ChangeRoleDto {
   @IsIn(PLATFORM_ROLES)
   platformRole!: string;
@@ -85,5 +91,15 @@ export class PlatformTeamController {
   @Post(":id/reset-password")
   resetPassword(@CurrentUser() user: JwtPayload, @Param("id") id: string) {
     return this.team.resetPassword(user, id);
+  }
+
+  @Post(":id/resend-invite")
+  resendInvite(@CurrentUser() user: JwtPayload, @Param("id") id: string) {
+    return this.team.resendInvite(user, id);
+  }
+
+  @Patch(":id")
+  update(@CurrentUser() user: JwtPayload, @Param("id") id: string, @Body() dto: UpdateStaffDto) {
+    return this.team.update(user, id, dto);
   }
 }

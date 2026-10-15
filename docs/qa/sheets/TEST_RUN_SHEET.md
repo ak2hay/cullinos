@@ -26,7 +26,7 @@
 | Fail | |
 | Blocked | |
 | N/A | |
-| **Total** | 190 |
+| **Total** | 232 |
 
 ---
 
@@ -181,6 +181,26 @@ Put **X** in exactly one column per row: Pass | Fail | Blocked | N/A
 | TC-2.7-09 | Wallets / Coins pages load | | | | | |
 | TC-2.7-10 | Kiosk mode places pay-at-counter order | | | | | |
 
+### 2.8 Web kiosk (kiosk.cullinos.com)
+
+| ID | Test case | Pass | Fail | Blocked | N/A | Notes |
+|----|-----------|:----:|:----:|:-------:|:---:|-------|
+| TC-2.8-01 | Kiosk opens at kiosk.cullinos.com/o/{org}/{outlet} on welcome screen | | | | | |
+| TC-2.8-02 | Start → add item with modifiers to cart | | | | | |
+| TC-2.8-03 | Place order shows pickup code | | | | | |
+| TC-2.8-04 | Kiosk order appears in POS / KDS | | | | | |
+| TC-2.8-05 | Idle ~2 min returns to welcome screen | | | | | |
+
+### 2.9 Counter QR & token ordering
+
+| ID | Test case | Pass | Fail | Blocked | N/A | Notes |
+|----|-----------|:----:|:----:|:-------:|:---:|-------|
+| TC-2.9-01 | Counter QR card shown (Settings / `/kiosk`) when table system is off | | | | | |
+| TC-2.9-02 | Guest picks Eat in / Takeaway and places order | | | | | |
+| TC-2.9-03 | Guest sees Your token (pickup code) + order number | | | | | |
+| TC-2.9-04 | KDS ticket shows Token XXXXXX (no table) | | | | | |
+| TC-2.9-05 | Pickup / CDS display lists the same token | | | | | |
+
 ---
 
 ## Phase 3 — Admin back office
@@ -232,6 +252,18 @@ Put **X** in exactly one column per row: Pass | Fail | Blocked | N/A
 | TC-3-43 | SMS campaigns — page loads; Send or N/A if no wallet | | | | | |
 | TC-3-44 | Menu — combos / schedules / outlet prices tab usable | | | | | |
 | TC-3-45 | Reports — Export downloads for a tab | | | | | |
+| TC-3-46 | Settings → Table system off — Tables / Reservations leave nav for outlet | | | | | |
+| TC-3-47 | Table system off — table QR shows counter flow; new table session rejected | | | | | |
+| TC-3-48 | Table system on / "Use category default" — Tables nav and table sessions work | | | | | |
+| TC-3-49 | Aggregators — UrbanPiper connect saves; webhook URL + secret shown | | | | | |
+| TC-3-50 | Aggregators — per-outlet store link + menu push (or graceful error) | | | | | |
+| TC-3-51 | Aggregators — store pause / per-outlet item stock toggle | | | | | |
+| TC-3-52 | Aggregators — unknown-item linking + settlement CSV import | | | | | |
+| TC-3-53 | Portal POS Online panel loads; new order chimes with accept timer (or N/A) | | | | | |
+| TC-3-54 | Online panel — Accept (prep time) prints KOT; Reject requires reason | | | | | |
+| TC-3-55 | Online panel — Food ready → Handed to rider | | | | | |
+| TC-3-56 | Customers — Find duplicates shows merge preview | | | | | |
+| TC-3-57 | Customers — Apply merge combines duplicates | | | | | |
 
 ---
 
@@ -274,16 +306,23 @@ Put **X** in exactly one column per row: Pass | Fail | Blocked | N/A
 | TC-5-18 | Marketing Design Lab loads | | | | | |
 | TC-5-19 | Platform Settings page loads | | | | | |
 | TC-5-20 | Super Admin forgot-password page loads | | | | | |
-| TC-5-21 | Guest Ops overview loads | | | | | |
-| TC-5-22 | Guest Ops marketplace — approve/rank QA listing | | | | | |
-| TC-5-23 | Guest Ops discover — create section | | | | | |
-| TC-5-24 | Guest Ops banners — create banner | | | | | |
-| TC-5-25 | Guest Ops push — create draft | | | | | |
-| TC-5-26 | Guest Ops offers — create offer | | | | | |
-| TC-5-27 | Guest Ops reviews / users / analytics pages load | | | | | |
-| TC-5-28 | Guest Ops runtime — Save runtime settings (safe toggle) | | | | | |
+| TC-5-21 | Guest Ops (App Ops) overview loads | | | | | |
+| TC-5-22 | Guest Ops (App Ops) marketplace — approve/rank QA listing | | | | | |
+| TC-5-23 | Guest Ops (App Ops) discover — create section | | | | | |
+| TC-5-24 | Guest Ops (App Ops) banners — create banner | | | | | |
+| TC-5-25 | Guest Ops (App Ops) notifications — create draft | | | | | |
+| TC-5-26 | Guest Ops offers — create offer (N/A if route redirects home) | | | | | |
+| TC-5-27 | Guest Ops (App Ops) reviews / users / analytics pages load | | | | | |
+| TC-5-28 | Guest Ops (App Ops) runtime — Save runtime settings (safe toggle) | | | | | |
 | TC-5-29 | Promo Email — compose draft or send without crash (platform only) | | | | | |
 | TC-5-30 | Tenant detail — Open as tenant (impersonation) works | | | | | |
+| TC-5-31 | Employees page lists platform employees | | | | | |
+| TC-5-32 | Employees — Onboard employee dialog submits (QA email, human approval) | | | | | |
+| TC-5-33 | Approvals inbox loads; approval detail opens | | | | | |
+| TC-5-34 | Approvals policies page loads | | | | | |
+| TC-5-35 | Approval email-action link opens approval page | | | | | |
+| TC-5-36 | People directory and org chart load | | | | | |
+| TC-5-37 | Employee profile page opens | | | | | |
 
 ---
 
@@ -331,6 +370,33 @@ Put **X** in exactly one column per row: Pass | Fail | Blocked | N/A
 
 ---
 
+## Phase 8 — Support portal (support.cullinos.com)
+
+| ID | Test case | Pass | Fail | Blocked | N/A | Notes |
+|----|-----------|:----:|:----:|:-------:|:---:|-------|
+| TC-8-01 | Restaurant login with owner credentials (OTP if prompted) | | | | | |
+| TC-8-02 | Portal home loads; KB article opens | | | | | |
+| TC-8-03 | Raise ticket submits; appears in My tickets | | | | | |
+| TC-8-04 | Ticket detail — reply posts | | | | | |
+| TC-8-05 | Agent login (Rkyves staff) lands on queue | | | | | |
+| TC-8-06 | Agent opens QA tenant ticket and replies | | | | | |
+| TC-8-07 | Agent dashboard loads | | | | | |
+| TC-8-08 | Agent grants — tenant access request prompts step-up | | | | | |
+| TC-8-09 | Agent shifts page loads | | | | | |
+| TC-8-10 | Agent knowledge page loads | | | | | |
+
+---
+
+## Phase 9 — App Ops (app.cullinos.com)
+
+| ID | Test case | Pass | Fail | Blocked | N/A | Notes |
+|----|-----------|:----:|:----:|:-------:|:---:|-------|
+| TC-9-01 | App Ops login succeeds | | | | | |
+| TC-9-02 | Super Admin /guest-ops redirects to App Ops | | | | | |
+| TC-9-03 | App Ops forgot-password page loads | | | | | |
+
+---
+
 ## Fail / Blocked summary
 
 | Test ID | Bug ID | Reason |
@@ -344,6 +410,7 @@ Put **X** in exactly one column per row: Pass | Fail | Blocked | N/A
 | Field | Value |
 |-------|-------|
 | All Critical/High failures logged in BUG_LOG | Y / N |
+| Human-assisted cases (Super Admin, App Ops, Support agent, Android) done or listed as Blocked | Y / N |
 | Credentials Log completed (no passwords in git) | Y / N |
 | Known limitations separated from open bugs | Y / N |
 | Tester signature | |

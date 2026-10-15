@@ -226,7 +226,7 @@ If **no tables** show in Waiter: create them in Admin → **Tables**, or via Swa
 | **4** | Marketing site + API (Swagger) | Phases 6–7 |
 
 Full details: [MANUAL_TEST_PLAN.md](./MANUAL_TEST_PLAN.md)  
-Track pass/fail: [TEST_RUN_SHEET.md](../sheets/TEST_RUN_SHEET.md) (**190** test cases)  
+Track pass/fail: [TEST_RUN_SHEET.md](../sheets/TEST_RUN_SHEET.md) (**232** test cases)  
 Click-paths: [COMPLETE_FEATURE_TEST_GUIDE.md](./COMPLETE_FEATURE_TEST_GUIDE.md)  
 Log bugs: [BUG_LOG.md](../sheets/BUG_LOG.md)
 What's new: [WHATS_NEW.md](./WHATS_NEW.md)
@@ -433,7 +433,7 @@ TEST ORDER
 3. Waiter → Table order → KDS verifies
 4. POS / Portal POS → checkout
 5. Customer → Checkout incognito (verify)
-6. TEST_RUN_SHEET → mark all 190 cases
+6. TEST_RUN_SHEET → mark all 232 cases
 
 NEVER commit real passwords to git.
 ```

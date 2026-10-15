@@ -22,8 +22,12 @@ function member(overrides: Record<string, unknown> = {}) {
 function setup(opts: { target?: ReturnType<typeof member> | null; otherOwners?: number; existing?: unknown } = {}) {
   const prisma = {
     user: {
-      findFirst: vi.fn(async (args: { where: { id?: string } }) =>
-        args.where.id ? (opts.target === undefined ? member() : opts.target) : (opts.existing ?? null),
+      findFirst: vi.fn(async (args: { where: { id?: unknown } }) =>
+        typeof args.where.id === "string"
+          ? opts.target === undefined
+            ? member()
+            : opts.target
+          : (opts.existing ?? null),
       ),
       findMany: vi.fn(async () => [member()]),
       count: vi.fn(async () => opts.otherOwners ?? 0),
@@ -34,8 +38,12 @@ function setup(opts: { target?: ReturnType<typeof member> | null; otherOwners?: 
         member({ ...(opts.target ?? {}), ...args.data }),
       ),
     },
-    platformEmployee: { findUnique: vi.fn(async () => null) },
+    platformEmployee: {
+      findUnique: vi.fn(async () => null),
+      update: vi.fn(async () => ({ employeeCode: "RKY-000007" })),
+    },
     tenantAccessGrant: { updateMany: vi.fn(async () => ({ count: 0 })) },
+    supportLoginCredential: { updateMany: vi.fn(async () => ({ count: 0 })) },
   };
   const mail = { sendPlatformStaffInvite: vi.fn(async () => true) };
   const sessions = { revokeAllForUser: vi.fn(async () => undefined) };
@@ -141,6 +149,56 @@ describe("PlatformTeamService", () => {
     expect(b.prisma.tenantAccessGrant.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: "u_2", status: { in: ["pending", "active"] } } }),
     );
+  });
+
+  it("re-onboards a previously deleted employee instead of rejecting the email", async () => {
+    const { service, prisma, mail } = setup({
+      existing: { id: "u_old", isSuperAdmin: true, deletedAt: new Date() },
+    });
+    const res = await service.invite(actor, { email: "back@rkyves.com", name: "Back Again", platformRole: "support" });
+    expect(prisma.user.create).not.toHaveBeenCalled();
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "u_old" },
+        data: expect.objectContaining({ deletedAt: null, status: "active", mustChangePassword: true }),
+      }),
+    );
+    expect(prisma.platformEmployee.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ employmentStatus: "active", exitedAt: null }) }),
+    );
+    expect(res.temporaryPassword).toHaveLength(14);
+    expect(mail.sendPlatformStaffInvite).toHaveBeenCalledOnce();
+  });
+
+  it("edits name and email, rejecting an email someone else uses", async () => {
+    const ok = setup({ target: member() });
+    await ok.service.update(actor, "u_2", { name: " Ops Lead ", email: "Lead@Rkyves.com" });
+    expect(ok.prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { name: "Ops Lead", email: "lead@rkyves.com" } }),
+    );
+    expect(ok.sessions.revokeAllForUser).toHaveBeenCalledWith("u_2");
+
+    const taken = setup({ target: member(), existing: { id: "someone" } });
+    await expect(taken.service.update(actor, "u_2", { email: "taken@rkyves.com" })).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
+  it("soft-deletes a member and signs them out", async () => {
+    const { service, prisma, sessions, audit } = setup({ target: member() });
+    await service.markDeleted(actor, "u_2");
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "inactive", deletedAt: expect.any(Date) }) }),
+    );
+    expect(sessions.revokeAllForUser).toHaveBeenCalledWith("u_2");
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "platform.team_delete" }));
+  });
+
+  it("resends an invite with the welcome wording", async () => {
+    const { service, mail, audit } = setup({ target: member() });
+    await service.resendInvite(actor, "u_2");
+    expect(mail.sendPlatformStaffInvite).toHaveBeenCalledWith(expect.objectContaining({ reset: false }));
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "platform.team_resend_invite" }));
   });
 
   it("resets a member's password and signs them out", async () => {

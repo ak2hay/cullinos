@@ -10,8 +10,13 @@ export function normalizeStaffPhone(phone: string): string {
 
 /** Prefer E.164 with leading + for CRM / display storage. */
 export function normalizePhoneE164(phone: string, defaultDial = "91"): string {
-  const digits = phone.replace(/\D/g, "");
+  let digits = phone.replace(/\D/g, "");
   if (!digits) return "";
+  // Domestic trunk prefix: "07499…" / "+91 07499…" are the same handset as "+917499…".
+  if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1);
+  if (digits.length === defaultDial.length + 11 && digits.startsWith(`${defaultDial}0`)) {
+    digits = defaultDial + digits.slice(defaultDial.length + 1);
+  }
   if (digits.length === 10) return `+${defaultDial}${digits}`;
   return `+${digits}`;
 }
@@ -41,5 +46,10 @@ export function staffPhoneLookupVariants(normalized: string): string[] {
 export function customerPhoneLookupVariants(phone: string): string[] {
   const e164 = normalizePhoneE164(phone.trim());
   if (!e164) return [];
-  return [...new Set([e164, ...staffPhoneLookupVariants(e164)])];
+  const variants = [e164, ...staffPhoneLookupVariants(e164)];
+  if (e164.startsWith("+91") && e164.length === 13) {
+    const local = e164.slice(3);
+    variants.push(`0${local}`, `+910${local}`, `910${local}`);
+  }
+  return [...new Set(variants)];
 }

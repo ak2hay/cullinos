@@ -149,6 +149,9 @@ export function DisplaysPage() {
   const orgSlug = orgQuery.data?.slug ?? authOrgSlug;
 
   const kitchenUrl = outletId ? buildUrl(`outletId=${encodeURIComponent(outletId)}`) : null;
+  const receiptUrl = outletId
+    ? buildUrl(`mode=receipt&outletId=${encodeURIComponent(outletId)}`)
+    : null;
   const cdsUrl =
     orgSlug && outletSlug
       ? buildUrl(
@@ -237,11 +240,21 @@ export function DisplaysPage() {
                 onCopy={copy}
               />
             )}
+            {receiptUrl && (
+              <CopyOpenRow
+                id="receipt"
+                title="Receipt printer station"
+                description="Keep open on the counter PC connected to your thermal printer. Auto-prints phone and online order slips."
+                url={receiptUrl}
+                copied={copied}
+                onCopy={copy}
+              />
+            )}
             {cdsUrl && (
               <CopyOpenRow
                 id="cds"
                 title="Customer Display (CDS)"
-                description="Public McD-style board — Preparing | Ready columns. Open on a counter TV."
+                description="Public order status board — Preparing | Ready columns. Open on a counter TV."
                 url={cdsUrl}
                 copied={copied}
                 onCopy={copy}

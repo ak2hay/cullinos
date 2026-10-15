@@ -24,7 +24,7 @@ export function Select({
 }: SelectProps) {
   const selectId = fieldId(label, id);
   return (
-    <Field label={label} htmlFor={selectId} error={error}>
+    <Field label={label} htmlFor={selectId} error={error} required={props.required}>
       <select
         id={selectId}
         className={cn(controlClassName, error && 'border-status-error', className)}

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
-import { JsonLd } from '@/components/marketing/JsonLd';
+import { BreadcrumbJsonLd, JsonLd } from '@/components/marketing/JsonLd';
 import { CULLINOS_BRAND } from '@cullinos/shared';
 import { createMetadata } from '@/lib/metadata';
 
@@ -24,14 +24,14 @@ const faqs: Array<{ q: string; a: ReactNode; text?: string }> = [
     q: 'How do I get started?',
     a: (
       <>
-        Start a free trial from the admin portal or{' '}
+        Start a 30-day free trial from the admin portal or{' '}
         <Link href="/contact?intent=trial" className="text-brand-gold hover:underline">
           talk to our team
         </Link>
         . Setup walks you through restaurant details, outlets, menu and staff.
       </>
     ),
-    text: 'Start a free trial from the admin portal or talk to our team. Setup walks you through restaurant details, outlets, menu and staff.',
+    text: 'Start a 30-day free trial from the admin portal or talk to our team. Setup walks you through restaurant details, outlets, menu and staff.',
   },
   {
     q: 'How does GST work on bills?',
@@ -96,6 +96,7 @@ export default function FaqPage() {
           })),
         }}
       />
+      <BreadcrumbJsonLd trail={[{ name: 'FAQ', path: '/faq' }]} />
       <Hero
         eyebrow="FAQ"
         title="Frequently asked questions"

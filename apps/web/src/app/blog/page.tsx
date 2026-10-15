@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Hero } from '@/components/marketing/Hero';
+import { BreadcrumbJsonLd } from '@/components/marketing/JsonLd';
 import { Section } from '@/components/marketing/Section';
 import { getBlogPosts } from '@/lib/blog';
 import { createMetadata } from '@/lib/metadata';
@@ -15,11 +16,12 @@ export default async function BlogPage() {
 
   return (
     <>
+      <BreadcrumbJsonLd trail={[{ name: 'Blog', path: '/blog' }]} />
       <Hero
         eyebrow="Blog"
         title="Updates from Cullinos"
         subtitle="Product news, restaurant operations insights, and platform updates."
-        primaryCta={{ label: 'Start free trial', href: 'https://admin.cullinos.com/register' }}
+        primaryCta={{ label: 'Start 30-day free trial', href: 'https://admin.cullinos.com/register' }}
         secondaryCta={{ label: 'Subscribe via RSS', href: '/blog/rss.xml' }}
       />
       <Section title="Latest posts">

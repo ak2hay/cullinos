@@ -86,6 +86,25 @@ describe("findOrCreateCustomerByPhone", () => {
     },
   );
 
+  it("replaces a Guest placeholder name when a real name is supplied", async () => {
+    const prisma = makePrisma([
+      { id: "legacy", organizationId: "org_1", phone: "+917057026024", anonymizedAt: null, name: "Guest 6024" } as Row,
+    ]);
+    const update = vi.fn(async ({ where, data }: { where: { id: string }; data: { name: string } }) => ({
+      id: where.id,
+      name: data.name,
+    }));
+    Object.assign(prisma.customer, { update });
+
+    const result = await findOrCreateCustomerByPhone(prisma as never, "org_1", "7057026024", { name: "Asha" });
+    expect(update).toHaveBeenCalledWith({ where: { id: "legacy" }, data: { name: "Asha" } });
+    expect(result?.customer).toMatchObject({ id: "legacy", name: "Asha" });
+
+    update.mockClear();
+    await findOrCreateCustomerByPhone(prisma as never, "org_1", "7057026024", { name: "Guest 1" });
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it("stores E.164 and names new guests by the normalized number", async () => {
     const rows: Row[] = [];
     const prisma = makePrisma(rows);
@@ -95,6 +114,21 @@ describe("findOrCreateCustomerByPhone", () => {
         data: expect.objectContaining({ phone: "+917057026024", name: "Guest 6024" }),
       }),
     );
+  });
+});
+
+describe("trunk-prefixed phones", () => {
+  it("reuses a legacy +910… customer and never stores the trunk 0", async () => {
+    const prisma = makePrisma([
+      { id: "legacy", organizationId: "org_1", phone: "+9107499249403", anonymizedAt: null },
+    ]);
+    const found = await findOrCreateCustomerByPhone(prisma as never, "org_1", "7499249403");
+    expect(found?.customer.id).toBe("legacy");
+
+    const rows: Row[] = [];
+    const fresh = makePrisma(rows);
+    await findOrCreateCustomerByPhone(fresh as never, "org_1", "+91 07499249403");
+    expect(rows[0].phone).toBe("+917499249403");
   });
 });
 

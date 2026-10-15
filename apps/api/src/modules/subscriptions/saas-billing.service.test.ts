@@ -334,6 +334,26 @@ describe("SaasBillingService plan visibility", () => {
     expect(razorpay.createSubscription).not.toHaveBeenCalled();
   });
 
+  it("collectPayment rejects a contact-sales plan even when its DB row has a stale price", async () => {
+    const plan = makePlan({ slug: "enterprise", name: "Enterprise", priceMonthly: 19999, razorpayPlanIdMonthly: null });
+    const prisma = {
+      organization: { findUnique: vi.fn().mockResolvedValue(makeOrg({ razorpayCustomerId: "cust_ok" })) },
+      subscription: { findFirst: vi.fn().mockResolvedValue(makeSubscription({ plan })), update: vi.fn() },
+      plan: { update: vi.fn() },
+    };
+    const razorpay = {
+      requireConfigured: vi.fn(),
+      fetchCustomer: vi.fn().mockResolvedValue({ id: "cust_ok" }),
+      createPlan: vi.fn(),
+      createSubscription: vi.fn(),
+    };
+    const service = new SaasBillingService(prisma as never, razorpay as never);
+
+    await expect(service.collectPayment("org_1")).rejects.toMatchObject({ status: 400 });
+    expect(razorpay.createPlan).not.toHaveBeenCalled();
+    expect(razorpay.createSubscription).not.toHaveBeenCalled();
+  });
+
   it("syncPlansToRazorpay skips zero-priced plans", async () => {
     const paid = makePlan({ razorpayPlanIdMonthly: "rzp_plan_starter" });
     const custom = makePlan({ id: "plan_ent", slug: "enterprise", priceMonthly: 0, razorpayPlanIdMonthly: null });

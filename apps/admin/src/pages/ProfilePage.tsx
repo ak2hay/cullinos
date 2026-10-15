@@ -7,6 +7,7 @@ import { ImageUploadField } from '@/components/ImageUploadField';
 import { PinInput } from '@/components/PinInput';
 import { UserAvatar } from '@/components/layout/UserMenu';
 import { profileApi, refundPinApi, type UserProfile } from '@/lib/api';
+import { formatDate } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
 
 function splitName(name: string) {
@@ -154,7 +155,7 @@ export function ProfilePage() {
           />
           {profile.lastLoginAt ? (
             <p className="mt-4 text-xs text-text-muted">
-              Last sign-in {new Date(profile.lastLoginAt).toLocaleString()}
+              Last sign-in {formatDate(profile.lastLoginAt)}
             </p>
           ) : null}
         </Card>

@@ -25,6 +25,28 @@ export function posQuickKeySlot(e: {
   return null;
 }
 
+/** POS Hold shortcut is Alt+H so plain letters stay free for type-to-search. */
+export function isPosHoldKey(e: {
+  key: string;
+  altKey?: boolean;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+}): boolean {
+  return Boolean(e.altKey) && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'h';
+}
+
+/** A printable keystroke (outside inputs) that should be routed into the POS search box. */
+export function isPosTypeToSearchKey(e: {
+  key: string;
+  altKey?: boolean;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+}): boolean {
+  if (e.altKey || e.ctrlKey || e.metaKey) return false;
+  if (e.key.length !== 1) return false;
+  return e.key !== '/' && e.key.trim().length === 1;
+}
+
 /** Item whose POS short code exactly matches the typed text (case-insensitive). */
 export function findItemByShortCode<T extends { shortCode?: string | null }>(
   items: readonly T[],

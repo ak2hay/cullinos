@@ -82,15 +82,103 @@ export type AgentTicketDetail = AgentTicket & {
     createdAt: string;
     author: PersonRef | null;
   }[];
-  accessGrants: {
-    id: string;
-    status: string;
-    accessLevel: 'read_only' | 'full';
-    justification: string;
-    expiresAt: string | null;
-    employee?: PersonRef | null;
-  }[];
+  accessGrants: AccessGrant[];
   activityCount: number;
+};
+
+export type AccessGrantStatus = 'pending' | 'active' | 'rejected' | 'revoked' | 'expired';
+
+export type AccessGrant = {
+  id: string;
+  ticketId: string;
+  userId: string;
+  organizationId: string;
+  accessLevel: 'read_only' | 'full';
+  status: AccessGrantStatus;
+  justification: string;
+  durationMinutes: number;
+  approvalRequestId: string | null;
+  startsAt: string | null;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  lastUsedAt: string | null;
+  createdAt: string;
+  employee?: PersonRef | null;
+  ticketRef?: string;
+  organization?: { id: string; name: string; slug: string } | null;
+  revokedBy?: PersonRef | null;
+};
+
+/** Max tenant access window, in minutes (4 hours). */
+export const GRANT_DURATIONS = [15, 30, 60, 120, 240] as const;
+
+export type SupportPassword = {
+  id: string;
+  grantId: string;
+  targetUser: { id: string; email: string; name: string } | null;
+  expiresAt: string;
+  revokedAt: string | null;
+  lastUsedAt: string | null;
+  useCount: number;
+  createdAt: string;
+  active: boolean;
+};
+
+export type TenantUser = {
+  id: string;
+  email: string;
+  name: string;
+  status: string;
+  roles: { slug: string; name: string }[];
+};
+
+export type ImpersonationResponse = {
+  adminUrl: string;
+  expiresAt: string;
+  accessLevel: 'read_only' | 'full';
+  user: { id: string; email: string; name: string };
+};
+
+export type OpsOverview = {
+  generatedAt: string;
+  tickets: {
+    openByPriority: Partial<Record<TicketPriority, number>>;
+    slaBreached: number;
+    resolvedLast30d: number;
+    avgResolutionHours: number | null;
+    avgFirstResponseHours: number | null;
+    byTeam: { teamId: string | null; team: string; open: number }[];
+    byAssignee: { userId: string | null; name: string; open: number }[];
+  };
+  approvals: { pending: number; decidedLast30d: number; rejectedLast30d: number; avgTurnaroundHours: number | null };
+  tenants: { byStatus: Record<string, number>; newLast30d: number };
+  staff: { byDepartment: { departmentId: string | null; department: string; count: number }[]; actionsLast24h: number };
+  tenantAccess: { active: number; last30dByStatus: Record<string, number> };
+};
+
+export type Shift = {
+  id: string;
+  userId: string;
+  teamId: string | null;
+  kind: 'shift' | 'on_call' | 'leave';
+  startsAt: string;
+  endsAt: string;
+  note: string | null;
+  user?: { name: string; employeeCode: string | null } | null;
+};
+
+export type Rotation = {
+  id: string;
+  teamId: string;
+  name: string;
+  memberUserIds: string[];
+  rotationDays: number;
+  startsAt: string;
+  isActive: boolean;
+  team: { id: string; name: string } | null;
+  members: PersonRef[];
+  onCall: PersonRef | null;
+  schedule: { userId: string; from: string; to: string; user: { name: string } | null }[];
 };
 
 export type Team = { id: string; name: string };
@@ -151,6 +239,42 @@ export const agentApi = {
   createArticle: (b: ArticleInput) => apiRequest<Article>('/super-admin/support/articles', json('POST', b)),
   updateArticle: (id: string, b: ArticleInput) => apiRequest<Article>(`/super-admin/support/articles/${id}`, json('PATCH', b)),
   deleteArticle: (id: string) => apiRequest<{ deleted: boolean }>(`/super-admin/support/articles/${id}`, { method: 'DELETE' }),
+
+  requestGrant: (ticketId: string, b: { accessLevel: 'read_only' | 'full'; durationMinutes: number; justification: string }) =>
+    apiRequest<AccessGrant>(`/super-admin/support/tickets/${ticketId}/access-grants`, json('POST', b)),
+  grants: (f: { status?: string; mine?: boolean; organizationId?: string } = {}) =>
+    apiRequest<AccessGrant[]>(`/super-admin/support/access-grants${qs(f)}`),
+  revokeGrant: (id: string) => apiRequest<AccessGrant>(`/super-admin/support/access-grants/${id}/revoke`, json('POST')),
+  impersonate: (organizationId: string, grantId: string) =>
+    apiRequest<ImpersonationResponse>(`/super-admin/organizations/${organizationId}/impersonate`, json('POST', { grantId })),
+  tenantUsers: (organizationId: string) => apiRequest<TenantUser[]>(`/super-admin/organizations/${organizationId}/users`),
+
+  supportPassword: (grantId: string) =>
+    apiRequest<SupportPassword | null>(`/super-admin/support/access-grants/${grantId}/password`),
+  createSupportPassword: (grantId: string, targetUserId?: string) =>
+    apiRequest<SupportPassword & { password: string }>(
+      `/super-admin/support/access-grants/${grantId}/password`,
+      json('POST', targetUserId ? { targetUserId } : {}),
+    ),
+  revokeSupportPassword: (grantId: string) =>
+    apiRequest<SupportPassword>(`/super-admin/support/access-grants/${grantId}/password/revoke`, json('POST')),
+
+  startStepUp: () => apiRequest<{ challengeToken: string }>('/super-admin/iam/step-up', json('POST')),
+  verifyStepUp: (challengeToken: string, otp: string) =>
+    apiRequest<{ stepUpToken: string; expiresInSeconds: number }>('/super-admin/iam/step-up/verify', json('POST', { challengeToken, otp })),
+
+  overview: () => apiRequest<OpsOverview>('/super-admin/reports/overview'),
+
+  shifts: (f: { from?: string; to?: string; teamId?: string; userId?: string } = {}) =>
+    apiRequest<Shift[]>(`/super-admin/people/shifts${qs(f)}`),
+  createShift: (b: { userId: string; teamId?: string | null; kind: string; startsAt: string; endsAt: string; note?: string }) =>
+    apiRequest<Shift>('/super-admin/people/shifts', json('POST', b)),
+  deleteShift: (id: string) => apiRequest(`/super-admin/people/shifts/${id}`, json('DELETE')),
+  rotations: () => apiRequest<Rotation[]>('/super-admin/people/rotations'),
+  createRotation: (b: { teamId: string; name: string; memberUserIds: string[]; rotationDays: number; startsAt: string }) =>
+    apiRequest('/super-admin/people/rotations', json('POST', b)),
+  updateRotation: (id: string, b: Partial<{ name: string; memberUserIds: string[]; rotationDays: number; startsAt: string; isActive: boolean }>) =>
+    apiRequest(`/super-admin/people/rotations/${id}`, json('PATCH', b)),
 };
 
 // ─── Customer (restaurant self-service) ─────────────────────────────────────

@@ -45,6 +45,16 @@ export class CustomersController {
     return this.service.create(orgId, body as never, user.sub);
   }
 
+  @Post("merge-duplicates")
+  @RequirePermissions("customer:update")
+  mergeDuplicates(
+    @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() body: { apply?: boolean },
+  ) {
+    return this.service.mergeDuplicates(orgId, body?.apply === true, user.sub);
+  }
+
   @Patch(":id")
   @RequirePermissions("customer:update")
   update(

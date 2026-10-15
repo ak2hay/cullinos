@@ -6,8 +6,11 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { createHash, randomBytes } from "node:crypto";
 import type { Prisma, PlatformApprovalPolicy, PlatformApprovalRequest } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
+import { AuditService } from "../audit/audit.service";
+import { MailService } from "../mail/mail.service";
 import { decryptSecret, encryptSecret, encryptionKeyConfigured } from "../platform-config/crypto.util";
 import { PlatformAccessService } from "../platform-iam/platform-access.service";
 import { redactForLog } from "../platform-iam/platform-activity.util";
@@ -26,6 +29,11 @@ import {
 import { DEFAULT_APPROVAL_POLICIES } from "./default-policies";
 
 const POLICY_CACHE_MS = 30_000;
+const EMAIL_TOKEN_TTL_MS = 24 * 3600_000;
+
+export function hashEmailToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
 
 export type ApprovalActor = { sub: string; email?: string };
 
@@ -61,6 +69,8 @@ export class PlatformApprovalsService {
     private prisma: PrismaService,
     private access: PlatformAccessService,
     private notifications: PlatformNotificationsService,
+    private mail: MailService,
+    private audit: AuditService,
   ) {}
 
   /** Domain modules (tenant access, bulk jobs) react to decisions on their action keys. */
@@ -224,9 +234,131 @@ export class PlatformApprovalsService {
       title: `${formatApprovalRef(created.seq)} needs your approval: ${created.title}`,
       body: `${input.requestedBy.email ?? "A teammate"} wrote: ${justification.slice(0, 300)}`,
       link: `/approvals/${created.id}`,
-      email: true,
     });
+    await this.emailApprovers(created, approvers, input.requestedBy).catch((err: Error) =>
+      this.logger.warn(`Approval emails failed for ${created.id}: ${err.message}`),
+    );
     return this.toDto(created);
+  }
+
+  // ─── Approve / reject from email ──────────────────────────────────────────
+
+  private superAdminUrl() {
+    return process.env.SUPER_ADMIN_URL?.trim().replace(/\/$/, "") || "https://platform.cullinos.com";
+  }
+
+  /** Each approver gets their own one-time Approve / Reject link (24h, never past request expiry). */
+  private async emailApprovers(request: PlatformApprovalRequest, approverIds: string[], requestedBy: ApprovalActor) {
+    if (!approverIds.length) return;
+    const [approvers, requester] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { id: { in: approverIds }, status: "active", isSuperAdmin: true, deletedAt: null },
+        select: { id: true, name: true, email: true },
+      }),
+      this.prisma.user.findUnique({ where: { id: request.requestedById }, select: { name: true, email: true } }),
+    ]);
+    const expiresAt = new Date(Math.min(Date.now() + EMAIL_TOKEN_TTL_MS, request.expiresAt.getTime()));
+    const base = this.superAdminUrl();
+    const ref = formatApprovalRef(request.seq);
+    for (const approver of approvers) {
+      const token = randomBytes(32).toString("base64url");
+      await this.prisma.platformApprovalEmailToken.create({
+        data: { requestId: request.id, approverId: approver.id, tokenHash: hashEmailToken(token), expiresAt },
+      });
+      const actionUrl = (action: "approve" | "reject") =>
+        `${base}/approvals/email-action?token=${encodeURIComponent(token)}&action=${action}`;
+      void this.mail
+        .sendApprovalRequest(approver.email, {
+          approverName: approver.name,
+          ref,
+          title: request.title,
+          requestedBy: requester?.name ?? requestedBy.email ?? "A teammate",
+          justification: request.justification.slice(0, 500),
+          expiresAt,
+          approveUrl: actionUrl("approve"),
+          rejectUrl: actionUrl("reject"),
+          inboxUrl: `${base}/approvals/${request.id}`,
+        })
+        .catch((err: Error) => this.logger.warn(`Approval email to ${approver.id} failed: ${err.message}`));
+    }
+  }
+
+  private async findEmailToken(token: string) {
+    const row = await this.prisma.platformApprovalEmailToken.findUnique({
+      where: { tokenHash: hashEmailToken(token) },
+      include: { request: true },
+    });
+    if (!row) throw new NotFoundException("This approval link is not valid");
+    return row;
+  }
+
+  /** What the email-action page shows before the approver confirms. */
+  async emailActionPreview(token: string) {
+    await this.expireStale();
+    const row = await this.findEmailToken(token);
+    const r = await this.prisma.platformApprovalRequest.findUniqueOrThrow({ where: { id: row.requestId } });
+    const names = await this.userNames([r.requestedById, row.approverId]);
+    const linkState = row.usedAt ? "used" : row.expiresAt <= new Date() ? "expired" : "valid";
+    return {
+      ref: formatApprovalRef(r.seq),
+      title: r.title,
+      actionKey: r.actionKey,
+      justification: r.justification,
+      status: r.status,
+      requestedBy: names.get(r.requestedById)?.name ?? null,
+      approverName: names.get(row.approverId)?.name ?? null,
+      requestExpiresAt: r.expiresAt,
+      linkExpiresAt: row.expiresAt,
+      linkState,
+      canDecide: linkState === "valid" && r.status === "pending",
+      requestId: r.id,
+    };
+  }
+
+  /**
+   * Records the approver's decision from their emailed link. The link is consumed first so a
+   * double click or replay can never record twice; the normal approver checks still apply.
+   */
+  async decideFromEmail(token: string, decision: "approved" | "rejected", comment?: string) {
+    if (decision === "rejected" && !comment?.trim()) {
+      throw new BadRequestException("Add a comment explaining the rejection");
+    }
+    const row = await this.findEmailToken(token);
+    const now = new Date();
+    const claimed = await this.prisma.platformApprovalEmailToken.updateMany({
+      where: { id: row.id, usedAt: null, expiresAt: { gt: now } },
+      data: { usedAt: now },
+    });
+    if (!claimed.count) {
+      throw new ConflictException(row.usedAt ? "This link was already used" : "This link has expired");
+    }
+    const approver = await this.prisma.user.findFirst({
+      where: { id: row.approverId, status: "active", isSuperAdmin: true, deletedAt: null },
+      select: { id: true, email: true, organizationId: true },
+    });
+    if (!approver) throw new ForbiddenException("Your platform account is not active");
+
+    try {
+      await this.decide({ sub: approver.id, email: approver.email }, row.requestId, decision, comment);
+    } catch (err) {
+      if (!(err instanceof ConflictException)) {
+        await this.prisma.platformApprovalEmailToken.update({ where: { id: row.id }, data: { usedAt: null } });
+      }
+      throw err;
+    }
+    await this.prisma.platformApprovalEmailToken.updateMany({
+      where: { requestId: row.requestId, approverId: row.approverId, usedAt: null },
+      data: { usedAt: now },
+    });
+    await this.audit.log({
+      organizationId: approver.organizationId,
+      userId: approver.id,
+      action: "platform.approval_decided",
+      entityType: "platform_approval",
+      entityId: row.requestId,
+      metadata: { decision, source: "email" },
+    });
+    return { ...(await this.emailActionPreview(token)), recorded: decision };
   }
 
   async eligibleApprovers(req: Pick<PlatformApprovalRequest, "approverRoleKeys" | "approverTeamIds">) {

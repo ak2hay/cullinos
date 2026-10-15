@@ -4,9 +4,12 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   AlarmClock,
   BookOpen,
+  CalendarClock,
   Clock3,
   Headset,
   Inbox,
+  KeyRound,
+  LayoutDashboard,
   ListChecks,
   LogOut,
   Menu,
@@ -18,6 +21,7 @@ import {
 } from 'lucide-react';
 import { ThemeToggle, cn } from '@cullinos/ui';
 import { Avatar } from '@/components/common';
+import { StepUpDialog } from '@/components/StepUpDialog';
 import { agentApi, type AgentTicketFilter } from '@/lib/support-api';
 import { useCanAgent, useSession } from '@/stores/session';
 
@@ -34,6 +38,12 @@ export const QUEUES: Array<{ id: QueueId; label: string; icon: typeof Inbox; fil
 ];
 
 const COUNTED: QueueId[] = ['mine', 'unassigned', 'breached'];
+
+const OPS_LINKS: Array<{ to: string; label: string; icon: typeof Inbox; permission: string[] }> = [
+  { to: '/agent/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: ['reports.read'] },
+  { to: '/agent/grants', label: 'Tenant access grants', icon: KeyRound, permission: ['tenants.impersonate', 'tenant_access.revoke', 'tickets.read'] },
+  { to: '/agent/shifts', label: 'Shifts & on-call', icon: CalendarClock, permission: ['directory.read', 'tickets.read'] },
+];
 
 function QueueCount({ id }: { id: QueueId }) {
   const q = QUEUES.find((x) => x.id === id)!;
@@ -117,6 +127,23 @@ export function AgentShell() {
         <BookOpen size={16} aria-hidden="true" />
         Knowledge base
       </NavLink>
+      <p className="mt-4 px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted">Operations</p>
+      {OPS_LINKS.filter((l) => l.permission.some((p) => can(p))).map((l) => (
+        <NavLink
+          key={l.to}
+          to={l.to}
+          onClick={() => setNavOpen(false)}
+          className={({ isActive }) =>
+            cn(
+              'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition',
+              isActive ? 'bg-accent/12 font-medium text-accent' : 'text-text-secondary hover:bg-hover hover:text-text-primary',
+            )
+          }
+        >
+          <l.icon size={16} aria-hidden="true" />
+          {l.label}
+        </NavLink>
+      ))}
       <div className="mt-auto flex items-center gap-2 rounded-lg border border-line-subtle p-2">
         <Avatar name={user?.name ?? 'Agent'} />
         <div className="min-w-0 flex-1">
@@ -187,6 +214,7 @@ export function AgentShell() {
         <main className="flex-1 p-4 sm:p-6">
           <Outlet />
         </main>
+        <StepUpDialog />
       </div>
     </div>
   );

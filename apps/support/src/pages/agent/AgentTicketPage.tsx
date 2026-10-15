@@ -27,6 +27,7 @@ import {
   type TicketPriority,
   type TicketStatus,
 } from '@/lib/support-api';
+import { GrantActions, GrantRequestDialog, isGrantActive } from '@/components/TenantAccess';
 import { useCanAgent, useSession } from '@/stores/session';
 
 const PLATFORM_URL = (import.meta.env.VITE_PLATFORM_URL as string | undefined)?.trim() || 'https://platform.cullinos.com';
@@ -126,6 +127,7 @@ export function AgentTicketPage() {
   const [links, setLinks] = useState('');
   const [awaitAfterReply, setAwaitAfterReply] = useState(true);
   const [reassign, setReassign] = useState(false);
+  const [grantOpen, setGrantOpen] = useState(false);
 
   const key = ['agent', 'ticket', id];
   const query = useQuery({ queryKey: key, queryFn: () => agentApi.ticket(id), enabled: Boolean(id) });
@@ -165,6 +167,7 @@ export function AgentTicketPage() {
   if (!t) return <Notice tone="error">{errorMessage(query.error) ?? 'Ticket not found'}</Notice>;
   const isOpen = OPEN.includes(t.status);
   const canWrite = can('tickets.write');
+  const hasLiveGrant = t.accessGrants.some((g) => g.userId === me?.id && (g.status === 'pending' || isGrantActive(g)));
 
   return (
     <div className="space-y-4">
@@ -406,15 +409,10 @@ export function AgentTicketPage() {
           <Panel
             title="Tenant access"
             actions={
-              t.organizationId ? (
-                <a
-                  href={`${PLATFORM_URL}/support/tickets/${t.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-accent hover:underline"
-                >
-                  Request in console
-                </a>
+              t.organizationId && isOpen && can('tenants.impersonate') && !hasLiveGrant ? (
+                <button type="button" className="text-xs text-accent hover:underline" onClick={() => setGrantOpen(true)}>
+                  Request access
+                </button>
               ) : null
             }
           >
@@ -425,19 +423,23 @@ export function AgentTicketPage() {
             ) : (
               <ul className="space-y-3 text-sm">
                 {t.accessGrants.map((g) => (
-                  <li key={g.id} className="border-b border-line-subtle pb-2 last:border-0">
-                    <p className="font-medium capitalize">
-                      {g.accessLevel.replace('_', '-')} · {g.status}
-                    </p>
-                    <p className="text-xs text-text-muted">
-                      {personName(g.employee)}
-                      {g.expiresAt ? ` · until ${formatDateTime(g.expiresAt)}` : ''}
-                    </p>
+                  <li key={g.id} className="space-y-2 border-b border-line-subtle pb-3 last:border-0">
+                    <div>
+                      <p className="font-medium capitalize">
+                        {g.accessLevel.replace('_', '-')} · {g.status}
+                      </p>
+                      <p className="text-xs text-text-muted">
+                        {personName(g.employee)}
+                        {g.expiresAt ? ` · until ${formatDateTime(g.expiresAt)}` : ` · ${g.durationMinutes} min requested`}
+                      </p>
+                    </div>
+                    <GrantActions grant={g} onChange={refresh} />
                   </li>
                 ))}
               </ul>
             )}
           </Panel>
+          <GrantRequestDialog ticketId={t.id} open={grantOpen} onClose={() => setGrantOpen(false)} onDone={refresh} />
           <Panel title="Audit">
             <p className="text-sm text-text-secondary">
               {t.activityCount} staff actions logged against this ticket.{' '}

@@ -17,10 +17,11 @@ export function StickyMobileCta({ cookieBannerOpen }: { cookieBannerOpen?: boole
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border-light bg-bg-primary/95 p-3 backdrop-blur-md md:hidden">
       <div className="mx-auto flex max-w-lg gap-2">
-        <Link href={registerUrl} className="btn-pill-filled btn-pill flex-1 justify-center text-center text-sm">
-          Start free trial
+        <Link href={registerUrl} className="btn-pill-filled btn-pill min-w-0 flex-1 px-4!">
+          <span className="sm:hidden">Free trial</span>
+          <span className="hidden sm:inline">Start 30-day free trial</span>
         </Link>
-        <Link href="/contact" className="btn-pill flex-1 justify-center text-center text-sm">
+        <Link href="/contact" className="btn-pill min-w-0 flex-1 px-4!">
           Contact
         </Link>
       </div>

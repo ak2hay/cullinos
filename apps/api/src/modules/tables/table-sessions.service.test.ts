@@ -66,6 +66,8 @@ function makeHarness(
     sessions?: FakeSession[];
     /** child table id -> primary table id */
     merged?: Record<string, string>;
+    businessType?: string;
+    outletSettings?: Record<string, unknown>;
   } = {},
 ) {
   const orders = input.orders ?? [];
@@ -109,7 +111,13 @@ function makeHarness(
           ...t,
           mergedInto: primary ? { id: primary.id, name: primary.name } : null,
           section: {
-            floor: { outlet: { slug: "main", organization: { slug: "org" } } },
+            floor: {
+              outlet: {
+                slug: "main",
+                organization: { slug: "org", businessType: input.businessType },
+                settings: input.outletSettings ? { settings: input.outletSettings } : null,
+              },
+            },
           },
         };
       }),
@@ -456,6 +464,28 @@ describe("TableSessionsService merged table lifecycle", () => {
     await expect(h.service.startSession(ORG, OUTLET, "T2")).rejects.toThrow(
       "T2 is merged with T1",
     );
+  });
+
+  it("blocks new sessions when the outlet turned tables off", async () => {
+    const h = makeHarness({ businessType: "restaurant", outletSettings: { tablesEnabled: false } });
+
+    await expect(h.service.startSession(ORG, OUTLET, "T1")).rejects.toThrow(/turned off/);
+    expect(h.sessions).toHaveLength(0);
+  });
+
+  it("allows sessions when a non-table business type turned tables on", async () => {
+    const h = makeHarness({ businessType: "qsr", outletSettings: { tablesEnabled: true } });
+
+    await h.service.startSession(ORG, OUTLET, "T1");
+
+    expect(h.sessions).toHaveLength(1);
+    expect(h.tables.get("T1")!.status).toBe("occupied");
+  });
+
+  it("follows the business type when the outlet has no table setting", async () => {
+    const h = makeHarness({ businessType: "food_truck" });
+
+    await expect(h.service.startSession(ORG, OUTLET, "T1")).rejects.toThrow(/turned off/);
   });
 
   it("unmerge frees a single merged table", async () => {

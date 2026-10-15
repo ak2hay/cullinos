@@ -20,7 +20,7 @@ import type { JwtPayload } from "@cullinos/auth";
 import { CurrentUser, RequirePlatformPermission } from "../../common/decorators";
 import { SuperAdminGuard } from "../marketing/guards/super-admin.guard";
 import type { EffectiveAccess } from "../platform-iam/platform-access.util";
-import { PlatformSupportService } from "./platform-support.service";
+import { MAX_GRANT_MINUTES, PlatformSupportService } from "./platform-support.service";
 
 const PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 const STATUSES = ["open", "in_progress", "waiting_customer", "resolved", "closed"] as const;
@@ -62,8 +62,12 @@ class CommentDto {
 
 class GrantRequestDto {
   @IsIn(["read_only", "full"]) accessLevel!: "read_only" | "full";
-  @IsInt() @Min(15) @Max(480) durationMinutes!: number;
+  @IsInt() @Min(15) @Max(MAX_GRANT_MINUTES) durationMinutes!: number;
   @IsString() @MinLength(15) @MaxLength(2000) justification!: string;
+}
+
+class SupportPasswordDto {
+  @IsOptional() @IsString() targetUserId?: string;
 }
 
 class ArticleDto {
@@ -169,6 +173,24 @@ export class PlatformSupportController {
   @RequirePlatformPermission("tenants.impersonate", "tenant_access.revoke")
   revoke(@CurrentUser() user: JwtPayload, @Req() req: Req, @Param("id") id: string) {
     return this.support.revokeGrant(user, req.platformAccess, id);
+  }
+
+  @Get("access-grants/:id/password")
+  @RequirePlatformPermission("tenants.impersonate")
+  supportPassword(@CurrentUser() user: JwtPayload, @Param("id") id: string) {
+    return this.support.getSupportPassword(user, id);
+  }
+
+  @Post("access-grants/:id/password")
+  @RequirePlatformPermission("tenants.impersonate")
+  createSupportPassword(@CurrentUser() user: JwtPayload, @Param("id") id: string, @Body() dto: SupportPasswordDto) {
+    return this.support.createSupportPassword(user, id, dto);
+  }
+
+  @Post("access-grants/:id/password/revoke")
+  @RequirePlatformPermission("tenants.impersonate", "tenant_access.revoke")
+  revokeSupportPassword(@CurrentUser() user: JwtPayload, @Req() req: Req, @Param("id") id: string) {
+    return this.support.revokeSupportPassword(user, req.platformAccess, id);
   }
 
   @Get("articles")

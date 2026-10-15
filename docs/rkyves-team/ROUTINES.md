@@ -57,7 +57,7 @@ Deliver a short report with severity-ordered findings and recommended owners (CT
 **Create message:**
 
 ```
-Every day at 18:00 Asia/Kolkata, run a light regression pulse using docs/qa/README.md and docs/qa/QUICK_REFERENCE_CARD.md.
+Every day at 18:00 Asia/Kolkata, run a light regression pulse using docs/qa/README.md and docs/qa/guides/QUICK_REFERENCE_CARD.md.
 List smoke areas that should be verified on staging after today's merges; if /workspace/rkyves/tickets/ has ready-for-qa items, prioritize those.
 Produce a checklist and file bugs in HANDOFF format for failures. Do not mark release-ready without evidence.
 ```
@@ -96,6 +96,27 @@ Do not claim unshipped features. Post draft in Documentation conversation and no
 Every Friday at 17:00 Asia/Kolkata, publish a weekly tech debt and risk digest for Cullinos.
 Cover: multi-tenant/security risks, payment/GST hotspots, deploy/rollback concerns, and suggested next-week engineering priorities for CEO.
 Cite docs/ARCHITECTURE.md and open tickets. No merges or deploys.
+```
+
+---
+
+## 6. Full functionality test
+
+| Field | Value |
+|-------|-------|
+| Owner | QA |
+| Schedule | On demand before develop→main (optional: Saturday 10:00 IST) |
+| Skill | `/rkyves-qa` |
+| Playbook | [PLAYBOOKS/full-regression-e2e.md](./PLAYBOOKS/full-regression-e2e.md) |
+| Output | Run ticket + report in QA conversation (or Release group); bug tickets for failures |
+
+**Create message (scheduled optional):**
+
+```
+Every Saturday at 10:00 Asia/Kolkata, run the full functionality test per docs/rkyves-team/PLAYBOOKS/full-regression-e2e.md on the QA tenant only.
+Run Playwright (excluding super-admin), map results to TEST_RUN_SHEET IDs, then do the browser pass for the remaining bot-runnable cases.
+List human-assisted cases (Super Admin, App Ops, Support agent, Android, destructive) as Blocked and ask me for a takeover session—never log into platform apps yourself.
+File bugs in HANDOFF format, post the run report with evidence path, and request sign-off. Never mark release-ready.
 ```
 
 ---

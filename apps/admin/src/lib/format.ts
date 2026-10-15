@@ -30,6 +30,23 @@ export function formatDate(iso: string): string {
   });
 }
 
+/** Date only, unambiguous day-first: `14 Oct 2026`. */
+export function formatDay(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-IN', { dateStyle: 'medium' });
+}
+
+/** Display a stored phone: `+91 98765 43210` for India, `+<dial> <national>` elsewhere. */
+export function formatPhone(value: string | null | undefined): string {
+  if (!value) return '—';
+  const { dial, national } = parsePhoneValue(value);
+  if (!national) return value;
+  if (dial === '91' && national.length === 10) {
+    return `+91 ${national.slice(0, 5)} ${national.slice(5)}`;
+  }
+  return `+${dial} ${national}`;
+}
+
 /** Validates a `PhoneField` value: 10 digits for India (+91), at least 7 elsewhere. */
 export function isValidMobile(value: string): boolean {
   const { dial, national } = parsePhoneValue(value);

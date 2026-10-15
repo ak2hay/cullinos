@@ -89,6 +89,21 @@
 <td>Waiter QR session</td>
 </tr>
 <tr>
+<td>Web kiosk</td>
+<td><a href="https://kiosk.cullinos.com/o/%60%7Borg%7D%60/%60%7Boutlet%7D%60">https://kiosk.cullinos.com/o/`{org}`/`{outlet}`</a></td>
+<td>Self-order tablet</td>
+</tr>
+<tr>
+<td>Support portal</td>
+<td><a href="https://support.cullinos.com">https://support.cullinos.com</a></td>
+<td>Owner (restaurant) / Rkyves agent</td>
+</tr>
+<tr>
+<td>App Ops</td>
+<td><a href="https://app.cullinos.com">https://app.cullinos.com</a></td>
+<td>Rkyves guest-app ops</td>
+</tr>
+<tr>
 <td>Marketing</td>
 <td><a href="https://cullinos.com">https://cullinos.com</a></td>
 <td>Public</td>
@@ -178,7 +193,10 @@ https://kds.cullinos.com/?mode=receipt&amp;outletId={outletId}
 <li><a href="#9-waiter-android--cullinos-waiter">Waiter Android</a></li>
 <li><a href="#10-cullinos-app-guest">Cullinos App (Guest)</a></li>
 <li><a href="#11-marketing-website--cullinoscom">Marketing website</a></li>
-<li><a href="#12-appendix--urls-ports--commands">Appendix — URLs, ports &amp; commands</a></li>
+<li><a href="#12-web-kiosk--kioskcullinoscom">Web kiosk</a></li>
+<li><a href="#13-support-portal--supportcullinoscom">Support portal</a></li>
+<li><a href="#14-app-ops--appcullinoscom">App Ops</a></li>
+<li><a href="#15-appendix--urls-ports--commands">Appendix — URLs, ports &amp; commands</a></li>
 </ol>
 <hr>
 <h2 id="0-how-to-use--result-codes">0. How to use &amp; result codes</h2>
@@ -471,6 +489,7 @@ https://kds.cullinos.com/?mode=receipt&amp;outletId={outletId}
 </ol>
 <p><strong>Note:</strong> Promo email is <strong>platform</strong> only — not Admin.</p>
 <h3 id="47-cullinos-app--guest-ops">4.7 Cullinos App — Guest Ops</h3>
+<p><strong>Moved:</strong> Guest Ops now lives in <strong>App Ops</strong> (<a href="https://app.cullinos.com">https://app.cullinos.com</a>); platform <code>/guest-ops/*</code> redirects there. Use the same steps below with paths minus the <code>/guest-ops</code> prefix. Push is now <strong>Notifications</strong> (<code>/notifications</code>); <code>/offers</code> redirects home (mark offer cases N/A). Login / redirect checks: §14.</p>
 <h4 id="overview-guest-ops">Overview (<code>/guest-ops</code>)</h4>
 <ol>
 <li><input disabled="" type="checkbox"> KPIs load; section links open marketplace, discover, banners, push, offers, reviews, users, analytics, runtime</li>
@@ -578,6 +597,17 @@ https://kds.cullinos.com/?mode=receipt&amp;outletId={outletId}
 <ol>
 <li><input disabled="" type="checkbox"> <strong>Sign out</strong> → login page; session cleared</li>
 </ol>
+<h3 id="412-employees-approvals--people">4.12 Employees, Approvals &amp; People</h3>
+<p><strong>Gate:</strong> <code>team.manage</code> (Employees), <code>directory.read</code> (People). See <a href="../../rkyves-team/PLATFORM_STAFF.md">PLATFORM_STAFF.md</a>.</p>
+<ol>
+<li><input disabled="" type="checkbox"> <code>/employees</code> — list loads</li>
+<li><input disabled="" type="checkbox"> <strong>Onboard employee</strong> → QA email + role → submit (human approval; QA addresses only)</li>
+<li><input disabled="" type="checkbox"> <code>/approvals</code> — inbox loads → open a request (<code>/approvals/:id</code>)</li>
+<li><input disabled="" type="checkbox"> <code>/approvals/policies</code> — page loads</li>
+<li><input disabled="" type="checkbox"> Approval email <strong>action link</strong> (<code>/approvals/email-action?...</code>) opens the approval page</li>
+<li><input disabled="" type="checkbox"> <code>/people</code> directory → <code>/people/org-chart</code> → open a profile (<code>/people/:userId</code>)</li>
+<li><input disabled="" type="checkbox"> <code>/people/shifts</code> redirects to the Support portal agent shifts page</li>
+</ol>
 <hr>
 <h2 id="5-admin--owner-portal--admincullinoscom">5. Admin / Owner portal — admin.cullinos.com</h2>
 <p><strong>Who:</strong> Owner / managers with ERP permissions. QSR orgs may see <strong>ERP | POS</strong> switch; cashiers may be POS-only.</p>
@@ -621,6 +651,9 @@ https://kds.cullinos.com/?mode=receipt&amp;outletId={outletId}
 <li><input disabled="" type="checkbox"> E-bill: <strong>SMS</strong> / <strong>Email</strong> / <strong>Dismiss</strong></li>
 <li><input disabled="" type="checkbox"> <strong>Close shift</strong></li>
 <li><input disabled="" type="checkbox"> Staff without POS access denied or redirected</li>
+<li><input disabled="" type="checkbox"> <strong>Online</strong> panel (Swiggy/Zomato via UrbanPiper — N/A if not connected): new order chimes, accept timer runs</li>
+<li><input disabled="" type="checkbox"> <strong>Accept</strong> with prep time → KOT prints; <strong>Reject</strong> demands a reason</li>
+<li><input disabled="" type="checkbox"> <strong>Food ready</strong> → <strong>Handed to rider</strong></li>
 </ol>
 <h3 id="54-menu-menu">5.4 Menu (<code>/menu</code>)</h3>
 <p><strong>Gate:</strong> <code>MENU_READ</code></p>
@@ -713,6 +746,9 @@ https://kds.cullinos.com/?mode=receipt&amp;outletId={outletId}
 <li><input disabled="" type="checkbox"> <strong>Search</strong></li>
 <li><input disabled="" type="checkbox"> Row <strong>Add stamp</strong>; detail <strong>Redeem points</strong>; <strong>Close</strong></li>
 <li><input disabled="" type="checkbox"> <strong>Export</strong> / <strong>Erase</strong> only on disposable test customer</li>
+<li><input disabled="" type="checkbox"> Create a customer with an existing phone → toast <strong>Matched existing customer …</strong> (no duplicate created)</li>
+<li><input disabled="" type="checkbox"> <strong>Find duplicates</strong> → <strong>Duplicate customers</strong> preview (or <strong>No duplicate customers found</strong> — then mark TC-3-57 N/A)</li>
+<li><input disabled="" type="checkbox"> <strong>Merge duplicates</strong> → toast <strong>Merged N duplicate customer(s)</strong>; oldest record kept with orders/points</li>
 </ol>
 <h3 id="514-loyalty-loyalty">5.14 Loyalty (<code>/loyalty</code>)</h3>
 <p><strong>Gate:</strong> <code>LOYALTY</code></p>
@@ -764,6 +800,8 @@ https://kds.cullinos.com/?mode=receipt&amp;outletId={outletId}
 <ol>
 <li><input disabled="" type="checkbox"> <strong>Copy</strong> / <strong>Open in new tab</strong> for Ordering kiosk, Phone menu QR, Receipt printer station as shown</li>
 <li><input disabled="" type="checkbox"> Kiosk URL opens Guest kiosk mode (pay at counter)</li>
+<li><input disabled="" type="checkbox"> Table system <strong>off</strong> (§5.31): <strong>Counter QR</strong> card shown → open link → guest picks <strong>Eat in</strong> / <strong>Takeaway</strong> → place order → <strong>Your token</strong> + order number</li>
+<li><input disabled="" type="checkbox"> KDS ticket shows <strong>Token XXXXXX</strong> (no table); pickup / CDS lists the same token</li>
 </ol>
 <h3 id="523-delivery-delivery">5.23 Delivery (<code>/delivery</code>)</h3>
 <p><strong>Gate:</strong> <code>DELIVERY</code></p>
@@ -778,6 +816,10 @@ https://kds.cullinos.com/?mode=receipt&amp;outletId={outletId}
 <li><input disabled="" type="checkbox"> <strong>Connect</strong> / <strong>Disconnect</strong> (sandbox or N/A without credentials)</li>
 <li><input disabled="" type="checkbox"> <strong>Generate secret</strong> / <strong>Regenerate secret</strong></li>
 <li><input disabled="" type="checkbox"> Per outlet: <strong>Connected</strong>, <strong>Menu sync</strong>, <strong>Sync now</strong></li>
+<li><input disabled="" type="checkbox"> UrbanPiper connect (sandbox): webhook URL + secret shown; per-outlet store link saves</li>
+<li><input disabled="" type="checkbox"> <strong>Menu push</strong> succeeds or shows a clear error</li>
+<li><input disabled="" type="checkbox"> <strong>Store pause</strong> and per-outlet item stock toggles persist after refresh</li>
+<li><input disabled="" type="checkbox"> Unknown-item linking maps an incoming item; <strong>settlement CSV import</strong> completes</li>
 </ol>
 <h3 id="525-payments-payments">5.25 Payments (<code>/payments</code>)</h3>
 <p><strong>Gate:</strong> <code>SETTINGS_READ</code></p>
@@ -827,6 +869,8 @@ https://kds.cullinos.com/?mode=receipt&amp;outletId={outletId}
 <li><input disabled="" type="checkbox"> <strong>Add location</strong> → name* → <strong>Add location</strong></li>
 <li><input disabled="" type="checkbox"> <strong>Create tax group</strong> (group name, rate name, %)</li>
 <li><input disabled="" type="checkbox"> <strong>Register device</strong> (Printer / KDS / POS)</li>
+<li><input disabled="" type="checkbox"> General → <strong>Table system</strong>: turn <strong>Use tables at this outlet</strong> off → Tables / Reservations leave nav; <strong>Counter QR</strong> card appears; table QR links show counter flow; new table session rejected</li>
+<li><input disabled="" type="checkbox"> Turn it on (or <strong>Use category default</strong>) → Tables nav returns (needs Tables plan module); table QR sessions work</li>
 </ol>
 <p><strong>Expected:</strong> Toast/success; values persist after refresh. Invalid empty required fields blocked by UI.</p>
 <h3 id="532-billing-billing">5.32 Billing (<code>/billing</code>)</h3>
@@ -1117,7 +1161,42 @@ https://kds.cullinos.com/?mode=receipt&amp;outletId={outletId}
 </tbody></table>
 <p>Nav/footer: <strong>Home</strong>, <strong>Features</strong>, <strong>About</strong>, <strong>Pricing</strong>, <strong>Contact</strong>, Product/Solutions links.</p>
 <hr>
-<h2 id="12-appendix--urls-ports--commands">12. Appendix — URLs, ports &amp; commands</h2>
+<h2 id="12-web-kiosk--kioskcullinoscom">12. Web kiosk — kiosk.cullinos.com</h2>
+<p>No login. Open on a tablet-sized window.</p>
+<ol>
+<li><input disabled="" type="checkbox"> <code>https://kiosk.cullinos.com/o/{org}/{outlet}</code> → welcome screen</li>
+<li><input disabled="" type="checkbox"> <strong>Start</strong> → add item with modifiers → cart correct</li>
+<li><input disabled="" type="checkbox"> <strong>Place order</strong> → pickup code shown</li>
+<li><input disabled="" type="checkbox"> Order appears in POS / KDS</li>
+<li><input disabled="" type="checkbox"> Leave idle ~2 min → returns to welcome screen</li>
+</ol>
+<hr>
+<h2 id="13-support-portal--supportcullinoscom">13. Support portal — support.cullinos.com</h2>
+<h3 id="131-restaurant-owner-login">13.1 Restaurant (owner login)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <code>/login</code> → <strong>Restaurant</strong> → owner email/password (OTP if prompted) → portal home</li>
+<li><input disabled="" type="checkbox"> Open a KB article (<code>/kb/:slug</code>)</li>
+<li><input disabled="" type="checkbox"> <strong>Raise ticket</strong> (<code>/tickets/new</code>) → appears in <strong>My tickets</strong></li>
+<li><input disabled="" type="checkbox"> Ticket detail → post reply</li>
+</ol>
+<h3 id="132-agent-rkyves-staff--platform-login-human-only">13.2 Agent (Rkyves staff — platform login, human only)</h3>
+<ol>
+<li><input disabled="" type="checkbox"> <code>/login?as=agent</code> → lands on <code>/agent/queue/mine</code></li>
+<li><input disabled="" type="checkbox"> Open the QA tenant ticket → reply → visible to restaurant</li>
+<li><input disabled="" type="checkbox"> <code>/agent/dashboard</code> loads</li>
+<li><input disabled="" type="checkbox"> <code>/agent/grants</code> → request tenant access → step-up dialog prompts</li>
+<li><input disabled="" type="checkbox"> <code>/agent/shifts</code> and <code>/agent/knowledge</code> load</li>
+</ol>
+<hr>
+<h2 id="14-app-ops--appcullinoscom">14. App Ops — app.cullinos.com</h2>
+<p>Platform login, human only. Feature steps are in §4.7.</p>
+<ol>
+<li><input disabled="" type="checkbox"> <code>/login</code> succeeds → overview</li>
+<li><input disabled="" type="checkbox"> <code>https://platform.cullinos.com/guest-ops</code> redirects here</li>
+<li><input disabled="" type="checkbox"> <code>/forgot-password</code> page loads</li>
+</ol>
+<hr>
+<h2 id="15-appendix--urls-ports--commands">15. Appendix — URLs, ports &amp; commands</h2>
 <h3 id="production-urls-full">Production URLs (full)</h3>
 <table>
 <thead>
@@ -1145,7 +1224,22 @@ https://kds.cullinos.com/?mode=receipt&amp;outletId={outletId}
 <tr>
 <td>Super Admin guest-ops</td>
 <td><a href="https://platform.cullinos.com/guest-ops">https://platform.cullinos.com/guest-ops</a></td>
-<td></td>
+<td>Redirects to App Ops</td>
+</tr>
+<tr>
+<td>App Ops</td>
+<td><a href="https://app.cullinos.com">https://app.cullinos.com</a></td>
+<td>Guest Ops (platform login)</td>
+</tr>
+<tr>
+<td>Support portal</td>
+<td><a href="https://support.cullinos.com">https://support.cullinos.com</a></td>
+<td>Restaurant + agent (<code>/login?as=agent</code>)</td>
+</tr>
+<tr>
+<td>Web kiosk</td>
+<td><a href="https://kiosk.cullinos.com/o/%7Borg%7D/%7Boutlet%7D">https://kiosk.cullinos.com/o/{org}/{outlet}</a></td>
+<td>No login</td>
 </tr>
 <tr>
 <td>Super Admin promo email</td>

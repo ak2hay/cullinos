@@ -1,6 +1,7 @@
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { ContactForm } from '@/components/marketing/ContactForm';
+import { BreadcrumbJsonLd } from '@/components/marketing/JsonLd';
 import { BUSINESS_ADDRESS_LINE, BUSINESS_NAP } from '@/lib/business';
 import { createMetadata } from '@/lib/metadata';
 
@@ -14,6 +15,7 @@ export const metadata = createMetadata({
 export default function ContactPage() {
   return (
     <>
+      <BreadcrumbJsonLd trail={[{ name: 'Contact', path: '/contact' }]} />
       <Hero
         eyebrow="Contact"
         title="Talk to our team"

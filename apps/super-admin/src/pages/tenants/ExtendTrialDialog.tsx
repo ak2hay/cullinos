@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { inputClass, LabeledInput } from '@/components/common';
+import { TenantTicketPicker } from '@/components/TenantTicketPicker';
 import { ConfirmDialog } from '@/components/ui';
 import { superAdminApi } from '@/lib/api';
 import { formatDate } from '@/lib/format';
@@ -19,6 +20,8 @@ export function ExtendTrialDialog({
 }) {
   const queryClient = useQueryClient();
   const [value, setValue] = useState('');
+  const [ticketId, setTicketId] = useState('');
+  const [note, setNote] = useState('');
 
   const currentEnd = tenant?.trialEndsAt ? new Date(tenant.trialEndsAt) : null;
   // Quick extensions add to the current end while the trial is still running, else to today.
@@ -30,14 +33,22 @@ export function ExtendTrialDialog({
     if (!tenantId) return;
     const current = isoToDateInput(tenantTrialEnd);
     setValue(current && current > dateInputPlusDays(0) ? current : dateInputPlusDays(30));
+    setTicketId('');
+    setNote('');
   }, [tenantId, tenantTrialEnd]);
 
   const save = useMutation({
-    mutationFn: () => superAdminApi.setTrialEnd(tenant!.id, dateInputToTrialIso(value)),
+    mutationFn: () =>
+      superAdminApi.setTrialEnd(tenant!.id, {
+        trialEndsAt: dateInputToTrialIso(value),
+        ticketId,
+        note: note.trim() || undefined,
+      }),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['super-admin', 'organization', tenant!.id] });
       queryClient.invalidateQueries({ queryKey: ['super-admin', 'organizations'] });
       queryClient.invalidateQueries({ queryKey: ['super-admin', 'analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['super-admin', 'subscriptions'] });
       onDone?.(res.trialEndsAt);
       onClose();
     },
@@ -62,7 +73,7 @@ export function ExtendTrialDialog({
       confirmLabel="Save trial date"
       loading={save.isPending}
       error={save.error}
-      confirmDisabled={!value}
+      confirmDisabled={!value || !ticketId}
     >
       <div className="flex flex-wrap gap-2">
         {QUICK_DAYS.map((d) => (
@@ -85,6 +96,10 @@ export function ExtendTrialDialog({
           onChange={(e) => setValue(e.target.value)}
           className={inputClass}
         />
+      </LabeledInput>
+      <TenantTicketPicker organizationId={tenantId} value={ticketId} onChange={setTicketId} />
+      <LabeledInput label="Note (optional)">
+        <input value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} className={inputClass} placeholder="Why the extension was agreed" />
       </LabeledInput>
     </ConfirmDialog>
   );

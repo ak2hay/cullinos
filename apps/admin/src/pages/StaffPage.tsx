@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button, Card, Drawer, Input, PageShell, PasswordInput, PhoneField } from '@cullinos/ui';
 import { PERMISSIONS, hasAnyPermission } from '@cullinos/shared';
 import { outletsApi, rolesApi, usersApi, type StaffUser } from '@/lib/api';
+import { formatPhone } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
 
 const STAFF_ROLES = [
@@ -145,6 +146,11 @@ export function StaffPage() {
 
   function handleStatusChange(user: StaffUser, nextStatus: string) {
     if (nextStatus === user.status) return;
+    const prompt =
+      nextStatus === 'inactive'
+        ? `Deactivate ${user.name}? They will be signed out and can't log in until reactivated.`
+        : `Reactivate ${user.name}? They will be able to log in again.`;
+    if (!window.confirm(prompt)) return;
     if (nextStatus === 'inactive') {
       deactivateMutation.mutate(user.id);
     } else if (nextStatus === 'active') {
@@ -185,13 +191,18 @@ export function StaffPage() {
         title="New staff account"
         description="Share email and temporary password with your team member."
         footer={
-          <Button
-            type="submit"
-            form="staff-create-form"
-            loading={createMutation.isPending}
-          >
-            Create account
-          </Button>
+          <>
+            <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="staff-create-form"
+              loading={createMutation.isPending}
+            >
+              Create account
+            </Button>
+          </>
         }
       >
         <form
@@ -313,9 +324,14 @@ export function StaffPage() {
         title={editing ? `Edit ${editing.name}` : 'Edit staff'}
         description="Update name, role, or the phone number used for OTP login."
         footer={
-          <Button type="submit" form="staff-edit-form" loading={updateMutation.isPending}>
-            Save changes
-          </Button>
+          <>
+            <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button type="submit" form="staff-edit-form" loading={updateMutation.isPending}>
+              Save changes
+            </Button>
+          </>
         }
       >
         {editing ? (
@@ -408,7 +424,7 @@ export function StaffPage() {
                 return (
                   <tr key={user.id} className="border-b border-line-subtle">
                     <td className="px-4 py-3 font-medium">{user.name}</td>
-                    <td className="px-4 py-3 text-text-secondary">{user.phone || '—'}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{formatPhone(user.phone)}</td>
                     <td className="px-4 py-3 text-text-secondary">{user.email}</td>
                     <td className="px-4 py-3 capitalize">
                       {user.roles.map((r) => r.name).join(', ') || '—'}

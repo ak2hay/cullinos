@@ -16,8 +16,8 @@ interface CTABannerProps {
 
 export function CTABanner({
   title = 'Ready to run your restaurant from one place?',
-  description = 'Start your free trial or talk to our team about Enterprise and Hospitality plans.',
-  primaryLabel = 'Start free trial',
+  description = 'Start your 30-day free trial or talk to our team about Enterprise and Hospitality plans.',
+  primaryLabel = 'Start 30-day free trial',
   primaryHref,
   secondaryLabel = 'Contact sales',
   secondaryHref = '/contact',

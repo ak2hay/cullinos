@@ -3,8 +3,10 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { isAlcoholProductType, orgServesAlcohol } from "@cullinos/shared";
+import { MenuChangeNotifier } from "./menu-change.notifier";
 import { PrismaService } from "../../prisma/prisma.service";
 import { toPaise, toRupees } from "../../common/money.util";
 import { normalizePublicAssetUrl } from "../../common/public-asset-url.util";
@@ -123,6 +125,7 @@ export class MenuService {
   constructor(
     private prisma: PrismaService,
     private upload: MarketingUploadService,
+    @Optional() private changes?: MenuChangeNotifier,
   ) {}
 
   list(orgId: string) {
@@ -495,6 +498,7 @@ export class MenuService {
 
     await this.syncVariants(created.id, data.variants);
     await this.syncModifierGroups(orgId, created.id, data.modifierGroups);
+    this.changes?.menuChanged(orgId);
 
     return this.getItem(orgId, created.id);
   }
@@ -599,6 +603,14 @@ export class MenuService {
     await this.syncVariants(id, variants);
     await this.syncModifierGroups(orgId, id, modifierGroups);
 
+    const wasOnline = existing.isActive && existing.onlineAvailable;
+    const nowOnline =
+      (data.isActive ?? existing.isActive) && (data.onlineAvailable ?? existing.onlineAvailable);
+    if (wasOnline !== nowOnline) {
+      this.changes?.itemsAvailabilityChanged(orgId, [{ id, availableOnline: nowOnline }]);
+    }
+    this.changes?.menuChanged(orgId);
+
     return this.getItem(orgId, id);
   }
 
@@ -670,6 +682,9 @@ export class MenuService {
       where: { id },
       data: { isActive: false, imageUrl: null },
     });
+    if (existing.isActive && existing.onlineAvailable) {
+      this.changes?.itemsAvailabilityChanged(orgId, [{ id, availableOnline: false }]);
+    }
   }
 
   listSchedules(orgId: string) {

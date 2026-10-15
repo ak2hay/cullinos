@@ -85,7 +85,7 @@ export function MarketingFooter() {
         <div className="grid gap-10 lg:grid-cols-[1fr_1fr_1fr_1.2fr]">
           {columns.map((col) => (
             <div key={col.title}>
-              <h3 className="font-serif text-lg font-medium">{col.title}</h3>
+              <p className="font-serif text-lg font-medium">{col.title}</p>
               <ul className="mt-4 md:space-y-2.5">
                 {col.links.map((link) => (
                   <li key={link.href}>

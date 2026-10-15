@@ -10,7 +10,7 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
 export function Textarea({ label, error, id, className = '', ...props }: TextareaProps) {
   const textareaId = fieldId(label, id);
   return (
-    <Field label={label} htmlFor={textareaId} error={error}>
+    <Field label={label} htmlFor={textareaId} error={error} required={props.required}>
       <textarea
         id={textareaId}
         className={cn(

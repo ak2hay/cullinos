@@ -1,6 +1,7 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { OrdersController, PublicOrdersController } from "./orders.controller";
 import { OrdersService } from "./orders.service";
+import { OrderStatusNotifier } from "./order-status.notifier";
 import { WebsocketModule } from "../../websocket/websocket.module";
 import { LoyaltyModule } from "../loyalty/loyalty.module";
 import { StorefrontModule } from "../storefront/storefront.module";
@@ -28,7 +29,7 @@ import { RefundPinModule } from "../refund-pin/refund-pin.module";
     RefundPinModule,
   ],
   controllers: [OrdersController, PublicOrdersController],
-  providers: [OrdersService],
-  exports: [OrdersService],
+  providers: [OrdersService, OrderStatusNotifier],
+  exports: [OrdersService, OrderStatusNotifier],
 })
 export class OrdersModule {}

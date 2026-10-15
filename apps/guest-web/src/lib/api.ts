@@ -113,6 +113,13 @@ export interface StorefrontBootstrap {
   openNow?: boolean | null;
   todayHours?: DayHours | null;
   popularItemIds?: string[];
+  orderModes?: {
+    dineIn: boolean;
+    takeaway: boolean;
+    delivery: boolean;
+  };
+  /** false when the outlet runs a counter with tokens instead of table QR codes */
+  tablesEnabled?: boolean;
   menu: {
     outletId: string;
     categories: MenuCategory[];

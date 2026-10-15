@@ -107,6 +107,18 @@ const TEST_CASES = [
   { id: 'TC-2.7-08', phase: '2.7 Guest App', case: 'Orders list / detail load', expected: 'Orders load' },
   { id: 'TC-2.7-09', phase: '2.7 Guest App', case: 'Wallets / Coins pages load', expected: 'Loyalty pages load' },
   { id: 'TC-2.7-10', phase: '2.7 Guest App', case: 'Kiosk mode places pay-at-counter order', expected: 'Kiosk order placed' },
+  // Phase 2.8
+  { id: 'TC-2.8-01', phase: '2.8 Web kiosk', case: 'Kiosk opens at kiosk.cullinos.com/o/{org}/{outlet} on welcome screen', expected: 'Welcome screen' },
+  { id: 'TC-2.8-02', phase: '2.8 Web kiosk', case: 'Start → add item with modifiers to cart', expected: 'Item + modifiers in cart' },
+  { id: 'TC-2.8-03', phase: '2.8 Web kiosk', case: 'Place order shows pickup code', expected: 'Pickup code shown' },
+  { id: 'TC-2.8-04', phase: '2.8 Web kiosk', case: 'Kiosk order appears in POS / KDS', expected: 'Order in POS/KDS' },
+  { id: 'TC-2.8-05', phase: '2.8 Web kiosk', case: 'Idle ~2 min returns to welcome screen', expected: 'Welcome screen' },
+  // Phase 2.9
+  { id: 'TC-2.9-01', phase: '2.9 Token ordering', case: 'Counter QR card shown (Settings / /kiosk) when table system is off', expected: 'Counter QR visible' },
+  { id: 'TC-2.9-02', phase: '2.9 Token ordering', case: 'Guest picks Eat in / Takeaway and places order', expected: 'Order placed' },
+  { id: 'TC-2.9-03', phase: '2.9 Token ordering', case: 'Guest sees Your token (pickup code) + order number', expected: 'Token shown' },
+  { id: 'TC-2.9-04', phase: '2.9 Token ordering', case: 'KDS ticket shows Token XXXXXX (no table)', expected: 'Token on KDS' },
+  { id: 'TC-2.9-05', phase: '2.9 Token ordering', case: 'Pickup / CDS display lists the same token', expected: 'Token on CDS' },
   // Phase 3
   { id: 'TC-3-01', phase: '3 Admin', case: 'Dashboard loads with KPI cards', expected: 'KPI cards visible' },
   { id: 'TC-3-02', phase: '3 Admin', case: 'Dashboard revenue reflects test orders', expected: 'Revenue non-zero' },
@@ -153,6 +165,18 @@ const TEST_CASES = [
   { id: 'TC-3-43', phase: '3 Admin', case: 'SMS campaigns — page loads; Send or N/A if no wallet', expected: 'Page OK or N/A' },
   { id: 'TC-3-44', phase: '3 Admin', case: 'Menu — combos / schedules / outlet prices tab usable', expected: 'Tabs usable' },
   { id: 'TC-3-45', phase: '3 Admin', case: 'Reports — Export downloads for a tab', expected: 'Export works' },
+  { id: 'TC-3-46', phase: '3 Admin', case: 'Settings → Table system off — Tables / Reservations leave nav for outlet', expected: 'Nav hidden' },
+  { id: 'TC-3-47', phase: '3 Admin', case: 'Table system off — table QR shows counter flow; new table session rejected', expected: 'Counter flow; session rejected' },
+  { id: 'TC-3-48', phase: '3 Admin', case: 'Table system on / "Use category default" — Tables nav and table sessions work', expected: 'Tables work' },
+  { id: 'TC-3-49', phase: '3 Admin', case: 'Aggregators — UrbanPiper connect saves; webhook URL + secret shown', expected: 'Connected' },
+  { id: 'TC-3-50', phase: '3 Admin', case: 'Aggregators — per-outlet store link + menu push (or graceful error)', expected: 'Push OK or clear error' },
+  { id: 'TC-3-51', phase: '3 Admin', case: 'Aggregators — store pause / per-outlet item stock toggle', expected: 'Toggles persist' },
+  { id: 'TC-3-52', phase: '3 Admin', case: 'Aggregators — unknown-item linking + settlement CSV import', expected: 'Linked; CSV imported' },
+  { id: 'TC-3-53', phase: '3 Admin', case: 'Portal POS Online panel loads; new order chimes with accept timer (or N/A)', expected: 'Panel OK or N/A' },
+  { id: 'TC-3-54', phase: '3 Admin', case: 'Online panel — Accept (prep time) prints KOT; Reject requires reason', expected: 'KOT on accept; reason enforced' },
+  { id: 'TC-3-55', phase: '3 Admin', case: 'Online panel — Food ready → Handed to rider', expected: 'Status advances' },
+  { id: 'TC-3-56', phase: '3 Admin', case: 'Customers — Find duplicates shows merge preview', expected: 'Preview shown' },
+  { id: 'TC-3-57', phase: '3 Admin', case: 'Customers — Apply merge combines duplicates', expected: 'Duplicates merged' },
   // Phase 4
   { id: 'TC-4-01', phase: '4 Management', case: 'Owner login at manage.cullinos.com', expected: 'Management loads' },
   { id: 'TC-4-02', phase: '4 Management', case: 'Overview dashboard loads KPIs', expected: 'KPIs visible' },
@@ -183,16 +207,23 @@ const TEST_CASES = [
   { id: 'TC-5-18', phase: '5 Super Admin', case: 'Marketing Design Lab loads', expected: 'Page loads' },
   { id: 'TC-5-19', phase: '5 Super Admin', case: 'Platform Settings page loads', expected: 'Page loads' },
   { id: 'TC-5-20', phase: '5 Super Admin', case: 'Super Admin forgot-password page loads', expected: 'Page loads' },
-  { id: 'TC-5-21', phase: '5 Super Admin', case: 'Guest Ops overview loads', expected: 'Overview loads' },
-  { id: 'TC-5-22', phase: '5 Super Admin', case: 'Guest Ops marketplace — approve/rank QA listing', expected: 'Listing updated' },
-  { id: 'TC-5-23', phase: '5 Super Admin', case: 'Guest Ops discover — create section', expected: 'Section created' },
-  { id: 'TC-5-24', phase: '5 Super Admin', case: 'Guest Ops banners — create banner', expected: 'Banner created' },
-  { id: 'TC-5-25', phase: '5 Super Admin', case: 'Guest Ops push — create draft', expected: 'Draft created' },
-  { id: 'TC-5-26', phase: '5 Super Admin', case: 'Guest Ops offers — create offer', expected: 'Offer created' },
-  { id: 'TC-5-27', phase: '5 Super Admin', case: 'Guest Ops reviews / users / analytics pages load', expected: 'Pages load' },
-  { id: 'TC-5-28', phase: '5 Super Admin', case: 'Guest Ops runtime — Save runtime settings (safe toggle)', expected: 'Settings saved' },
+  { id: 'TC-5-21', phase: '5 Super Admin', case: 'Guest Ops (App Ops) overview loads', expected: 'Overview loads' },
+  { id: 'TC-5-22', phase: '5 Super Admin', case: 'Guest Ops (App Ops) marketplace — approve/rank QA listing', expected: 'Listing updated' },
+  { id: 'TC-5-23', phase: '5 Super Admin', case: 'Guest Ops (App Ops) discover — create section', expected: 'Section created' },
+  { id: 'TC-5-24', phase: '5 Super Admin', case: 'Guest Ops (App Ops) banners — create banner', expected: 'Banner created' },
+  { id: 'TC-5-25', phase: '5 Super Admin', case: 'Guest Ops (App Ops) notifications — create draft', expected: 'Draft created' },
+  { id: 'TC-5-26', phase: '5 Super Admin', case: 'Guest Ops offers — create offer (N/A if route redirects home)', expected: 'Offer created or N/A' },
+  { id: 'TC-5-27', phase: '5 Super Admin', case: 'Guest Ops (App Ops) reviews / users / analytics pages load', expected: 'Pages load' },
+  { id: 'TC-5-28', phase: '5 Super Admin', case: 'Guest Ops (App Ops) runtime — Save runtime settings (safe toggle)', expected: 'Settings saved' },
   { id: 'TC-5-29', phase: '5 Super Admin', case: 'Promo Email — compose draft or send without crash (platform only)', expected: 'No crash' },
   { id: 'TC-5-30', phase: '5 Super Admin', case: 'Tenant detail — Open as tenant (impersonation) works', expected: 'Impersonation works' },
+  { id: 'TC-5-31', phase: '5 Super Admin', case: 'Employees page lists platform employees', expected: 'List loads' },
+  { id: 'TC-5-32', phase: '5 Super Admin', case: 'Employees — Onboard employee dialog submits (QA email, human approval)', expected: 'Employee invited' },
+  { id: 'TC-5-33', phase: '5 Super Admin', case: 'Approvals inbox loads; approval detail opens', expected: 'Inbox + detail load' },
+  { id: 'TC-5-34', phase: '5 Super Admin', case: 'Approvals policies page loads', expected: 'Page loads' },
+  { id: 'TC-5-35', phase: '5 Super Admin', case: 'Approval email-action link opens approval page', expected: 'Page loads' },
+  { id: 'TC-5-36', phase: '5 Super Admin', case: 'People directory and org chart load', expected: 'Pages load' },
+  { id: 'TC-5-37', phase: '5 Super Admin', case: 'Employee profile page opens', expected: 'Profile loads' },
   // Phase 6
   { id: 'TC-6-01', phase: '6 Marketing', case: 'Home page loads with hero and nav', expected: 'Home loads' },
   { id: 'TC-6-02', phase: '6 Marketing', case: 'Features page loads', expected: 'Features loads' },
@@ -225,6 +256,21 @@ const TEST_CASES = [
   { id: 'TC-7-12', phase: '7 Swagger', case: 'Notifications — list', expected: 'HTTP 200' },
   { id: 'TC-7-13', phase: '7 Swagger', case: 'Devices — list', expected: 'HTTP 200' },
   { id: 'TC-7-14', phase: '7 Swagger', case: 'Integrations — list', expected: 'HTTP 200' },
+  // Phase 8
+  { id: 'TC-8-01', phase: '8 Support', case: 'Restaurant login with owner credentials (OTP if prompted)', expected: 'Portal home loads' },
+  { id: 'TC-8-02', phase: '8 Support', case: 'Portal home loads; KB article opens', expected: 'Article readable' },
+  { id: 'TC-8-03', phase: '8 Support', case: 'Raise ticket submits; appears in My tickets', expected: 'Ticket listed' },
+  { id: 'TC-8-04', phase: '8 Support', case: 'Ticket detail — reply posts', expected: 'Reply visible' },
+  { id: 'TC-8-05', phase: '8 Support', case: 'Agent login (Rkyves staff) lands on queue', expected: 'Queue loads' },
+  { id: 'TC-8-06', phase: '8 Support', case: 'Agent opens QA tenant ticket and replies', expected: 'Reply visible to tenant' },
+  { id: 'TC-8-07', phase: '8 Support', case: 'Agent dashboard loads', expected: 'Page loads' },
+  { id: 'TC-8-08', phase: '8 Support', case: 'Agent grants — tenant access request prompts step-up', expected: 'Step-up dialog shown' },
+  { id: 'TC-8-09', phase: '8 Support', case: 'Agent shifts page loads', expected: 'Page loads' },
+  { id: 'TC-8-10', phase: '8 Support', case: 'Agent knowledge page loads', expected: 'Page loads' },
+  // Phase 9
+  { id: 'TC-9-01', phase: '9 App Ops', case: 'App Ops login succeeds', expected: 'Overview loads' },
+  { id: 'TC-9-02', phase: '9 App Ops', case: 'Super Admin /guest-ops redirects to App Ops', expected: 'Redirect works' },
+  { id: 'TC-9-03', phase: '9 App Ops', case: 'App Ops forgot-password page loads', expected: 'Page loads' },
 ];
 
 function styleHeader(row) {
@@ -492,8 +538,8 @@ async function buildCredentialsLog() {
 async function main() {
   mkdirSync(OUT_DIR, { recursive: true });
 
-  if (TEST_CASES.length !== 190) {
-    console.warn(`Warning: expected 190 test cases, found ${TEST_CASES.length}`);
+  if (TEST_CASES.length !== 232) {
+    console.warn(`Warning: expected 232 test cases, found ${TEST_CASES.length}`);
   }
 
   const testWb = await buildTestRunSheet();

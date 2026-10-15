@@ -8,7 +8,7 @@ function KioskHome() {
       <BrandWordmark size="lg" />
       <h1 className="text-2xl font-bold">Self-order kiosk</h1>
       <p className="max-w-md text-text-secondary">
-        Open the kiosk link for your outlet from Admin → Digital Ordering. It looks like
+        Open the kiosk link for your outlet from Admin → Self-order (kiosk & QR). It looks like
         <span className="mt-2 block font-mono text-sm text-brand-primary">
           kiosk.cullinos.com/o/your-restaurant/your-outlet
         </span>

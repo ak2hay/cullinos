@@ -82,6 +82,8 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | Feature | Description |
 |---------|-------------|
 | **QR dine-in ordering** | Scan table QR; order into the active session |
+| **Table system toggle** | Per outlet in **Settings → General → Table system**. Any business category can turn tables on or off; unset follows the category default (restaurant, cafe, bar on; QSR, bakery, food truck, cloud kitchen, catering off). Off hides Tables / Reservations, blocks table sessions and table orders, and keeps existing table data |
+| **Counter QR (token ordering)** | When an outlet's tables are off, one counter QR (`guest.cullinos.com/o/{org}/{outlet}`) replaces table codes. Guests pick Eat in / Takeaway (as allowed), pay at the counter, and get a token (6-character pickup code + order number) shown on their phone, the KDS ticket, and the pickup / CDS display |
 | **Online storefront** | Branded menu at `guest.cullinos.com/{org}/{outlet}` |
 | **Digital Ordering / kiosk** | Self-serve kiosk mode + launcher URLs in Admin |
 | **Guest checkout** | Name + phone; login optional |
@@ -139,7 +141,7 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | **Payments** | Cash + Razorpay / Cashfree capture. Cancel refunds the captured amount on the tenant gateway when the payment id is stored; otherwise staff confirm a dashboard refund |
 | **Tax engine** | Tax groups and GST calculation (`@cullinos/tax-engine`) |
 | **Delivery management** | Track delivery orders from Admin |
-| **Aggregators** | Swiggy / Zomato webhooks and settlements. Outbound menu sync is not available |
+| **Aggregators** | Swiggy / Zomato via UrbanPiper: orders land in POS for accept/reject with prep time, status push-back (accepted, food ready, dispatched, cancelled), menu push, per-outlet item stock and store pause, unknown-item linking, settlement reconciliation |
 | **Feedback surveys** | Post-order survey links + public submit |
 
 ### 3.6 CRM & growth
@@ -202,7 +204,7 @@ Every order channel writes to the same kitchen and the same GST-ready ledger.
 | **SMTP / Brevo** | Available | Staff email OTP, promo email |
 | **Resend** | Available | Owner onboarding credential emails |
 | **Cloudflare R2** | Available | Marketing CMS media |
-| **Swiggy / Zomato** | Webhooks expanding | Incoming order webhooks and settlements. Outbound menu sync is not available |
+| **Swiggy / Zomato** | Available (via UrbanPiper) | Restaurant's own UrbanPiper credentials. Orders, status push-back, menu and stock sync, settlements. Direct per-aggregator webhooks remain for legacy setups (no menu sync) |
 | **Print / Local Gateway** | Available | Thermal receipts, KOT, cash drawer, scanners |
 | **ERP day-book export** | Available | Accounting export (not a full ERP connector) |
 | **Hotel PMS** | Roadmap | Deeper folio sync beyond room posting |

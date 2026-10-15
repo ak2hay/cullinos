@@ -2,7 +2,8 @@ import { Global, Injectable, Logger, Module, type OnApplicationBootstrap } from 
 import { APP_INTERCEPTOR } from "@nestjs/core";
 import { PlatformIamService } from "../platform-iam/platform-iam.service";
 import { PlatformApprovalInterceptor } from "./platform-approval.interceptor";
-import { PlatformApprovalsController } from "./platform-approvals.controller";
+import { MailModule } from "../mail/mail.module";
+import { ApprovalEmailActionController, PlatformApprovalsController } from "./platform-approvals.controller";
 import { PlatformApprovalsService } from "./platform-approvals.service";
 
 @Injectable()
@@ -31,7 +32,8 @@ class PlatformApprovalsBootstrap implements OnApplicationBootstrap {
 /** Maker-checker approvals for sensitive platform actions. */
 @Global()
 @Module({
-  controllers: [PlatformApprovalsController],
+  imports: [MailModule],
+  controllers: [PlatformApprovalsController, ApprovalEmailActionController],
   providers: [
     PlatformApprovalsService,
     PlatformApprovalsBootstrap,

@@ -37,7 +37,7 @@ Cullinos is a restaurant software platform made by Rkyves. One backend powers se
 | Guest customer | **Cullinos App** | Order online (guest OK; optional login) |
 | Public visitors | **Marketing site** | cullinos.com — no login |
 
-**Your job:** Test all **190 test cases** on **production** using a **fresh test restaurant** you create on Day 1.
+**Your job:** Test all **232 test cases** on **production** using a **fresh test restaurant** you create on Day 1.
 
 For click-by-click steps on every page, use **[COMPLETE_FEATURE_TEST_GUIDE.md](./COMPLETE_FEATURE_TEST_GUIDE.md)**.
 
@@ -63,7 +63,7 @@ You should receive these files:
 4. `QA_Quick_Start.pdf` / `Manual_Test_Plan.pdf`
 5. `Quick_Reference_Card.pdf`
 6. `Employee_Brief.pdf`
-7. `TEST_RUN_SHEET.xlsx` (190 cases)
+7. `TEST_RUN_SHEET.xlsx` (232 cases)
 8. `BUG_LOG.xlsx`
 9. `CREDENTIALS_LOG.xlsx`
 
@@ -542,7 +542,7 @@ When any test is **Fail**:
 
 Before sending work to your team lead:
 
-- [ ] All 190 test cases marked Pass / Fail / Blocked / N/A in TEST_RUN_SHEET.xlsx
+- [ ] All 232 test cases marked Pass / Fail / Blocked / N/A in TEST_RUN_SHEET.xlsx
 - [ ] Summary sheet counts look correct
 - [ ] Every **Fail** has a row in BUG_LOG.xlsx
 - [ ] CREDENTIALS_LOG.xlsx filled (no real passwords)

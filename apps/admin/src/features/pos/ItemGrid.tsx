@@ -5,6 +5,7 @@ interface ItemGridProps {
     price: number;
     /** Set during happy hour when `price` is discounted */
     regularPrice?: number;
+    imageUrl?: string | null;
     isAvailable: boolean;
   }>;
   quantities?: Record<string, number>;
@@ -38,12 +39,22 @@ export function ItemGrid({ items, quantities = {}, onAdd, emptyHint }: ItemGridP
             onClick={() => onAdd({ id: item.id, name: item.name, price: item.price })}
             className="group relative flex min-h-[64px] flex-col items-start justify-between overflow-hidden rounded-xl border border-line bg-gradient-to-br from-bg-card to-bg-elevated/80 p-2 text-left shadow-sm transition hover:border-brand-primary/50 hover:shadow-md hover:shadow-brand-primary/10 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
           >
+            {item.imageUrl ? (
+              <img
+                src={item.imageUrl}
+                alt=""
+                loading="lazy"
+                className="mb-1.5 aspect-[4/3] w-full rounded-lg object-cover"
+              />
+            ) : null}
             {qty > 0 ? (
-              <span className="absolute right-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-primary px-1.5 font-mono text-[11px] font-bold text-on-brand">
+              <span className="absolute right-1.5 top-1.5 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-primary px-1.5 font-mono text-[11px] font-bold text-on-brand shadow ring-2 ring-bg-card">
                 {qty}
               </span>
             ) : null}
-            <span className="line-clamp-2 pr-6 text-sm font-semibold leading-tight text-text-primary">
+            <span
+              className={`line-clamp-2 text-sm font-semibold leading-tight text-text-primary ${item.imageUrl ? '' : 'pr-6'}`}
+            >
               {item.name}
             </span>
             <span className="mt-1.5 flex items-center gap-1.5">

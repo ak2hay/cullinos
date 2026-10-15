@@ -4,6 +4,7 @@ import {
   parseKdsServedCompletesOrder,
   parsePosQuickKeys,
   parseQrSessionTimeoutMinutes,
+  parseTablesEnabled,
   qrSessionExpiryAction,
 } from "./outlet-ops-settings.util";
 
@@ -13,6 +14,7 @@ describe("outletOpsSettings", () => {
       qrSessionTimeoutMinutes: 60,
       kdsServedCompletesOrder: "always",
       posQuickKeys: [],
+      tablesEnabled: null,
     });
   });
 
@@ -22,15 +24,27 @@ describe("outletOpsSettings", () => {
         qrSessionTimeoutMinutes: 0,
         kdsServedCompletesOrder: "paid_only",
         posQuickKeys: [{ slot: 2, menuItemId: "b" }, { slot: 1, menuItemId: "a" }],
+        tablesEnabled: false,
       }),
     ).toEqual({
       qrSessionTimeoutMinutes: 0,
       kdsServedCompletesOrder: "paid_only",
       posQuickKeys: [{ slot: 1, menuItemId: "a" }, { slot: 2, menuItemId: "b" }],
+      tablesEnabled: false,
     });
     expect(
-      outletOpsSettings({ qrSessionTimeoutMinutes: -5, kdsServedCompletesOrder: "x", posQuickKeys: "x" }),
-    ).toEqual({ qrSessionTimeoutMinutes: 60, kdsServedCompletesOrder: "always", posQuickKeys: [] });
+      outletOpsSettings({
+        qrSessionTimeoutMinutes: -5,
+        kdsServedCompletesOrder: "x",
+        posQuickKeys: "x",
+        tablesEnabled: "yes",
+      }),
+    ).toEqual({
+      qrSessionTimeoutMinutes: 60,
+      kdsServedCompletesOrder: "always",
+      posQuickKeys: [],
+      tablesEnabled: null,
+    });
   });
 });
 
@@ -41,6 +55,14 @@ describe("setting parsers", () => {
     expect(() => parseQrSessionTimeoutMinutes(1.5)).toThrow();
     expect(parseKdsServedCompletesOrder("off")).toBe("off");
     expect(() => parseKdsServedCompletesOrder("sometimes")).toThrow();
+  });
+
+  it("accepts only booleans or null for tablesEnabled", () => {
+    expect(parseTablesEnabled(true)).toBe(true);
+    expect(parseTablesEnabled(false)).toBe(false);
+    expect(parseTablesEnabled(null)).toBeNull();
+    expect(() => parseTablesEnabled("false")).toThrow();
+    expect(() => parseTablesEnabled(0)).toThrow();
   });
 
   it("rejects out-of-range or duplicate quick key slots", () => {

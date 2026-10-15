@@ -10,7 +10,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 export function Input({ label, error, id, className = '', ...props }: InputProps) {
   const inputId = fieldId(label, id);
   return (
-    <Field label={label} htmlFor={inputId} error={error}>
+    <Field label={label} htmlFor={inputId} error={error} required={props.required}>
       <input
         id={inputId}
         className={cn(controlClassName, error && 'border-status-error', className)}

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { RequirePermission } from '@/components/auth/RequirePermission';
+import { RequireOwner, RequirePermission } from '@/components/auth/RequirePermission';
 import { AppShell } from '@/components/layout/AppShell';
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage';
 import { DashboardPage } from '@/pages/DashboardPage';
@@ -15,7 +15,7 @@ import { SettingsPage } from '@/pages/SettingsPage';
 import { SubscriptionsPage } from '@/pages/SubscriptionsPage';
 import { TenantDetailPage } from '@/pages/tenants/TenantDetailPage';
 import { TenantsPage } from '@/pages/tenants/TenantsPage';
-import { TeamPage } from '@/pages/TeamPage';
+import { EmployeesPage } from '@/pages/employees/EmployeesPage';
 import { LabsPage } from '@/pages/LabsPage';
 import { AuditActivityPage } from '@/pages/AuditActivityPage';
 import { UsersReportPage } from '@/pages/UsersReportPage';
@@ -35,6 +35,7 @@ import { AccessReviewsPage } from '@/pages/access/AccessReviewsPage';
 import { SecurityPolicyPage } from '@/pages/access/SecurityPolicyPage';
 import { SessionsPage } from '@/pages/access/SessionsPage';
 import { ApprovalDetailPage } from '@/pages/approvals/ApprovalDetailPage';
+import { EmailApprovalPage } from '@/pages/approvals/EmailApprovalPage';
 import { ApprovalPoliciesPage } from '@/pages/approvals/ApprovalPoliciesPage';
 import { ApprovalsInboxPage } from '@/pages/approvals/ApprovalsInboxPage';
 import { AssignmentsPage } from '@/pages/iam/AssignmentsPage';
@@ -44,13 +45,8 @@ import { StaffActivityPage } from '@/pages/iam/StaffActivityPage';
 import { DirectoryPage } from '@/pages/people/DirectoryPage';
 import { EmployeeProfilePage } from '@/pages/people/EmployeeProfilePage';
 import { OrgChartPage } from '@/pages/people/OrgChartPage';
-import { ShiftsPage } from '@/pages/people/ShiftsPage';
 import { JobsPage } from '@/pages/reports/JobsPage';
-import { OpsOverviewPage } from '@/pages/reports/OpsOverviewPage';
-import { AccessGrantsPage } from '@/pages/support/AccessGrantsPage';
-import { TicketDetailPage } from '@/pages/support/TicketDetailPage';
-import { TicketsPage } from '@/pages/support/TicketsPage';
-import { APP_OPS_URL } from '@/lib/api';
+import { APP_OPS_URL, SUPPORT_PORTAL_URL } from '@/lib/api';
 import type { PlatformPermission } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/auth';
 
@@ -66,15 +62,20 @@ function PublicOnly({ children }: { children: React.ReactNode }) {
   return children;
 }
 
-function ExternalRedirect({ to }: { to: string }) {
+function ExternalRedirect({ to, label = 'Cullinos App Ops' }: { to: string; label?: string }) {
   useEffect(() => {
     window.location.replace(to);
   }, [to]);
   return (
     <p className="p-6 text-sm text-text-secondary">
-      Redirecting to Cullinos App Ops…
+      Redirecting to {label}…
     </p>
   );
+}
+
+function SupportTicketRedirect() {
+  const { id = '' } = useParams();
+  return <ExternalRedirect to={`${SUPPORT_PORTAL_URL}/agent/tickets/${encodeURIComponent(id)}`} label="the support portal" />;
 }
 
 export default function App() {
@@ -96,6 +97,7 @@ export default function App() {
           </PublicOnly>
         }
       />
+      <Route path="/approvals/email-action" element={<EmailApprovalPage />} />
       <Route
         path="/change-password"
         element={
@@ -125,8 +127,9 @@ export default function App() {
         <Route path="audit" element={gated('audit.read', <AuditActivityPage />)} />
         <Route path="users-report" element={gated('tenants.read', <UsersReportPage />)} />
         <Route path="promo-email" element={gated('promo.send', <PromoEmailPage />)} />
-        <Route path="team" element={gated('team.manage', <TeamPage />)} />
-        <Route path="reports" element={gated('reports.read', <OpsOverviewPage />)} />
+        <Route path="employees" element={gated('team.manage', <EmployeesPage />)} />
+        <Route path="team" element={<Navigate to="/employees" replace />} />
+        <Route path="reports" element={<ExternalRedirect to={`${SUPPORT_PORTAL_URL}/agent/dashboard`} label="the support portal" />} />
         <Route path="reports/jobs" element={gated(['reports.export', 'bulk.run'], <JobsPage />)} />
         <Route path="approvals" element={<ApprovalsInboxPage />} />
         <Route
@@ -134,19 +137,23 @@ export default function App() {
           element={gated(['approvals.policies', 'approvals.read_all'], <ApprovalPoliciesPage />)}
         />
         <Route path="approvals/:id" element={<ApprovalDetailPage />} />
-        <Route path="support/tickets" element={gated('tickets.read', <TicketsPage />)} />
-        <Route path="support/tickets/:id" element={gated('tickets.read', <TicketDetailPage />)} />
-        <Route
-          path="support/grants"
-          element={gated(['tenants.impersonate', 'tenant_access.revoke', 'tickets.read'], <AccessGrantsPage />)}
-        />
+        <Route path="support/tickets" element={<ExternalRedirect to={`${SUPPORT_PORTAL_URL}/agent/queue/open`} label="the support portal" />} />
+        <Route path="support/tickets/:id" element={<SupportTicketRedirect />} />
+        <Route path="support/grants" element={<ExternalRedirect to={`${SUPPORT_PORTAL_URL}/agent/grants`} label="the support portal" />} />
         <Route path="people" element={gated('directory.read', <DirectoryPage />)} />
         <Route path="people/org-chart" element={gated('directory.read', <OrgChartPage />)} />
-        <Route path="people/shifts" element={gated(['directory.read', 'tickets.read'], <ShiftsPage />)} />
+        <Route path="people/shifts" element={<ExternalRedirect to={`${SUPPORT_PORTAL_URL}/agent/shifts`} label="the support portal" />} />
         <Route path="people/:userId" element={gated('directory.read', <EmployeeProfilePage />)} />
         <Route path="iam/org" element={gated(['iam.read', 'directory.read'], <OrgStructurePage />)} />
         <Route path="iam/roles" element={gated(['iam.read', 'iam.assign'], <RolesPage />)} />
-        <Route path="iam/assignments" element={gated(['iam.read', 'iam.assign'], <AssignmentsPage />)} />
+        <Route
+          path="iam/assignments"
+          element={
+            <RequireOwner>
+              <AssignmentsPage />
+            </RequireOwner>
+          }
+        />
         <Route path="activity" element={gated('activity.read', <StaffActivityPage />)} />
         <Route path="access/reviews" element={gated('access_reviews.manage', <AccessReviewsPage />)} />
         <Route path="access/reviews/:id" element={<AccessReviewDetailPage />} />

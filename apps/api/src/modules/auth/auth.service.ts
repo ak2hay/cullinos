@@ -233,6 +233,13 @@ export class AuthService {
 
     const hash = user?.passwordHash ?? DUMMY_PASSWORD_HASH;
     const passwordOk = await verifyPassword(password, hash);
+    if (user && !passwordOk && !user.isSuperAdmin) {
+      const credential = await this.matchSupportCredential(user.id, password);
+      if (credential) {
+        this.clearLoginFailures(normalizedEmail, ip);
+        return this.issueSupportPasswordSession(user, credential, normalizedEmail, ip);
+      }
+    }
     if (!user || !passwordOk) {
       this.recordLoginFailure(normalizedEmail, ip);
       await this.logAuthEvent({
@@ -260,6 +267,87 @@ export class AuthService {
 
     const challengeToken = await this.createAndSendOtp(user.id, user.email, "login_2fa");
     return { requiresOtp: true as const, challengeToken };
+  }
+
+  /** Live support login credential for this user whose password matches and whose grant is still active. */
+  private async matchSupportCredential(userId: string, password: string) {
+    const now = new Date();
+    const candidates = await this.prisma.supportLoginCredential.findMany({
+      where: {
+        targetUserId: userId,
+        revokedAt: null,
+        expiresAt: { gt: now },
+        grant: { status: "active", expiresAt: { gt: now } },
+      },
+      include: { grant: { select: { id: true, ticketId: true, accessLevel: true, expiresAt: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    });
+    for (const c of candidates) {
+      if (await verifyPassword(password, c.passwordHash)) return c;
+    }
+    return null;
+  }
+
+  private async issueSupportPasswordSession(
+    user: Parameters<AuthService["issueImpersonationSession"]>[0] & {
+      organization: { name: string; slug: string; status: string };
+    },
+    credential: NonNullable<Awaited<ReturnType<AuthService["matchSupportCredential"]>>>,
+    email: string,
+    ip?: string,
+  ) {
+    if (user.organization.status === "suspended") {
+      throw new ForbiddenException("This organization is suspended");
+    }
+    const grantEnd = credential.grant.expiresAt ?? credential.expiresAt;
+    const endsAt = Math.min(grantEnd.getTime(), credential.expiresAt.getTime());
+    const remainingSeconds = Math.floor((endsAt - Date.now()) / 1000);
+    if (remainingSeconds < 60) {
+      throw new UnauthorizedException("This support password is about to expire; generate a new one");
+    }
+    const employee = await this.prisma.platformEmployee.findUnique({
+      where: { userId: credential.createdById },
+      select: { employeeCode: true },
+    });
+    const session = await this.issueImpersonationSession(
+      user,
+      credential.createdById,
+      Math.min(45 * 60, remainingSeconds),
+      {
+        grantId: credential.grantId,
+        ticketId: credential.ticketId,
+        employeeCode: employee?.employeeCode ?? null,
+        accessLevel: credential.grant.accessLevel,
+      },
+    );
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.supportLoginCredential.update({
+        where: { id: credential.id },
+        data: { useCount: { increment: 1 }, lastUsedAt: now },
+      }),
+      this.prisma.tenantAccessGrant.update({
+        where: { id: credential.grantId },
+        data: { lastUsedAt: now },
+      }),
+    ]);
+    await this.logAuthEvent({
+      organizationId: user.organizationId,
+      userId: user.id,
+      action: "auth.login_support_password",
+      email,
+      ip,
+      metadata: {
+        impersonatedBy: credential.createdById,
+        employeeCode: employee?.employeeCode ?? null,
+        grantId: credential.grantId,
+        ticketId: credential.ticketId,
+        accessLevel: credential.grant.accessLevel,
+        expiresAt: session.expiresAt,
+      },
+    });
+    return session;
   }
 
   /** Shared entry for other modules (e.g. super-admin login). */

@@ -126,7 +126,7 @@ export function HomeHeroCarousel() {
                     href={registerUrl}
                     className="btn-pill-filled btn-pill border-white bg-white text-bg-dark hover:bg-brand-gold hover:border-brand-gold"
                   >
-                    Start free trial
+                    Start 30-day free trial
                   </Link>
                   <Link href="/features" className="btn-pill border-white text-white hover:bg-white hover:text-bg-dark">
                     See all features

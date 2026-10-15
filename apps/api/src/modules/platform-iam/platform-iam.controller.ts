@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -236,10 +237,12 @@ export class PlatformIamController {
   @Get("assignments")
   @RequirePlatformPermission("iam.read", "iam.assign")
   listAssignments(
+    @Req() req: PlatformReq,
     @Query("userId") userId?: string,
     @Query("roleId") roleId?: string,
     @Query("includeRevoked") includeRevoked?: string,
   ) {
+    this.assertOwner(req);
     return this.iam.listAssignments({ userId, roleId, includeRevoked: includeRevoked === "true" });
   }
 
@@ -247,13 +250,21 @@ export class PlatformIamController {
   @RequirePlatformPermission("iam.assign")
   @RequiresApproval("iam.assign", "Grant platform role")
   assignRole(@CurrentUser() user: JwtPayload, @Body() dto: AssignRoleDto, @Req() req: PlatformReq) {
+    this.assertOwner(req);
     return this.iam.assignRole(user, dto, req.approvalRequest?.id);
   }
 
   @Delete("assignments/:id")
   @RequirePlatformPermission("iam.assign")
-  revokeAssignment(@CurrentUser() user: JwtPayload, @Param("id") id: string) {
+  revokeAssignment(@CurrentUser() user: JwtPayload, @Param("id") id: string, @Req() req: PlatformReq) {
+    this.assertOwner(req);
     return this.iam.revokeAssignment(user, id);
+  }
+
+  private assertOwner(req: PlatformReq) {
+    if (!req.platformAccess?.isOwner) {
+      throw new ForbiddenException("Role assignments are restricted to platform owners");
+    }
   }
 
   // Notifications

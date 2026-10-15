@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { outletUsesTables } from "@cullinos/shared";
 import {
   computeOpenNow,
   normalizeOpeningHours,
@@ -6,6 +7,7 @@ import {
   type DayHours,
 } from "../../common/opening-hours.util";
 import { PrismaService } from "../../prisma/prisma.service";
+import { guestOrderModes } from "../guest/marketplace.service";
 import { MenuService } from "../menu/menu.service";
 
 const POPULAR_WINDOW_DAYS = 30;
@@ -57,6 +59,7 @@ export class StorefrontService {
   async resolveActiveOutlet(orgSlug: string, outletSlug: string) {
     const organization = await this.prisma.organization.findFirst({
       where: { slug: orgSlug, status: { in: ["active", "trial"] } },
+      include: { settings: { select: { settings: true } } },
     });
     if (!organization) throw new NotFoundException("Organization not found");
 
@@ -125,6 +128,11 @@ export class StorefrontService {
       !Array.isArray(outlet.settings.settings)
         ? (outlet.settings.settings as Record<string, unknown>)
         : {};
+    const rawOrgSettings = organization.settings?.settings;
+    const orgSettings =
+      rawOrgSettings && typeof rawOrgSettings === "object" && !Array.isArray(rawOrgSettings)
+        ? (rawOrgSettings as Record<string, unknown>)
+        : {};
     const timeZone =
       typeof organization.timezone === "string" && organization.timezone
         ? organization.timezone
@@ -146,7 +154,8 @@ export class StorefrontService {
       openNow: computeOpenNow(outletSettings.openingHours, now, timeZone),
       todayHours: todayHours(outletSettings.openingHours, now, timeZone),
       popularItemIds: pickPopularItemIds(ranked, menu.items),
-      orderModes: ["dine-in", "online"],
+      orderModes: guestOrderModes(organization.businessType, orgSettings, outletSettings),
+      tablesEnabled: outletUsesTables(organization.businessType, outletSettings),
       menu,
     };
   }

@@ -5,6 +5,7 @@ import { Resend } from "resend";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
 import { redactEmail, redactRecipientList } from "../../common/pii-redact.util";
 import {
+  buildApprovalRequestEmail,
   buildOtpEmail,
   buildOwnerCredentialsEmail,
   buildPlatformStaffInviteEmail,
@@ -156,26 +157,62 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     const from = input.marketing ? this.getMarketingFrom() : this.getSmtpFrom();
     const recipients = Array.isArray(input.to) ? input.to : [input.to];
 
-    if (!transport) {
-      this.logger.warn(
-        `SMTP not configured. Skipping email to ${redactRecipientList(recipients)} (subject: ${input.subject})`,
-      );
-      return false;
+    if (transport) {
+      try {
+        await transport.sendMail({
+          from: `${from.name} <${from.email}>`,
+          to: recipients.join(", "),
+          subject: input.subject,
+          text: input.text,
+          html: input.html,
+          headers: input.headers,
+        });
+        return true;
+      } catch (err) {
+        this.logger.error(
+          `SMTP send failed to ${redactRecipientList(recipients)}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
     }
 
+    if (this.config.get("RESEND_API_KEY")) {
+      return this.sendViaResend({ ...input, to: recipients }, from);
+    }
+    this.logger.warn(
+      `No working mail transport (SMTP ${transport ? "failed" : "not configured"}, RESEND_API_KEY not set). ` +
+        `Skipping email to ${redactRecipientList(recipients)} (subject: ${input.subject})`,
+    );
+    return false;
+  }
+
+  private async sendViaResend(
+    input: SendMailInput & { to: string[] },
+    from: { email: string; name: string },
+  ): Promise<boolean> {
+    const apiKey = this.config.get("RESEND_API_KEY");
+    if (!apiKey) return false;
+    const fromEmail = this.config.get("MAIL_FROM_EMAIL") ?? from.email;
     try {
-      await transport.sendMail({
-        from: `${from.name} <${from.email}>`,
-        to: recipients.join(", "),
+      const result = await new Resend(apiKey).emails.send({
+        from: `${from.name} <${fromEmail}>`,
+        to: input.to,
         subject: input.subject,
         text: input.text,
         html: input.html,
         headers: input.headers,
       });
+      if (result.error) {
+        this.logger.error(
+          `Resend error for ${redactRecipientList(input.to)}: ${JSON.stringify(result.error)}`,
+        );
+        return false;
+      }
       return true;
     } catch (err) {
       this.logger.error(
-        `SMTP send failed to ${redactRecipientList(recipients)}: ${
+        `Resend send failed to ${redactRecipientList(input.to)}: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );
@@ -289,6 +326,14 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
       reset: input.reset,
     });
     return this.sendMail({ to: input.to, subject: tpl.subject, text: tpl.text, html: tpl.html });
+  }
+
+  async sendApprovalRequest(
+    to: string,
+    input: Parameters<typeof buildApprovalRequestEmail>[0],
+  ): Promise<boolean> {
+    const tpl = buildApprovalRequestEmail(input);
+    return this.sendMail({ to, subject: tpl.subject, text: tpl.text, html: tpl.html });
   }
 
   async sendReservationInvite(input: {

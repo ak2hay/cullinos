@@ -378,7 +378,7 @@ export default function App() {
           path="aggregators"
           element={
             <ErpPage>
-              <PermissionRoute allOf={[PERMISSIONS.REPORTS_READ]}>
+              <PermissionRoute allOf={[PERMISSIONS.SETTINGS_READ]}>
                 <AggregatorsPage />
               </PermissionRoute>
             </ErpPage>

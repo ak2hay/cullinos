@@ -27,3 +27,18 @@ export function RequirePermission({
     </div>
   );
 }
+
+/** Gate on the primary platform role being owner; custom or elevated roles do not count. */
+export function RequireOwner({ children }: { children: React.ReactNode }) {
+  const role = useAuthStore((s) => s.admin?.platformRole);
+  if (role === 'owner') return children;
+  return (
+    <div className="mx-auto max-w-lg rounded-xl border border-line bg-bg-secondary p-6">
+      <h1 className="text-lg font-semibold">Owner only</h1>
+      <p className="mt-2 text-sm text-text-secondary">Role assignments can only be managed by platform Owners.</p>
+      <Link to="/" className="mt-4 inline-block text-sm text-accent hover:underline">
+        Back to dashboard
+      </Link>
+    </div>
+  );
+}

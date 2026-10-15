@@ -2,8 +2,14 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Input, PageHeader, PhoneField, Select, useToast } from '@cullinos/ui';
-import { customersApi, loyaltyApi, type Customer, type CustomerSort } from '@/lib/api';
-import { formatMoney } from '@/lib/format';
+import {
+  customersApi,
+  loyaltyApi,
+  type Customer,
+  type CustomerMergeResult,
+  type CustomerSort,
+} from '@/lib/api';
+import { formatMoney, formatPhone } from '@/lib/format';
 
 const PAGE_SIZE = 50;
 const SORTS: CustomerSort[] = ['recent', 'spent', 'visits', 'points', 'name', 'joined'];
@@ -57,14 +63,19 @@ export function CustomersPage() {
         email: email || undefined,
         marketingEmailOptIn,
       }),
-    onSuccess: () => {
+    onSuccess: (customer) => {
       setName('');
       setPhone('');
       setEmail('');
       setMarketingEmailOptIn(false);
       setShowAdd(false);
       invalidate();
-      toast.success(t('customers.created'));
+      if (customer.merged) {
+        setSelectedId(customer.id);
+        toast.success(t('customers.matchedExisting', { name: customer.name }));
+      } else {
+        toast.success(t('customers.created'));
+      }
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -120,6 +131,27 @@ export function CustomersPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const [mergePreview, setMergePreview] = useState<CustomerMergeResult | null>(null);
+  const mergeMutation = useMutation({
+    mutationFn: (apply: boolean) => customersApi.mergeDuplicates(apply),
+    onSuccess: (result) => {
+      if (!result.applied) {
+        if (!result.duplicateCount && !result.normalizedCount) {
+          toast.success(t('customers.merge.none'));
+          setMergePreview(null);
+        } else {
+          setMergePreview(result);
+        }
+        return;
+      }
+      setMergePreview(null);
+      setSelectedId(null);
+      invalidate();
+      toast.success(t('customers.merge.done', { count: result.duplicateCount }));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const overview = overviewQuery.data;
   const customers = overview?.data ?? [];
   const selected: Customer | undefined =
@@ -138,11 +170,62 @@ export function CustomersPage() {
         title={t('customers.title')}
         description={t('customers.subtitle')}
         actions={
-          <Button type="button" onClick={() => setShowAdd((v) => !v)}>
-            {t('customers.addCustomer')}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              loading={mergeMutation.isPending && !mergePreview}
+              onClick={() => mergeMutation.mutate(false)}
+            >
+              {t('customers.merge.find')}
+            </Button>
+            <Button type="button" onClick={() => setShowAdd((v) => !v)}>
+              {t('customers.addCustomer')}
+            </Button>
+          </div>
         }
       />
+
+      {mergePreview ? (
+        <section className="space-y-3 rounded-xl border border-brand-primary/40 bg-bg-card p-5">
+          <h2 className="font-semibold">{t('customers.merge.title')}</h2>
+          <p className="text-sm text-text-secondary">
+            {t('customers.merge.summary', {
+              count: mergePreview.duplicateCount,
+              normalized: mergePreview.normalizedCount,
+            })}
+          </p>
+          {mergePreview.groups.length ? (
+            <ul className="divide-y divide-line-subtle text-sm">
+              {mergePreview.groups.map((g) => (
+                <li key={g.keep.id} className="py-2">
+                  <span className="font-mono">{formatPhone(g.phone)}</span>
+                  <span className="ml-2">
+                    {t('customers.merge.keep')}: <strong>{g.keep.name}</strong>
+                  </span>
+                  <span className="ml-2 text-text-muted">
+                    ← {g.merge.map((m) => `${m.name} (${formatPhone(m.phone)})`).join(', ')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="text-xs text-text-muted">{t('customers.merge.hint')}</p>
+          <p className="text-xs text-text-muted">{t('customers.merge.auto')}</p>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              loading={mergeMutation.isPending}
+              onClick={() => mergeMutation.mutate(true)}
+            >
+              {t('customers.merge.apply')}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setMergePreview(null)}>
+              {t('customers.close')}
+            </Button>
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Kpi label={t('customers.kpiCustomers')} value={overview?.summary.totalCustomers ?? '—'} />
@@ -272,7 +355,7 @@ export function CustomersPage() {
                       <td className="px-4 py-3">
                         <p className="font-medium">{customer.name}</p>
                         <p className="text-xs text-text-muted">
-                          {customer.phone ?? customer.email ?? t('customers.noPhone')}
+                          {customer.phone ? formatPhone(customer.phone) : (customer.email ?? t('customers.noPhone'))}
                         </p>
                       </td>
                       <td className="px-4 py-3 text-right font-mono">{customer.visits ?? 0}</td>
@@ -330,7 +413,7 @@ export function CustomersPage() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <h2 className="text-lg font-semibold">{selected.name}</h2>
-                  <p className="text-sm text-text-secondary">{selected.phone ?? t('customers.noPhone')}</p>
+                  <p className="text-sm text-text-secondary">{selected.phone ? formatPhone(selected.phone) : t('customers.noPhone')}</p>
                   <p className="text-sm text-text-secondary">{selected.email ?? t('customers.noEmail')}</p>
                 </div>
                 <button

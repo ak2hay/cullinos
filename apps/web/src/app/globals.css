@@ -74,7 +74,16 @@ body::before {
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  white-space: nowrap;
   transition: all 0.2s ease;
+}
+
+/* nowrap needs room: keeps full-width card CTAs ("Start 30-day free trial") inside ~220px on 320px phones. */
+@media (max-width: 380px) {
+  .btn-pill {
+    padding-inline: 1rem;
+    letter-spacing: 0.04em;
+  }
 }
 
 .btn-pill:hover {

@@ -136,9 +136,15 @@ export function SmsCampaignsPage() {
                 {' · '}₹{(pricePer100Paise / 100).toFixed(2)} / 100 SMS
               </p>
               <p className="text-text-muted">
-                Estimate for {recipientCount} recipients: ₹
-                {(estimatePaise / 100).toFixed(2)}
-                {!canAfford && recipientCount > 0 ? ' — insufficient balance' : ''}
+                {recipientCount > 0 ? (
+                  <>
+                    Estimate for {recipientCount} recipients: ₹
+                    {(estimatePaise / 100).toFixed(2)}
+                    {!canAfford ? ' — insufficient balance' : ''}
+                  </>
+                ) : (
+                  'No customers match this audience.'
+                )}
               </p>
             </div>
             <Link

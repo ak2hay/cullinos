@@ -26,10 +26,13 @@ import {
   findItemByShortCode,
   getPosOrderTypes,
   isBusinessType,
+  isPosHoldKey,
+  isPosTypeToSearchKey,
   matchesPosSearch,
   posQuickKeyLabel,
   posQuickKeySlot,
 } from '@cullinos/shared';
+import { AggregatorOrdersPanel } from './AggregatorOrdersPanel';
 import { CartSidebar, type PosCustomer, type PosOrderType } from './CartSidebar';
 import { CategoryTabs } from './CategoryTabs';
 import { HeldOrdersPanel } from './HeldOrdersPanel';
@@ -812,8 +815,16 @@ export function PortalPosPage() {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if (e.defaultPrevented || e.isComposing) return;
       const target = e.target as HTMLElement;
-      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+      const isInput =
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable;
+      const isSearch = target === searchRef.current;
+      const modalOpen =
+        Boolean(optionsItem) || Boolean(document.querySelector('[role="dialog"], [aria-modal="true"]'));
 
       if (e.key === '/' && !isInput) {
         e.preventDefault();
@@ -831,14 +842,39 @@ export function PortalPosPage() {
         return;
       }
 
+      if (isPosHoldKey(e) && !modalOpen) {
+        e.preventDefault();
+        handleHold();
+        return;
+      }
+
+      if (!isInput && !modalOpen && isPosTypeToSearchKey(e)) {
+        e.preventDefault();
+        setSearch((prev) => prev + e.key);
+        searchRef.current?.focus();
+        return;
+      }
+
+      if (!isInput && !modalOpen && e.key === 'Backspace' && searchRef.current?.value) {
+        e.preventDefault();
+        setSearch((prev) => prev.slice(0, -1));
+        searchRef.current.focus();
+        return;
+      }
+
+      if (isSearch && e.key === 'Escape') {
+        e.preventDefault();
+        if (searchRef.current?.value) setSearch('');
+        else searchRef.current?.blur();
+        return;
+      }
+
       if (isInput && e.key !== 'Escape') return;
+      if (modalOpen) return;
 
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleCash();
-      } else if (e.key.toLowerCase() === 'h') {
-        e.preventDefault();
-        handleHold();
       } else if (e.key === 'Escape') {
         e.preventDefault();
         clearCart();
@@ -917,6 +953,9 @@ export function PortalPosPage() {
         </div>
         <div className="hidden lg:block">
           <KeyboardHints />
+        </div>
+        <div className="shrink-0">
+          <AggregatorOrdersPanel outletId={outletId} onStatus={setStatusMessage} />
         </div>
         <div className="relative shrink-0">
           <HeldOrdersPanel
@@ -1078,6 +1117,7 @@ export function PortalPosPage() {
                     name: item.name,
                     price: item.price,
                     regularPrice: item.regularPrice,
+                    imageUrl: item.imageUrl,
                     isAvailable: item.isAvailable !== false,
                   }))}
                   quantities={quantities}

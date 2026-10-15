@@ -1,6 +1,7 @@
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
+import { BreadcrumbJsonLd } from '@/components/marketing/JsonLd';
 import { PricingTable } from '@/components/marketing/PricingTable';
 import { formatInr, MARKETING_PLANS } from '@cullinos/shared';
 import { createMetadata } from '@/lib/metadata';
@@ -14,11 +15,12 @@ export const metadata = createMetadata({
 export default function PricingPage() {
   return (
     <>
+      <BreadcrumbJsonLd trail={[{ name: 'Pricing', path: '/pricing' }]} />
       <Hero
         eyebrow="Pricing"
         title="Simple plans, powerful platform"
         subtitle="Start with Starter, QSR / Food SMB or Professional. Talk to us for Enterprise and Hospitality deployments."
-        primaryCta={{ label: 'Start free trial', href: 'https://admin.cullinos.com/register' }}
+        primaryCta={{ label: 'Start 30-day free trial', href: 'https://admin.cullinos.com/register' }}
         secondaryCta={{ label: 'Contact sales', href: '/contact' }}
       />
       <Section
@@ -32,7 +34,7 @@ export default function PricingPage() {
         description="Enterprise and Hospitality plans include dedicated onboarding, multi-outlet setup, and integration support."
         primaryLabel="Contact sales"
         primaryHref="/contact"
-        secondaryLabel="Start free trial"
+        secondaryLabel="Start 30-day free trial"
         secondaryHref="https://admin.cullinos.com/register"
       />
     </>

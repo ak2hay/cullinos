@@ -51,7 +51,7 @@ Full product/feature catalogue: [PRODUCT.md](./PRODUCT.md).
 - **`@cullinos/auth`** — JWT and password utilities
 - **`@cullinos/ui`** — Design tokens consumed by React apps
 - **`@cullinos/tax-engine`** — GST tax calculation
-- **`@cullinos/integrations`** — Aggregator adapters (Swiggy/Zomato) and integration types
+- **`@cullinos/integrations`** — Aggregator adapters (Swiggy/Zomato), UrbanPiper client and payload helpers, integration types
 - **`@cullinos/sync`** — Cloud sync contracts (used by API)
 - **`@cullinos/events`** — Domain event types
 - **`@cullinos/ai-contracts`** — AI insight contracts plus Rkyves Grok Bot role/handoff types (`docs/rkyves-team/`)
@@ -74,7 +74,7 @@ Full product/feature catalogue: [PRODUCT.md](./PRODUCT.md).
 3. **POS/KDS** are browser (and optional Electron) apps at `pos.cullinos.com` / `kds.cullinos.com`, connecting to the cloud API.
 4. **QR ordering** uses session-based table links: waiter starts session → guest scans QR → items merge into table order → KDS receives KOT via WebSocket.
 5. **Guest app** authenticates via phone OTP / Firebase; marketplace and orders hit the same API; FCM delivers push.
-6. **Aggregators** receive webhooks and map external orders into the unified order pipeline.
+6. **Aggregators** (Swiggy / Zomato) connect through UrbanPiper using the restaurant's own credentials (`Integration` provider `urbanpiper`, secrets encrypted). UrbanPiper calls `POST /aggregators/webhooks/urbanpiper/:orgId/{orders,status,rider}` with the `x-aggregator-secret` header. New orders become `draft` prepaid orders (idempotency key `urbanpiper:<id>`) shown in the POS **Online** panel; accepting confirms the order (KOT), rejecting cancels it with an external refund. `OrderStatusNotifier` (orders + KDS) pushes Acknowledged / Food Ready / Dispatched / Cancelled back to UrbanPiper, forward-only and never echoing UrbanPiper-driven cancels. `MenuChangeNotifier` syncs item availability and (debounced) re-pushes the catalogue. Per-order aggregator state lives in `Order.metadata.aggregator`. The older per-provider webhook (`/aggregators/webhooks/:provider/:orgId`) still auto-confirms orders.
 
 ## Multi-tenancy
 

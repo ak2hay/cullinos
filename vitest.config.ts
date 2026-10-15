@@ -9,6 +9,8 @@ export default defineConfig({
       '@cullinos/shared': path.resolve(__dirname, 'packages/shared/src/index.ts'),
       '@cullinos/menu-catalog': path.resolve(__dirname, 'packages/menu-catalog/src/index.ts'),
       '@cullinos/auth': path.resolve(__dirname, 'packages/auth/src/index.ts'),
+      '@cullinos/integrations': path.resolve(__dirname, 'packages/integrations/src/index.ts'),
+      '@cullinos/ui': path.resolve(__dirname, 'packages/ui/src/index.ts'),
     },
   },
   test: {
@@ -18,6 +20,7 @@ export default defineConfig({
       'packages/tax-engine/src/**/*.test.ts',
       'packages/shared/src/**/*.test.ts',
       'packages/menu-catalog/src/**/*.test.ts',
+      'apps/admin/src/lib/**/*.test.ts',
     ],
   },
 });

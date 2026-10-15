@@ -9,7 +9,7 @@
 |-------|-------|---------------|
 | 1. Scope | CTO | List of changes headed to production (develop tip) |
 | 2. Security pass | Security | No open P0/P1 security blockers; notes filed |
-| 3. QA sign-off | QA | Staging smoke from docs/qa passed or waivers listed |
+| 3. QA sign-off | QA | [Full functionality test](./full-regression-e2e.md) report posted; failures ticketed or waivers listed |
 | 4. Deploy plan | DevOps | Steps, health checks, rollback per docs/DEPLOYMENT.md + BACKUP_ROLLBACK.md |
 | 5. Release notes | Documentation | Draft notes for human publish |
 | 6. Human gate | Human | Approve PR develop→main and production deploy |

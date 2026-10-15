@@ -23,6 +23,9 @@
 | Guest deep link | https://guest.cullinos.com/o/`{org}`/`{outlet}` | Diner |
 | Guest + table | `…/o/{org}/{outlet}?table=T1` | QR dine-in |
 | Guest + session | `…/o/{org}/{outlet}?session={token}` | Waiter QR session |
+| Web kiosk | https://kiosk.cullinos.com/o/`{org}`/`{outlet}` | Self-order tablet |
+| Support portal | https://support.cullinos.com | Owner (restaurant) / Rkyves agent |
+| App Ops | https://app.cullinos.com | Rkyves guest-app ops |
 | Marketing | https://cullinos.com | Public |
 | API health | https://api.cullinos.com/api/v1/health | Preflight |
 | API DB health | https://api.cullinos.com/api/v1/health/db | Preflight |
@@ -119,7 +122,10 @@ https://kds.cullinos.com/?mode=receipt&outletId={outletId}
 9. [Waiter Android](#9-waiter-android--cullinos-waiter)
 10. [Cullinos App (Guest)](#10-cullinos-app-guest)
 11. [Marketing website](#11-marketing-website--cullinoscom)
-12. [Appendix — URLs, ports & commands](#12-appendix--urls-ports--commands)
+12. [Web kiosk](#12-web-kiosk--kioskcullinoscom)
+13. [Support portal](#13-support-portal--supportcullinoscom)
+14. [App Ops](#14-app-ops--appcullinoscom)
+15. [Appendix — URLs, ports & commands](#15-appendix--urls-ports--commands)
 
 ---
 
@@ -312,6 +318,8 @@ Nav also filters by staff **permissions**. Staff without a permission should not
 
 ### 4.7 Cullinos App — Guest Ops
 
+**Moved:** Guest Ops now lives in **App Ops** (https://app.cullinos.com); platform `/guest-ops/*` redirects there. Use the same steps below with paths minus the `/guest-ops` prefix. Push is now **Notifications** (`/notifications`); `/offers` redirects home (mark offer cases N/A). Login / redirect checks: §14.
+
 #### Overview (`/guest-ops`)
 
 1. [ ] KPIs load; section links open marketplace, discover, banners, push, offers, reviews, users, analytics, runtime
@@ -421,6 +429,18 @@ Legacy redirects: `/guest-banners`, `/guest-push`, `/guest-coupons` → guest-op
 
 1. [ ] **Sign out** → login page; session cleared
 
+### 4.12 Employees, Approvals & People
+
+**Gate:** `team.manage` (Employees), `directory.read` (People). See [PLATFORM_STAFF.md](../../rkyves-team/PLATFORM_STAFF.md).
+
+1. [ ] `/employees` — list loads
+2. [ ] **Onboard employee** → QA email + role → submit (human approval; QA addresses only)
+3. [ ] `/approvals` — inbox loads → open a request (`/approvals/:id`)
+4. [ ] `/approvals/policies` — page loads
+5. [ ] Approval email **action link** (`/approvals/email-action?...`) opens the approval page
+6. [ ] `/people` directory → `/people/org-chart` → open a profile (`/people/:userId`)
+7. [ ] `/people/shifts` redirects to the Support portal agent shifts page
+
 ---
 
 ## 5. Admin / Owner portal — admin.cullinos.com
@@ -469,6 +489,9 @@ Legacy redirects: `/guest-banners`, `/guest-push`, `/guest-coupons` → guest-op
 7. [ ] E-bill: **SMS** / **Email** / **Dismiss**
 8. [ ] **Close shift**
 9. [ ] Staff without POS access denied or redirected
+10. [ ] **Online** panel (Swiggy/Zomato via UrbanPiper — N/A if not connected): new order chimes, accept timer runs
+11. [ ] **Accept** with prep time → KOT prints; **Reject** demands a reason
+12. [ ] **Food ready** → **Handed to rider**
 
 ### 5.4 Menu (`/menu`)
 
@@ -569,6 +592,9 @@ Legacy redirects: `/guest-banners`, `/guest-push`, `/guest-coupons` → guest-op
 2. [ ] **Search**
 3. [ ] Row **Add stamp**; detail **Redeem points**; **Close**
 4. [ ] **Export** / **Erase** only on disposable test customer
+5. [ ] Create a customer with an existing phone → toast **Matched existing customer …** (no duplicate created)
+6. [ ] **Find duplicates** → **Duplicate customers** preview (or **No duplicate customers found** — then mark TC-3-57 N/A)
+7. [ ] **Merge duplicates** → toast **Merged N duplicate customer(s)**; oldest record kept with orders/points
 
 ### 5.14 Loyalty (`/loyalty`)
 
@@ -629,6 +655,8 @@ Legacy bookmarks `/kds`, `/cds`, `/promo-display`, `/pickup-queue` redirect here
 
 1. [ ] **Copy** / **Open in new tab** for Ordering kiosk, Phone menu QR, Receipt printer station as shown
 2. [ ] Kiosk URL opens Guest kiosk mode (pay at counter)
+3. [ ] Table system **off** (§5.31): **Counter QR** card shown → open link → guest picks **Eat in** / **Takeaway** → place order → **Your token** + order number
+4. [ ] KDS ticket shows **Token XXXXXX** (no table); pickup / CDS lists the same token
 
 ### 5.23 Delivery (`/delivery`)
 
@@ -645,6 +673,10 @@ Legacy bookmarks `/kds`, `/cds`, `/promo-display`, `/pickup-queue` redirect here
 2. [ ] **Connect** / **Disconnect** (sandbox or N/A without credentials)
 3. [ ] **Generate secret** / **Regenerate secret**
 4. [ ] Per outlet: **Connected**, **Menu sync**, **Sync now**
+5. [ ] UrbanPiper connect (sandbox): webhook URL + secret shown; per-outlet store link saves
+6. [ ] **Menu push** succeeds or shows a clear error
+7. [ ] **Store pause** and per-outlet item stock toggles persist after refresh
+8. [ ] Unknown-item linking maps an incoming item; **settlement CSV import** completes
 
 ### 5.25 Payments (`/payments`)
 
@@ -698,6 +730,8 @@ Legacy bookmarks `/kds`, `/cds`, `/promo-display`, `/pickup-queue` redirect here
 5. [ ] **Add location** → name* → **Add location**
 6. [ ] **Create tax group** (group name, rate name, %)
 7. [ ] **Register device** (Printer / KDS / POS)
+8. [ ] General → **Table system**: turn **Use tables at this outlet** off → Tables / Reservations leave nav; **Counter QR** card appears; table QR links show counter flow; new table session rejected
+9. [ ] Turn it on (or **Use category default**) → Tables nav returns (needs Tables plan module); table QR sessions work
 
 **Expected:** Toast/success; values persist after refresh. Invalid empty required fields blocked by UI.
 
@@ -955,7 +989,48 @@ Nav/footer: **Home**, **Features**, **About**, **Pricing**, **Contact**, Product
 
 ---
 
-## 12. Appendix — URLs, ports & commands
+## 12. Web kiosk — kiosk.cullinos.com
+
+No login. Open on a tablet-sized window.
+
+1. [ ] `https://kiosk.cullinos.com/o/{org}/{outlet}` → welcome screen
+2. [ ] **Start** → add item with modifiers → cart correct
+3. [ ] **Place order** → pickup code shown
+4. [ ] Order appears in POS / KDS
+5. [ ] Leave idle ~2 min → returns to welcome screen
+
+---
+
+## 13. Support portal — support.cullinos.com
+
+### 13.1 Restaurant (owner login)
+
+1. [ ] `/login` → **Restaurant** → owner email/password (OTP if prompted) → portal home
+2. [ ] Open a KB article (`/kb/:slug`)
+3. [ ] **Raise ticket** (`/tickets/new`) → appears in **My tickets**
+4. [ ] Ticket detail → post reply
+
+### 13.2 Agent (Rkyves staff — platform login, human only)
+
+1. [ ] `/login?as=agent` → lands on `/agent/queue/mine`
+2. [ ] Open the QA tenant ticket → reply → visible to restaurant
+3. [ ] `/agent/dashboard` loads
+4. [ ] `/agent/grants` → request tenant access → step-up dialog prompts
+5. [ ] `/agent/shifts` and `/agent/knowledge` load
+
+---
+
+## 14. App Ops — app.cullinos.com
+
+Platform login, human only. Feature steps are in §4.7.
+
+1. [ ] `/login` succeeds → overview
+2. [ ] `https://platform.cullinos.com/guest-ops` redirects here
+3. [ ] `/forgot-password` page loads
+
+---
+
+## 15. Appendix — URLs, ports & commands
 
 ### Production URLs (full)
 
@@ -964,7 +1039,10 @@ Nav/footer: **Home**, **Features**, **About**, **Pricing**, **Contact**, Product
 | Super Admin | https://platform.cullinos.com | Onboard, Guest Ops, Marketing CMS |
 | Super Admin login | https://platform.cullinos.com/login | |
 | Super Admin tenants | https://platform.cullinos.com/tenants | |
-| Super Admin guest-ops | https://platform.cullinos.com/guest-ops | |
+| Super Admin guest-ops | https://platform.cullinos.com/guest-ops | Redirects to App Ops |
+| App Ops | https://app.cullinos.com | Guest Ops (platform login) |
+| Support portal | https://support.cullinos.com | Restaurant + agent (`/login?as=agent`) |
+| Web kiosk | https://kiosk.cullinos.com/o/{org}/{outlet} | No login |
 | Super Admin promo email | https://platform.cullinos.com/promo-email | Not in Admin |
 | Admin | https://admin.cullinos.com | Owner ERP |
 | Admin login | https://admin.cullinos.com/login | |

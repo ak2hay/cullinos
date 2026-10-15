@@ -31,6 +31,8 @@ import { OrgRolesService } from "../organizations/org-roles.service";
 import { OutletAccessService } from "./outlet-access.service";
 import { OutletsService } from "./outlets.service";
 
+const rolesSyncedOrgs = new Set<string>();
+
 @Controller("outlets")
 export class OutletsController {
   constructor(
@@ -48,7 +50,11 @@ export class OutletsController {
     @Query("brandId") brandId?: string,
   ) {
     // Sync system role permissions (e.g. newly added outlet:update) for existing orgs.
-    await this.orgRoles.ensureSystemRoles(orgId);
+    // ~225 sequential upserts, so once per org per process; a deploy re-runs it.
+    if (!rolesSyncedOrgs.has(orgId)) {
+      await this.orgRoles.ensureSystemRoles(orgId);
+      rolesSyncedOrgs.add(orgId);
+    }
     const outlets = await this.service.list(orgId, brandId);
     const allowed = await this.outletAccess.allowedOutletIds(user.sub, orgId);
     if (!allowed) return outlets;

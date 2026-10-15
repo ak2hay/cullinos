@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
+import { BreadcrumbJsonLd } from '@/components/marketing/JsonLd';
 import { FeatureGlanceNav } from '@/components/marketing/FeatureGlanceNav';
 import { FeatureSections } from '@/components/marketing/FeatureGrid';
 import { FEATURE_SECTIONS } from '@cullinos/shared';
@@ -18,11 +19,12 @@ export const metadata = createMetadata({
 export default function FeaturesPage() {
   return (
     <>
+      <BreadcrumbJsonLd trail={[{ name: 'Features', path: '/features' }]} />
       <Hero
         eyebrow="Features"
         title="Every tool to run your restaurant"
         subtitle="Cullinos includes POS, kitchen display, waiter app, online ordering, inventory, CRM, and enterprise management — all connected on one platform."
-        primaryCta={{ label: 'Start free trial', href: 'https://admin.cullinos.com/register' }}
+        primaryCta={{ label: 'Start 30-day free trial', href: 'https://admin.cullinos.com/register' }}
         secondaryCta={{ label: 'View pricing', href: '/pricing' }}
       />
       <Section title="Explore in depth">

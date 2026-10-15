@@ -14,7 +14,7 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
         <input
           ref={ref}
           type="search"
-          placeholder="Search items or short code… ( / )"
+          placeholder="Start typing to search items or short code…"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {

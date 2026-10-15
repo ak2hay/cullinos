@@ -17,6 +17,7 @@ import {
   parseKdsServedCompletesOrder,
   parsePosQuickKeys,
   parseQrSessionTimeoutMinutes,
+  parseTablesEnabled,
 } from "../../common/outlet-ops-settings.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import { assertPlanCapacity } from "../../common/plan-limits.util";
@@ -284,6 +285,9 @@ export class OutletsService {
         throw new BadRequestException("Quick keys can only use this restaurant's menu items");
       }
       settingsPatch.posQuickKeys = keys;
+    }
+    if (data.tablesEnabled !== undefined) {
+      settingsPatch.tablesEnabled = parseTablesEnabled(data.tablesEnabled);
     }
 
     const nextLat =

@@ -45,7 +45,7 @@ If PDF generation fails (no Chrome/Edge), use the matching file in `html/`.
 
 | File | Purpose |
 |------|---------|
-| TEST_RUN_SHEET.xlsx | **190** test cases with Pass/Fail/Blocked/N/A |
+| TEST_RUN_SHEET.xlsx | **232** test cases with Pass/Fail/Blocked/N/A |
 | BUG_LOG.xlsx | Defect log |
 | CREDENTIALS_LOG.xlsx | Slugs / emails (no password columns) |
 

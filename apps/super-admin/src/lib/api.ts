@@ -112,10 +112,10 @@ export async function apiRequest<T>(
   headers.set('Content-Type', 'application/json');
   headers.set('X-Cullinos-Portal', PORTAL_ID);
 
+  const sentToken = authenticated ? useAuthStore.getState().accessToken : null;
   if (authenticated) {
-    const token = useAuthStore.getState().accessToken;
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
+    if (sentToken) {
+      headers.set('Authorization', `Bearer ${sentToken}`);
     }
     const stepUp = cachedStepUpToken();
     if (stepUp && !headers.has('X-Step-Up-Token')) headers.set('X-Step-Up-Token', stepUp);
@@ -129,11 +129,17 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     const err = await parseError(response);
-    if (err.status === 401 && authenticated && useAuthStore.getState().accessToken) {
-      if (!retried && (await refreshSession())) {
-        return apiRequest<T>(path, options, authenticated, true);
+    if (err.status === 401 && sentToken) {
+      const currentToken = useAuthStore.getState().accessToken;
+      if (currentToken !== sentToken) {
+        // Token changed mid-flight (new login or concurrent refresh): this 401 is stale, never log the new session out.
+        if (currentToken && !retried) return apiRequest<T>(path, options, authenticated, true);
+      } else {
+        if (!retried && (await refreshSession())) {
+          return apiRequest<T>(path, options, authenticated, true);
+        }
+        useAuthStore.getState().logout();
       }
-      useAuthStore.getState().logout();
     }
     if (authenticated && err.code === 'APPROVAL_JUSTIFICATION_REQUIRED') {
       const answer = await askJustification(err.message);
@@ -302,6 +308,7 @@ export interface Tenant {
   checkoutUrl: string | null;
   razorpaySubId: string | null;
   lastRazorpayPaymentId?: string | null;
+  isComplimentary?: boolean;
   outletCount: number;
   userCount: number;
   createdAt: string;
@@ -361,6 +368,8 @@ export interface TenantDetail {
     razorpaySubId: string | null;
     razorpayShortUrl: string | null;
     lastRazorpayPaymentId: string | null;
+    isComplimentary?: boolean;
+    compTicketId?: string | null;
     entitlements: Array<{ module: string; enabled: boolean }>;
   } | null;
   recentAudit: Array<{
@@ -617,6 +626,18 @@ export const superAdminApi = {
       { method: 'POST', body: JSON.stringify({}) },
     ),
 
+  resendTeamInvite: (id: string) =>
+    apiRequest<TemporaryCredentials & { userId: string; email: string }>(
+      `/super-admin/team/${id}/resend-invite`,
+      { method: 'POST', body: JSON.stringify({}) },
+    ),
+
+  updateTeamMember: (id: string, payload: { name?: string; email?: string; phone?: string | null }) =>
+    apiRequest<PlatformTeamMember>(`/super-admin/team/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
   analyticsOverview: (range: AnalyticsRange = '30d') =>
     apiRequest<AnalyticsOverview>(`/super-admin/analytics/overview?range=${range}`),
 
@@ -813,10 +834,19 @@ export const superAdminApi = {
   activateOrganization: (id: string) =>
     apiRequest(`/super-admin/organizations/${id}/activate`, { method: 'PATCH' }),
 
-  setTrialEnd: (id: string, trialEndsAt: string) =>
+  setTrialEnd: (id: string, payload: { trialEndsAt: string; ticketId: string; note?: string }) =>
     apiRequest<{ organizationId: string; trialEndsAt: string; status: 'trial' }>(
       `/super-admin/organizations/${id}/trial`,
-      { method: 'PATCH', body: JSON.stringify({ trialEndsAt }) },
+      { method: 'PATCH', body: JSON.stringify(payload) },
+    ),
+
+  activateComplimentarySubscription: (
+    id: string,
+    payload: { planId: string; periodEnd: string; ticketId: string; reason: string },
+  ) =>
+    apiRequest<{ id: string; status: string; currentPeriodEnd: string | null }>(
+      `/super-admin/organizations/${id}/subscription/complimentary`,
+      { method: 'POST', body: JSON.stringify(payload) },
     ),
 
   manageSubscription: (id: string, payload: ManageSubscriptionPayload) =>
@@ -1389,6 +1419,11 @@ export const RKYVES_BRAND = {
 export const APP_OPS_URL = (
   import.meta.env.VITE_APP_OPS_URL?.trim() ||
   (import.meta.env.PROD ? 'https://app.cullinos.com' : 'http://localhost:5184')
+).replace(/\/$/, '');
+
+export const SUPPORT_PORTAL_URL = (
+  import.meta.env.VITE_SUPPORT_URL?.trim() ||
+  (import.meta.env.PROD ? 'https://support.cullinos.com' : 'http://localhost:5185')
 ).replace(/\/$/, '');
 
 export const ADMIN_APP_URL = (

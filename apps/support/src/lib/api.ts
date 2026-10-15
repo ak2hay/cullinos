@@ -4,6 +4,7 @@ import {
   revokeSessionCookie,
   type ApiStaffLoginResponse,
 } from '@cullinos/shared';
+import { askStepUp, cachedStepUpToken, clearStepUpToken } from '@/lib/step-up';
 import { useSession, type SessionMode } from '@/stores/session';
 
 export const API_BASE = resolveViteApiBase({
@@ -87,6 +88,8 @@ export async function apiRequest<T>(
   if (authenticated) {
     const token = useSession.getState().accessToken;
     if (token) headers.set('Authorization', `Bearer ${token}`);
+    const stepUp = mode === 'agent' ? cachedStepUpToken() : null;
+    if (stepUp && !headers.has('X-Step-Up-Token')) headers.set('X-Step-Up-Token', stepUp);
   }
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers, credentials: 'include' });
   if (!response.ok) {
@@ -96,6 +99,14 @@ export async function apiRequest<T>(
         return apiRequest<T>(path, options, authenticated, true);
       }
       useSession.getState().logout();
+    }
+    if (authenticated && mode === 'agent' && err.code === 'STEP_UP_REQUIRED' && !new Headers(init.headers).has('X-Step-Up-Token')) {
+      clearStepUpToken();
+      const token = await askStepUp(err.message);
+      if (!token) throw new ApiRequestError('Cancelled: identity not confirmed', 'CANCELLED', 403);
+      const retryHeaders = new Headers(init.headers);
+      retryHeaders.set('X-Step-Up-Token', token);
+      return apiRequest<T>(path, { ...options, headers: retryHeaders }, authenticated, retried);
     }
     throw err;
   }

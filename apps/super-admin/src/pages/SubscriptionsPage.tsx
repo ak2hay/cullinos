@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CreditCard, IndianRupee, Settings2 } from 'lucide-react';
+import { CalendarPlus, CreditCard, Gift, IndianRupee, Settings2 } from 'lucide-react';
 import { Button } from '@cullinos/ui';
 import { inputClass, LabeledInput, Notice } from '@/components/common';
 import {
@@ -20,12 +20,16 @@ import {
 import { superAdminApi, type Tenant } from '@/lib/api';
 import { formatDate, formatInr } from '@/lib/format';
 import { openRazorpaySubscriptionCheckout } from '@/lib/razorpay-subscription-checkout';
+import { ActivateComplimentaryDialog } from '@/pages/tenants/ActivateComplimentaryDialog';
+import { ExtendTrialDialog } from '@/pages/tenants/ExtendTrialDialog';
 
 const SUB_STATUSES = ['TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'CANCELLED'];
 
 export function SubscriptionsPage() {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Tenant | null>(null);
+  const [trialTenant, setTrialTenant] = useState<Tenant | null>(null);
+  const [compTenant, setCompTenant] = useState<Tenant | null>(null);
   const [planSlug, setPlanSlug] = useState('enterprise');
   const [status, setStatus] = useState('ACTIVE');
   const [message, setMessage] = useState<{ tone: 'info' | 'success' | 'error'; text: string } | null>(null);
@@ -154,7 +158,19 @@ export function SubscriptionsPage() {
             ),
           },
           { key: 'plan', header: 'Plan', cell: (t) => <span className="capitalize">{t.planName ?? t.plan ?? '—'}</span> },
-          { key: 'sub', header: 'Subscription', cell: (t) => (t.subscriptionStatus ? <StatusPill status={t.subscriptionStatus.toLowerCase()} /> : <span className="text-text-muted">None</span>) },
+          {
+            key: 'sub',
+            header: 'Subscription',
+            cell: (t) =>
+              t.subscriptionStatus ? (
+                <div className="flex items-center gap-2">
+                  <StatusPill status={t.subscriptionStatus.toLowerCase()} />
+                  {t.isComplimentary ? <span className="rounded-md bg-violet-500/10 px-1.5 py-0.5 text-xs font-medium text-violet-600">Complimentary</span> : null}
+                </div>
+              ) : (
+                <span className="text-text-muted">None</span>
+              ),
+          },
           { key: 'mrr', header: 'MRR', className: 'tabular-nums', cell: (t) => formatInr(t.mrrContribution ?? 0) },
           {
             key: 'renews',
@@ -173,7 +189,16 @@ export function SubscriptionsPage() {
               <RowActions
                 onView={() => openManage(t)}
                 viewLabel="Manage"
-                actions={[{ label: 'Collect payment', icon: CreditCard, disabled: collectMutation.isPending, onSelect: () => collectMutation.mutate(t.id) }]}
+                actions={[
+                  { label: 'Collect payment', icon: CreditCard, disabled: collectMutation.isPending, onSelect: () => collectMutation.mutate(t.id) },
+                  {
+                    label: 'Extend trial',
+                    icon: CalendarPlus,
+                    disabled: t.subscriptionStatus?.toLowerCase() === 'active' && !t.isComplimentary,
+                    onSelect: () => setTrialTenant(t),
+                  },
+                  { label: 'Activate without payment', icon: Gift, onSelect: () => setCompTenant(t) },
+                ]}
               />
             ),
           },
@@ -256,6 +281,13 @@ export function SubscriptionsPage() {
           </>
         ) : null}
       </FormDrawer>
+
+      <ExtendTrialDialog
+        tenant={trialTenant}
+        onClose={() => setTrialTenant(null)}
+        onDone={(end) => setMessage({ tone: 'success', text: `Trial extended to ${formatDate(end)}.` })}
+      />
+      <ActivateComplimentaryDialog tenant={compTenant} onClose={() => setCompTenant(null)} />
     </div>
   );
 }

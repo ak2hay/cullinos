@@ -8,6 +8,7 @@ import {
   getOrderTypeViolation,
   getPosOrderTypes,
   orgServesAlcohol,
+  outletUsesTables,
 } from './business-rules';
 import { BUSINESS_TYPES, BUSINESS_TYPE_DEFAULTS, getFeaturesForProfile } from './business-types';
 import { FEATURES } from './features';
@@ -113,6 +114,25 @@ describe('order type rules', () => {
 
   it('skips enforcement when the business type is unknown', () => {
     expect(getOrderTypeViolation(null, { type: 'dine_in', hasTable: true })).toBeNull();
+  });
+
+  it('honours the outlet table setting over the business type', () => {
+    expect(getOrderTypeViolation('qsr', { type: 'dine_in', hasTable: true, tablesEnabled: true })).toBeNull();
+    expect(getOrderTypeViolation('food_truck', { type: 'dine_in', hasTable: true, tablesEnabled: true })).toBeNull();
+    expect(getOrderTypeViolation('food_truck', { type: 'qr', hasTable: true, tablesEnabled: true })).toBeNull();
+    expect(getOrderTypeViolation('food_truck', { type: 'dine_in', hasTable: false, tablesEnabled: true })).not.toBeNull();
+    expect(getOrderTypeViolation('restaurant', { type: 'dine_in', hasTable: true, tablesEnabled: false })).toMatch(/tables/);
+    expect(getOrderTypeViolation('restaurant', { type: 'qr', hasTable: false, tablesEnabled: false })).toBeNull();
+    expect(getOrderTypeViolation(null, { type: 'dine_in', hasTable: true, tablesEnabled: false })).toMatch(/tables/);
+  });
+
+  it('resolves outlet table use from settings, then business type', () => {
+    expect(outletUsesTables('cafe', {})).toBe(true);
+    expect(outletUsesTables('cafe', { tablesEnabled: false })).toBe(false);
+    expect(outletUsesTables('qsr', null)).toBe(false);
+    expect(outletUsesTables('qsr', { tablesEnabled: true })).toBe(true);
+    expect(outletUsesTables('qsr', { tablesEnabled: 'yes' })).toBe(false);
+    expect(outletUsesTables(null, undefined)).toBe(true);
   });
 
   it('caps saved settings by the allowed order types', () => {

@@ -93,11 +93,9 @@ export async function apiRequest<T>(
     headers.set('Content-Type', 'application/json');
   }
 
-  if (authenticated) {
-    const token = useAuthStore.getState().accessToken;
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
-    }
+  const sentToken = authenticated ? useAuthStore.getState().accessToken : null;
+  if (sentToken) {
+    headers.set('Authorization', `Bearer ${sentToken}`);
   }
 
   const response = await fetch(`${API_BASE}${path}`, {
@@ -108,11 +106,17 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     const err = await parseError(response);
-    if (err.status === 401 && authenticated && useAuthStore.getState().accessToken) {
-      if (!retried && (await refreshSession())) {
-        return apiRequest<T>(path, options, authenticated, true);
+    if (err.status === 401 && sentToken) {
+      const currentToken = useAuthStore.getState().accessToken;
+      if (currentToken !== sentToken) {
+        // Token changed mid-flight (new login or concurrent refresh): this 401 is stale, never log the new session out.
+        if (currentToken && !retried) return apiRequest<T>(path, options, authenticated, true);
+      } else {
+        if (!retried && (await refreshSession())) {
+          return apiRequest<T>(path, options, authenticated, true);
+        }
+        useAuthStore.getState().logout();
       }
-      useAuthStore.getState().logout();
     }
     if (err.status === 503 && err.code === 'PORTAL_DISABLED') {
       usePortalStore.getState().setDisabled(err.message);

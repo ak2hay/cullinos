@@ -197,7 +197,7 @@ export const PRODUCT_MODULES = [
 
 export const TRUST_PILLARS = [
   { title: 'GST-ready billing', description: 'CGST, SGST, and IGST built into every bill.' },
-  { title: 'Every order channel', description: 'POS, Waiter, QR and Guest app — one kitchen. Delivery apps coming soon.' },
+  { title: 'One kitchen, every channel', description: 'POS, Waiter, QR and Guest app — one kitchen. Delivery apps coming soon.' },
   { title: 'Scales with you', description: 'From one outlet to hotel chains — same platform.' },
 ] as const;
 
@@ -306,7 +306,7 @@ export const FEATURE_SECTIONS = [
         status: 'available' as const,
       },
       {
-        name: 'Delivery & Aggregators',
+        name: 'Delivery-app orders',
         description: 'Manage delivery orders plus Swiggy / Zomato connect and settlements.',
         status: 'coming_soon' as const,
       },

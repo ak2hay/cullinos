@@ -564,6 +564,8 @@ model User {
   refundPinFailedAttempts Int       @default(0) @map("refund_pin_failed_attempts")
   refundPinLockedUntil    DateTime? @map("refund_pin_locked_until")
   lastLoginAt        DateTime?  @map("last_login_at")
+  /// Soft delete (platform staff removal): hidden from lists, cannot sign in; audit history kept.
+  deletedAt               DateTime?     @map("deleted_at")
   createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt          DateTime   @updatedAt @map("updated_at")
 
@@ -775,6 +777,9 @@ model Subscription {
   pendingPlanId           String?            @map("pending_plan_id")
   pendingRazorpaySubId    String?            @map("pending_razorpay_sub_id")
   cancelledAt             DateTime?          @map("cancelled_at")
+  /// Activated by platform staff without payment; access ends at currentPeriodEnd.
+  isComplimentary       Boolean            @default(false) @map("is_complimentary")
+  compTicketId          String?            @map("comp_ticket_id")
   createdAt      DateTime           @default(now()) @map("created_at")
   updatedAt      DateTime           @updatedAt @map("updated_at")
 
@@ -3301,6 +3306,7 @@ model PlatformApprovalRequest {
   updatedAt         DateTime               @updatedAt @map("updated_at")
 
   decisions PlatformApprovalDecision[]
+  emailTokens PlatformApprovalEmailToken[]
 
   @@index([status, createdAt])
   @@index([requestedById, createdAt])
@@ -3321,6 +3327,23 @@ model PlatformApprovalDecision {
 
   @@unique([requestId, approverId])
   @@map("platform_approval_decisions")
+}
+
+/// One-time link emailed to an approver so they can approve/reject without signing in.
+model PlatformApprovalEmailToken {
+  id         String    @id @default(cuid())
+  requestId  String    @map("request_id")
+  approverId String    @map("approver_id")
+  /// SHA-256 of the raw token; the raw token only exists in the email.
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  usedAt     DateTime? @map("used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  request PlatformApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, approverId])
+  @@map("platform_approval_email_tokens")
 }
 
 model PlatformNotification {
@@ -3431,10 +3454,32 @@ model TenantAccessGrant {
   createdAt         DateTime                  @default(now()) @map("created_at")
 
   ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  loginCredential SupportLoginCredential?
 
   @@index([userId, status])
   @@index([organizationId, status])
   @@map("tenant_access_grants")
+}
+
+/// Temporary password a support employee types on the tenant login page; never replaces the tenant's own password.
+model SupportLoginCredential {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  targetUserId   String    @map("target_user_id")
+  ticketId       String    @map("ticket_id")
+  grantId        String    @unique @map("grant_id")
+  createdById    String    @map("created_by_id")
+  passwordHash   String    @map("password_hash")
+  expiresAt      DateTime  @map("expires_at")
+  revokedAt      DateTime? @map("revoked_at")
+  lastUsedAt     DateTime? @map("last_used_at")
+  useCount       Int       @default(0) @map("use_count")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  grant TenantAccessGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@index([targetUserId, expiresAt])
+  @@map("support_login_credentials")
 }
 
 model PlatformShift {

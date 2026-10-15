@@ -40,7 +40,7 @@ Print this page and keep it at your desk.
 3. Waiter → **Table order** → KDS verifies KOT
 4. POS / Portal POS → hold / resume / checkout
 5. Customer → **Checkout** in incognito (verify)
-6. TEST_RUN_SHEET → mark all **190 cases**
+6. TEST_RUN_SHEET → mark all **232 cases**
 
 ---
 
@@ -67,7 +67,7 @@ Print this page and keep it at your desk.
 
 ## Files to return
 
-- TEST_RUN_SHEET.xlsx (all 190 rows filled)
+- TEST_RUN_SHEET.xlsx (all 232 rows filled)
 - BUG_LOG.xlsx (one row per failure)
 - CREDENTIALS_LOG.xlsx (no passwords)
 - evidence/ folder (screenshots)

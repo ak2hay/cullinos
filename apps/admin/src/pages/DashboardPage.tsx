@@ -13,6 +13,7 @@ import {
 } from '@cullinos/shared';
 import { Card } from '@cullinos/ui';
 import { analyticsApi, organizationsApi, outletsApi, reportsApi } from '@/lib/api';
+import { useSelectedOutletTables } from '@/lib/outlet-tables';
 import { formatMoney } from '@/lib/format';
 import { useLowStock, useOpenOrders } from '@/lib/useShellAlerts';
 import { useAuthStore } from '@/stores/auth';
@@ -163,6 +164,7 @@ export function DashboardPage() {
 
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
   const orgQuery = useQuery({ queryKey: ['organizations', 'current'], queryFn: organizationsApi.current });
+  const { tablesEnabled } = useSelectedOutletTables();
   const selectedOutlet = outletsQuery.data?.find((o) => o.id === outletId);
   const scopeLabel = selectedOutlet ? selectedOutlet.name : 'all outlets';
 
@@ -270,7 +272,9 @@ export function DashboardPage() {
     action.to === '/pos'
       ? canAccessPortalMode(permissions, 'pos')
       : isErpNavPathAllowed(permissions, action.to) &&
-        isAdminNavPathVisible(businessType, action.to, restaurantSize, orgQuery.data?.enabledModules),
+        isAdminNavPathVisible(businessType, action.to, restaurantSize, orgQuery.data?.enabledModules, {
+          tablesEnabled,
+        }),
   );
 
   const dayLabel =

@@ -1,5 +1,52 @@
 # Aggregator webhook sample payloads
 
+## UrbanPiper (recommended)
+
+Configure in UrbanPiper, each with custom header `x-aggregator-secret: <secret from Admin → Swiggy & Zomato>`:
+
+```
+POST /aggregators/webhooks/urbanpiper/:organizationId/orders   (order relay)
+POST /aggregators/webhooks/urbanpiper/:organizationId/status   (order status change)
+POST /aggregators/webhooks/urbanpiper/:organizationId/rider    (rider status)
+```
+
+`order.store.merchant_ref_id` must equal the outlet's store ref id (defaults to the Cullinos outlet id).
+Items pushed from Cullinos echo our ids in `merchant_id` (`<menuItemId>`, options `variant:<id>` / `mod:<id>`).
+
+```json
+{
+  "order": {
+    "details": {
+      "id": 987654,
+      "order_type": "delivery",
+      "instructions": "Less spicy",
+      "order_subtotal": 480,
+      "total_taxes": 24,
+      "order_total": 504,
+      "created": 1760000000000,
+      "ext_platforms": [{ "name": "swiggy", "id": "SWG-1122" }]
+    },
+    "store": { "merchant_ref_id": "<outlet-id>" },
+    "items": [
+      {
+        "id": 111,
+        "merchant_id": "<menu-item-id>",
+        "title": "Paneer Tikka",
+        "quantity": 2,
+        "price": 200,
+        "options_to_add": [{ "merchant_id": "variant:<variant-id>", "title": "Full", "price": 20 }]
+      }
+    ]
+  },
+  "customer": { "name": "Asha", "phone": "+919876543210", "address": { "line_1": "12 MG Road", "city": "Pune" } }
+}
+```
+
+Status: `{ "order_id": 987654, "new_state": "Cancelled", "message": "Customer cancelled" }`
+Rider: `{ "order_id": 987654, "delivery_info": { "current_state": "assigned", "delivery_person_details": { "name": "Ravi", "phone": "98xxxxxx10" } } }`
+
+## Direct Swiggy / Zomato (legacy)
+
 Webhook endpoint (public, secret header required):
 
 ```

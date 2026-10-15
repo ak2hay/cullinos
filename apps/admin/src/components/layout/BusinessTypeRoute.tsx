@@ -8,6 +8,7 @@ import {
   type RestaurantSize,
 } from '@cullinos/shared';
 import { organizationsApi } from '@/lib/api';
+import { useSelectedOutletTables } from '@/lib/outlet-tables';
 
 function parseBusinessType(value: string | null | undefined): BusinessType | null {
   if (!value) return null;
@@ -30,15 +31,20 @@ export function BusinessTypeRoute({ children }: { children: React.ReactNode }) {
     queryKey: ['organizations', 'current'],
     queryFn: organizationsApi.current,
   });
+  const outletTables = useSelectedOutletTables();
 
-  if (isLoading) return null;
+  if (isLoading || outletTables.isLoading) return null;
 
   const businessType = parseBusinessType(org?.businessType);
   const restaurantSize = parseRestaurantSize(org?.restaurantSize);
   const path = `/${location.pathname.split('/').filter(Boolean)[0] ?? ''}`;
   const normalized = path === '/' ? '/' : path;
 
-  if (!isAdminNavPathVisible(businessType, normalized, restaurantSize, org?.enabledModules)) {
+  if (
+    !isAdminNavPathVisible(businessType, normalized, restaurantSize, org?.enabledModules, {
+      tablesEnabled: outletTables.tablesEnabled,
+    })
+  ) {
     return <Navigate to="/" replace />;
   }
 

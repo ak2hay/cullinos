@@ -15,6 +15,7 @@ import {
   getOrderTypeViolation,
   isAlcoholProductType,
   orgServesAlcohol,
+  outletUsesTables,
 } from "@cullinos/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { WebsocketGateway } from "../../websocket/websocket.gateway";
@@ -57,6 +58,7 @@ import { FeedbackService } from "../feedback/feedback.service";
 import { WalletService, smsSegments } from "../wallet/wallet.service";
 import { PaymentsService } from "../payments/payments.service";
 import { smsEbill } from "../sms/sms-templates";
+import { OrderStatusNotifier } from "./order-status.notifier";
 
 type TaxComputation = {
   subtotal: number;
@@ -149,7 +151,25 @@ export class OrdersService {
     private wallet?: WalletService,
     @Optional()
     private payments?: PaymentsService,
+    @Optional()
+    private statusNotifier?: OrderStatusNotifier,
   ) {}
+
+  private notifyStatus(order: {
+    organizationId: string;
+    id: string;
+    outletId: string;
+    status: string;
+    metadata: unknown;
+  }) {
+    this.statusNotifier?.changed({
+      organizationId: order.organizationId,
+      id: order.id,
+      outletId: order.outletId,
+      status: order.status,
+      metadata: order.metadata,
+    });
+  }
 
   private async computeTax(
     orgId: string,
@@ -409,6 +429,7 @@ export class OrdersService {
         organization: {
           select: { businessType: true, settings: { select: { settings: true } } },
         },
+        settings: { select: { settings: true } },
       },
     });
     if (!outlet) throw new BadRequestException("Invalid outlet");
@@ -416,6 +437,10 @@ export class OrdersService {
     const typeViolation = getOrderTypeViolation(outlet.organization?.businessType ?? null, {
       type: this.normalizeType(dto.type, dto.source, dto.tableId),
       hasTable: Boolean(dto.tableId),
+      tablesEnabled: outletUsesTables(
+        outlet.organization?.businessType ?? null,
+        outlet.settings?.settings,
+      ),
     });
     if (typeViolation) throw new BadRequestException(typeViolation);
 
@@ -853,6 +878,7 @@ export class OrdersService {
     for (const kot of kots) {
       this.ws.emitToOutlet(order.outletId, "kot.created", { order: mapped, kot });
     }
+    this.notifyStatus(updated);
     return mapped;
   }
 
@@ -948,6 +974,7 @@ export class OrdersService {
     if (apiStatus === "ready") {
       this.ws.emitToOutlet(order.outletId, "order.ready", mapped);
     }
+    this.notifyStatus(order);
     if (this.guestPush && order.customerId) {
       const titles: Record<string, string> = {
         confirmed: "Order confirmed",
@@ -1053,6 +1080,7 @@ export class OrdersService {
     await this.releaseTableIfIdle(order);
     const mapped = mapOrderToClient(order);
     this.ws.emitToOutlet(order.outletId, "order.updated", mapped);
+    this.notifyStatus(order);
     if (this.guestPush && order.customerId) {
       void this.guestPush.notifyCustomerOrder(order.customerId, {
         title: "Order cancelled",

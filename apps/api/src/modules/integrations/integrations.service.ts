@@ -14,6 +14,7 @@ const RESERVED_PROVIDERS = new Set<string>([
   ...PAYMENT_GATEWAY_PROVIDERS,
   "swiggy",
   "zomato",
+  "urbanpiper",
 ]);
 
 type IntegrationRow = {

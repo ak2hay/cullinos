@@ -1,10 +1,11 @@
-import type { Metadata } from 'next';
 import Link from 'next/link';
+import { createMetadata } from '@/lib/metadata';
 
-export const metadata: Metadata = {
-  title: 'Page not found | Cullinos',
-  robots: { index: false, follow: true },
-};
+// No robots here: Next already emits noindex on not-found responses.
+export const metadata = createMetadata({
+  title: 'Page not found',
+  description: 'That link may be outdated or the page moved.',
+});
 
 export default function NotFound() {
   return (

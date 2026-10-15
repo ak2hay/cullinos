@@ -1,6 +1,7 @@
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
+import { BreadcrumbJsonLd } from '@/components/marketing/JsonLd';
 import { CULLINOS_BRAND, CULLINOS_ELEVATOR_PITCH } from '@cullinos/shared';
 import { createMetadata } from '@/lib/metadata';
 
@@ -14,6 +15,7 @@ export const metadata = createMetadata({
 export default function AboutPage() {
   return (
     <>
+      <BreadcrumbJsonLd trail={[{ name: 'About', path: '/about' }]} />
       <Hero
         eyebrow="About"
         title={`${CULLINOS_BRAND.name}, by ${CULLINOS_BRAND.parent}`}

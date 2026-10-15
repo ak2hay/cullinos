@@ -5,15 +5,21 @@ export interface FieldProps {
   label: string;
   htmlFor: string;
   error?: string;
+  required?: boolean;
   children: ReactNode;
   className?: string;
 }
 
-export function Field({ label, htmlFor, error, children, className }: FieldProps) {
+export function Field({ label, htmlFor, error, required, children, className }: FieldProps) {
   return (
     <div className={cn('space-y-2', className)}>
       <label htmlFor={htmlFor} className="block text-sm font-medium text-text-secondary">
         {label}
+        {required ? (
+          <span aria-hidden="true" className="ml-0.5 text-status-error">
+            *
+          </span>
+        ) : null}
       </label>
       {children}
       {error ? <p className="text-sm text-status-error">{error}</p> : null}

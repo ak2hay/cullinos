@@ -219,6 +219,77 @@ export function buildPlatformStaffInviteEmail(input: {
   };
 }
 
+export function buildApprovalRequestEmail(input: {
+  approverName: string;
+  ref: string;
+  title: string;
+  requestedBy: string;
+  justification: string;
+  expiresAt: Date;
+  approveUrl: string;
+  rejectUrl: string;
+  inboxUrl: string;
+}): RenderedEmail {
+  const subject = `Approval needed: ${input.ref} ${input.title}`;
+  const expires = input.expiresAt.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const text = [
+    `Hi ${input.approverName},`,
+    "",
+    `${input.requestedBy} needs your approval for ${input.ref}: ${input.title}`,
+    "",
+    `Reason: ${input.justification}`,
+    "",
+    `Approve: ${input.approveUrl}`,
+    `Reject: ${input.rejectUrl}`,
+    "",
+    `These links work once, only for you, until ${expires} IST. You can also review it in the platform: ${input.inboxUrl}`,
+    "",
+    "— Cullinos / Rkyves",
+  ].join("\n");
+
+  const { primary, border, ink, muted, primarySoft } = EMAIL_BRAND;
+  const bodyHtml = [
+    bodyParagraph(`Hi ${input.approverName},`),
+    bodyParagraph(`${input.requestedBy} needs your approval:`),
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;background:${primarySoft};border-radius:12px;border:1px solid ${border}">
+      <tr><td style="padding:16px 18px">
+        <p style="margin:0 0 6px;font-size:13px;color:${muted}">${escapeHtml(input.ref)}</p>
+        <p style="margin:0 0 12px;font-size:16px;font-weight:600;color:${ink}">${escapeHtml(input.title)}</p>
+        <p style="margin:0 0 4px;font-size:13px;color:${muted}">Reason</p>
+        <p style="margin:0;font-size:14px;color:${ink}">${escapeHtml(input.justification)}</p>
+      </td></tr>
+    </table>`,
+    `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0 8px">
+      <tr>
+        <td style="border-radius:10px;background:${primary}">
+          <a href="${escapeHtml(input.approveUrl)}" style="display:inline-block;padding:12px 24px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none">Approve</a>
+        </td>
+        <td style="width:12px"></td>
+        <td style="border-radius:10px;border:1px solid ${border}">
+          <a href="${escapeHtml(input.rejectUrl)}" style="display:inline-block;padding:11px 24px;font-size:15px;font-weight:600;color:${ink};text-decoration:none">Reject</a>
+        </td>
+      </tr>
+    </table>`,
+    mutedParagraph(
+      `Each button opens a confirmation page. The links work once, only for you, until ${expires} IST.`,
+    ),
+    bodyParagraph(
+      `<a href="${escapeHtml(input.inboxUrl)}" style="color:${primary}">Open in the platform instead</a>`,
+      false,
+    ),
+  ].join("\n");
+
+  return {
+    subject,
+    text,
+    html: wrapEmail({ title: "Approval needed", preheader: `${input.ref} ${input.title}`, bodyHtml }),
+  };
+}
+
 export function buildReservationInviteEmail(input: {
   customerName: string;
   outletName: string;

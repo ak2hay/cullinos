@@ -1,5 +1,5 @@
 /**
- * Settings tax + devices panels ? extracted for maintainability.
+ * Settings tax + devices panels — extracted for maintainability.
  * Used only by SettingsPage.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -75,6 +75,7 @@ export function TaxGroupsSettingsPanel() {
   const itemsWithoutGroup = (menuItemsQuery.data ?? []).filter((i) => !i.taxGroupId).length;
 
   const defaultGroupMutation = useMutation({
+    meta: { autosave: true },
     mutationFn: (id: string) => settingsApi.update({ defaultTaxGroupId: id || null }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
@@ -161,13 +162,14 @@ export function TaxGroupsSettingsPanel() {
           <label className="block space-y-1 text-sm">
             <span className="text-text-secondary">Default tax group</span>
             <select
+              data-autosave
               value={configuredDefault}
               disabled={defaultGroupMutation.isPending}
               onChange={(e) => defaultGroupMutation.mutate(e.target.value)}
               className="block h-11 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary"
             >
               <option value="">
-                {groups.length === 1 ? `Use ${groups[0].name} (only group)` : 'None ? untaxed'}
+                {groups.length === 1 ? `Use ${groups[0].name} (only group)` : 'None — untaxed'}
               </option>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>
@@ -183,7 +185,7 @@ export function TaxGroupsSettingsPanel() {
             <p className="text-xs text-status-warning">
               {itemsWithoutGroup} menu item{itemsWithoutGroup === 1 ? '' : 's'} have no tax group
               {effectiveDefault
-                ? ` ? they will be billed with ${effectiveDefault.name}.`
+                ? ` — they will be billed with ${effectiveDefault.name}.`
                 : ' and will be billed without tax. Assign groups in Menu or pick a default.'}
             </p>
           ) : null}
@@ -197,7 +199,7 @@ export function TaxGroupsSettingsPanel() {
               <p className="text-xs text-text-muted">
                 {(group.rates ?? [])
                   .map((r) => `${r.name} ${Number(r.rate)}% (${r.type})`)
-                  .join(' ? ') || 'No rates'}
+                  .join(' · ') || 'No rates'}
               </p>
             </div>
             <Button
@@ -463,7 +465,7 @@ export function DevicesSettingsPanel() {
           kind: 'receipt',
           status: 'failed',
           error: err instanceof Error ? err.message : 'Test print failed',
-          payloadSummary: `Test print ? ${device.name}`,
+          payloadSummary: `Test print — ${device.name}`,
         })
         .catch(() => undefined);
       queryClient.invalidateQueries({ queryKey: ['devices', 'print-jobs'] });
@@ -511,7 +513,7 @@ export function DevicesSettingsPanel() {
       </div>
 
       {devicesQuery.isLoading ? (
-        <p className="text-sm text-text-muted">Loading devices?</p>
+        <p className="text-sm text-text-muted">Loading devices…</p>
       ) : grouped.length === 0 ? (
         <p className="text-sm text-text-muted">No devices registered.</p>
       ) : (
@@ -537,12 +539,12 @@ export function DevicesSettingsPanel() {
                           <p className="font-medium">{device.name}</p>
                         </div>
                         <p className="text-xs text-text-muted">
-                          {online ? 'Online' : 'Offline'} ? Last seen {formatLastSeen(device.lastSeenAt)}
+                          {online ? 'Online' : 'Offline'} · Last seen {formatLastSeen(device.lastSeenAt)}
                           {device.metadata?.connectionType
-                            ? ` ? ${String(device.metadata.connectionType)}`
+                            ? ` · ${String(device.metadata.connectionType)}`
                             : ''}
                           {device.metadata?.printCategories?.length
-                            ? ` ? ${(device.metadata.printCategories as string[]).join(', ')}`
+                            ? ` · ${(device.metadata.printCategories as string[]).join(', ')}`
                             : ''}
                         </p>
                       </div>
@@ -584,7 +586,7 @@ export function DevicesSettingsPanel() {
             {(failedJobsQuery.data ?? []).map((job) => (
               <li key={job.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                 <span className="text-text-secondary">
-                  {job.payloadSummary || job.kind} ? {job.error || 'failed'}
+                  {job.payloadSummary || job.kind} — {job.error || 'failed'}
                 </span>
                 <Button
                   type="button"
@@ -872,7 +874,7 @@ function ProfileEditor({
         }}
         disabled={Object.keys(draft).length === 0}
       >
-        Save {title.toLowerCase()}
+        Save {title}
       </Button>
     </div>
   );
@@ -943,7 +945,7 @@ export function PrintProfilesSettingsPanel() {
       <div className="space-y-3 rounded-lg border border-line-subtle bg-bg-elevated/40 p-4">
         <h3 className="font-medium">Brand logo</h3>
         <p className="text-xs text-text-muted">
-          Shown on bills when ?Show logo on bill? is enabled. Square PNG/JPG/WebP, crop to 512?512.
+          Shown on bills when “Show logo on bill” is enabled. Square PNG/JPG/WebP, crop to 512×512.
         </p>
         <ImageUploadField
           slot="orgLogo"
@@ -973,7 +975,7 @@ export function PrintProfilesSettingsPanel() {
         />
         <ProfileEditor
           title="Kitchen ticket (KOT)"
-          description="Browser kitchen print ? leave off if you use KDS only."
+          description="Browser kitchen print — leave off if you use KDS only."
           profile={profilesQuery.data?.kot}
           saving={saveMutation.isPending}
           onSave={(patch) => saveMutation.mutate({ kind: 'kot', patch })}

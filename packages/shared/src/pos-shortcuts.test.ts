@@ -1,5 +1,37 @@
 import { describe, expect, it } from 'vitest';
-import { findItemByShortCode, matchesPosSearch, posQuickKeySlot } from './pos-shortcuts';
+import {
+  findItemByShortCode,
+  isPosHoldKey,
+  isPosTypeToSearchKey,
+  matchesPosSearch,
+  posQuickKeySlot,
+} from './pos-shortcuts';
+
+describe('isPosTypeToSearchKey', () => {
+  it('accepts plain printable characters', () => {
+    expect(isPosTypeToSearchKey({ key: 'h' })).toBe(true);
+    expect(isPosTypeToSearchKey({ key: 'A' })).toBe(true);
+    expect(isPosTypeToSearchKey({ key: '7' })).toBe(true);
+  });
+
+  it('rejects control keys, modifiers, space and the / focus key', () => {
+    expect(isPosTypeToSearchKey({ key: 'Enter' })).toBe(false);
+    expect(isPosTypeToSearchKey({ key: 'F2' })).toBe(false);
+    expect(isPosTypeToSearchKey({ key: ' ' })).toBe(false);
+    expect(isPosTypeToSearchKey({ key: '/' })).toBe(false);
+    expect(isPosTypeToSearchKey({ key: 'c', ctrlKey: true })).toBe(false);
+    expect(isPosTypeToSearchKey({ key: '1', altKey: true })).toBe(false);
+  });
+});
+
+describe('isPosHoldKey', () => {
+  it('only matches Alt+H', () => {
+    expect(isPosHoldKey({ key: 'h', altKey: true })).toBe(true);
+    expect(isPosHoldKey({ key: 'H', altKey: true })).toBe(true);
+    expect(isPosHoldKey({ key: 'h' })).toBe(false);
+    expect(isPosHoldKey({ key: 'h', altKey: true, ctrlKey: true })).toBe(false);
+  });
+});
 
 describe('posQuickKeySlot', () => {
   it('maps F1-F12 and Alt+1-9 to slots', () => {

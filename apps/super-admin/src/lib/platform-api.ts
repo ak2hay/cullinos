@@ -286,6 +286,28 @@ export const approvalsApi = {
   policies: () => apiRequest<ApprovalPolicy[]>('/super-admin/approval-policies'),
   updatePolicy: (id: string, b: Partial<Omit<ApprovalPolicy, 'id' | 'actionKey'>>) =>
     apiRequest<ApprovalPolicy>(`/super-admin/approval-policies/${id}`, json('PATCH', b)),
+  emailPreview: (token: string) =>
+    apiRequest<EmailApprovalPreview>('/super-admin/approvals/email-action/preview', json('POST', { token })),
+  emailDecide: (token: string, decision: 'approved' | 'rejected', comment?: string) =>
+    apiRequest<EmailApprovalPreview & { recorded: 'approved' | 'rejected' }>(
+      '/super-admin/approvals/email-action/decide',
+      json('POST', { token, decision, comment }),
+    ),
+};
+
+export type EmailApprovalPreview = {
+  ref: string;
+  title: string;
+  actionKey: string;
+  justification: string;
+  status: string;
+  requestedBy: string | null;
+  approverName: string | null;
+  requestExpiresAt: string;
+  linkExpiresAt: string;
+  linkState: 'valid' | 'used' | 'expired';
+  canDecide: boolean;
+  requestId: string;
 };
 
 // ─── Support ──────────────────────────────────────────────────────────────
@@ -523,6 +545,11 @@ export const peopleApi = {
       cancelledApprovals: number;
       rotationsUpdated: number;
     }>(`/super-admin/people/directory/${userId}/offboard`, json('POST', b)),
+  remove: (userId: string, b: { reason?: string; transferToUserId?: string | null }) =>
+    apiRequest<{ deleted: boolean; transferredTickets: number }>(
+      `/super-admin/people/directory/${userId}`,
+      json('DELETE', b),
+    ),
   bulkInvite: (rows: BulkInviteRow[]) =>
     apiRequest<{
       created: number;

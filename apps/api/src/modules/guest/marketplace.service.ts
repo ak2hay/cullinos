@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import {
   DEFAULT_GUEST_THEME_KEY,
-  getBusinessTypeRules,
   getEffectiveOrderTypes,
   isBusinessType,
   isGuestThemePresetKey,
+  outletUsesTables,
   resolveGuestThemePreset,
 } from "@cullinos/shared";
 import { computeOpenNow } from "../../common/opening-hours.util";
@@ -30,17 +30,21 @@ function haversineKm(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/** Guest-facing order modes: saved Settings capped by the business-type rules. */
+/**
+ * Guest-facing order modes: saved Settings capped by the business-type rules,
+ * with the outlet's table-system setting deciding how QR orders are served.
+ */
 export function guestOrderModes(
   businessType: string | null | undefined,
   orgSettings: Record<string, unknown>,
+  outletSettings?: unknown,
 ) {
   const type = isBusinessType(businessType) ? businessType : null;
   const saved = Array.isArray(orgSettings.enabledOrderTypes)
     ? (orgSettings.enabledOrderTypes as string[])
     : ["dine_in", "takeaway", "delivery"];
   const types: string[] = getEffectiveOrderTypes(type, { enabledOrderTypes: saved });
-  const { tables } = getBusinessTypeRules(type);
+  const tables = outletUsesTables(type, outletSettings);
   const qr = types.includes("qr");
   return {
     dineIn: types.includes("dine_in") || (qr && tables),
@@ -202,7 +206,11 @@ export class MarketplaceService {
           string,
           unknown
         >;
-        const orderModes = guestOrderModes(o.organization.businessType, orgSettings);
+        const orderModes = guestOrderModes(
+          o.organization.businessType,
+          orgSettings,
+          o.settings?.settings,
+        );
         const ratings = o.guestReviews.map((r) => r.rating);
         const averageRating =
           ratings.length === 0
@@ -467,7 +475,8 @@ export class MarketplaceService {
         accentColor,
         platformDefaultGuestThemeKey,
       },
-      orderModes: guestOrderModes(org.businessType, orgSettings),
+      orderModes: guestOrderModes(org.businessType, orgSettings, outletSettings),
+      tablesEnabled: outletUsesTables(org.businessType, outletSettings),
       offers: coupons.map((c) => ({
         id: c.id,
         code: c.code,

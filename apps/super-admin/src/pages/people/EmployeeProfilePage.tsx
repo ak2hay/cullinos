@@ -179,7 +179,7 @@ export function EmployeeProfilePage() {
             ))}
             {p.assignments.length === 0 ? <li className="text-text-muted">Only the primary role.</li> : null}
           </ul>
-          {can('iam.assign') ? (
+          {me?.platformRole === 'owner' ? (
             <Link to="/iam/assignments" className="mt-3 inline-block text-sm text-accent hover:underline">
               Manage assignments
             </Link>

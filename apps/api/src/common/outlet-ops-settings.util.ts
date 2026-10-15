@@ -14,6 +14,8 @@ export type OutletOpsSettings = {
   qrSessionTimeoutMinutes: number;
   kdsServedCompletesOrder: KdsServedCompletesOrder;
   posQuickKeys: PosQuickKey[];
+  /** Outlet table-system override; null follows the business-type default. */
+  tablesEnabled: boolean | null;
 };
 
 function record(settings: unknown): Record<string, unknown> {
@@ -45,7 +47,13 @@ export function outletOpsSettings(settings: unknown): OutletOpsSettings {
       ? (kds as KdsServedCompletesOrder)
       : "always",
     posQuickKeys: quickKeys,
+    tablesEnabled: typeof s.tablesEnabled === "boolean" ? s.tablesEnabled : null,
   };
+}
+
+export function parseTablesEnabled(value: unknown): boolean | null {
+  if (value === null || typeof value === "boolean") return value;
+  throw new BadRequestException("tablesEnabled must be true, false or null");
 }
 
 export function parseQrSessionTimeoutMinutes(value: unknown): number {

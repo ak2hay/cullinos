@@ -8,7 +8,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { WebsocketGateway } from "../../websocket/websocket.gateway";
 import { fromApiTableStatus, toApiTableStatus } from "../../common/status.util";
 import { releaseMergedTables } from "./table-merge.util";
-import { businessTypeUsesTables } from "./business-type-tables.util";
+import { outletUsesTablesFor } from "./business-type-tables.util";
 
 const GUEST_APP_BASE =
   process.env.GUEST_APP_URL ?? "https://guest.cullinos.com";
@@ -41,11 +41,11 @@ export class TablesService {
   ) {
     const outlet = await this.prisma.outlet.findFirst({
       where: { id: data.outletId, organizationId: orgId },
-      include: { organization: true },
+      include: { organization: true, settings: true },
     });
     if (!outlet) throw new NotFoundException("Outlet not found");
-    if (!businessTypeUsesTables(outlet.organization?.businessType)) {
-      throw new BadRequestException("This business type does not use tables");
+    if (!outletUsesTablesFor(outlet.organization?.businessType, outlet.settings?.settings)) {
+      throw new BadRequestException("Tables are turned off for this outlet. Turn them on in Settings.");
     }
     if (!data.name?.trim()) throw new BadRequestException("Table name is required");
 

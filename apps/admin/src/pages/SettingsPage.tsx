@@ -1,5 +1,5 @@
-﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+﻿import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
@@ -11,11 +11,11 @@ import {
   getBusinessTypeParent,
   getBusinessTypeRules,
   isNavFeatureVisible,
+  outletUsesTables,
   type BusinessType,
   type RestaurantSize,
 } from '@cullinos/shared';
 import { Button, Input, PageShell, PhoneField, TabPanel, Tabs } from '@cullinos/ui';
-import { OutletQrCard } from '@/components/ordering/OutletQrCard';
 import { useAuthStore } from '@/stores/auth';
 import {
   organizationsApi,
@@ -32,6 +32,7 @@ import {
 } from '@/i18n';
 import { PaymentsSettingsPanel } from './settings/PaymentsSettingsPanel';
 import { PosSettingsPanel } from './settings/PosSettingsPanel';
+import { TableSystemCard } from './settings/TableSystemCard';
 import { DevicesSettingsPanel, PrintProfilesSettingsPanel, TaxGroupsSettingsPanel } from './settings/TaxAndDevicesPanels';
 
 const SETTINGS_TAB_IDS = ['general', 'pos', 'tax', 'devices', 'payments'] as const;
@@ -79,7 +80,44 @@ export function SettingsPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = parseSettingsTab(searchParams.get('tab'));
+  const [dirty, setDirty] = useState(false);
+  // Instant-save controls (meta.autosave) must not clear edits pending in another section.
+  const mutating = useIsMutating({ predicate: (m) => !m.options.meta?.autosave });
+  const wasMutating = useRef(false);
+  useEffect(() => {
+    // shortcut: any finished save clears the flag, even if another section still has edits; track per section if QA flags it.
+    if (wasMutating.current && mutating === 0) setDirty(false);
+    wasMutating.current = mutating > 0;
+  }, [mutating]);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    // BrowserRouter has no useBlocker, so intercept link clicks before React Router's delegated handler sees them.
+    const guardLinks = (e: MouseEvent) => {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const link = (e.target as Element | null)?.closest?.('a[href]');
+      if (!link || link.getAttribute('target') === '_blank') return;
+      if (window.confirm(t('settings.unsavedConfirm'))) {
+        setDirty(false);
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener('beforeunload', warn);
+    document.addEventListener('click', guardLinks, true);
+    return () => {
+      window.removeEventListener('beforeunload', warn);
+      document.removeEventListener('click', guardLinks, true);
+    };
+  }, [dirty, t]);
   const setActiveTab = (tab: SettingsTab) => {
+    if (tab === activeTab) return;
+    if (dirty && !window.confirm(t('settings.unsavedConfirm'))) return;
+    setDirty(false);
     const next = new URLSearchParams(searchParams);
     if (tab === 'general') next.delete('tab');
     else next.set('tab', tab);
@@ -108,6 +146,7 @@ export function SettingsPage() {
   const [servesAlcoholEnabled, setServesAlcoholEnabled] = useState(false);
 
   const selectedOutletId = useAuthStore((s) => s.selectedOutletId);
+  const [tableOutletId, setTableOutletId] = useState<string | null>(null);
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
   const orgQuery = useQuery({ queryKey: ['organizations', 'current'], queryFn: organizationsApi.current });
   const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get });
@@ -165,6 +204,7 @@ export function SettingsPage() {
   const rawOrgLanguage = orgQuery.data?.language;
   const orgLanguage: LanguageCode = isLanguageCode(rawOrgLanguage) ? rawOrgLanguage : 'en';
   const languageMutation = useMutation({
+    meta: { autosave: true },
     mutationFn: (language: LanguageCode) => settingsApi.update({ language }),
     onSuccess: (_data, language) => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
@@ -263,15 +303,16 @@ export function SettingsPage() {
   const parent = businessType ? getBusinessTypeParent(businessType) : null;
   const showPreOrders = isNavFeatureVisible(businessType, FEATURES.PRE_ORDERS, restaurantSize);
   const businessRules = getBusinessTypeRules(businessType);
-  const qrOutlet =
-    outletsQuery.data?.find((outlet) => outlet.id === selectedOutletId) ??
-    (outletsQuery.data?.length === 1 ? outletsQuery.data[0] : undefined);
+  const tableOutlet =
+    outletsQuery.data?.find((outlet) => outlet.id === (tableOutletId ?? selectedOutletId)) ??
+    outletsQuery.data?.[0];
+  const tableOutletUsesTables = outletUsesTables(businessType, tableOutlet ?? null);
   const visibleOrderOptions = ORDER_OPTIONS.filter((option) =>
     (businessRules.allowedOrderTypes as readonly string[]).includes(option.id),
   ).map((option) =>
-    option.id === 'qr' && !businessRules.tables
+    option.id === 'qr' && !tableOutletUsesTables
       ? { ...option, hint: 'Customers scan your outlet code to order' }
-      : option.id === 'dine_in' && !businessRules.tables
+      : option.id === 'dine_in' && !tableOutletUsesTables
         ? { ...option, label: 'Eat in', hint: 'Customers eat at your counter or seating area' }
         : option,
   );
@@ -288,6 +329,11 @@ export function SettingsPage() {
         onChange={setActiveTab}
       />
 
+      <div
+        onChange={(e) => {
+          if (!(e.target as HTMLElement).closest('[data-autosave]')) setDirty(true);
+        }}
+      >
       <TabPanel active={activeTab === 'general'} className="space-y-6">
       {orgQuery.error || settingsQuery.error ? (
         <div className="rounded-xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
@@ -353,6 +399,7 @@ export function SettingsPage() {
           <p className="mt-1 text-sm text-text-secondary">{t('settings.languageHint')}</p>
         </div>
         <select
+          data-autosave
           value={orgLanguage}
           disabled={languageMutation.isPending || !orgQuery.data}
           onChange={(e) => {
@@ -377,6 +424,17 @@ export function SettingsPage() {
               : t('settings.saveFailed')}
           </p>
         ) : null}
+      </div>
+
+      <div data-autosave>
+        <TableSystemCard
+          outlets={outletsQuery.data ?? []}
+          outlet={tableOutlet}
+          onSelectOutlet={setTableOutletId}
+          businessType={businessType}
+          enabledModules={orgQuery.data?.enabledModules}
+          orgSlug={orgQuery.data?.slug}
+        />
       </div>
 
       <div className="space-y-3 rounded-xl border border-line-subtle bg-bg-card p-5">
@@ -406,14 +464,6 @@ export function SettingsPage() {
           ))}
         </div>
       </div>
-
-      {!businessRules.tables ? (
-        <OutletQrCard
-          orgSlug={orgQuery.data?.slug}
-          outletSlug={qrOutlet?.slug}
-          outletName={qrOutlet?.name}
-        />
-      ) : null}
 
       {businessRules.alcoholToggle || businessRules.alcoholAlwaysOn ? (
         <div className="space-y-3 rounded-xl border border-line-subtle bg-bg-card p-5">
@@ -712,13 +762,16 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <Button
-        onClick={() => saveMutation.mutate()}
-        disabled={!form.name.trim()}
-        loading={saveMutation.isPending}
-      >
-        {t('settings.saveSettings')}
-      </Button>
+      <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-line-subtle bg-bg-card/95 py-3 backdrop-blur">
+        {dirty ? <span className="text-sm text-status-warning">{t('settings.unsavedChanges')}</span> : null}
+        <Button
+          onClick={() => saveMutation.mutate()}
+          disabled={!form.name.trim()}
+          loading={saveMutation.isPending}
+        >
+          {t('settings.saveSettings')}
+        </Button>
+      </div>
       </TabPanel>
 
       <TabPanel active={activeTab === 'pos'}>
@@ -736,6 +789,7 @@ export function SettingsPage() {
       <TabPanel active={activeTab === 'payments'}>
         <PaymentsSettingsPanel />
       </TabPanel>
+      </div>
     </PageShell>
   );
 }

@@ -71,7 +71,7 @@ export function MarketingNav() {
 
         <div className="hidden lg:block">
           <Link href={registerUrl} className="btn-pill">
-            Start free trial
+            Start 30-day free trial
           </Link>
         </div>
 
@@ -127,7 +127,7 @@ export function MarketingNav() {
                   className="btn-pill mt-2 text-center"
                   onClick={() => setMobileOpen(false)}
                 >
-                  Start free trial
+                  Start 30-day free trial
                 </Link>
               </nav>
             </motion.div>

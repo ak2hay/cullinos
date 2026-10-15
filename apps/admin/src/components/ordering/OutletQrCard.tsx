@@ -11,7 +11,7 @@ export function guestOutletOrderUrl(orgSlug: string, outletSlug: string): string
   return `${GUEST_APP_BASE.replace(/\/$/, '')}/o/${encodeURIComponent(orgSlug)}/${encodeURIComponent(outletSlug)}`;
 }
 
-/** One ordering QR for the whole outlet. For cafes and counters that do not use tables. */
+/** One ordering QR for the whole outlet. For outlets that have the table system turned off. */
 export function OutletQrCard({
   orgSlug,
   outletSlug,
@@ -44,7 +44,7 @@ export function OutletQrCard({
 <html><head><title>${title}</title></head>
 <body style="font-family:sans-serif;text-align:center;padding:24px">
   <h1 style="font-size:22px;margin:0 0 8px">${title}</h1>
-  <p style="margin:0 0 16px">Scan to order</p>
+  <p style="margin:0 0 16px">Scan to order · Collect with your token</p>
   <img src="${image}" width="280" height="280" alt="Outlet QR" />
 </body></html>`);
     } catch (err) {
@@ -54,10 +54,10 @@ export function OutletQrCard({
 
   return (
     <section className="rounded-xl border border-line-subtle bg-bg-card p-5">
-      <h2 className="font-semibold">Outlet QR</h2>
+      <h2 className="font-semibold">Counter QR</h2>
       <p className="mt-1 text-sm text-text-secondary">
-        One QR for this restaurant or cafe. Guests scan it to open the menu and order without a
-        table.
+        Guests scan, order, and collect with their token. Each order gets a token that shows on
+        the guest&apos;s phone, the kitchen ticket, and the pickup display.
         {outletName ? ` This code is for ${outletName}.` : ''}
       </p>
       {!url ? (

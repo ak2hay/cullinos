@@ -43,6 +43,9 @@ export interface ApiStaffLoginResponse {
   refreshToken?: string;
   expiresIn?: number;
   permissions?: string[];
+  /** Set when a support password logged in as this user. */
+  impersonation?: boolean;
+  impersonatedBy?: string;
 }
 
 export interface StaffAuthUser {
@@ -67,6 +70,8 @@ export interface StaffAuthResponse {
   expiresIn: number;
   user: StaffAuthUser;
   permissions: string[];
+  impersonation?: boolean;
+  impersonatedBy?: string | null;
 }
 
 export function mapStaffLoginResponse(raw: ApiStaffLoginResponse): StaffAuthResponse {
@@ -94,5 +99,8 @@ export function mapStaffLoginResponse(raw: ApiStaffLoginResponse): StaffAuthResp
       organizationSlug: raw.user.organizationSlug,
     },
     permissions: raw.permissions ?? [],
+    ...(raw.impersonation
+      ? { impersonation: true, impersonatedBy: raw.impersonatedBy ?? null }
+      : {}),
   };
 }

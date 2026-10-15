@@ -58,6 +58,9 @@ const nextConfig: NextConfig = {
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
+  async redirects() {
+    return [{ source: '/demo', destination: '/contact', permanent: true }];
+  },
   async headers() {
     return [
       {

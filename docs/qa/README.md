@@ -14,7 +14,7 @@ docs/qa/
 │   ├── EMPLOYEE_BRIEF.md
 │   └── QUICK_REFERENCE_CARD.md
 ├── sheets/                   ← fillable markdown templates
-│   ├── TEST_RUN_SHEET.md     (190 cases)
+│   ├── TEST_RUN_SHEET.md     (232 cases)
 │   ├── BUG_LOG.md
 │   └── CREDENTIALS_LOG.md
 ├── export/                   ← generated pack for hires
@@ -92,7 +92,7 @@ cp docs/qa/export/excel/*.xlsx "$RUN/"
 | 5 | [`export/pdf/Manual_Test_Plan.pdf`](export/pdf/Manual_Test_Plan.pdf) | Phase overview |
 | 6 | [`export/pdf/Quick_Reference_Card.pdf`](export/pdf/Quick_Reference_Card.pdf) | 1-page desk card |
 | 7 | [`export/pdf/Employee_Brief.pdf`](export/pdf/Employee_Brief.pdf) | Job expectations |
-| 8 | [`export/excel/TEST_RUN_SHEET.xlsx`](export/excel/TEST_RUN_SHEET.xlsx) | Mark **190** cases |
+| 8 | [`export/excel/TEST_RUN_SHEET.xlsx`](export/excel/TEST_RUN_SHEET.xlsx) | Mark **232** cases |
 | 9 | [`export/excel/BUG_LOG.xlsx`](export/excel/BUG_LOG.xlsx) | Defects |
 | 10 | [`export/excel/CREDENTIALS_LOG.xlsx`](export/excel/CREDENTIALS_LOG.xlsx) | Slugs / emails only |
 
@@ -118,7 +118,7 @@ Hand Super Admin login securely (password manager) — never in Excel.
 
 | File | Purpose |
 |------|---------|
-| [TEST_RUN_SHEET.md](sheets/TEST_RUN_SHEET.md) | **190** cases (source of truth for Excel) |
+| [TEST_RUN_SHEET.md](sheets/TEST_RUN_SHEET.md) | **232** cases (source of truth for Excel) |
 | [BUG_LOG.md](sheets/BUG_LOG.md) | Defect template |
 | [CREDENTIALS_LOG.md](sheets/CREDENTIALS_LOG.md) | Credential template |
 
@@ -152,7 +152,7 @@ Hand Super Admin login securely (password manager) — never in Excel.
 | Plan | `enterprise` |
 | Business type | `restaurant` (medium/large) |
 | Staff | 1 Waiter + 1 Cashier via Admin → Staff |
-| Cases | **190** |
+| Cases | **232** |
 
 ---
 

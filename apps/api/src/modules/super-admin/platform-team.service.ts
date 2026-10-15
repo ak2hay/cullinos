@@ -120,7 +120,7 @@ export class PlatformTeamService {
 
   async list() {
     const users = await this.prisma.user.findMany({
-      where: { isSuperAdmin: true },
+      where: { isSuperAdmin: true, deletedAt: null },
       select: MEMBER_SELECT,
       orderBy: [{ status: "asc" }, { createdAt: "asc" }],
     });
@@ -135,38 +135,48 @@ export class PlatformTeamService {
 
     const existing = await this.prisma.user.findFirst({
       where: { email: { equals: email, mode: "insensitive" } },
-      select: { id: true, isSuperAdmin: true },
+      select: { id: true, isSuperAdmin: true, deletedAt: true },
     });
-    if (existing?.isSuperAdmin) {
+    const rehire = Boolean(existing?.isSuperAdmin && existing.deletedAt);
+    if (existing?.isSuperAdmin && !rehire) {
       throw new ConflictException("This person is already on the platform team");
     }
-    if (existing) {
+    if (existing && !rehire) {
       throw new BadRequestException(
         "This email belongs to a restaurant account. Use a separate Rkyves work email.",
       );
     }
 
     const temporaryPassword = generateTemporaryPassword();
-    const created = await this.prisma.user.create({
-      data: {
-        organizationId: actor.organizationId,
-        email,
-        name,
-        passwordHash: await hashPassword(temporaryPassword),
-        isSuperAdmin: true,
-        platformRole: role,
-        mustChangePassword: true,
-        status: "active",
-      },
-      select: { id: true },
-    });
+    const account = {
+      name,
+      passwordHash: await hashPassword(temporaryPassword),
+      platformRole: role,
+      mustChangePassword: true,
+      status: "active" as const,
+    };
+    const created = rehire
+      ? await this.prisma.user.update({
+          where: { id: existing!.id },
+          data: { ...account, deletedAt: null },
+          select: { id: true },
+        })
+      : await this.prisma.user.create({
+          data: {
+            ...account,
+            organizationId: actor.organizationId,
+            email,
+            isSuperAdmin: true,
+          },
+          select: { id: true },
+        });
     const manager = input.managerUserId
       ? await this.prisma.platformEmployee.findUnique({
           where: { userId: input.managerUserId },
           select: { id: true },
         })
       : null;
-    const employee = await this.iam.createEmployee(created.id, {
+    const profile = {
       title: input.title?.trim() || null,
       departmentId: input.departmentId || null,
       teamId: input.teamId || null,
@@ -174,7 +184,15 @@ export class PlatformTeamService {
       region: input.region?.trim() || null,
       location: input.location?.trim() || null,
       joinedAt: new Date(),
-    });
+    };
+    // Returns the existing employee record for a rehire.
+    let employee = await this.iam.createEmployee(created.id, profile);
+    if (rehire) {
+      employee = await this.prisma.platformEmployee.update({
+        where: { userId: created.id },
+        data: { ...profile, employmentStatus: "active", exitedAt: null },
+      });
+    }
     const member = await this.findMember(created.id);
 
     const loginUrl = this.loginUrl();
@@ -192,6 +210,7 @@ export class PlatformTeamService {
       platformRole: role,
       employeeCode: employee.employeeCode,
       emailSent,
+      rehire,
     });
 
     return { member: toMember(member), temporaryPassword, emailSent, loginUrl };
@@ -248,6 +267,10 @@ export class PlatformTeamService {
       where: { userId, status: { in: ["pending", "active"] } },
       data: { status: "revoked", revokedAt: new Date(), revokedById: actor.sub },
     });
+    await this.prisma.supportLoginCredential.updateMany({
+      where: { createdById: userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
 
     await this.log(actor, "platform.team_deactivate", userId, {
       email: target.email,
@@ -270,7 +293,69 @@ export class PlatformTeamService {
     return toMember(updated);
   }
 
-  async resetPassword(actor: PlatformActor, userId: string) {
+  async update(
+    actor: PlatformActor,
+    userId: string,
+    input: { name?: string; email?: string; phone?: string | null },
+  ) {
+    const target = await this.findMember(userId);
+    const data: { name?: string; email?: string; phone?: string | null } = {};
+    if (input.name !== undefined) {
+      const name = input.name.trim();
+      if (!name) throw new BadRequestException("Name is required");
+      data.name = name;
+    }
+    if (input.email !== undefined) {
+      const email = input.email.trim().toLowerCase();
+      if (!email) throw new BadRequestException("Email is required");
+      if (email !== target.email.toLowerCase()) {
+        const taken = await this.prisma.user.findFirst({
+          where: { email: { equals: email, mode: "insensitive" }, id: { not: userId } },
+          select: { id: true },
+        });
+        if (taken) throw new ConflictException("Another account already uses this email");
+        data.email = email;
+      }
+    }
+    if (input.phone !== undefined) data.phone = input.phone?.trim() || null;
+    if (!Object.keys(data).length) return toMember(target);
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data,
+      select: MEMBER_SELECT,
+    });
+    if (data.email) {
+      // Sign-in identity changed: old sessions must not survive.
+      await this.sessions.revokeAllForUser(userId);
+      this.access.invalidate(userId);
+    }
+    await this.log(actor, "platform.team_update", userId, {
+      changed: Object.keys(data),
+      ...(data.email ? { fromEmail: target.email, toEmail: data.email } : {}),
+    });
+    return toMember(updated);
+  }
+
+  /** Soft delete; call after offboarding so sessions, grants and roles are already revoked. */
+  async markDeleted(actor: PlatformActor, userId: string) {
+    const target = await this.findMember(userId);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { deletedAt: new Date(), status: "inactive" },
+    });
+    await this.sessions.revokeAllForUser(userId);
+    this.access.invalidate(userId);
+    await this.log(actor, "platform.team_delete", userId, { email: target.email });
+    return { userId, deleted: true };
+  }
+
+  /** New temporary password sent with the welcome (invite) email instead of the reset wording. */
+  resendInvite(actor: PlatformActor, userId: string) {
+    return this.resetPassword(actor, userId, { invite: true });
+  }
+
+  async resetPassword(actor: PlatformActor, userId: string, opts: { invite?: boolean } = {}) {
     if (userId === actor.sub) {
       throw new ForbiddenException("Use change password for your own account");
     }
@@ -291,13 +376,15 @@ export class PlatformTeamService {
       temporaryPassword,
       loginUrl,
       invitedBy: actor.email,
-      reset: true,
+      reset: !opts.invite,
     });
 
-    await this.log(actor, "platform.team_reset_password", userId, {
-      email: target.email,
-      emailSent,
-    });
+    await this.log(
+      actor,
+      opts.invite ? "platform.team_resend_invite" : "platform.team_reset_password",
+      userId,
+      { email: target.email, emailSent },
+    );
     return { userId, email: target.email, temporaryPassword, emailSent, loginUrl };
   }
 
@@ -310,7 +397,7 @@ export class PlatformTeamService {
 
   private async findMember(userId: string): Promise<MemberRow> {
     const user = await this.prisma.user.findFirst({
-      where: { id: userId, isSuperAdmin: true },
+      where: { id: userId, isSuperAdmin: true, deletedAt: null },
       select: MEMBER_SELECT,
     });
     if (!user) throw new NotFoundException("Team member not found");

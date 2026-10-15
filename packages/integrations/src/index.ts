@@ -1,8 +1,11 @@
+export * from "./urbanpiper.js";
+
 export type IntegrationProvider =
   | "razorpay"
   | "cashfree"
   | "swiggy"
   | "zomato"
+  | "urbanpiper"
   | "whatsapp"
   | "custom";
 

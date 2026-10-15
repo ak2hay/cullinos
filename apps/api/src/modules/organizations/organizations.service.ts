@@ -53,8 +53,13 @@ export class OrganizationsService {
       subscription?.status === "trial" &&
       subscription.trialEndsAt != null &&
       subscription.trialEndsAt.getTime() <= now;
+    const complimentaryExpired =
+      subscription?.status === "active" &&
+      subscription.isComplimentary &&
+      subscription.currentPeriodEnd != null &&
+      subscription.currentPeriodEnd.getTime() <= now;
     const subscriptionActive =
-      subscription?.status === "active" ||
+      (subscription?.status === "active" && !complimentaryExpired) ||
       (subscription?.status === "trial" && !trialExpired);
 
     return {

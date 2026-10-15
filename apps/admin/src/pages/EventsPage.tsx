@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Button, Input, PageHeader, Select, useToast } from '@cullinos/ui';
 import { eventsApi, outletsApi } from '@/lib/api';
+import { formatDay } from '@/lib/format';
 
 export function EventsPage() {
   const queryClient = useQueryClient();
@@ -99,7 +100,7 @@ export function EventsPage() {
               <p className="font-medium">{String(event.name)}</p>
               <p className="text-sm text-text-muted">{String(event.location ?? '')}</p>
               <p className="text-xs text-text-muted">
-                {new Date(String(event.eventDate)).toLocaleDateString()} · {String(event.startTime)}–{String(event.endTime)}
+                {formatDay(String(event.eventDate))} · {String(event.startTime)}–{String(event.endTime)}
               </p>
             </div>
           ))

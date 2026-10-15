@@ -17,7 +17,7 @@ export function Hero({
   eyebrow,
   title,
   subtitle,
-  primaryCta = { label: 'Start free trial', href: getRegisterUrl() },
+  primaryCta = { label: 'Start 30-day free trial', href: getRegisterUrl() },
   secondaryCta = { label: 'Book a demo', href: '/contact' },
 }: HeroProps) {
   const prefersReducedMotion = useReducedMotion();

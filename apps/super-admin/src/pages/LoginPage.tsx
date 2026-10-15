@@ -36,7 +36,7 @@ export function LoginPage() {
     localStorage.setItem(SUPER_ADMIN_REMEMBER_KEY, remember ? 'true' : 'false');
     try {
       const response = await superAdminApi.login({
-        email,
+        email: email.trim().toLowerCase(),
         password,
         captchaToken: captchaToken || undefined,
       });

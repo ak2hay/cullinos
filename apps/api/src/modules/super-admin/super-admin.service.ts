@@ -36,6 +36,8 @@ import {
 import { orgWhereForGrants, type ScopedGrant } from "../platform-iam/platform-access.util";
 import { summarizeOrgCounts } from "./org-summary.util";
 
+const MAX_COMPLIMENTARY_DAYS = 3 * 366;
+
 type OrgListFilters = {
   q?: string;
   status?: string;
@@ -89,7 +91,12 @@ export class SuperAdminService implements OnModuleDestroy {
 
   async login(email: string, password: string) {
     const user = await this.prisma.user.findFirst({
-      where: { email, status: "active", isSuperAdmin: true },
+      where: {
+        email: { equals: email.trim(), mode: "insensitive" },
+        status: "active",
+        isSuperAdmin: true,
+        deletedAt: null,
+      },
     });
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
       throw new UnauthorizedException("Invalid credentials");
@@ -193,6 +200,7 @@ export class SuperAdminService implements OnModuleDestroy {
       razorpayShortUrl: string | null;
       razorpaySubId: string | null;
       lastRazorpayPaymentId: string | null;
+      isComplimentary?: boolean;
       plan: { slug: string; name: string; priceMonthly: { toString(): string } | number } | null;
     }>;
     _count: { outlets: number; users: number };
@@ -225,6 +233,7 @@ export class SuperAdminService implements OnModuleDestroy {
       checkoutUrl: sub?.razorpayShortUrl ?? null,
       razorpaySubId: sub?.razorpaySubId ?? null,
       lastRazorpayPaymentId: sub?.lastRazorpayPaymentId ?? null,
+      isComplimentary: sub?.isComplimentary ?? false,
       outletCount: org._count.outlets,
       userCount: org._count.users,
       createdAt: org.createdAt.toISOString(),
@@ -352,6 +361,8 @@ export class SuperAdminService implements OnModuleDestroy {
             razorpaySubId: sub.razorpaySubId,
             razorpayShortUrl: sub.razorpayShortUrl,
             lastRazorpayPaymentId: sub.lastRazorpayPaymentId,
+            isComplimentary: sub.isComplimentary,
+            compTicketId: sub.compTicketId,
             entitlements: sub.entitlements,
           }
         : null,
@@ -839,27 +850,48 @@ export class SuperAdminService implements OnModuleDestroy {
   }
 
   /** Set or extend a tenant trial. Revives expired trials; a suspended org returns to `trial`. */
-  async setTrialEnd(id: string, trialEndsAtInput: string, actorUserId?: string) {
+  /** The ticket justifying a billing override must exist and belong to this tenant. */
+  private async assertTenantTicket(orgId: string, ticketId: string) {
+    const ticket = await this.prisma.supportTicket.findUnique({
+      where: { id: ticketId },
+      select: { id: true, seq: true, organizationId: true },
+    });
+    if (!ticket || ticket.organizationId !== orgId) {
+      throw new BadRequestException("Pick a support ticket raised for this tenant");
+    }
+    return ticket;
+  }
+
+  async setTrialEnd(
+    id: string,
+    trialEndsAtInput: string,
+    actorUserId?: string,
+    ref?: { ticketId: string; note?: string },
+  ) {
     const trialEndsAt = assertTrialEnd(trialEndsAtInput);
     const org = await this.prisma.organization.findFirst({
       where: { id, deletedAt: null },
       select: { id: true, status: true },
     });
     if (!org) throw new NotFoundException("Organization not found");
+    if (!ref?.ticketId) throw new BadRequestException("A support ticket is required to extend a trial");
+    const ticket = await this.assertTenantTicket(id, ref.ticketId);
+    const note = ref.note?.trim() || null;
     const sub = await this.prisma.subscription.findFirst({
       where: { organizationId: id },
       orderBy: { createdAt: "desc" },
-      select: { id: true, status: true, trialEndsAt: true },
+      select: { id: true, status: true, trialEndsAt: true, isComplimentary: true, currentPeriodEnd: true },
     });
     if (!sub) throw new BadRequestException("Tenant has no subscription to extend");
-    if (sub.status === "active") {
-      throw new BadRequestException("Tenant is on a paid subscription; there is no trial to extend");
+    const compExpired = sub.isComplimentary && (!sub.currentPeriodEnd || sub.currentPeriodEnd.getTime() <= Date.now());
+    if (sub.status === "active" && !compExpired) {
+      throw new BadRequestException("Tenant is on an active subscription; there is no trial to extend");
     }
 
     await this.prisma.$transaction([
       this.prisma.subscription.update({
         where: { id: sub.id },
-        data: { status: "trial", trialEndsAt, currentPeriodEnd: trialEndsAt },
+        data: { status: "trial", trialEndsAt, currentPeriodEnd: trialEndsAt, isComplimentary: false },
       }),
       this.prisma.organization.update({
         where: { id },
@@ -877,11 +909,127 @@ export class SuperAdminService implements OnModuleDestroy {
             previousStatus: sub.status,
             previousOrgStatus: org.status,
             trialEndsAt: trialEndsAt.toISOString(),
+            ticketId: ticket.id,
+            note,
           },
+        },
+      }),
+      this.prisma.supportTicketComment.create({
+        data: {
+          ticketId: ticket.id,
+          authorId: actorUserId ?? null,
+          body: `Trial extended to ${trialEndsAt.toISOString().slice(0, 10)}.${note ? `\n${note}` : ""}`,
+          isInternal: true,
         },
       }),
     ]);
     return { organizationId: id, trialEndsAt: trialEndsAt.toISOString(), status: "trial" as const };
+  }
+
+  async activateComplimentarySubscription(
+    orgId: string,
+    input: { planId: string; periodEnd: string; ticketId: string; reason: string },
+    actorUserId?: string,
+  ) {
+    const org = await this.prisma.organization.findFirst({
+      where: { id: orgId, deletedAt: null },
+      select: { id: true, status: true },
+    });
+    if (!org) throw new NotFoundException("Organization not found");
+    const ticket = await this.assertTenantTicket(orgId, input.ticketId);
+    const plan = await this.prisma.plan.findUnique({ where: { id: input.planId } });
+    if (!plan || !plan.isActive) throw new BadRequestException("Pick an active plan");
+
+    const periodEnd = new Date(input.periodEnd);
+    const now = Date.now();
+    if (Number.isNaN(periodEnd.getTime()) || periodEnd.getTime() <= now) {
+      throw new BadRequestException("End date must be in the future");
+    }
+    if (periodEnd.getTime() > now + MAX_COMPLIMENTARY_DAYS * 86_400_000) {
+      throw new BadRequestException(`End date can be at most ${MAX_COMPLIMENTARY_DAYS} days away`);
+    }
+    const reason = input.reason.trim();
+
+    const existing = await this.prisma.subscription.findFirst({
+      where: { organizationId: orgId },
+      orderBy: { createdAt: "desc" },
+    });
+    for (const razorpaySubId of [existing?.razorpaySubId, existing?.pendingRazorpaySubId]) {
+      if (!razorpaySubId) continue;
+      try {
+        await this.saas.cancelGatewaySubscription({ razorpaySubId });
+      } catch {
+        // Gateway may already consider it cancelled; the local record is cleared either way.
+      }
+    }
+    const planFeatures = await this.prisma.planFeature.findMany({ where: { planId: plan.id } });
+    const entitlements = planFeatures.map((f) => ({
+      module: f.module,
+      enabled: f.enabled,
+      limits: f.limits ?? undefined,
+    }));
+    const data = {
+      planId: plan.id,
+      status: "active" as const,
+      isComplimentary: true,
+      compTicketId: ticket.id,
+      currentPeriodStart: new Date(now),
+      currentPeriodEnd: periodEnd,
+      trialEndsAt: null,
+      graceUntil: null,
+      cancelledAt: null,
+      razorpaySubId: null,
+      razorpayShortUrl: null,
+      pendingPlanId: null,
+      pendingRazorpaySubId: null,
+    };
+
+    const subscription = await this.prisma.$transaction(async (tx) => {
+      let sub;
+      if (existing) {
+        await tx.subscriptionEntitlement.deleteMany({ where: { subscriptionId: existing.id } });
+        sub = await tx.subscription.update({
+          where: { id: existing.id },
+          data: { ...data, entitlements: { create: entitlements } },
+          include: { plan: true, entitlements: true },
+        });
+      } else {
+        sub = await tx.subscription.create({
+          data: { organizationId: orgId, ...data, entitlements: { create: entitlements } },
+          include: { plan: true, entitlements: true },
+        });
+      }
+      await tx.organization.update({ where: { id: orgId }, data: { status: "active" } });
+      await tx.auditLog.create({
+        data: {
+          organizationId: orgId,
+          userId: actorUserId ?? null,
+          action: "subscription.complimentary_activated",
+          entityType: "subscription",
+          entityId: sub.id,
+          metadata: {
+            planId: plan.id,
+            planSlug: plan.slug,
+            periodEnd: periodEnd.toISOString(),
+            ticketId: ticket.id,
+            reason,
+            previousStatus: existing?.status ?? null,
+            previousPlanId: existing?.planId ?? null,
+            previousOrgStatus: org.status,
+          },
+        },
+      });
+      await tx.supportTicketComment.create({
+        data: {
+          ticketId: ticket.id,
+          authorId: actorUserId ?? null,
+          body: `Subscription activated without payment: ${plan.name} until ${periodEnd.toISOString().slice(0, 10)}.\n${reason}`,
+          isInternal: true,
+        },
+      });
+      return sub;
+    });
+    return subscription;
   }
 
   async deleteOrganization(id: string, actorUserId?: string) {

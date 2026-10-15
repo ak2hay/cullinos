@@ -1,8 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { INVENTORY_UNIT_OPTIONS } from '@cullinos/shared';
+import {
+  INVENTORY_UNIT_LABELS,
+  INVENTORY_UNIT_OPTIONS,
+  type InventoryUnit,
+} from '@cullinos/shared';
 import { Button, Card, CardHeader, Drawer, Input, PageShell, Select } from '@cullinos/ui';
 import { inventoryApi, outletsApi, wastageApi } from '@/lib/api';
+import { formatDay } from '@/lib/format';
 import { formatPackDefinition, formatPackStock, hasPack } from '@/lib/inventory-packs';
 import { useAuthStore } from '@/stores/auth';
 import { StockRegisterPanel } from './inventory/StockRegisterPanel';
@@ -733,7 +738,7 @@ export function InventoryPage() {
                   {row.reason ? ` (${row.reason})` : ''}
                 </span>
                 <span className="shrink-0 text-text-muted">
-                  {new Date(row.recordedAt).toLocaleDateString()}
+                  {formatDay(row.recordedAt)}
                 </span>
               </li>
             ))}
@@ -979,11 +984,13 @@ function PackFields({
   onPackLabelChange: (v: string) => void;
   onPackSizeChange: (v: string) => void;
 }) {
+  const unitLabel = INVENTORY_UNIT_LABELS[unit as InventoryUnit] ?? unit;
   return (
     <div className="rounded-lg border border-line-subtle bg-bg-elevated/40 p-3">
       <p className="text-xs font-medium text-text-secondary">Purchase pack (optional)</p>
       <p className="mt-0.5 text-xs text-text-muted">
-        Buy in packets, buckets or bottles? Stock stays in {unit}; packs make receiving easier.
+        Buy in packets, buckets or bottles? Stock is counted in {unitLabel}; packs make receiving
+        easier. e.g. 1 {packLabel.trim() || 'packet'} = {Number(packSize) > 0 ? packSize : 50} {unit}.
       </p>
       <div className="mt-2 grid grid-cols-2 gap-3">
         <Input
@@ -1026,7 +1033,7 @@ function InventoryLotsPreview({ itemId }: { itemId: string }) {
             <li key={lot.id} className="flex justify-between gap-2 font-mono">
               <span>{lot.qtyRemaining} @ ₹{lot.unitCost}</span>
               <span className="text-text-muted">
-                {new Date(lot.receivedAt).toLocaleDateString()}
+                {formatDay(lot.receivedAt)}
               </span>
             </li>
           ))}

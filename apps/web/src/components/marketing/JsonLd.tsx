@@ -56,7 +56,7 @@ export function SiteJsonLd() {
             '@type': 'Organization',
             ...org,
             name: BUSINESS_NAP.legalName,
-            alternateName: ['Rkyves – makers of Cullinos'],
+            alternateName: ['Rkyves', 'Rkyves – makers of Cullinos'],
             url: ORG_URL,
             logo,
             email: BUSINESS_NAP.email,

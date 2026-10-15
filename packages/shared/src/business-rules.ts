@@ -381,6 +381,23 @@ export function orgServesAlcohol(type: BusinessType | null | undefined, settings
   );
 }
 
+/**
+ * Whether an outlet runs the table system. The outlet's `tablesEnabled`
+ * setting wins; otherwise the business-type default applies.
+ */
+export function outletUsesTables(
+  type: BusinessType | string | null | undefined,
+  outletSettings?: unknown,
+): boolean {
+  if (outletSettings && typeof outletSettings === 'object') {
+    const value = (outletSettings as Record<string, unknown>).tablesEnabled;
+    if (typeof value === 'boolean') return value;
+  }
+  return getBusinessTypeRules(isBusinessType(type) ? type : null).tables;
+}
+
+const TABLE_ORDER_TYPES: readonly string[] = ['dine_in', 'qr'];
+
 /** Menu item product type for beer, wine, spirits and cocktails. */
 export const ALCOHOL_PRODUCT_TYPE = 'alcohol';
 
@@ -448,14 +465,20 @@ export function getPosOrderTypes(
  */
 export function getOrderTypeViolation(
   type: BusinessType | null | undefined,
-  order: { type: string; hasTable: boolean },
+  order: { type: string; hasTable: boolean; tablesEnabled?: boolean },
 ): string | null {
+  if (order.hasTable && order.tablesEnabled === false) {
+    return 'This outlet is not using tables';
+  }
   if (!type || !isBusinessType(type)) return null;
   const rules = BUSINESS_TYPE_RULES[type];
   const label = BUSINESS_TYPE_DEFAULTS[type].label;
-  if (order.hasTable && !rules.tables) {
+  const tablesOn = order.tablesEnabled ?? rules.tables;
+  if (order.hasTable && !tablesOn) {
     return `${label} businesses do not use tables`;
   }
+  // An outlet that opted into tables can always seat table orders.
+  if (order.hasTable && tablesOn && TABLE_ORDER_TYPES.includes(order.type)) return null;
   if (!(rules.allowedOrderTypes as readonly string[]).includes(order.type)) {
     return `${label} businesses cannot take ${order.type.replace('_', '-')} orders`;
   }

@@ -8,7 +8,7 @@
 
 ## Your goal
 
-Test all **190 test cases** on the live Cullinos platform. Record results in Excel. Log every failure with steps and screenshots. Return completed work to your team lead.
+Test all **232 test cases** on the live Cullinos platform. Record results in Excel. Log every failure with steps and screenshots. Return completed work to your team lead.
 
 Use **[COMPLETE_FEATURE_TEST_GUIDE.md](./COMPLETE_FEATURE_TEST_GUIDE.md)** for click-by-click steps on every page.
 
@@ -44,7 +44,7 @@ Your team lead will also share **Super Admin login** securely on Day 1.
 
 ## Your deliverables (end of Day 4)
 
-1. **TEST_RUN_SHEET.xlsx** — all 190 test cases marked; Summary and Sign-off sheets complete
+1. **TEST_RUN_SHEET.xlsx** — all 232 test cases marked; Summary and Sign-off sheets complete
 2. **BUG_LOG.xlsx** — every Fail has a bug row with steps, expected, actual, screenshot path
 3. **CREDENTIALS_LOG.xlsx** — org slug, outlet slug, outlet ID, emails (password refs only)
 4. **evidence/** folder — PNG screenshots named like `BUG-001-screenshot.png`

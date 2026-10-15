@@ -5,11 +5,7 @@ import { Button } from '@cullinos/ui';
 import { openRazorpaySubscriptionCheckout } from '@/features/billing/razorpaySubscriptionCheckout';
 import { openRazorpayCheckout } from '@/features/pos/razorpayCheckout';
 import { subscriptionsApi, walletApi } from '@/lib/api';
-
-function formatDate(value: string | null) {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString();
-}
+import { formatDay } from '@/lib/format';
 
 function isContactPricedPlan(plan: { slug: string; priceMonthly: number | string }) {
   return isContactSalesPlanSlug(plan.slug) || Number(plan.priceMonthly) <= 0;
@@ -54,11 +50,25 @@ export function BillingPage() {
   const planOptions = plansQuery.data ?? [];
   const defaultPlanSlug = planOptions.find((p) => !isContactPricedPlan(p))?.slug ?? '';
   const activePlanSlug = selectedPlanSlug || defaultPlanSlug;
-  const currentPlanCustomPriced = current ? Number(current.plan.priceMonthly) <= 0 : false;
+  const currentPlanCustomPriced = current ? isContactPricedPlan(current.plan) : false;
   const trialExpired =
     current?.status === 'trial' &&
     current.trialEndsAt &&
     new Date(current.trialEndsAt).getTime() <= Date.now();
+  // Display only: status stays 'active' until a Razorpay webhook updates it.
+  const periodEnded =
+    current?.status === 'active' &&
+    !!current.currentPeriodEnd &&
+    new Date(current.currentPeriodEnd).getTime() <= Date.now();
+  const statusLabel = !current
+    ? ''
+    : trialExpired
+      ? 'Trial ended'
+      : periodEnded
+        ? current.isComplimentary
+          ? 'Expired'
+          : 'Payment due'
+        : current.status.replace('_', ' ');
 
   async function openSubscriptionCheckout(result: {
     keyId: string | null;
@@ -160,15 +170,19 @@ export function BillingPage() {
             </div>
             <div>
               <dt className="text-text-muted">Status</dt>
-              <dd className="capitalize">{current.status.replace('_', ' ')}</dd>
+              <dd
+                className={`capitalize ${trialExpired || periodEnded ? 'font-medium text-status-warning' : ''}`}
+              >
+                {statusLabel}
+              </dd>
             </div>
             <div>
               <dt className="text-text-muted">Trial ends</dt>
-              <dd>{formatDate(current.trialEndsAt)}</dd>
+              <dd>{formatDay(current.trialEndsAt)}</dd>
             </div>
             <div>
               <dt className="text-text-muted">Current period end</dt>
-              <dd>{formatDate(current.currentPeriodEnd)}</dd>
+              <dd>{formatDay(current.currentPeriodEnd)}</dd>
             </div>
             <div>
               <dt className="text-text-muted">Monthly</dt>
@@ -214,12 +228,17 @@ export function BillingPage() {
             </p>
           ) : null}
 
-          {trialExpired || current.status === 'past_due' || current.status === 'trial' ? (
+          {trialExpired ||
+          periodEnded ||
+          current.status === 'past_due' ||
+          current.status === 'trial' ? (
             <div className="space-y-3 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-4">
               <p className="text-sm font-medium text-brand-primary">
                 {trialExpired
                   ? 'Your free trial has ended. Choose a plan and complete payment to keep using Cullinos.'
-                  : 'Activate a paid plan when you are ready (or after the trial ends).'}
+                  : periodEnded
+                    ? `Your billing period ended on ${formatDay(current.currentPeriodEnd)}. Pay to keep using Cullinos.`
+                    : 'Activate a paid plan when you are ready (or after the trial ends).'}
               </p>
               {current.plan.visibility === 'private' ? (
                 <p className="text-sm text-text-secondary">

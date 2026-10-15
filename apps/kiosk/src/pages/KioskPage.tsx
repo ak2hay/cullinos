@@ -177,7 +177,7 @@ export function KioskPage() {
   });
 
   if (!orgSlug || !outletSlug) {
-    return <FullMessage title="Kiosk link is incomplete" body="Open the kiosk link from Admin → Digital Ordering." />;
+    return <FullMessage title="Kiosk link is incomplete" body="Open the kiosk link from Admin → Self-order (kiosk & QR)." />;
   }
 
   if (storefront.isLoading) {

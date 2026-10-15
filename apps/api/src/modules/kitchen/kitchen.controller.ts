@@ -32,4 +32,14 @@ export class KitchenController {
   ) {
     return this.service.updateItemStatus(orgId, id, body.status ?? "");
   }
+
+  @Patch("kots/:id/status")
+  @RequirePermissions("kitchen:update", "order:update")
+  updateKotStatus(
+    @OrgId() orgId: string,
+    @Param("id") id: string,
+    @Body() body: UpdateKitchenItemStatusDto,
+  ) {
+    return this.service.updateKotStatus(orgId, id, body.status ?? "");
+  }
 }
