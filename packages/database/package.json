@@ -16,8 +16,8 @@
     "@prisma/client": "^6.19.3"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "bcryptjs": "^2.4.3",
+    "@types/bcryptjs": "^3.0.0",
+    "bcryptjs": "^3.0.3",
     "dotenv-cli": "^8.0.0",
     "prisma": "^6.1.0",
     "tsx": "^4.19.2",
