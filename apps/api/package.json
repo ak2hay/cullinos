@@ -45,7 +45,7 @@
     "passport-jwt": "^4.0.1",
     "razorpay": "^2.9.8",
     "reflect-metadata": "^0.2.2",
-    "resend": "^4.8.0",
+    "resend": "^6.30.0",
     "rxjs": "^7.8.2",
     "sharp": "^0.35.5",
     "socket.io": "^4.8.1",
