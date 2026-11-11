@@ -30,18 +30,18 @@
     "client:export": "node scripts/generate-client-pdfs.mjs"
   },
   "dependencies": {
-    "turbo": "^2.5.4",
+    "turbo": "^2.11.10",
     "typescript": "^5.8.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
-    "@tailwindcss/vite": "^4.0.0",
+    "@playwright/test": "^1.65.0",
+    "@tailwindcss/vite": "^4.3.5",
     "app-builder-bin": "^5.0.0-alpha.10",
     "dotenv": "^16.6.1",
     "electron-builder": "^25.1.8",
     "exceljs": "^4.4.0",
     "md-to-pdf": "^5.2.5",
-    "tailwindcss": "^4.0.0",
+    "tailwindcss": "^4.3.5",
     "vitest": "^2.1.8"
   },
   "engines": {
