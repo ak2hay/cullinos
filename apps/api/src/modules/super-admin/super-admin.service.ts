@@ -31,6 +31,7 @@ import {
   LABS_SQL_TIMEOUT_MS,
   assertSelectOnlySql,
 } from "./labs-sql.util";
+import { requiresActionTicket } from "../../common/platform-permissions";
 
 type OrgListFilters = {
   q?: string;
@@ -626,12 +627,14 @@ export class SuperAdminService implements OnModuleDestroy {
   async impersonateOrganization(
     orgId: string,
     impersonatedBy: string,
-    reason: string,
+    reason: string | undefined,
+    platformRole?: string,
   ) {
-    const trimmedReason = reason?.trim();
-    if (!trimmedReason || trimmedReason.length < 8) {
+    const trimmedReason = reason?.trim() ?? "";
+    if (requiresActionTicket(platformRole) && trimmedReason.length < 8) {
       throw new BadRequestException("A support reason (min 8 chars) is required");
     }
+    const storedReason = trimmedReason || null;
 
     const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
     if (!org) throw new NotFoundException("Organization not found");
@@ -674,7 +677,7 @@ export class SuperAdminService implements OnModuleDestroy {
         targetUserId: target.id,
         codeHash,
         accessToken: session.accessToken,
-        reason: trimmedReason,
+        reason: storedReason,
         expiresAt: new Date(session.expiresAt),
       },
     });
@@ -690,7 +693,7 @@ export class SuperAdminService implements OnModuleDestroy {
         entityId: orgId,
         metadata: {
           targetUserId: target.id,
-          reason: trimmedReason,
+          reason: storedReason,
           expiresAt: session.expiresAt,
           handoff: true,
         },
@@ -715,7 +718,17 @@ export class SuperAdminService implements OnModuleDestroy {
     });
   }
 
-  async suspendTenant(id: string, reason?: string, actorUserId?: string) {
+  async suspendTenant(
+    id: string,
+    reason?: string,
+    actorUserId?: string,
+    platformRole?: string,
+  ) {
+    const trimmedReason = reason?.trim() ?? "";
+    if (requiresActionTicket(platformRole) && !trimmedReason) {
+      throw new BadRequestException("A suspension reason is required");
+    }
+    const storedReason = trimmedReason || null;
     const org = await this.prisma.organization.update({
       where: { id },
       data: { status: "suspended" },
@@ -727,7 +740,7 @@ export class SuperAdminService implements OnModuleDestroy {
         action: "suspend",
         entityType: "organization",
         entityId: id,
-        metadata: { reason: reason ?? null },
+        metadata: { reason: storedReason },
       },
     });
     return org;

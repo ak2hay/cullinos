@@ -1636,6 +1636,8 @@ async function main() {
   const passwordHash = await bcrypt.hash("demo1234", 10);
   // Never commit or log the platform super-admin password. When unset, a random one is used
   // and the account must be recovered via password reset.
+  // Default address is the platform owner (full super admin, no action-ticket gate).
+  // Override with SEED_SUPER_ADMIN_EMAIL; the upsert always sets platformRole owner.
   const superAdminEmail = process.env.SEED_SUPER_ADMIN_EMAIL?.trim() || "akshrkd@gmail.com";
   const superAdminPassword =
     process.env.SEED_SUPER_ADMIN_PASSWORD || randomBytes(24).toString("base64url");

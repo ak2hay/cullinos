@@ -49,3 +49,11 @@ export function useCan() {
   return (permission: PlatformPermission | readonly PlatformPermission[]) =>
     hasPermission(permissions, permission);
 }
+
+/**
+ * Support ticket / justification before a sensitive action.
+ * Platform owners (full super admins) skip it; every other role still provides one.
+ */
+export function requiresActionTicket(role: string | null | undefined): boolean {
+  return role !== 'owner';
+}

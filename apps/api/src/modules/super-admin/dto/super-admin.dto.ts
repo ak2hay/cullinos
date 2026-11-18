@@ -20,8 +20,11 @@ export class SuperAdminLoginDto {
 }
 
 export class SuspendOrgDto {
+  /** Required for every platform role except owner. */
+  @IsOptional()
   @IsString()
-  reason!: string;
+  @MaxLength(500)
+  reason?: string;
 }
 
 export class ManageSubscriptionDto {
@@ -33,10 +36,11 @@ export class ManageSubscriptionDto {
 }
 
 export class ImpersonateOrgDto {
+  /** Required (min 8 chars) for every platform role except owner. */
+  @IsOptional()
   @IsString()
-  @MinLength(8)
   @MaxLength(500)
-  reason!: string;
+  reason?: string;
 }
 
 export class UpdateOrgEnvironmentDto {

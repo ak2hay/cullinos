@@ -100,3 +100,12 @@ export function normalizePlatformRole(value: unknown): PlatformRoleName {
 export function permissionsForPlatformRole(role: unknown): PlatformPermission[] {
   return [...PLATFORM_ROLE_PERMISSIONS[normalizePlatformRole(role)]];
 }
+
+/**
+ * Support ticket / justification required before a sensitive platform action.
+ * The owner role (platform super admin) is unrestricted; every other staff role
+ * still has to supply one. Unknown roles are not owners.
+ */
+export function requiresActionTicket(role: unknown): boolean {
+  return normalizePlatformRole(role) !== "owner";
+}

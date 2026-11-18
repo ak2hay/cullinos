@@ -100,9 +100,7 @@ export function TeamPage() {
 
   function handleDeactivate(member: PlatformTeamMember) {
     if (!window.confirm(`Deactivate ${member.name}? They will be signed out immediately.`)) return;
-    const reason = window.prompt('Optional reason (recorded in the audit log):');
-    if (reason === null) return;
-    deactivateMutation.mutate({ id: member.id, reason: reason.trim() || undefined });
+    deactivateMutation.mutate({ id: member.id });
   }
 
   function handleRoleChange(member: PlatformTeamMember, role: PlatformRole) {

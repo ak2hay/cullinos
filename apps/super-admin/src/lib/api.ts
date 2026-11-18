@@ -598,7 +598,7 @@ export const superAdminApi = {
 
   adjustOrganizationWallet: (
     id: string,
-    payload: { amountPaise: number; note: string },
+    payload: { amountPaise: number; note?: string },
   ) =>
     apiRequest<{
       balancePaise: number;
@@ -608,7 +608,10 @@ export const superAdminApi = {
       updatedAt: string;
     }>(`/super-admin/orgs/${id}/wallet/adjust`, {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        amountPaise: payload.amountPaise,
+        ...(payload.note?.trim() ? { note: payload.note.trim() } : {}),
+      }),
     }),
 
   listOrganizationUsers: (id: string) =>
@@ -638,10 +641,10 @@ export const superAdminApi = {
       { method: 'PATCH' },
     ),
 
-  impersonateOrganization: (id: string, reason: string) =>
+  impersonateOrganization: (id: string, reason?: string) =>
     apiRequest<ImpersonationResponse>(`/super-admin/organizations/${id}/impersonate`, {
       method: 'POST',
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify(reason?.trim() ? { reason: reason.trim() } : {}),
     }),
 
   listAuditLogs: (
@@ -698,10 +701,10 @@ export const superAdminApi = {
     }>(`/super-admin/users${qs ? `?${qs}` : ''}`);
   },
 
-  suspendOrganization: (id: string, reason: string) =>
+  suspendOrganization: (id: string, reason?: string) =>
     apiRequest(`/super-admin/organizations/${id}/suspend`, {
       method: 'PATCH',
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify(reason?.trim() ? { reason: reason.trim() } : {}),
     }),
 
   activateOrganization: (id: string) =>

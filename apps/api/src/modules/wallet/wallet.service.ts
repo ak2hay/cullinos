@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { requiresActionTicket } from "../../common/platform-permissions";
 import { PrismaService } from "../../prisma/prisma.service";
 import { PlatformConfigService } from "../platform-config/platform-config.service";
 import { RazorpayClient } from "../payments/razorpay.client";
@@ -388,20 +389,25 @@ export class WalletService {
   async manualAdjust(
     orgId: string,
     amountPaise: number,
-    note: string,
+    note: string | undefined,
     createdByUserId?: string,
+    platformRole?: string,
   ) {
-    if (!note?.trim()) throw new BadRequestException("Note is required");
+    const trimmed = note?.trim() ?? "";
+    if (requiresActionTicket(platformRole) && !trimmed) {
+      throw new BadRequestException("Note is required");
+    }
     if (amountPaise === 0) throw new BadRequestException("Amount cannot be zero");
+    const storedNote = trimmed || undefined;
     if (amountPaise > 0) {
       await this.credit(orgId, amountPaise, "manual_credit", {
-        note: note.trim(),
+        note: storedNote,
         createdByUserId,
         referenceType: "super_admin",
       });
     } else {
       await this.debit(orgId, Math.abs(amountPaise), "manual_debit", {
-        note: note.trim(),
+        note: storedNote,
         createdByUserId,
         referenceType: "super_admin",
       });

@@ -1,3 +1,4 @@
+import { BadRequestException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { WalletService, smsChargePaise, smsSegments } from "./wallet.service";
 
@@ -68,6 +69,33 @@ describe("WalletService reservations", () => {
       "refund",
       expect.objectContaining({ entryId: "refund_entry-1" }),
     );
+  });
+
+  it("lets a platform owner credit without a note and still records the ledger", async () => {
+    const { svc, credit } = makeService();
+    vi.spyOn(svc, "getBalance").mockResolvedValue({ balancePaise: 100 } as never);
+    await svc.manualAdjust("org-1", 100, undefined, "owner-user", "owner");
+    expect(credit).toHaveBeenCalledWith(
+      "org-1",
+      100,
+      "manual_credit",
+      expect.objectContaining({
+        note: undefined,
+        createdByUserId: "owner-user",
+        referenceType: "super_admin",
+      }),
+    );
+  });
+
+  it("still requires a note from finance and support", async () => {
+    const { svc, credit } = makeService();
+    await expect(svc.manualAdjust("org-1", 100, "  ", "fin", "finance")).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(svc.manualAdjust("org-1", -50, undefined, "sup", "support")).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(credit).not.toHaveBeenCalled();
   });
 
   it("keeps everything when all messages went out", async () => {
