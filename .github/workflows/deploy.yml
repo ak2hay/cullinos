@@ -179,7 +179,8 @@ jobs:
       - if: needs.plan.outputs.spas != ''
         env:
           VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
-          ANDROID_ASSETLINKS_SHA256: ${{ vars.ANDROID_ASSETLINKS_SHA256 }}
+          VITE_SUPER_ADMIN_URL: https://platform.cullinos.com
+          ANDROID_ASSETLINKS_SHA256: ${{ vars.ANDROID_ASSETLINKS_SHA256 || 'C9:FB:AC:87:AE:DE:AF:84:A1:6D:B9:77:14:5A:09:03:78:B1:99:82:CA:F3:F4:BA:C1:D2:AB:2E:08:47:DF:57' }}
           SPAS: ${{ needs.plan.outputs.spas }}
         run: bash scripts/build-frontends.sh ${SPAS//,/ }
       - if: needs.plan.outputs.landings != ''

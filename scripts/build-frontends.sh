@@ -21,6 +21,7 @@ export VITE_KIOSK_APP_URL="${VITE_KIOSK_APP_URL:-https://kiosk.cullinos.com}"
 export VITE_ADMIN_URL="${VITE_ADMIN_URL:-https://admin.cullinos.com}"
 export VITE_GUEST_APP_URL="${VITE_GUEST_APP_URL:-https://guest.cullinos.com}"
 export VITE_PLATFORM_URL="${VITE_PLATFORM_URL:-https://platform.cullinos.com}"
+export VITE_SUPER_ADMIN_URL="${VITE_SUPER_ADMIN_URL:-https://platform.cullinos.com}"
 export VITE_APP_OPS_URL="${VITE_APP_OPS_URL:-https://app.cullinos.com}"
 export VITE_MARKETING_WEB_URL="${VITE_MARKETING_WEB_URL:-https://cullinos.com}"
 export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.cullinos.com/api/v1}"
@@ -82,15 +83,15 @@ if [[ $# -eq 0 ]]; then
 fi
 
 # ANDROID_ASSETLINKS_SHA256: comma-separated Play app signing + upload key SHA-256 fingerprints.
+# Empty defaults to the public guest release cert fingerprint.
 ASSETLINKS="${OUT}/guest-landing/.well-known/assetlinks.json"
 if [[ -f "$ASSETLINKS" ]]; then
   if [[ -z "${ANDROID_ASSETLINKS_SHA256:-}" ]]; then
-    echo "WARNING: ANDROID_ASSETLINKS_SHA256 is empty; guest-landing keeps the placeholder assetlinks.json" >&2
-  else
-    FPS="$(echo "$ANDROID_ASSETLINKS_SHA256" | tr ',' '\n' | sed '/^$/d; s/.*/"&"/' | paste -sd, -)"
-    # shellcheck disable=SC2016
-    sed -i "s|\"REPLACE_WITH_PLAY_OR_UPLOAD_CERT_SHA256\"|${FPS}|" "$ASSETLINKS"
+    ANDROID_ASSETLINKS_SHA256="C9:FB:AC:87:AE:DE:AF:84:A1:6D:B9:77:14:5A:09:03:78:B1:99:82:CA:F3:F4:BA:C1:D2:AB:2E:08:47:DF:57"
   fi
+  FPS="$(echo "$ANDROID_ASSETLINKS_SHA256" | tr ',' '\n' | sed '/^$/d; s/.*/"&"/' | paste -sd, -)"
+  # shellcheck disable=SC2016
+  sed -i "s|\"REPLACE_WITH_PLAY_OR_UPLOAD_CERT_SHA256\"|${FPS}|" "$ASSETLINKS"
 fi
 
 echo "Frontend bundles ready in dist-frontends/"

@@ -2,8 +2,10 @@ import { useAuthStore } from '@/stores/auth';
 import { organizationsApi } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 
-const SUPER_ADMIN_URL =
-  import.meta.env.VITE_SUPER_ADMIN_URL?.replace(/\/$/, '') ?? 'http://localhost:5183';
+const SUPER_ADMIN_URL = (
+  import.meta.env.VITE_SUPER_ADMIN_URL?.trim() ||
+  (import.meta.env.PROD ? 'https://platform.cullinos.com' : 'http://localhost:5183')
+).replace(/\/$/, '');
 
 export function ImpersonationBanner() {
   const impersonation = useAuthStore((s) => s.impersonation);
