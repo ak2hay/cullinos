@@ -77,6 +77,21 @@ export function assertProductionSecurityConfig(env: NodeJS.ProcessEnv = process.
   }
 }
 
+/**
+ * Unknown browser origins are rejected with 403. A plain Error has no status, and
+ * Express turns that into HTTP 500. status/statusCode let the error handler respond
+ * 403 without Access-Control-Allow-Origin (the cors package sets those only after allow).
+ */
+export class CorsOriginRejectedError extends Error {
+  readonly status = 403;
+  readonly statusCode = 403;
+
+  constructor() {
+    super("Origin not allowed");
+    this.name = "CorsOriginRejectedError";
+  }
+}
+
 export function createCorsOriginDelegate(allowedOrigins: ReadonlySet<string>) {
   return (
     origin: string | undefined,
@@ -87,7 +102,7 @@ export function createCorsOriginDelegate(allowedOrigins: ReadonlySet<string>) {
       callback(null, true);
       return;
     }
-    callback(new Error("Origin not allowed"), false);
+    callback(new CorsOriginRejectedError());
   };
 }
 

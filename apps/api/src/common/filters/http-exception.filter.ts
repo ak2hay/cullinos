@@ -9,6 +9,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { Request, Response } from 'express';
 import { captureException } from '../sentry.init';
+import { CorsOriginRejectedError } from '../cors.util';
 
 function formatMessage(value: unknown, fallback: string): string {
   if (Array.isArray(value)) {
@@ -41,7 +42,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let message = 'An unexpected error occurred';
     let details: Record<string, unknown> | undefined;
 
-    if (exception instanceof HttpException) {
+    if (exception instanceof CorsOriginRejectedError) {
+      status = exception.statusCode;
+      code = 'ORIGIN_NOT_ALLOWED';
+      message = exception.message;
+    } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exResponse = exception.getResponse();
       if (typeof exResponse === 'object' && exResponse !== null) {

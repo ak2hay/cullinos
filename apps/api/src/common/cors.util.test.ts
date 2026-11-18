@@ -1,6 +1,12 @@
+import http from "node:http";
+import type { AddressInfo } from "node:net";
 import { describe, expect, it } from "vitest";
+import cors from "cors";
+import express from "express";
 import {
   assertProductionSecurityConfig,
+  CorsOriginRejectedError,
+  createCorsOriginDelegate,
   parseCorsOrigins,
 } from "./cors.util";
 
@@ -116,4 +122,75 @@ describe("cors.util", () => {
   it("allows valid production config", () => {
     expect(() => assertProductionSecurityConfig(validProd)).not.toThrow();
   });
+
+  it("allows listed and missing origins", () => {
+    const delegate = createCorsOriginDelegate(new Set(["https://admin.example.com"]));
+    const listed = viCallback();
+    delegate("https://admin.example.com", listed.fn);
+    expect(listed.calls).toEqual([[null, true]]);
+
+    const missing = viCallback();
+    delegate(undefined, missing.fn);
+    expect(missing.calls).toEqual([[null, true]]);
+  });
+
+  it("rejects an unknown origin with 403 instead of a generic error", () => {
+    const delegate = createCorsOriginDelegate(new Set(["https://admin.example.com"]));
+    const rejected = viCallback();
+    delegate("https://evil.example", rejected.fn);
+    expect(rejected.calls).toHaveLength(1);
+    const [err, allow] = rejected.calls[0];
+    expect(allow).toBeUndefined();
+    expect(err).toBeInstanceOf(CorsOriginRejectedError);
+    expect((err as CorsOriginRejectedError).status).toBe(403);
+    expect((err as CorsOriginRejectedError).statusCode).toBe(403);
+    expect((err as Error).message).toBe("Origin not allowed");
+  });
+
+  it("responds 403 with no CORS headers for an unknown Origin", async () => {
+    const app = express();
+    app.use(
+      cors({
+        credentials: true,
+        origin: createCorsOriginDelegate(new Set(["https://admin.example.com"])),
+      }),
+    );
+    app.get("/ping", (_req, res) => {
+      res.json({ ok: true });
+    });
+
+    const server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const denied = await fetch(`http://127.0.0.1:${port}/ping`, {
+        headers: { Origin: "https://evil.example" },
+      });
+      expect(denied.status).toBe(403);
+      expect(denied.headers.get("access-control-allow-origin")).toBeNull();
+      expect(denied.headers.get("access-control-allow-credentials")).toBeNull();
+
+      const allowed = await fetch(`http://127.0.0.1:${port}/ping`, {
+        headers: { Origin: "https://admin.example.com" },
+      });
+      expect(allowed.status).toBe(200);
+      expect(allowed.headers.get("access-control-allow-origin")).toBe(
+        "https://admin.example.com",
+      );
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((err) => (err ? reject(err) : resolve())),
+      );
+    }
+  });
 });
+
+function viCallback() {
+  const calls: Array<[Error | null, boolean | undefined]> = [];
+  return {
+    calls,
+    fn: (err: Error | null, allow?: boolean) => {
+      calls.push([err, allow]);
+    },
+  };
+}
