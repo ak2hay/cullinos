@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Selective Cullinos prod deploy (Compose VM) without wiping /opt/cullinos.
+"""Legacy SSH deploy that builds images on the VM.
+
+Routine releases are a push to main (`.github/workflows/deploy.yml`). Use this only
+when GitHub Actions cannot reach the VM. See docs/DEPLOYMENT.md.
+
+Selective Cullinos prod deploy (Compose VM) without wiping /opt/cullinos.
 
 1. Preflight (read-only): OTP/SMTP posture — prints flags and counts, never secret values.
 2. Overlay workspace sources (apps/*, packages/*, lockfile, Dockerfiles, compose) onto /opt/cullinos.

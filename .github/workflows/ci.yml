@@ -2,14 +2,24 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
 
 permissions:
   contents: read
 
 jobs:
+  release-plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release planner and nginx roll tests
+        run: |
+          python3 scripts/deploy_plan_test.py
+          python3 scripts/prod/nginx_roll_test.py
+      - name: Shell syntax
+        run: bash -n scripts/build-frontends.sh scripts/deploy.sh scripts/ci/ship.sh scripts/prod/release.sh scripts/prod/roll-api.sh scripts/prod/snapshot-release.sh
+
   build:
     runs-on: ubuntu-latest
 

@@ -70,7 +70,7 @@ write_compose_override_images \
 API_ID="$(image_id_of "${API_IMAGE}:${RELEASE_ID}")"
 WEB_ID="$(image_id_of "${WEB_IMAGE}:${RELEASE_ID}")"
 CREATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-GIT_SHA="$(git -C "$APP_DIR" rev-parse HEAD 2>/dev/null || echo "")"
+GIT_SHA="${RELEASE_GIT_SHA:-$(git -C "$APP_DIR" rev-parse HEAD 2>/dev/null || echo "")}"
 
 cat >"$DEST/manifest.json" <<EOF
 {

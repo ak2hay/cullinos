@@ -33,14 +33,17 @@ services:
 
   api:
     image: cullinos-api:current
+    # The deploy workflow pulls from GHCR and tags this name. never: do not ask Docker Hub.
+    pull_policy: never
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        # Deploy with: GIT_COMMIT=$(git rev-parse --short HEAD) docker compose -f docker-compose.prod.yml up -d --build api
+        # Deploy with: GIT_COMMIT=$(git rev-parse --short=7 HEAD) docker compose -f docker-compose.prod.yml up -d --build api
         GIT_COMMIT: ${GIT_COMMIT:-unknown}
     container_name: cullinos-api
     restart: unless-stopped
+    stop_grace_period: 25s
     env_file:
       - .env
     ports:
@@ -59,14 +62,17 @@ services:
 
   web:
     image: cullinos-web:current
+    pull_policy: never
     build:
       context: .
       dockerfile: Dockerfile.web
       args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
         NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
         NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN: ${NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN:-}
     container_name: cullinos-web
     restart: unless-stopped
+    stop_grace_period: 15s
     env_file:
       - .env
     ports:

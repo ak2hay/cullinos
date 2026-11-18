@@ -96,7 +96,7 @@ cat /var/backups/cullinos/LAST_BACKUP.json
 bash /opt/cullinos/scripts/prod/snapshot-release.sh
 ```
 
-`remote-deploy.py` calls `snapshot-release.sh` automatically after a healthy deploy.
+The Deploy workflow and `remote-deploy.py` call `snapshot-release.sh` after a healthy deploy.
 
 ## Bad deploy → one-click rollback
 

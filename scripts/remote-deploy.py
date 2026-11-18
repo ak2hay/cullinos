@@ -345,7 +345,7 @@ def main() -> int:
     print("Building and starting Docker stack (this may take several minutes)...")
     code, _, _ = run(
         ssh,
-        f"cd {APP_DIR} && GIT_COMMIT={GIT_COMMIT} docker compose -f docker-compose.prod.yml build --no-cache api "
+        f"cd {APP_DIR} && DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 GIT_COMMIT={GIT_COMMIT} docker compose -f docker-compose.prod.yml build api "
         f"&& docker compose -f docker-compose.prod.yml up -d postgres redis api",
         timeout=1800,
     )

@@ -6,7 +6,7 @@ alwaysApply: false
 
 # DevOps / deploy
 
-- Production is a Docker Compose stack on the VM, deployed from `main` with `scripts/vm-selective-redeploy.py` (fresh VM / full rebuild: `scripts/remote-deploy.py`)—see `docs/DEPLOYMENT.md`.
-- Production deploys only with explicit human approval.
+- Production is a Docker Compose stack on the VM. A push to `main` runs `.github/workflows/deploy.yml` (fresh VM / full rebuild: `scripts/remote-deploy.py`)—see `docs/DEPLOYMENT.md`.
+- Do not push to `main` unless that change should deploy. The workflow never writes `/opt/cullinos/.env`.
 - Always include rollback notes (`docs/BACKUP_ROLLBACK.md`) in deploy-related changes.
 - Never weaken `security.yml` checks without an explicit human decision recorded in the PR.

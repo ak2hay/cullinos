@@ -2,38 +2,28 @@
 
 ## Branch model
 
-```
-feature/<module>-short-desc  →  develop  →  main
-```
+Changes go on `main`. **Pushing `main` deploys production** (see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)).
 
 | Branch | Purpose | Deploy |
 |--------|---------|--------|
-| `feature/*` | Module work (one concern per branch) | None |
-| `develop` | Integration | None |
-| `main` | Production | Manual, from `main` with the VM deploy scripts |
+| `main` | The only integration branch | Push runs the Deploy workflow |
 
 ### Rules
 
-1. Branch from `develop`, not `main`.
-2. Name features by area: `feature/api-payments`, `feature/admin-coupons`, `feature/pos-print`.
-3. Open a **PR into `develop`**. CI (`CI`, `Security`, path-filtered `API Build`) must pass.
-4. After local/QA validation, open a **PR from `develop` → `main`** for production.
-5. Do not push directly to `develop` or `main` (enable branch protection in GitHub — see below).
-6. Keep the monorepo: parallel work is branches + path owners, not separate repos.
+1. Commit on `main` (or a short-lived local branch that you push to `main`). Do not open a PR into `develop`.
+2. Do not push to `main` unless that commit should ship to production.
+3. Do not force-push `main`.
+4. Keep the monorepo: parallel work is path owners, not separate repos.
 
 ## GitHub branch protection (manual once)
 
-In **Settings → Branches** for `ak2hay/cullinos`:
+In **Settings → Branches** for `ak2hay/cullinos`, on `main`:
 
-**`develop` and `main`:**
-
-- Require a pull request before merging
-- Require approvals: ≥ 1
-- Require status checks: `CI` / `build`, `Security` / `analyze` (and `API Build` when API paths change)
+- Allow direct pushes (a required pull request would block the deploy path)
 - Do not allow force pushes
 - Do not allow deletions
 
-Optional on `main`: GitHub Environment **production** with required reviewers before CD runs.
+Dependabot still opens pull requests, targeted at `main`. Merging one pushes `main` and deploys.
 
 ## CODEOWNERS
 
@@ -45,4 +35,4 @@ See [README.md](README.md). Use `npm run docker:up` for Postgres/Redis; never po
 
 ## Deploy / infra
 
-Production runs as a **Docker Compose** stack on the OnLiveServer VM. Releases are deployed from `main` over SSH with `scripts/vm-selective-redeploy.py` (fresh VM / full rebuild: `scripts/remote-deploy.py`), only with human approval. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Production runs as a **Docker Compose** stack on the OnLiveServer VM. A push to `main` deploys it. Fresh VM / full rebuild: `scripts/remote-deploy.py`. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).

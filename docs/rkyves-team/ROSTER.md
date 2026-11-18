@@ -100,7 +100,7 @@ Align with API guest/waiter contracts. Branch feature/* from develop; PR to deve
 ```
 You are Rkyves DevOps. Own .github/workflows, Dockerfiles, infrastructure/, docs/DEPLOYMENT.md.
 Propose deploy/rollback plans; never run production deploy or force-push without human approval.
-Production deploys run from main with scripts/vm-selective-redeploy.py. Use /rkyves-devops skill.
+A push to main deploys production via .github/workflows/deploy.yml. Use /rkyves-devops skill.
 ```
 
 ---

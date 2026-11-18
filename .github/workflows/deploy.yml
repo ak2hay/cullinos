@@ -1,0 +1,242 @@
+name: Deploy
+
+# Pushing to main deploys production. workflow_dispatch redeploys without a new commit
+# (scripts/deploy.sh). Nothing here merges a PR or writes /opt/cullinos/.env.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: What to ship
+        type: choice
+        options: [auto, all, api, frontends, web]
+        default: all
+      apps:
+        description: SPA names, comma-separated (frontends scope only)
+        type: string
+        default: ""
+      migrate:
+        description: Database migrations
+        type: choice
+        options: [auto, always, never]
+        default: auto
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.out.outputs.deploy }}
+      api_image: ${{ steps.out.outputs.api_image }}
+      api_recreate: ${{ steps.out.outputs.api_recreate }}
+      web_image: ${{ steps.out.outputs.web_image }}
+      web_recreate: ${{ steps.out.outputs.web_recreate }}
+      spas: ${{ steps.out.outputs.spas }}
+      landings: ${{ steps.out.outputs.landings }}
+      migrate: ${{ steps.out.outputs.migrate }}
+      nginx: ${{ steps.out.outputs.nginx }}
+      short: ${{ steps.out.outputs.short }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: out
+        env:
+          INPUT_SCOPE: ${{ github.event_name == 'workflow_dispatch' && inputs.scope || 'auto' }}
+          INPUT_APPS: ${{ github.event_name == 'workflow_dispatch' && inputs.apps || '' }}
+          INPUT_MIGRATE: ${{ github.event_name == 'workflow_dispatch' && inputs.migrate || 'auto' }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          short="${GITHUB_SHA:0:7}"
+          args=(--json --scope "$INPUT_SCOPE" --migrate "$INPUT_MIGRATE")
+          if [[ -n "$INPUT_APPS" ]]; then
+            args+=(--apps "$INPUT_APPS")
+          fi
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$BEFORE" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "${BEFORE}^{commit}" >/dev/null 2>&1; then
+            plan="$(git diff --name-only "$BEFORE" HEAD | python3 scripts/deploy_plan.py "${args[@]}")"
+          elif [[ "$INPUT_SCOPE" == "auto" ]]; then
+            plan="$(python3 scripts/deploy_plan.py --json --scope all --migrate "$INPUT_MIGRATE" --unknown-base </dev/null)"
+          else
+            plan="$(python3 scripts/deploy_plan.py "${args[@]}" </dev/null)"
+          fi
+          echo "$plan"
+          {
+            echo "short=$short"
+            echo "api_image=$(jq -r .api_image <<<"$plan")"
+            echo "api_recreate=$(jq -r .api_recreate <<<"$plan")"
+            echo "web_image=$(jq -r .web_image <<<"$plan")"
+            echo "web_recreate=$(jq -r .web_recreate <<<"$plan")"
+            echo "migrate=$(jq -r .migrate <<<"$plan")"
+            echo "nginx=$(jq -r .nginx_frontends <<<"$plan")"
+            echo "spas=$(jq -r '.spas | join(",")' <<<"$plan")"
+            echo "landings=$(jq -r '.landings | join(",")' <<<"$plan")"
+          } >> "$GITHUB_OUTPUT"
+          if jq -e '.api_image or .api_recreate or .web_image or .web_recreate or .migrate or .nginx_frontends or (.spas|length>0) or (.landings|length>0)' <<<"$plan" >/dev/null; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo "## Release plan (\`${short}\`)"
+            echo
+            echo '```json'
+            echo "$plan"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-api:
+    needs: plan
+    if: needs.plan.outputs.api_image == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: repo
+        run: echo "name=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          platforms: linux/amd64
+          provenance: false
+          sbom: false
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.name }}/api:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.name }}/api:${{ needs.plan.outputs.short }}
+          build-args: |
+            GIT_COMMIT=${{ needs.plan.outputs.short }}
+          cache-from: type=gha,scope=cullinos-api
+          cache-to: type=gha,mode=max,scope=cullinos-api
+
+  build-web:
+    needs: plan
+    if: needs.plan.outputs.web_image == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: repo
+        run: echo "name=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.web
+          push: true
+          platforms: linux/amd64
+          provenance: false
+          sbom: false
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.name }}/web:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.name }}/web:${{ needs.plan.outputs.short }}
+          build-args: |
+            GIT_COMMIT=${{ needs.plan.outputs.short }}
+            NEXT_PUBLIC_API_URL=https://api.cullinos.com/api/v1
+            NEXT_PUBLIC_SITE_URL=https://cullinos.com
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+            NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN=${{ vars.NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN }}
+          cache-from: type=gha,scope=cullinos-web
+          cache-to: type=gha,mode=max,scope=cullinos-web
+
+  build-frontends:
+    needs: plan
+    if: needs.plan.outputs.spas != '' || needs.plan.outputs.landings != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        if: needs.plan.outputs.spas != ''
+        with:
+          node-version: "22"
+          cache: npm
+      - if: needs.plan.outputs.spas != ''
+        run: npm ci
+      - if: needs.plan.outputs.spas != ''
+        env:
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          ANDROID_ASSETLINKS_SHA256: ${{ vars.ANDROID_ASSETLINKS_SHA256 }}
+          SPAS: ${{ needs.plan.outputs.spas }}
+        run: bash scripts/build-frontends.sh ${SPAS//,/ }
+      - if: needs.plan.outputs.landings != ''
+        env:
+          LANDINGS: ${{ needs.plan.outputs.landings }}
+        run: |
+          set -euo pipefail
+          for landing in ${LANDINGS//,/ }; do
+            mkdir -p "dist-frontends/${landing}"
+            cp -a "infrastructure/www/${landing}/." "dist-frontends/${landing}/"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontends
+          path: dist-frontends
+          if-no-files-found: error
+          retention-days: 5
+
+  deploy:
+    needs: [plan, build-api, build-web, build-frontends]
+    if: |
+      always() &&
+      needs.plan.result == 'success' &&
+      needs.plan.outputs.deploy == 'true' &&
+      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
+      (needs.build-web.result == 'success' || needs.build-web.result == 'skipped') &&
+      (needs.build-frontends.result == 'success' || needs.build-frontends.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        if: needs.plan.outputs.spas != '' || needs.plan.outputs.landings != ''
+        with:
+          name: frontends
+          path: dist-frontends
+      - id: pack
+        if: needs.plan.outputs.spas != '' || needs.plan.outputs.landings != ''
+        run: |
+          tar -C dist-frontends -czf "$RUNNER_TEMP/frontends.tar.gz" .
+          echo "tar=$RUNNER_TEMP/frontends.tar.gz" >> "$GITHUB_OUTPUT"
+      - name: Ship to the VM
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.repository_owner }}
+          GIT_COMMIT: ${{ needs.plan.outputs.short }}
+          FULL_SHA: ${{ github.sha }}
+          RELEASE_API_IMAGE: ${{ needs.plan.outputs.api_image }}
+          RELEASE_API_RECREATE: ${{ needs.plan.outputs.api_recreate }}
+          RELEASE_WEB_IMAGE: ${{ needs.plan.outputs.web_image }}
+          RELEASE_WEB_RECREATE: ${{ needs.plan.outputs.web_recreate }}
+          RELEASE_MIGRATE: ${{ needs.plan.outputs.migrate }}
+          RELEASE_NGINX: ${{ needs.plan.outputs.nginx }}
+          FRONTENDS_TAR: ${{ steps.pack.outputs.tar }}
+        run: bash scripts/ci/ship.sh

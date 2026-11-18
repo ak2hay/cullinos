@@ -1,10 +1,10 @@
 # Dependabot — keep npm and GitHub Actions dependencies current
-# PRs target develop (feature -> develop -> main); merging to main deploys production.
+# Dependency PRs target main. Merging one pushes main, which deploys production.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: "/"
-    target-branch: develop
+    target-branch: main
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
@@ -23,7 +23,7 @@ updates:
         update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
-    target-branch: develop
+    target-branch: main
     schedule:
       interval: weekly
     groups:

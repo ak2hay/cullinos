@@ -1,15 +1,49 @@
 # syntax=docker/dockerfile:1
+#
+# Manifests and npm ci are their own stage so a marketing-source change does
+# not reinstall the monorepo. NEXT_PUBLIC_* are declared after that stage so
+# rotating a public site key rebuilds Next, not node_modules.
 
-FROM node:22-alpine AS builder
+FROM node:22-alpine AS deps
 
 WORKDIR /app
 
 RUN apk add --no-cache openssl
 
 COPY package.json package-lock.json .npmrc ./
+COPY apps/admin/package.json apps/admin/package.json
+COPY apps/api/package.json apps/api/package.json
+COPY apps/app-ops/package.json apps/app-ops/package.json
+COPY apps/guest-web/package.json apps/guest-web/package.json
+COPY apps/kds/package.json apps/kds/package.json
+COPY apps/kds-desktop/package.json apps/kds-desktop/package.json
+COPY apps/kiosk/package.json apps/kiosk/package.json
+COPY apps/management/package.json apps/management/package.json
+COPY apps/pos/package.json apps/pos/package.json
+COPY apps/pos-desktop/package.json apps/pos-desktop/package.json
+COPY apps/super-admin/package.json apps/super-admin/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY packages/ai-contracts/package.json packages/ai-contracts/package.json
+COPY packages/auth/package.json packages/auth/package.json
+COPY packages/database/package.json packages/database/package.json
+COPY packages/events/package.json packages/events/package.json
+COPY packages/integrations/package.json packages/integrations/package.json
+COPY packages/menu-catalog/package.json packages/menu-catalog/package.json
+COPY packages/prisma/package.json packages/prisma/package.json
+COPY packages/shared/package.json packages/shared/package.json
+COPY packages/sync/package.json packages/sync/package.json
+COPY packages/tax-engine/package.json packages/tax-engine/package.json
+COPY packages/ui/package.json packages/ui/package.json
+
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --include=dev --no-audit --no-fund
+
+FROM deps AS builder
+
+COPY tsconfig.base.json ./
 COPY apps/web ./apps/web
-COPY packages ./packages
-COPY turbo.json tsconfig.base.json ./
+COPY packages/shared ./packages/shared
+COPY packages/ui ./packages/ui
 
 ARG NEXT_PUBLIC_API_URL=https://api.cullinos.com/api/v1
 ARG NEXT_PUBLIC_SITE_URL=https://cullinos.com
@@ -20,11 +54,14 @@ ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN=$NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN
 
-RUN npm ci --include=dev \
-  && npm run build -w @cullinos/shared -w @cullinos/ui \
-  && npm run build -w @cullinos/web
+RUN --mount=type=cache,target=/root/.npm \
+    --mount=type=cache,target=/app/apps/web/.next/cache \
+    npm run build -w @cullinos/shared -w @cullinos/ui \
+    && npm run build -w @cullinos/web
 
 FROM node:22-alpine AS runner
+
+ARG GIT_COMMIT=unknown
 
 WORKDIR /app
 
@@ -32,14 +69,15 @@ ENV NODE_ENV=production
 ENV PORT=5180
 
 LABEL org.opencontainers.image.title="cullinos-web" \
-      org.opencontainers.image.source="https://github.com/ak2hay/cullinos"
+      org.opencontainers.image.source="https://github.com/ak2hay/cullinos" \
+      org.opencontainers.image.revision="${GIT_COMMIT}"
 
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/apps/web/.next/standalone ./
-COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
-COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
 USER nextjs
 

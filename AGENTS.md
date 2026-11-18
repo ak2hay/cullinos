@@ -5,7 +5,7 @@ This repository is **Cullinos**, Rkyves's multi-tenant restaurant operating syst
 ## Before you change code
 
 1. Read `docs/ARCHITECTURE.md` and the relevant section of `docs/PRODUCT.md`.
-2. Follow `CONTRIBUTING.md`: branch from `develop`, PR into `develop`.
+2. Follow `CONTRIBUTING.md`: commit on `main`. A push to `main` deploys production.
 3. Enforce `organizationId` tenant scope. Do not invent GST or payment behavior.
 
 ## Rkyves employee bots (Grok Bot)
@@ -21,7 +21,7 @@ Cursor rules in `.cursor/rules/` mirror the same company constraints for IDE age
 
 ## Hard stops
 
-- No force-push to `develop`/`main`
+- No force-push to `main`
 - No committing `.env` or `secrets-export.txt`
-- No production deploy without explicit human approval
+- Do not push to `main` unless that change should deploy to production
 - Platform Razorpay env is SaaS billing only—not per-restaurant POS keys
