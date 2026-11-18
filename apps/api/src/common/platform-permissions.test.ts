@@ -5,6 +5,7 @@ import {
   PLATFORM_ROLE_PERMISSIONS,
   normalizePlatformRole,
   permissionsForPlatformRole,
+  requiresActionTicket,
 } from "./platform-permissions";
 
 const OWNER_ONLY = ["tenants.delete", "labs.sql", "settings.manage", "team.manage"] as const;
@@ -44,5 +45,15 @@ describe("platform role permissions", () => {
   it("marketing cannot touch tenants", () => {
     const perms = permissionsForPlatformRole("marketing");
     expect(perms.some((p) => p.startsWith("tenants."))).toBe(false);
+  });
+
+  it("requires a support ticket for every role except owner", () => {
+    expect(requiresActionTicket("owner")).toBe(false);
+    for (const role of PLATFORM_ROLES) {
+      if (role === "owner") continue;
+      expect(requiresActionTicket(role)).toBe(true);
+    }
+    expect(requiresActionTicket(null)).toBe(true);
+    expect(requiresActionTicket(undefined)).toBe(true);
   });
 });

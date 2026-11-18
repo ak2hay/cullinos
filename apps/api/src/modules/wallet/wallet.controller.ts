@@ -78,13 +78,14 @@ export class SuperAdminWalletController {
   adjust(
     @Param("orgId") orgId: string,
     @CurrentUser() user: JwtPayload,
-    @Body() body: { amountPaise: number; note: string },
+    @Body() body: { amountPaise: number; note?: string },
   ) {
     return this.wallet.manualAdjust(
       orgId,
       Number(body.amountPaise),
-      body.note ?? "",
+      body.note,
       user.sub,
+      user.platformRole,
     );
   }
 }

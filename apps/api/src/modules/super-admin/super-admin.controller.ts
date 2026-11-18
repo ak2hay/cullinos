@@ -67,15 +67,19 @@ class ResendOtpDto {
 }
 
 class SuspendDto {
+  /** Required for every platform role except owner. */
+  @IsOptional()
   @IsString()
-  reason!: string;
+  @MaxLength(500)
+  reason?: string;
 }
 
 class ImpersonateDto {
+  /** Required (min 8 chars) for every platform role except owner. */
+  @IsOptional()
   @IsString()
-  @MinLength(8)
   @MaxLength(500)
-  reason!: string;
+  reason?: string;
 }
 
 const RESTAURANT_SIZES = ["small", "medium", "large"] as const;
@@ -405,7 +409,7 @@ export class SuperAdminController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: ImpersonateDto,
   ) {
-    return this.service.impersonateOrganization(id, user.sub, dto.reason);
+    return this.service.impersonateOrganization(id, user.sub, dto.reason, user.platformRole);
   }
 
   @Get("audit-logs")
@@ -462,7 +466,7 @@ export class SuperAdminController {
     @Body() body: SuspendDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.service.suspendTenant(id, body.reason, user.sub);
+    return this.service.suspendTenant(id, body.reason, user.sub, user.platformRole);
   }
 
   @Patch("organizations/:id/activate")

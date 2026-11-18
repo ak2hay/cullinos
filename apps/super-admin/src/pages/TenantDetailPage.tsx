@@ -2,13 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { superAdminApi } from '@/lib/api';
-import { useCan } from '@/lib/permissions';
+import { requiresActionTicket, useCan } from '@/lib/permissions';
 import { openRazorpaySubscriptionCheckout } from '@/lib/razorpay-subscription-checkout';
+import { useAuthStore } from '@/stores/auth';
 
 export function TenantDetailPage() {
   const { id = '' } = useParams();
   const queryClient = useQueryClient();
   const can = useCan();
+  const ticketRequired = requiresActionTicket(useAuthStore((s) => s.admin?.platformRole));
   const canManageUsers = can('tenant_users.manage');
   const [suspendReason, setSuspendReason] = useState('');
   const [showSuspend, setShowSuspend] = useState(false);
@@ -46,7 +48,8 @@ export function TenantDetailPage() {
   };
 
   const suspendMutation = useMutation({
-    mutationFn: () => superAdminApi.suspendOrganization(id, suspendReason),
+    mutationFn: () =>
+      superAdminApi.suspendOrganization(id, ticketRequired ? suspendReason : undefined),
     onSuccess: () => {
       setShowSuspend(false);
       setSuspendReason('');
@@ -121,7 +124,7 @@ export function TenantDetailPage() {
   });
 
   const impersonateMutation = useMutation({
-    mutationFn: (reason: string) => superAdminApi.impersonateOrganization(id, reason),
+    mutationFn: (reason?: string) => superAdminApi.impersonateOrganization(id, reason),
     onSuccess: (result) => {
       window.open(result.adminUrl, '_blank', 'noopener,noreferrer');
       setMessage(
@@ -132,7 +135,7 @@ export function TenantDetailPage() {
   });
 
   const walletAdjustMutation = useMutation({
-    mutationFn: (payload: { amountPaise: number; note: string }) =>
+    mutationFn: (payload: { amountPaise: number; note?: string }) =>
       superAdminApi.adjustOrganizationWallet(id, payload),
     onSuccess: (bal) => {
       setWalletError(null);
@@ -201,6 +204,10 @@ export function TenantDetailPage() {
             <button
               type="button"
               onClick={() => {
+                if (!ticketRequired) {
+                  impersonateMutation.mutate(undefined);
+                  return;
+                }
                 const reason = window.prompt(
                   'Support reason for impersonation (required, min 8 characters):',
                 );
@@ -369,16 +376,18 @@ export function TenantDetailPage() {
                 className="h-10 w-32 rounded-lg border border-line bg-bg-elevated px-3 text-sm"
               />
             </label>
-            <label className="min-w-48 flex-1 text-sm">
-              <span className="mb-1 block text-text-muted">Note (required)</span>
-              <input
-                type="text"
-                value={walletNote}
-                onChange={(e) => setWalletNote(e.target.value)}
-                placeholder="Support credit / correction"
-                className="h-10 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm"
-              />
-            </label>
+            {ticketRequired ? (
+              <label className="min-w-48 flex-1 text-sm">
+                <span className="mb-1 block text-text-muted">Note (required)</span>
+                <input
+                  type="text"
+                  value={walletNote}
+                  onChange={(e) => setWalletNote(e.target.value)}
+                  placeholder="Support credit / correction"
+                  className="h-10 w-full rounded-lg border border-line bg-bg-elevated px-3 text-sm"
+                />
+              </label>
+            ) : null}
             <button
               type="button"
               disabled={walletAdjustMutation.isPending}
@@ -389,13 +398,13 @@ export function TenantDetailPage() {
                   setWalletError('Enter a positive amount in rupees.');
                   return;
                 }
-                if (!walletNote.trim()) {
+                if (ticketRequired && !walletNote.trim()) {
                   setWalletError('Note is required.');
                   return;
                 }
                 walletAdjustMutation.mutate({
                   amountPaise: Math.round(rupees * 100),
-                  note: walletNote.trim(),
+                  note: ticketRequired ? walletNote.trim() : undefined,
                 });
               }}
             >
@@ -411,13 +420,13 @@ export function TenantDetailPage() {
                   setWalletError('Enter a positive amount in rupees.');
                   return;
                 }
-                if (!walletNote.trim()) {
+                if (ticketRequired && !walletNote.trim()) {
                   setWalletError('Note is required.');
                   return;
                 }
                 walletAdjustMutation.mutate({
                   amountPaise: -Math.round(rupees * 100),
-                  note: walletNote.trim(),
+                  note: ticketRequired ? walletNote.trim() : undefined,
                 });
               }}
             >
@@ -536,6 +545,10 @@ export function TenantDetailPage() {
                                 ? `Suspend owner "${user.name}"? They will not be able to sign in. (Blocked if this is the last active owner.)`
                                 : `Suspend "${user.name}"? They will not be able to sign in.`;
                               if (!window.confirm(label)) return;
+                              if (!ticketRequired) {
+                                deactivateUserMutation.mutate({ userId: user.id });
+                                return;
+                              }
                               const reason = window.prompt('Optional suspend reason (shown in audit):');
                               if (reason === null) return;
                               deactivateUserMutation.mutate({
@@ -604,13 +617,20 @@ export function TenantDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4">
           <div className="w-full max-w-md rounded-xl border border-line bg-bg-secondary p-6">
             <h2 className="text-lg font-medium">Suspend organization</h2>
-            <textarea
-              value={suspendReason}
-              onChange={(e) => setSuspendReason(e.target.value)}
-              rows={3}
-              className="mt-4 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
-              placeholder="Reason for suspension"
-            />
+            <p className="mt-1 text-sm text-text-secondary">
+              {ticketRequired
+                ? 'Provide a reason for suspension. Users will lose access immediately.'
+                : 'Users will lose access immediately.'}
+            </p>
+            {ticketRequired ? (
+              <textarea
+                value={suspendReason}
+                onChange={(e) => setSuspendReason(e.target.value)}
+                rows={3}
+                className="mt-4 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
+                placeholder="Reason for suspension"
+              />
+            ) : null}
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
@@ -621,7 +641,7 @@ export function TenantDetailPage() {
               </button>
               <button
                 type="button"
-                disabled={!suspendReason.trim() || suspendMutation.isPending}
+                disabled={(ticketRequired && !suspendReason.trim()) || suspendMutation.isPending}
                 onClick={() => suspendMutation.mutate()}
                 className="rounded-lg bg-status-error px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >

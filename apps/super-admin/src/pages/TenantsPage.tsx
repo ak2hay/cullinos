@@ -14,7 +14,8 @@ import {
   type RestaurantSize,
 } from '@cullinos/shared';
 import { superAdminApi } from '@/lib/api';
-import { useCan } from '@/lib/permissions';
+import { requiresActionTicket, useCan } from '@/lib/permissions';
+import { useAuthStore } from '@/stores/auth';
 
 type CredentialsResult = {
   ownerEmail: string;
@@ -26,6 +27,7 @@ type CredentialsResult = {
 export function TenantsPage() {
   const queryClient = useQueryClient();
   const can = useCan();
+  const ticketRequired = requiresActionTicket(useAuthStore((s) => s.admin?.platformRole));
   const canOnboard = can('tenants.write');
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
@@ -87,7 +89,7 @@ export function TenantsPage() {
   });
 
   const suspendMutation = useMutation({
-    mutationFn: ({ id, reason: r }: { id: string; reason: string }) =>
+    mutationFn: ({ id, reason: r }: { id: string; reason?: string }) =>
       superAdminApi.suspendOrganization(id, r),
     onSuccess: () => {
       setSuspendId(null);
@@ -412,15 +414,19 @@ export function TenantsPage() {
           <div className="w-full max-w-md rounded-xl border border-line bg-bg-secondary p-6">
             <h2 className="text-lg font-medium">Suspend organization</h2>
             <p className="mt-1 text-sm text-text-secondary">
-              Provide a reason for suspension. Users will lose access immediately.
+              {ticketRequired
+                ? 'Provide a reason for suspension. Users will lose access immediately.'
+                : 'Users will lose access immediately.'}
             </p>
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              rows={3}
-              className="mt-4 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
-              placeholder="Reason for suspension"
-            />
+            {ticketRequired ? (
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={3}
+                className="mt-4 w-full rounded-lg border border-line bg-bg-elevated px-3 py-2 text-sm outline-none focus:border-brand-accent"
+                placeholder="Reason for suspension"
+              />
+            ) : null}
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
@@ -431,8 +437,13 @@ export function TenantsPage() {
               </button>
               <button
                 type="button"
-                disabled={!reason.trim() || suspendMutation.isPending}
-                onClick={() => suspendMutation.mutate({ id: suspendId, reason })}
+                disabled={(ticketRequired && !reason.trim()) || suspendMutation.isPending}
+                onClick={() =>
+                  suspendMutation.mutate({
+                    id: suspendId,
+                    reason: ticketRequired ? reason : undefined,
+                  })
+                }
                 className="rounded-lg bg-status-error px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
                 Suspend
