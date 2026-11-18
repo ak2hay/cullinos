@@ -29,3 +29,8 @@ __pycache__/
 
 dist-exports/
 
+
+# Android release signing - never commit
+**/android/key.properties
+**/*.jks
+**/*.keystore
