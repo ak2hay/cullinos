@@ -1,6 +1,6 @@
 # Cullinos — Production Deployment (Docker Compose on VM)
 
-Production runs on the OnLiveServer VM (`95.135.254.46`) as a **Docker Compose** stack in
+Production runs on the OnLiveServer VM (`95.135.254.73`) as a **Docker Compose** stack in
 `/opt/cullinos`. Host **nginx** terminates TLS (certbot) and serves the static SPAs. There is no
 separate staging environment.
 
@@ -105,9 +105,9 @@ Docs-only pushes plan an empty release and do not SSH.
 ### One-time setup
 
 1. **Actions secrets** (Settings → Secrets and variables → Actions → Secrets):
-   - `DEPLOY_HOST` — `95.135.254.46`
+   - `DEPLOY_HOST` — `95.135.254.73`
    - `DEPLOY_SSH_KEY` — private key that can `ssh root@` the VM. Put the matching public key in `/root/.ssh/authorized_keys` on the VM. Prefer a dedicated key, not a password.
-   - `DEPLOY_SSH_KNOWN_HOSTS` (optional) — output of `ssh-keyscan -H 95.135.254.46`. Without it, the runner accepts the host key on first connect.
+   - `DEPLOY_SSH_KNOWN_HOSTS` (optional) — output of `ssh-keyscan -H 95.135.254.73`. Without it, the runner accepts the host key on first connect.
 2. **VM firewall.** GitHub-hosted runners use a wide IP range. SSH on the VM must accept that key from those runners (key auth, not a password pasted into the workflow).
 3. **Actions variables** listed under Configuration, if captcha, asset links, or marketing analytics should be on.
 4. **GHCR.** The first Deploy run creates `ghcr.io/ak2hay/cullinos/api` and `.../web`. The workflow logs in with `GITHUB_TOKEN` for the length of the job and logs out on the VM. No token is written into `.env` or committed. Packages stay private; the VM does not need its own `docker login`.
