@@ -1,8 +1,15 @@
+x-logging: &cullinos-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: cullinos-postgres
     restart: unless-stopped
+    logging: *cullinos-logging
     environment:
       POSTGRES_USER: cullinos
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -21,6 +28,7 @@ services:
     image: redis:7-alpine
     container_name: cullinos-redis
     restart: unless-stopped
+    logging: *cullinos-logging
     volumes:
       - cullinos_redis_data:/data
     healthcheck:
@@ -43,6 +51,7 @@ services:
         GIT_COMMIT: ${GIT_COMMIT:-unknown}
     container_name: cullinos-api
     restart: unless-stopped
+    logging: *cullinos-logging
     stop_grace_period: 25s
     env_file:
       - .env
@@ -72,6 +81,7 @@ services:
         NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN: ${NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN:-}
     container_name: cullinos-web
     restart: unless-stopped
+    logging: *cullinos-logging
     stop_grace_period: 15s
     env_file:
       - .env
