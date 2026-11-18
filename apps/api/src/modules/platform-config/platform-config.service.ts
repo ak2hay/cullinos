@@ -144,31 +144,32 @@ export class PlatformConfigService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Effective value: DB override when a row exists with a non-null value,
-   * otherwise environment.
+   * otherwise environment, otherwise the registry defaultValue.
    */
   get(key: string): string | undefined {
     const def = ALL_CONFIG_KEYS.get(key);
     const envVal = process.env[key]?.trim() || undefined;
+    const fallback = envVal ?? def?.defaultValue;
 
     const cached = this.cache.get(key);
     if (cached?.loaded) {
       if (cached.value !== undefined && cached.value !== "") {
         return cached.value;
       }
-      // Empty DB cache entry means "cleared" — still fall back to env.
+      // Empty DB cache entry means "cleared" — still fall back to env, then default.
       // Presence of a DB row with null/empty after clear deletes the row,
       // so if loaded with undefined and no row semantics: check hasDb separately.
     }
 
-    // Synchronous path: if cache miss, fall back to env immediately.
+    // Synchronous path: if cache miss, fall back to env (then default) immediately.
     // Async hydrate happens via warmCache / upsert.
     if (!cached) {
-      return envVal;
+      return fallback;
     }
 
     return cached.value !== undefined && cached.value !== ""
       ? cached.value
-      : envVal;
+      : fallback;
   }
 
   /** Async get that ensures DB is consulted once for this key. */

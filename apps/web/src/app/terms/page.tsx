@@ -39,7 +39,9 @@ export default function TermsPage() {
             <li>Plans are billed monthly or yearly in INR unless otherwise agreed</li>
             <li>Prices are listed on our pricing page and may change with notice</li>
             <li>Failure to pay may result in suspension of service</li>
-            <li>Refunds are handled per our refund policy communicated at purchase</li>
+            <li>
+              Refunds are handled per our <a href="/refund-policy">refund policy</a>
+            </li>
           </ul>
 
           <h2>4. Acceptable use</h2>

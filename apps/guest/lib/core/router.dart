@@ -44,6 +44,7 @@ bool _isPublicPath(String loc) {
       loc == '/splash' ||
       loc == '/privacy' ||
       loc == '/terms' ||
+      loc == '/delete-account' ||
       loc == '/book' ||
       loc.startsWith('/book?')) {
     return true;
@@ -174,6 +175,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                 : 'https://cullinos.com/terms',
           );
         },
+      ),
+      GoRoute(
+        path: '/delete-account',
+        builder: (_, __) => const LegalWebPage(
+          title: 'Delete account',
+          url: 'https://cullinos.com/delete-account',
+        ),
       ),
       GoRoute(
         path: '/wallets',

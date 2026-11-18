@@ -1159,6 +1159,26 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     ),
                     const SizedBox(height: 8),
                     GuestSoftCard(
+                      onTap: () => context.push('/delete-account'),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      child: Row(
+                        children: [
+                          Icon(Icons.person_remove_outlined,
+                              color: GuestColors.mutedOf(context), size: 20),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: const Text(
+                              'Delete account',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          Icon(Icons.chevron_right, color: GuestColors.mutedOf(context)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    GuestSoftCard(
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
@@ -1167,7 +1187,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Data export and erasure are available via Cullinos privacy controls.',
+                              'Account and data deletion requests are submitted at cullinos.com/delete-account.',
                               style: TextStyle(
                                   color: GuestColors.mutedOf(context),
                                   height: 1.4,

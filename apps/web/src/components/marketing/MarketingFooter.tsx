@@ -149,12 +149,24 @@ export function MarketingFooter() {
             <p className="mt-1 text-xs text-text-muted">
               {BUSINESS_NAP.legalName} · {BUSINESS_ADDRESS_LINE}
             </p>
-            <div className="mt-2 flex gap-4 text-xs text-text-muted">
+            <div className="mt-2 flex flex-wrap justify-end gap-x-4 gap-y-1 text-xs text-text-muted">
               <Link href="/privacy" className="transition hover:text-text-primary">
                 Privacy
               </Link>
               <Link href="/terms" className="transition hover:text-text-primary">
                 Terms
+              </Link>
+              <Link href="/refund-policy" className="transition hover:text-text-primary">
+                Refunds
+              </Link>
+              <Link href="/cancellation-policy" className="transition hover:text-text-primary">
+                Cancellation
+              </Link>
+              <Link href="/shipping-policy" className="transition hover:text-text-primary">
+                Shipping
+              </Link>
+              <Link href="/delete-account" className="transition hover:text-text-primary">
+                Delete account
               </Link>
             </div>
           </div>

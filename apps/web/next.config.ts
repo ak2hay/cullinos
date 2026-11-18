@@ -55,6 +55,13 @@ const nextConfig: NextConfig = {
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
+  async redirects() {
+    return [
+      { source: '/refund', destination: '/refund-policy', permanent: true },
+      { source: '/cancellation', destination: '/cancellation-policy', permanent: true },
+      { source: '/shipping', destination: '/shipping-policy', permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

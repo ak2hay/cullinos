@@ -24,7 +24,7 @@ export default function PrivacyPage() {
       <Hero
         eyebrow="Legal"
         title="Privacy Policy"
-        subtitle="Last updated: September 10, 2026. Aligned with India’s Digital Personal Data Protection Act, 2023 (DPDP). Have counsel confirm grievance officer details before production go-live."
+        subtitle="Last updated: September 10, 2026. Aligned with India’s Digital Personal Data Protection Act, 2023 (DPDP)."
         primaryCta={{ label: 'Contact us', href: '/contact' }}
         secondaryCta={null}
       />
@@ -124,6 +124,7 @@ export default function PrivacyPage() {
           </p>
 
           <h2>11. Grievance officer</h2>
+          {/* TODO: replace "Privacy Desk" with the named grievance officer when confirmed. */}
           <p>
             Grievance Officer: Privacy Desk
             <br />

@@ -370,11 +370,13 @@ export const CONFIG_GROUPS: ConfigGroupDef[] = [
         key: "GUEST_APP_PRIVACY_URL",
         isSecret: false,
         label: "Privacy policy URL",
+        defaultValue: "https://cullinos.com/privacy",
       },
       {
         key: "GUEST_APP_TERMS_URL",
         isSecret: false,
         label: "Terms of service URL",
+        defaultValue: "https://cullinos.com/terms",
       },
       {
         key: "GUEST_APP_FEATURE_FLAGS",

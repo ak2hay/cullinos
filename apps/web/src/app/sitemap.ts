@@ -23,6 +23,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/blog',
     '/privacy',
     '/terms',
+    '/refund-policy',
+    '/cancellation-policy',
+    '/shipping-policy',
+    '/delete-account',
     '/unsubscribe',
   ];
 
