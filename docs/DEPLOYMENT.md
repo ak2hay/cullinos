@@ -77,7 +77,7 @@ The Deploy workflow then:
 1. Diffs that push and skips anything that did not change (API image, web image, each SPA, migrations, frontend nginx).
 2. Builds the API and web images on GitHub-hosted runners (BuildKit cache, manifest layer before `npm ci`) and pushes them to `ghcr.io/ak2hay/cullinos/api` and `.../web`, tagged with the full commit SHA. The first 7 hex characters are baked in as `GIT_COMMIT`.
 3. Builds only the changed SPAs, in parallel (`scripts/build-frontends.sh`, turbo).
-4. SSHs to the VM, pulls those images, runs `prisma migrate deploy` only when migration files changed (the previous API keeps serving), then `scripts/prod/roll-api.sh` starts the new API on `:3001`, points nginx at it, recreates Compose on `:3000`, and points nginx back. If the VM has under ~700MB free, it recreates in place instead (a short blip).
+4. SSHs to the VM, pulls those images, runs `prisma migrate deploy` only when migration files changed (the previous API keeps serving), then `scripts/prod/roll-api.sh` starts the new API on `:3010` (`:3001` is another service on the VM), points nginx at it, recreates Compose on `:3000`, and points nginx back. If the VM has under ~700MB free, it recreates in place instead (a short blip).
 5. Swaps only the SPA directories that were built, reloads frontend nginx only when that file changed, and recreates `web` only when the marketing image changed.
 6. Runs `scripts/prod/snapshot-release.sh` so `rollback.sh` can restore this release. Rollback does not touch the database ([BACKUP_ROLLBACK.md](BACKUP_ROLLBACK.md)).
 

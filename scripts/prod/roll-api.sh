@@ -3,8 +3,9 @@
 #
 # Usage: roll-api.sh <image-ref> <expected-commit|->
 # The image must already be tagged (GHCR pull or a local compose build).
-# A standby container binds 127.0.0.1:3001, nginx is reloaded onto it, then
+# A standby container binds 127.0.0.1:3010, nginx is reloaded onto it, then
 # Compose recreates cullinos-api on :3000 and nginx moves back.
+# 127.0.0.1:3001 is yatharth-sync-api on this VM, so the standby must not use it.
 # If memory is tight or nginx has no API upstream, falls back to an in-place
 # recreate (brief downtime). Never edits /opt/cullinos/.env.
 set -euo pipefail
@@ -14,7 +15,7 @@ EXPECT="${2:?expected commit, or - to only check status=ok}"
 APP_DIR="${APP_DIR:-/opt/cullinos}"
 COMPOSE_FILE="${COMPOSE_FILE:-$APP_DIR/docker-compose.prod.yml}"
 STANDBY="cullinos-api-next"
-STANDBY_PORT=3001
+STANDBY_PORT=3010
 # Nest + Prisma briefly doubles API RSS. Skip the side-by-side roll below this.
 MIN_FREE_KB="${ROLL_API_MIN_FREE_KB:-700000}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -80,9 +81,10 @@ api_confs() {
     [[ -f "$f" ]] || continue
     real="$(readlink -f "$f")"
     [[ -n "${seen[$real]:-}" ]] && continue
-    if grep -Eq 'upstream[[:space:]]+cullinos_api|proxy_pass[[:space:]]+http://127\.0\.0\.1:300[01]' "$real"; then
+    if grep -Eq 'upstream[[:space:]]+cullinos_api|proxy_pass[[:space:]]+http://127\.0\.0\.1:(3000|3010)([^0-9]|$)' "$real"; then
       # Marketing web also lives in conf.d; only files that mention the API.
-      if grep -Eq 'cullinos_api|proxy_pass[[:space:]]+http://127\.0\.0\.1:300[01]' "$real"; then
+      # Match :3000 and the standby :3010 only. Never :3001 or other ports.
+      if grep -Eq 'cullinos_api|proxy_pass[[:space:]]+http://127\.0\.0\.1:(3000|3010)([^0-9]|$)' "$real"; then
         seen["$real"]=1
         echo "$real"
       fi
