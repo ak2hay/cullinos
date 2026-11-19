@@ -5,6 +5,20 @@ import {
   extractPhoneFromVerifyPayload,
 } from "./msg91-widget.util";
 import { redactPhone } from "../../common/pii-redact.util";
+import {
+  type Msg91FailureLog,
+  classifyMsg91Call,
+  parseMsg91Body,
+  redactMsg91Secrets,
+} from "./msg91-response.util";
+
+const MSG91_FLOW_URL = "https://control.msg91.com/api/v5/flow/";
+const MSG91_VERIFY_ACCESS_TOKEN_URL =
+  "https://control.msg91.com/api/v5/widget/verifyAccessToken";
+
+function msg91WidgetUrl(path: string): string {
+  return `https://control.msg91.com/api/v5/widget${path}`;
+}
 
 export type SendOtpResult = {
   sent: boolean;
@@ -37,6 +51,47 @@ export class Msg91Service {
   private readonly logger = new Logger(Msg91Service.name);
 
   constructor(private readonly config: PlatformConfigService) {}
+
+  /**
+   * Log non-2xx responses and HTTP 2xx bodies with type "error".
+   * The log line is endpoint, HTTP status, MSG91 code/message, and a masked phone.
+   */
+  private recordMsg91Call(input: {
+    endpoint: string;
+    httpStatus: number;
+    body: unknown;
+    phone?: string | null;
+    secrets?: Array<string | null | undefined>;
+  }): { httpFailed: boolean; applicationError: boolean } {
+    const result = classifyMsg91Call(input);
+    if (result.log) this.writeMsg91Failure(result.log.level, result.log.entry);
+    return {
+      httpFailed: result.httpFailed,
+      applicationError: result.applicationError,
+    };
+  }
+
+  private recordMsg91TransportError(input: {
+    endpoint: string;
+    phone?: string | null;
+    secrets?: Array<string | null | undefined>;
+    err: unknown;
+  }) {
+    const message = input.err instanceof Error ? input.err.message : String(input.err);
+    this.writeMsg91Failure("error", {
+      endpoint: input.endpoint,
+      httpStatus: 0,
+      code: null,
+      message: redactMsg91Secrets(message, input.secrets),
+      phone: redactPhone(input.phone),
+    });
+  }
+
+  private writeMsg91Failure(level: "warn" | "error", entry: Msg91FailureLog) {
+    const line = JSON.stringify(entry);
+    if (level === "error") this.logger.error(line);
+    else this.logger.warn(line);
+  }
 
   isFlowConfigured(): boolean {
     return Boolean(
@@ -96,9 +151,11 @@ export class Msg91Service {
   private async postWidgetApi(
     path: "/sendOtp" | "/sendOtpMobile" | "/verifyOtp" | "/retryOtp",
     body: Record<string, unknown>,
+    meta?: { phone?: string; secrets?: Array<string | null | undefined> },
   ): Promise<{ ok: boolean; data: Record<string, unknown>; message?: string }> {
+    const endpoint = msg91WidgetUrl(path);
     try {
-      const res = await fetch(`https://control.msg91.com/api/v5/widget${path}`, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -115,11 +172,17 @@ export class Msg91Service {
       } catch {
         data = { raw: text };
       }
-      if (!res.ok) {
+      const outcome = this.recordMsg91Call({
+        endpoint,
+        httpStatus: res.status,
+        body: data,
+        phone: meta?.phone,
+        secrets: meta?.secrets,
+      });
+      if (!res.ok || outcome.applicationError) {
         const message =
-          String(data.message ?? data.error ?? data.type ?? text).trim() ||
+          String(data.message ?? data.error ?? data.type ?? "").trim() ||
           `MSG91 widget ${path} failed (${res.status})`;
-        this.logger.error(`MSG91 widget ${path} failed (${res.status}): ${text}`);
         return { ok: false, data, message };
       }
       const type = String(data.type ?? data.status ?? "").toLowerCase();
@@ -136,8 +199,13 @@ export class Msg91Service {
       }
       return { ok: true, data };
     } catch (err) {
+      this.recordMsg91TransportError({
+        endpoint,
+        phone: meta?.phone,
+        secrets: meta?.secrets,
+        err,
+      });
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`MSG91 widget ${path} error: ${message}`);
       return { ok: false, data: {}, message };
     }
   }
@@ -153,23 +221,32 @@ export class Msg91Service {
       return { ok: false, message: "MSG91 OTP Widget is not configured" };
     }
     const identifier = this.normalizePhone(phone);
+    const meta = { phone: identifier, secrets: [creds.tokenAuth] };
     // Prefer web widget endpoint; fall back to mobile if the widget has Mobile Integration enabled.
-    let result = await this.postWidgetApi("/sendOtp", {
-      widgetId: creds.widgetId,
-      tokenAuth: creds.tokenAuth,
-      identifier,
-    });
+    let result = await this.postWidgetApi(
+      "/sendOtp",
+      {
+        widgetId: creds.widgetId,
+        tokenAuth: creds.tokenAuth,
+        identifier,
+      },
+      meta,
+    );
     if (
       !result.ok &&
       /mobile requests are not allowed|not allowed for this widget/i.test(
         result.message ?? "",
       )
     ) {
-      result = await this.postWidgetApi("/sendOtpMobile", {
-        widgetId: creds.widgetId,
-        tokenAuth: creds.tokenAuth,
-        identifier,
-      });
+      result = await this.postWidgetApi(
+        "/sendOtpMobile",
+        {
+          widgetId: creds.widgetId,
+          tokenAuth: creds.tokenAuth,
+          identifier,
+        },
+        meta,
+      );
     }
     if (
       !result.ok &&
@@ -178,11 +255,15 @@ export class Msg91Service {
       )
     ) {
       // Inverse case: widget is mobile-only.
-      result = await this.postWidgetApi("/sendOtpMobile", {
-        widgetId: creds.widgetId,
-        tokenAuth: creds.tokenAuth,
-        identifier,
-      });
+      result = await this.postWidgetApi(
+        "/sendOtpMobile",
+        {
+          widgetId: creds.widgetId,
+          tokenAuth: creds.tokenAuth,
+          identifier,
+        },
+        meta,
+      );
     }
     if (!result.ok) {
       return { ok: false, message: result.message };
@@ -217,12 +298,16 @@ export class Msg91Service {
     if (!creds) {
       return { ok: false, message: "MSG91 OTP Widget is not configured" };
     }
-    const result = await this.postWidgetApi("/retryOtp", {
-      widgetId: creds.widgetId,
-      tokenAuth: creds.tokenAuth,
-      reqId,
-      retryChannel: 11, // SMS
-    });
+    const result = await this.postWidgetApi(
+      "/retryOtp",
+      {
+        widgetId: creds.widgetId,
+        tokenAuth: creds.tokenAuth,
+        reqId,
+        retryChannel: 11, // SMS
+      },
+      { secrets: [creds.tokenAuth] },
+    );
     if (!result.ok) {
       return { ok: false, message: result.message };
     }
@@ -240,12 +325,17 @@ export class Msg91Service {
     if (!creds) {
       return { ok: false, message: "MSG91 OTP Widget is not configured" };
     }
-    const result = await this.postWidgetApi("/verifyOtp", {
-      widgetId: creds.widgetId,
-      tokenAuth: creds.tokenAuth,
-      reqId,
-      otp: String(otp).trim(),
-    });
+    const code = String(otp).trim();
+    const result = await this.postWidgetApi(
+      "/verifyOtp",
+      {
+        widgetId: creds.widgetId,
+        tokenAuth: creds.tokenAuth,
+        reqId,
+        otp: code,
+      },
+      { secrets: [creds.tokenAuth, code] },
+    );
     if (!result.ok) {
       return { ok: false, message: result.message };
     }
@@ -285,8 +375,9 @@ export class Msg91Service {
       return { sent: false, provider: "log", failureKind: "not_configured" };
     }
 
+    const secrets = [authKey, otp];
     try {
-      const res = await fetch("https://control.msg91.com/api/v5/flow/", {
+      const res = await fetch(MSG91_FLOW_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -306,17 +397,26 @@ export class Msg91Service {
         }),
       });
 
-      if (!res.ok) {
-        const text = await res.text();
-        this.logger.error(`MSG91 send failed (${res.status}): ${text}`);
+      const body = parseMsg91Body(await res.text());
+      const outcome = this.recordMsg91Call({
+        endpoint: MSG91_FLOW_URL,
+        httpStatus: res.status,
+        body,
+        phone: mobile,
+        secrets,
+      });
+      if (!res.ok || outcome.applicationError) {
         return { sent: false, provider: "log", failureKind: "provider_failed" };
       }
 
       return { sent: true, provider: "msg91" };
     } catch (err) {
-      this.logger.error(
-        `MSG91 error: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      this.recordMsg91TransportError({
+        endpoint: MSG91_FLOW_URL,
+        phone: mobile,
+        secrets,
+        err,
+      });
       return { sent: false, provider: "log", failureKind: "provider_failed" };
     }
   }
@@ -335,18 +435,16 @@ export class Msg91Service {
       return { ok: false, message: "access-token is required" };
     }
 
+    const secrets = [authKey, token];
     try {
-      const res = await fetch(
-        "https://control.msg91.com/api/v5/widget/verifyAccessToken",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            authkey: authKey,
-            "access-token": token,
-          }),
-        },
-      );
+      const res = await fetch(MSG91_VERIFY_ACCESS_TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          authkey: authKey,
+          "access-token": token,
+        }),
+      });
 
       const text = await res.text();
       let raw: unknown = text;
@@ -356,8 +454,14 @@ export class Msg91Service {
         // keep text
       }
 
-      if (!res.ok) {
-        this.logger.error(`MSG91 widget verify failed (${res.status}): ${text}`);
+      const outcome = this.recordMsg91Call({
+        endpoint: MSG91_VERIFY_ACCESS_TOKEN_URL,
+        httpStatus: res.status,
+        body: typeof raw === "string" ? parseMsg91Body(raw) : raw,
+        phone: extractPhoneFromVerifyPayload(raw),
+        secrets,
+      });
+      if (!res.ok || outcome.applicationError) {
         return {
           ok: false,
           message: `MSG91 verify failed (${res.status})`,
@@ -383,9 +487,11 @@ export class Msg91Service {
 
       return { ok: true, phone: this.normalizePhone(phone), raw };
     } catch (err) {
-      this.logger.error(
-        `MSG91 widget verify error: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      this.recordMsg91TransportError({
+        endpoint: MSG91_VERIFY_ACCESS_TOKEN_URL,
+        secrets,
+        err,
+      });
       return {
         ok: false,
         message: err instanceof Error ? err.message : String(err),
@@ -427,7 +533,7 @@ export class Msg91Service {
 
     for (const mobile of normalized) {
       try {
-        const res = await fetch("https://control.msg91.com/api/v5/flow/", {
+        const res = await fetch(MSG91_FLOW_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -448,21 +554,24 @@ export class Msg91Service {
           }),
         });
 
-        if (res.ok) sent += 1;
-        else {
-          failed += 1;
-          const text = await res.text();
-          this.logger.error(
-            `MSG91 campaign SMS failed for ${redactPhone(mobile)} (${res.status}): ${text}`,
-          );
-        }
+        const body = parseMsg91Body(await res.text());
+        const outcome = this.recordMsg91Call({
+          endpoint: MSG91_FLOW_URL,
+          httpStatus: res.status,
+          body,
+          phone: mobile,
+          secrets: [authKey],
+        });
+        if (!res.ok || outcome.applicationError) failed += 1;
+        else sent += 1;
       } catch (err) {
         failed += 1;
-        this.logger.error(
-          `MSG91 campaign SMS error for ${redactPhone(mobile)}: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
+        this.recordMsg91TransportError({
+          endpoint: MSG91_FLOW_URL,
+          phone: mobile,
+          secrets: [authKey],
+          err,
+        });
       }
     }
 
