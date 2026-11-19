@@ -169,7 +169,7 @@ export class AuthController {
   @Post("register-owner")
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async registerOwner(@Body() dto: RegisterOwnerDto, @Req() req: Request) {
-    await assertTurnstile(dto.captchaToken, clientIp(req));
+    await assertTurnstile(dto.captchaToken, clientIp(req), req);
     return this.authService.registerOwner({
       companyName: dto.companyName,
       ownerName: dto.ownerName,
@@ -181,7 +181,7 @@ export class AuthController {
   @Public()
   @Post("login")
   async login(@Body() dto: LoginDto, @Req() req: Request) {
-    await assertTurnstile(dto.captchaToken, clientIp(req));
+    await assertTurnstile(dto.captchaToken, clientIp(req), req);
     return this.authService.login(dto.email, dto.password, clientIp(req));
   }
 
@@ -200,7 +200,7 @@ export class AuthController {
   @Public()
   @Post("phone/otp/request")
   async requestPhoneOtp(@Body() dto: StaffPhoneOtpRequestDto, @Req() req: Request) {
-    await assertTurnstile(dto.captchaToken, clientIp(req));
+    await assertTurnstile(dto.captchaToken, clientIp(req), req);
     return this.authService.requestStaffPhoneOtp(dto.phone);
   }
 
@@ -217,7 +217,7 @@ export class AuthController {
     @Body() dto: StaffPhoneOtpRequestDto,
     @Req() req: Request,
   ) {
-    await assertTurnstile(dto.captchaToken, clientIp(req));
+    await assertTurnstile(dto.captchaToken, clientIp(req), req);
     return this.authService.requestStaffPhoneOtpWidget(dto.phone);
   }
 
@@ -241,7 +241,7 @@ export class AuthController {
   @Public()
   @Post("forgot-password")
   async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
-    await assertTurnstile(dto.captchaToken, clientIp(req));
+    await assertTurnstile(dto.captchaToken, clientIp(req), req);
     return this.authService.forgotPassword(dto.email);
   }
 

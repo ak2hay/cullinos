@@ -47,7 +47,7 @@ That same service account powers **FCM HTTP v1** (order + marketing push). The l
 cd apps/guest
 # Optional upload keystore (recommended before Play):
 # copy android/key.properties.example → android/key.properties and fill values
-flutter build appbundle --flavor prod -t lib/main_prod.dart
+flutter build appbundle --flavor prod -t lib/main_prod.dart --dart-define=TURNSTILE_SITE_KEY="${TURNSTILE_SITE_KEY:-0x4AAAAAAGI4qZ7befLdSFze}"
 ```
 
 Prod API base URL is already `https://api.cullinos.com/api/v1` in `lib/main_prod.dart`.

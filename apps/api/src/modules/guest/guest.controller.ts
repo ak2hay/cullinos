@@ -46,7 +46,7 @@ export class GuestController {
     @Body() body: { phone?: string; captchaToken?: string },
     @Req() req: Request,
   ) {
-    await assertTurnstile(body.captchaToken, clientIp(req));
+    await assertTurnstile(body.captchaToken, clientIp(req), req);
     return this.service.requestOtp(body.phone);
   }
 
@@ -64,7 +64,7 @@ export class GuestController {
     @Body() body: { phone?: string; captchaToken?: string },
     @Req() req: Request,
   ) {
-    await assertTurnstile(body.captchaToken, clientIp(req));
+    await assertTurnstile(body.captchaToken, clientIp(req), req);
     return this.service.widgetSendOtp(body.phone);
   }
 
@@ -75,7 +75,7 @@ export class GuestController {
     @Body() body: { reqId?: string; captchaToken?: string },
     @Req() req: Request,
   ) {
-    await assertTurnstile(body.captchaToken, clientIp(req));
+    await assertTurnstile(body.captchaToken, clientIp(req), req);
     return this.service.widgetRetryOtp(body.reqId);
   }
 
@@ -143,7 +143,7 @@ export class GuestController {
     },
     @Req() req: Request,
   ) {
-    await assertTurnstile(body.captchaToken, clientIp(req));
+    await assertTurnstile(body.captchaToken, clientIp(req), req);
     return this.service.exchangeFirebaseToken(body);
   }
 
@@ -154,7 +154,7 @@ export class GuestController {
     @Body() body: { phone?: string; pin?: string; captchaToken?: string },
     @Req() req: Request,
   ) {
-    await assertTurnstile(body.captchaToken, clientIp(req));
+    await assertTurnstile(body.captchaToken, clientIp(req), req);
     return this.service.loginWithPin(body.phone, body.pin);
   }
 

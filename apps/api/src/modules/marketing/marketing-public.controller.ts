@@ -74,7 +74,7 @@ export class MarketingPublicController {
       throw new BadRequestException("name, business, email, and message are required");
     }
     if (!isTrustedInternalCaller(internalKey)) {
-      await assertTurnstile(body.captchaToken, clientIp(req));
+      await assertTurnstile(body.captchaToken, clientIp(req), req);
     }
     return this.marketing.createInquiry({
       name: body.name,

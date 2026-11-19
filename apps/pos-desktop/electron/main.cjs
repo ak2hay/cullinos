@@ -1,5 +1,26 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, session } = require('electron');
 const path = require('path');
+
+const NATIVE_CLIENT = 'pos-desktop';
+
+/** Stamp X-Cullinos-Client on API calls. file:// cannot satisfy Turnstile's hostname check. */
+function attachNativeClientHeader() {
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: ['http://*/*', 'https://*/*'] },
+    (details, callback) => {
+      const requestHeaders = { ...details.requestHeaders };
+      try {
+        const host = new URL(details.url).hostname;
+        if (host === 'api.cullinos.com' || host === 'localhost' || host === '127.0.0.1') {
+          requestHeaders['X-Cullinos-Client'] = NATIVE_CLIENT;
+        }
+      } catch {
+        // Leave non-HTTP URLs unchanged.
+      }
+      callback({ requestHeaders });
+    },
+  );
+}
 
 function resolveIndexHtml() {
   if (app.isPackaged) {
@@ -26,7 +47,10 @@ function createWindow() {
   void win.loadFile(indexPath);
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  attachNativeClientHeader();
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

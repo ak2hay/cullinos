@@ -16,6 +16,9 @@ BaseOptions _baseOptions() => BaseOptions(
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'X-Cullinos-Portal': waiterPortalId,
+        // Lets the API skip Turnstile for this app. Installed builds that
+        // predate the header are still recognized by their Dart user agent.
+        'X-Cullinos-Client': 'waiter-android',
       },
     );
 

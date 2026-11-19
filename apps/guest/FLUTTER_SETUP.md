@@ -91,7 +91,7 @@ $env:Path = "A:\flutter\bin;" + $env:Path
 $env:JAVA_HOME = "C:\Program Files\Java\jdk-23"
 $env:GRADLE_USER_HOME = "C:\Users\Admin\.gradle"
 cd A:\cullinos\apps\guest
-flutter run --flavor dev -t lib/main_dev.dart -d emulator-5554 --android-skip-build-dependency-validation --dart-define=GUEST_API_BASE=http://10.0.2.2:3001/api/v1
+flutter run --flavor dev -t lib/main_dev.dart -d emulator-5554 --android-skip-build-dependency-validation --dart-define=GUEST_API_BASE=http://10.0.2.2:3001/api/v1 --dart-define=TURNSTILE_SITE_KEY=0x4AAAAAAGI4qZ7befLdSFze
 ```
 
 ## Toolchain notes (already configured here)

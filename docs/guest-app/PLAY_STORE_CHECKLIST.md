@@ -45,7 +45,7 @@
 ```bash
 cd apps/guest
 flutter pub get
-flutter build appbundle --flavor prod -t lib/main_prod.dart
+flutter build appbundle --flavor prod -t lib/main_prod.dart --dart-define=TURNSTILE_SITE_KEY="${TURNSTILE_SITE_KEY:-0x4AAAAAAGI4qZ7befLdSFze}"
 ```
 
 Upload AAB to Play Console → internal → closed → production (10% staged).

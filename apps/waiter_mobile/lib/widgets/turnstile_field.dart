@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 /// Cloudflare Turnstile via WebView. Site key from `--dart-define=TURNSTILE_SITE_KEY=...`
+/// (release builds default it via `scripts/flutter-mobile-defines.sh`).
+/// The page is loaded with base URL `https://waiter.cullinos.com` so the widget hostname
+/// matches the Turnstile site.
 class TurnstileField extends StatefulWidget {
   const TurnstileField({
     super.key,
@@ -50,7 +53,10 @@ class _TurnstileFieldState extends State<TurnstileField> {
           }
         },
       )
-      ..loadHtmlString(_html(TurnstileField.siteKey));
+      ..loadHtmlString(
+        _html(TurnstileField.siteKey),
+        baseUrl: 'https://waiter.cullinos.com',
+      );
   }
 
   static String _html(String siteKey) {

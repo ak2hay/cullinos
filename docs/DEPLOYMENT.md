@@ -26,8 +26,16 @@ Files: [`docker-compose.prod.yml`](../docker-compose.prod.yml), nginx configs in
 ## Configuration
 
 - **Runtime secrets** live only in `/opt/cullinos/.env` on the VM. The Deploy workflow never
-  writes that file. `TURNSTILE_SECRET_KEY` stays there; captcha stays off until it is set, and only
-  after the clients were built with the matching site key.
+  writes that file. `TURNSTILE_SECRET_KEY` stays there; captcha stays off until it is set.
+  Once set, browser portals and the marketing site require a token. Native clients skip
+  verification while `TURNSTILE_EXEMPT_NATIVE` is unset or `true` (the default): a
+  `User-Agent` starting with `Dart/` (installed Flutter, including guest APK 1.0.4), a
+  user agent containing `Electron/` (installed POS/KDS desktop), or
+  `X-Cullinos-Client: guest-android|waiter-android|pos-desktop|kds-desktop` on new builds.
+  Set `TURNSTILE_EXEMPT_NATIVE=false` to require a token from every client. Per-IP rate
+  limits on those routes stay in place either way. Flutter release builds pass the public
+  site key with `scripts/flutter-mobile-defines.sh` (`TURNSTILE_SITE_KEY`, default
+  `0x4AAAAAAGI4qZ7befLdSFze`).
 - **Build-time public keys** are GitHub Actions variables (Settings → Secrets and variables →
   Actions → Variables). They are not secrets:
   - `VITE_TURNSTILE_SITE_KEY` — login / forgot-password captcha in the SPAs

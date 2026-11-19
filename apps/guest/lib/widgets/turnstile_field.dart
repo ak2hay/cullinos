@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 /// Cloudflare Turnstile via WebView. Site key from `--dart-define=TURNSTILE_SITE_KEY=...`
-/// When unset, the widget is empty and [onToken] is never required by callers that check
-/// [TurnstileField.isEnabled].
+/// (release builds default it via `scripts/flutter-mobile-defines.sh`).
+/// The page is loaded with base URL `https://guest.cullinos.com` so the widget hostname
+/// matches the Turnstile site. When the site key is unset, the widget is empty and
+/// [onToken] is never required by callers that check [TurnstileField.isEnabled].
 class TurnstileField extends StatefulWidget {
   const TurnstileField({
     super.key,
@@ -52,7 +54,10 @@ class _TurnstileFieldState extends State<TurnstileField> {
           }
         },
       )
-      ..loadHtmlString(_html(TurnstileField.siteKey));
+      ..loadHtmlString(
+        _html(TurnstileField.siteKey),
+        baseUrl: 'https://guest.cullinos.com',
+      );
   }
 
   static String _html(String siteKey) {

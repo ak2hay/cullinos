@@ -57,10 +57,21 @@ Floor staff app for phone and tablet. Replaces the Waiter web portal (`waiter.cu
 | prod | `lib/main_prod.dart` | `https://api.cullinos.com/api/v1` |
 
 ```bash
-flutter run --flavor prod -t lib/main_prod.dart
+flutter run --flavor prod -t lib/main_prod.dart \
+  --dart-define=TURNSTILE_SITE_KEY="${TURNSTILE_SITE_KEY:-0x4AAAAAAGI4qZ7befLdSFze}"
 # Optional force-update threshold:
-flutter run --flavor prod -t lib/main_prod.dart --dart-define=WAITER_MIN_BUILD=2
+flutter run --flavor prod -t lib/main_prod.dart --dart-define=WAITER_MIN_BUILD=2 \
+  --dart-define=TURNSTILE_SITE_KEY="${TURNSTILE_SITE_KEY:-0x4AAAAAAGI4qZ7befLdSFze}"
 ```
+
+Release:
+
+```bash
+flutter build appbundle --flavor prod -t lib/main_prod.dart \
+  --dart-define=TURNSTILE_SITE_KEY="${TURNSTILE_SITE_KEY:-0x4AAAAAAGI4qZ7befLdSFze}"
+```
+
+Or `$(bash ../../scripts/flutter-mobile-defines.sh)` from this directory. The site key is public. The API skips Turnstile for this app (`User-Agent: Dart/…` on already-installed builds, `X-Cullinos-Client: waiter-android` on new ones).
 
 ## Package
 

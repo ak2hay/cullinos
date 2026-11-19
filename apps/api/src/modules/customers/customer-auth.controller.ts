@@ -74,7 +74,7 @@ export class CustomerAuthController {
     if (!orgId || !rawPhone) {
       throw new BadRequestException("phone and orgId are required");
     }
-    await assertTurnstile(body.captchaToken, clientIp(req));
+    await assertTurnstile(body.captchaToken, clientIp(req), req);
 
     const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
     if (!org || org.status === "suspended" || org.status === "cancelled") {

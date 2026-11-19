@@ -201,7 +201,7 @@ export class PublicReservationsController {
     },
     @Req() req: Request,
   ) {
-    await assertTurnstile(body.captchaToken, clientIp(req));
+    await assertTurnstile(body.captchaToken, clientIp(req), req);
     const { captchaToken: _captcha, ...booking } = body;
     return this.service.publicBook(booking);
   }

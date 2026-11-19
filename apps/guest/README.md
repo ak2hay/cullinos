@@ -29,8 +29,11 @@ flutter run --flavor dev -t lib/main_dev.dart
 Release:
 
 ```bash
-flutter build appbundle --flavor prod -t lib/main_prod.dart
+flutter build appbundle --flavor prod -t lib/main_prod.dart \
+  --dart-define=TURNSTILE_SITE_KEY="${TURNSTILE_SITE_KEY:-0x4AAAAAAGI4qZ7befLdSFze}"
 ```
+
+Or `$(bash ../../scripts/flutter-mobile-defines.sh)` from this directory. The site key is public. The API skips Turnstile for this app (`User-Agent: Dart/…` on already-installed builds, `X-Cullinos-Client: guest-android` on new ones).
 
 ## Deep links
 

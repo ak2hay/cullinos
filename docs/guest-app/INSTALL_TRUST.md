@@ -23,7 +23,8 @@ keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -vali
 
 ```powershell
 cd apps/guest
-flutter build appbundle --flavor prod -t lib/main_prod.dart
+$siteKey = if ($env:TURNSTILE_SITE_KEY) { $env:TURNSTILE_SITE_KEY } else { "0x4AAAAAAGI4qZ7befLdSFze" }
+flutter build appbundle --flavor prod -t lib/main_prod.dart --dart-define=TURNSTILE_SITE_KEY=$siteKey
 ```
 
 Output: `build/app/outputs/bundle/prodRelease/app-prod-release.aab`

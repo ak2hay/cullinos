@@ -71,6 +71,10 @@ export async function apiRequest<T>(
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
   headers.set('X-Cullinos-Portal', PORTAL_ID);
+  // Desktop builds load via file:// and cannot pass the Turnstile hostname check.
+  if (import.meta.env.VITE_DESKTOP === 'true') {
+    headers.set('X-Cullinos-Client', 'pos-desktop');
+  }
 
   if (authenticated) {
     const token = useAuthStore.getState().accessToken;

@@ -9,7 +9,13 @@ final dioProvider = Provider<Dio>((ref) {
       baseUrl: AppConfig.current.apiBaseUrl,
       connectTimeout: const Duration(seconds: 20),
       receiveTimeout: const Duration(seconds: 30),
-      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        // Lets the API skip Turnstile for this app. Installed APKs that
+        // predate the header are still recognized by their Dart user agent.
+        'X-Cullinos-Client': 'guest-android',
+      },
     ),
   );
 
