@@ -51,8 +51,8 @@ export const DPDP_NOTICE_SUMMARY = {
     "Right to grievance redressal",
   ],
   grievanceOfficer: {
-    name: "Grievance Officer",
-    email: "privacy@rkyves.com",
+    name: "Akshay Patil",
+    email: "Akshaypatil@rkyves.com",
     note: "We aim to acknowledge grievances within 24 hours and resolve within the timelines under applicable DPDP rules.",
   },
   subProcessors: [

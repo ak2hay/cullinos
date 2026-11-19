@@ -124,12 +124,11 @@ export default function PrivacyPage() {
           </p>
 
           <h2>11. Grievance officer</h2>
-          {/* TODO: replace "Privacy Desk" with the named grievance officer when confirmed. */}
           <p>
-            Grievance Officer: Privacy Desk
+            Grievance Officer: Akshay Patil
             <br />
             Email:{' '}
-            <a href="mailto:privacy@rkyves.com">privacy@rkyves.com</a>
+            <a href="mailto:akshaypatil@rkyves.com">Akshaypatil@rkyves.com</a>
             <br />
             Alternate:{' '}
             <a href={`mailto:${BUSINESS_NAP.email}`}>{BUSINESS_NAP.email}</a>
