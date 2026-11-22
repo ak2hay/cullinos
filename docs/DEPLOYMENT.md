@@ -142,7 +142,7 @@ Other `scripts/vm-*.py` files are one-off helpers from earlier releases; read th
 | `CI` | push to `main` (and pull requests) | `migrate deploy` + drift check, seed, lint, typecheck, build, tests, `flutter analyze`/`test` |
 | `API Build` | push to `main` (API paths) | Production API compile check |
 | `Security` | push to `main`, pull requests, weekly | npm audit, CodeQL, gitleaks, Trivy |
-| `Uptime Check` | every 15m | Curl health URLs |
+| `Uptime Check` | every 15m | SSH to the VM and curl origin nginx (bypasses Cloudflare) |
 | `E2E Production` | nightly | Playwright against prod |
 
 ## Build commit in `/health`
