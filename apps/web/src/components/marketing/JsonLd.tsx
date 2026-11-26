@@ -6,7 +6,8 @@ export function OrganizationJsonLd() {
   const data = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: BUSINESS_NAP.legalName,
+    name: BUSINESS_NAP.brand,
+    legalName: BUSINESS_NAP.legalName,
     url: getSiteUrl(),
     email: BUSINESS_NAP.email,
     ...(BUSINESS_NAP.telephone
@@ -46,10 +47,19 @@ export function SoftwareApplicationJsonLd() {
       '@type': 'Offer',
       priceCurrency: 'INR',
       price: String(MARKETING_PLANS[0].priceMonthly / 100),
+      description: 'Monthly price excluding GST',
+      priceSpecification: {
+        '@type': 'UnitPriceSpecification',
+        price: String(MARKETING_PLANS[0].priceMonthly / 100),
+        priceCurrency: 'INR',
+        valueAddedTaxIncluded: false,
+        unitText: 'MON',
+      },
     },
     provider: {
       '@type': 'Organization',
-      name: BUSINESS_NAP.legalName,
+      name: BUSINESS_NAP.brand,
+      legalName: BUSINESS_NAP.legalName,
       email: BUSINESS_NAP.email,
       address: {
         '@type': 'PostalAddress',
@@ -76,7 +86,8 @@ export function WebSiteJsonLd() {
     description: CULLINOS_BRAND.tagline,
     publisher: {
       '@type': 'Organization',
-      name: BUSINESS_NAP.legalName,
+      name: BUSINESS_NAP.brand,
+      legalName: BUSINESS_NAP.legalName,
       email: BUSINESS_NAP.email,
       address: BUSINESS_ADDRESS_LINE,
     },

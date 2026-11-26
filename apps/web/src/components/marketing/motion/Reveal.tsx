@@ -1,8 +1,4 @@
-'use client';
-
-import { motion, useReducedMotion } from 'framer-motion';
 import type { ReactNode } from 'react';
-import { defaultTransition, fadeUp, reducedMotionTransition } from './motionVariants';
 
 interface RevealProps {
   children: ReactNode;
@@ -11,23 +7,8 @@ interface RevealProps {
   as?: 'div' | 'section' | 'article';
 }
 
-export function Reveal({ children, className, delay = 0, as = 'div' }: RevealProps) {
-  const prefersReducedMotion = useReducedMotion();
-  const Component = motion[as];
-
-  return (
-    <Component
-      className={className}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: '-60px' }}
-      variants={fadeUp}
-      transition={{
-        ...(prefersReducedMotion ? reducedMotionTransition : defaultTransition),
-        delay: prefersReducedMotion ? 0 : delay,
-      }}
-    >
-      {children}
-    </Component>
-  );
+/** Static wrapper. Entrance motion was removed so the first paint matches the final layout. */
+export function Reveal({ children, className, as = 'div' }: RevealProps) {
+  const Tag = as;
+  return <Tag className={className}>{children}</Tag>;
 }

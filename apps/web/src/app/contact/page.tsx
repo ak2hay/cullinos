@@ -1,6 +1,7 @@
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { ContactForm } from '@/components/marketing/ContactForm';
+import { WhatsAppLink } from '@/components/marketing/WhatsAppLink';
 import { BUSINESS_ADDRESS_LINE, BUSINESS_NAP } from '@/lib/business';
 import { createMetadata } from '@/lib/metadata';
 
@@ -46,6 +47,7 @@ export default function ContactPage() {
               {BUSINESS_NAP.email}
             </a>
           </p>
+          <WhatsAppLink className="btn-pill mb-6 inline-flex" />
           <ContactForm />
         </div>
       </Section>

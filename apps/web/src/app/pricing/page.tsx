@@ -7,7 +7,7 @@ import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
   title: 'Pricing',
-  description: `Cullinos pricing from ${formatInr(MARKETING_PLANS[0].priceMonthly)}/month. Compare Starter, QSR / Food SMB, Professional, Enterprise, and Hospitality plans.`,
+  description: `Cullinos pricing from ${formatInr(MARKETING_PLANS[0].priceMonthly)}/month + GST. Compare Starter, QSR / Food SMB, Professional, Enterprise, and Hospitality plans. 30-day free trial, no card needed.`,
   path: '/pricing',
 });
 
@@ -16,14 +16,14 @@ export default function PricingPage() {
     <>
       <Hero
         eyebrow="Pricing"
-        title="Simple plans, powerful platform"
-        subtitle="Start with Starter or Professional. Talk to us for Enterprise and Hospitality deployments."
-        primaryCta={{ label: 'Start free trial', href: 'https://admin.cullinos.com/register' }}
+        title="Restaurant POS pricing, plus GST"
+        subtitle="Starter does not include inventory. Talk to us for Enterprise and Hospitality. Every price below is + GST."
+        primaryCta={{ label: 'Start 30-day free trial', href: 'https://admin.cullinos.com/register' }}
         secondaryCta={{ label: 'Contact sales', href: '/contact' }}
       />
       <Section
         title="Choose your plan"
-        description="Every plan includes cloud hosting, software updates, and support. Pick Starter or Professional to begin — contact us for Enterprise and Hospitality."
+        description="Every plan includes cloud hosting, software updates, and support. Prices are + GST. Pick Starter or Professional to begin — contact us for Enterprise and Hospitality."
       >
         <PricingTable />
       </Section>
@@ -32,7 +32,7 @@ export default function PricingPage() {
         description="Enterprise and Hospitality plans include dedicated onboarding, multi-outlet setup, and integration support."
         primaryLabel="Contact sales"
         primaryHref="/contact"
-        secondaryLabel="Start free trial"
+        secondaryLabel="Start 30-day free trial"
         secondaryHref="https://admin.cullinos.com/register"
       />
     </>

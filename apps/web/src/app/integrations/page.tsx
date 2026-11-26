@@ -17,7 +17,7 @@ export default function IntegrationsPage() {
       <Hero
         eyebrow="Integrations"
         title="Connect your existing stack"
-        subtitle="Hardware, Razorpay, MSG91, Firebase, and Swiggy/Zomato ship today. Deeper hotel PMS sync is on our roadmap — we're building honestly."
+        subtitle="Razorpay and MSG91 are live. Swiggy and Zomato are not offered in the restaurant admin yet. Deeper hotel PMS sync is on the roadmap."
       />
       <Section title="Integration categories">
         <div className="grid gap-6 md:grid-cols-2">

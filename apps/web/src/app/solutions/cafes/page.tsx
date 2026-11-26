@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { FounderBand } from '@/components/marketing/FounderBand';
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
@@ -34,8 +35,17 @@ export default function CafesSolutionPage() {
             Cafes don&apos;t need floor plans. Cullinos counter mode gives you order numbers, name-on-ticket,
             pickup vs eat-in, and a customer-facing queue board for the morning rush.
           </p>
-          <div className="relative aspect-video overflow-hidden rounded-2xl border border-border-light bg-bg-dark shadow-card">
-            <MarketingImage imageKey="mockupPos" alt="Cullinos counter POS for cafes" fill className="object-cover object-top" sizes="50vw" />
+          <div
+            className="relative overflow-hidden rounded-2xl border border-border-light bg-bg-dark shadow-card"
+            style={{ aspectRatio: '16 / 9' }}
+          >
+            <MarketingImage
+              imageKey="mockupPos"
+              alt="Cullinos counter POS for cafes"
+              fill
+              className="object-contain p-2"
+              sizes="(max-width: 1024px) 100vw, 640px"
+            />
           </div>
         </div>
       </Section>
@@ -55,6 +65,7 @@ export default function CafesSolutionPage() {
           </Link>
         </p>
       </Section>
+      <FounderBand />
       <CTABanner />
     </>
   );

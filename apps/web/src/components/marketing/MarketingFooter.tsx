@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { CULLINOS_BRAND } from '@cullinos/shared';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
 import { BUSINESS_ADDRESS_LINE, BUSINESS_NAP, MAPS_EMBED_QUERY } from '@/lib/business';
 
@@ -15,6 +15,9 @@ const fallbackColumns = [
       { href: '/pricing', label: 'Pricing' },
       { href: '/integrations', label: 'Integrations' },
       { href: '/blog', label: 'Blog' },
+      { href: '/restaurant-billing-software-mumbai', label: 'Billing software Mumbai' },
+      { href: '/cloud-kitchen-pos', label: 'Cloud kitchen POS' },
+      { href: '/kot-software', label: 'KOT software' },
     ],
   },
   {
@@ -38,15 +41,18 @@ const fallbackColumns = [
   },
 ];
 
-const socialLinks = [
-  { label: 'LinkedIn', href: '#', icon: 'in' },
-  { label: 'Twitter', href: '#', icon: 'X' },
-  { label: 'Instagram', href: '#', icon: 'ig' },
+const guideLinks = [
+  { href: '/restaurant-billing-software-mumbai', label: 'Restaurant billing software Mumbai' },
+  { href: '/cloud-kitchen-pos', label: 'Cloud kitchen POS' },
+  { href: '/kot-software', label: 'KOT software' },
 ];
+
+const socialLinks = [{ label: 'Instagram', href: 'https://www.instagram.com/cullinos/', icon: 'ig' }];
 
 export function MarketingFooter() {
   const cms = useMarketingCms();
   const contactEmail = cms.site?.contactEmail ?? BUSINESS_NAP.email;
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   const columns = useMemo(() => {
     const footerItems = cms.navItems.filter(
@@ -101,13 +107,24 @@ export function MarketingFooter() {
           ))}
 
           <div className="overflow-hidden rounded-2xl border border-border bg-bg-card shadow-card">
-            <iframe
-              title={`${BUSINESS_NAP.brand} office location — ${BUSINESS_ADDRESS_LINE}`}
-              src={`https://maps.google.com/maps?q=${MAPS_EMBED_QUERY}&z=12&output=embed`}
-              className="h-44 w-full border-0"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
+            {mapLoaded ? (
+              <iframe
+                title={`${BUSINESS_NAP.brand} office location — ${BUSINESS_ADDRESS_LINE}`}
+                src={`https://maps.google.com/maps?q=${MAPS_EMBED_QUERY}&z=12&output=embed`}
+                className="h-44 w-full border-0"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setMapLoaded(true)}
+                className="flex h-44 w-full flex-col items-center justify-center gap-1 bg-bg-elevated px-4 text-sm text-text-secondary"
+              >
+                <span className="font-medium text-text-primary">Show map</span>
+                <span>{BUSINESS_ADDRESS_LINE}</span>
+              </button>
+            )}
             <p className="border-t border-border-light px-4 py-3 text-xs text-text-muted">
               {BUSINESS_NAP.legalName} · {BUSINESS_ADDRESS_LINE}
               {BUSINESS_NAP.telephone ? (
@@ -135,6 +152,8 @@ export function MarketingFooter() {
               <a
                 key={social.label}
                 href={social.href}
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label={social.label}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-border-light bg-bg-card text-[10px] font-semibold uppercase text-text-secondary transition hover:border-brand-gold hover:bg-brand-gold hover:text-white"
               >
@@ -150,6 +169,11 @@ export function MarketingFooter() {
               {BUSINESS_NAP.legalName} · {BUSINESS_ADDRESS_LINE}
             </p>
             <div className="mt-2 flex flex-wrap justify-end gap-x-4 gap-y-1 text-xs text-text-muted">
+              {guideLinks.map((link) => (
+                <Link key={link.href} href={link.href} className="transition hover:text-text-primary">
+                  {link.label}
+                </Link>
+              ))}
               <Link href="/privacy" className="transition hover:text-text-primary">
                 Privacy
               </Link>

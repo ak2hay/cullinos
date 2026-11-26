@@ -15,13 +15,13 @@ export const metadata = createMetadata({
 const faqs: Array<{ q: string; a: ReactNode }> = [
   {
     q: `What is ${CULLINOS_BRAND.name}?`,
-    a: `${CULLINOS_BRAND.name} is a restaurant operating system: POS, kitchen display, menu, inventory, staff, orders and reports in one platform, run from a web admin portal.`,
+    a: `${CULLINOS_BRAND.name} is restaurant POS and GST billing software: billing, KOT, kitchen display, menu, and orders in one platform, run from a web admin portal. Inventory is on higher plans.`,
   },
   {
     q: 'How do I get started?',
     a: (
       <>
-        Start a free trial from the admin portal or{' '}
+        Start a 30-day free trial from the admin portal. No card is required to sign up. You can also{' '}
         <Link href="/contact?intent=trial" className="text-brand-gold hover:underline">
           talk to our team
         </Link>

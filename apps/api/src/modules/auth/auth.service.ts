@@ -9,6 +9,7 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { hashPassword, verifyPassword } from "@cullinos/auth";
+import { DEFAULT_TRIAL_DAYS } from "@cullinos/shared";
 import { createHash, randomBytes, randomInt } from "crypto";
 import { PrismaService } from "../../prisma/prisma.service";
 import { RedisService } from "../../common/redis/redis.service";
@@ -1152,7 +1153,7 @@ export class AuthService {
       adminPhone: phone,
       status: "trial",
       mustChangePassword: true,
-      trialDays: 15,
+      trialDays: DEFAULT_TRIAL_DAYS,
     });
 
     const emailSent = await this.mail.sendOwnerCredentials({
@@ -1186,10 +1187,10 @@ export class AuthService {
     if (smsSent) deliveryParts.push("SMS");
     let message: string;
     if (deliveryParts.length > 0) {
-      message = `Account created. Check your ${deliveryParts.join(" and ")} for login credentials. You have a 15-day Enterprise trial.`;
+      message = `Account created. Check your ${deliveryParts.join(" and ")} for login credentials. You have a ${DEFAULT_TRIAL_DAYS}-day Enterprise trial.`;
     } else {
       message =
-        "Account created, but we could not send email or SMS credentials. Contact support or try signing in after password reset is configured. You have a 15-day Enterprise trial.";
+        `Account created, but we could not send email or SMS credentials. Contact support or try signing in after password reset is configured. You have a ${DEFAULT_TRIAL_DAYS}-day Enterprise trial.`;
       this.logger.warn(
         `Owner credentials not delivered for org ${result.organizationId} (emailSent=false, smsSent=false)`,
       );

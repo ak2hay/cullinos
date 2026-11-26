@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
+import { CTABanner } from '@/components/marketing/CTABanner';
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
+import { formatBlogDate } from '@/lib/blog-date';
 import { getBlogPost, getBlogSlugs } from '@/lib/blog';
 import { createMetadata } from '@/lib/metadata';
 
@@ -34,7 +36,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   return (
     <>
       <Hero
-        eyebrow={post.date}
+        eyebrow={formatBlogDate(post.date)}
         title={post.title}
         subtitle={post.excerpt}
         primaryCta={{ label: '← All posts', href: '/blog' }}
@@ -61,6 +63,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           </ReactMarkdown>
         </article>
       </Section>
+      <CTABanner
+        title="Try Cullinos on your menu"
+        description="30-day free trial · no card needed. Prices on the pricing page are + GST."
+      />
     </>
   );
 }

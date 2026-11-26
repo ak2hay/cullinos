@@ -11,6 +11,7 @@ declare global {
           'expired-callback'?: () => void;
           'error-callback'?: () => void;
           theme?: 'light' | 'dark' | 'auto';
+          size?: 'normal' | 'compact' | 'flexible';
         },
       ) => string;
       remove: (widgetId: string) => void;
@@ -49,6 +50,7 @@ export function Turnstile({ onToken, onExpire, siteKey, className }: TurnstilePr
         'expired-callback': () => onExpire?.(),
         'error-callback': () => onExpire?.(),
         theme: 'auto',
+        size: 'flexible',
       });
     };
 
@@ -80,5 +82,11 @@ export function Turnstile({ onToken, onExpire, siteKey, className }: TurnstilePr
 
   if (!key) return null;
 
-  return <div ref={containerRef} className={className ?? 'cf-turnstile'} />;
+  return (
+    <div
+      ref={containerRef}
+      className={className ?? 'cf-turnstile w-full min-h-[65px]'}
+      style={{ width: '100%', minHeight: 65 }}
+    />
+  );
 }

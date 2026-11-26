@@ -30,7 +30,7 @@ export class MarketingService {
       (await this.prisma.marketingSite.findUnique({ where: { id: "default" } })) ?? {
         id: "default",
         siteName: "Cullinos",
-        tagline: "Restaurant Operating System",
+        tagline: "Restaurant POS & GST Billing Software",
       }
     );
   }
@@ -50,7 +50,7 @@ export class MarketingService {
       create: {
         id: "default",
         siteName: data.siteName ?? "Cullinos",
-        tagline: data.tagline ?? "Restaurant Operating System",
+        tagline: data.tagline ?? "Restaurant POS & GST Billing Software",
         ...data,
       },
       update: data,
@@ -382,10 +382,10 @@ export class MarketingService {
       {
         headline: "Run your restaurant from one place.",
         subline: "POS, kitchen, waiter app, and online orders — unified for modern operations.",
-        cta: "Start free trial",
+        cta: "Start 30-day free trial",
       },
       {
-        headline: "The operating system for your restaurant.",
+        headline: "Restaurant POS and GST billing software.",
         subline: "One platform for billing, kitchen, staff, and growth — built for India.",
         cta: "Talk to our team",
       },
@@ -454,7 +454,7 @@ export class MarketingService {
       create: {
         id: "default",
         siteName: "Cullinos",
-        tagline: "Restaurant Operating System",
+        tagline: "Restaurant POS & GST Billing Software",
         lastPublishedAt: now,
       },
       update: { lastPublishedAt: now },
@@ -554,7 +554,7 @@ export class MarketingService {
 
     await this.updateSite({
       siteName: "Cullinos",
-      tagline: "Restaurant Operating System",
+      tagline: "Restaurant POS & GST Billing Software",
       siteDescription:
         "Run your restaurant from one place. Menu, orders, inventory, staff, and analytics — unified for modern restaurant operations.",
       registerUrl: "/contact?intent=trial",

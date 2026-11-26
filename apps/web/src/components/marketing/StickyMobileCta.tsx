@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { TRIAL_CTA_LABEL } from '@cullinos/shared';
+import { TrialTerms } from '@/components/marketing/TrialTerms';
 import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
 import { getRegisterUrl } from '@/lib/urls';
 
@@ -16,13 +18,16 @@ export function StickyMobileCta({ cookieBannerOpen }: { cookieBannerOpen?: boole
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border-light bg-bg-primary/95 p-3 backdrop-blur-md md:hidden">
-      <div className="mx-auto flex max-w-lg gap-2">
-        <Link href={registerUrl} className="btn-pill-filled btn-pill flex-1 justify-center text-center text-sm">
-          Start free trial
-        </Link>
-        <Link href="/contact" className="btn-pill flex-1 justify-center text-center text-sm">
-          Contact
-        </Link>
+      <div className="mx-auto max-w-lg">
+        <TrialTerms className="mb-1 text-center" />
+        <div className="flex gap-2">
+          <Link href={registerUrl} className="btn-pill-filled btn-pill flex-1 justify-center text-center text-sm">
+            {TRIAL_CTA_LABEL}
+          </Link>
+          <Link href="/contact" className="btn-pill flex-1 justify-center text-center text-sm">
+            Contact
+          </Link>
+        </div>
       </div>
     </div>
   );

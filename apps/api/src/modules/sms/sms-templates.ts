@@ -1,3 +1,5 @@
+import { DEFAULT_TRIAL_DAYS } from "@cullinos/shared";
+
 /**
  * In-repo transactional SMS copy for Cullinos.
  *
@@ -17,7 +19,7 @@ export function smsOwnerCredentials(input: {
   temporaryPassword: string;
   adminUrl: string;
 }): string {
-  return `Cullinos: Your ${input.companyName} admin login is ready. Email: ${input.email}. Temp password: ${input.temporaryPassword}. Login: ${input.adminUrl}`;
+  return `Cullinos: Your ${input.companyName} admin login is ready. ${DEFAULT_TRIAL_DAYS}-day trial, no card until you pick a paid plan. Email: ${input.email}. Temp password: ${input.temporaryPassword}. Login: ${input.adminUrl}`;
 }
 
 export function smsPasswordReset(input: {

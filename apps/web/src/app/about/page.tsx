@@ -6,7 +6,7 @@ import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
   title: 'About',
-  description: `Learn about ${CULLINOS_BRAND.name} by ${CULLINOS_BRAND.parent} — a Restaurant Operating System built for India.`,
+  description: `Learn about ${CULLINOS_BRAND.name} by ${CULLINOS_BRAND.parent} — restaurant POS and GST billing software built in Mumbai by Akshay Patil.`,
   path: '/about',
 });
 
@@ -16,7 +16,7 @@ export default function AboutPage() {
       <Hero
         eyebrow="About"
         title={`${CULLINOS_BRAND.name} by ${CULLINOS_BRAND.parent}`}
-        subtitle="We're building the operating system for modern restaurants — starting in India, designed to scale globally."
+        subtitle="Restaurant POS and GST billing software, built in Mumbai by Rkyves. Founder Akshay Patil."
       />
       <Section title="Our mission">
         <div className="max-w-3xl space-y-4 text-text-secondary">
@@ -33,8 +33,9 @@ export default function AboutPage() {
             channel, flows through one engine.
           </p>
           <p>
-            We built India-first: configurable GST tax groups on bills, INR pricing, Asia/Kolkata defaults, and
-            offline POS via the Local Gateway because connectivity isn&apos;t guaranteed in every outlet.
+            We built India-first: configurable GST tax groups on bills, INR pricing, and Asia/Kolkata defaults.
+            The POS and kitchen display run in the browser and in a Windows desktop shell, both online against
+            the Cullinos API.
           </p>
         </div>
       </Section>

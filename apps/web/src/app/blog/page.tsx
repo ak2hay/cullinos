@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
+import { formatBlogDate } from '@/lib/blog-date';
 import { getBlogPosts } from '@/lib/blog';
 import { createMetadata } from '@/lib/metadata';
 
@@ -19,7 +20,7 @@ export default async function BlogPage() {
         eyebrow="Blog"
         title="Updates from Cullinos"
         subtitle="Product news, restaurant operations insights, and platform updates."
-        primaryCta={{ label: 'Start free trial', href: 'https://admin.cullinos.com/register' }}
+        primaryCta={{ label: 'Start 30-day free trial', href: 'https://admin.cullinos.com/register' }}
         secondaryCta={{ label: 'Subscribe via RSS', href: '/blog/rss.xml' }}
       />
       <Section title="Latest posts">
@@ -32,7 +33,9 @@ export default async function BlogPage() {
                 key={post.slug}
                 className="rounded-2xl border border-border-light bg-bg-card p-6 shadow-card transition hover:border-brand-gold/40"
               >
-                <time className="text-xs text-text-muted">{post.date}</time>
+                <time className="text-xs text-text-muted" dateTime={post.date}>
+                  {formatBlogDate(post.date)}
+                </time>
                 <h3 className="mt-2 text-lg font-semibold">
                   <Link href={`/blog/${post.slug}`} className="hover:text-brand-gold">
                     {post.title}

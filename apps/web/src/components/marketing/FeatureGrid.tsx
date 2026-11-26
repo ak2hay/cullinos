@@ -58,13 +58,18 @@ export function FeatureSections({ sections }: { sections: readonly FeatureSectio
                     {section.items[0]?.description}
                   </p>
                 </div>
-                <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-border-light bg-bg-elevated shadow-card">
+                <div
+                  className="relative overflow-hidden rounded-2xl border border-border-light bg-bg-elevated shadow-card"
+                  style={{ aspectRatio: '16 / 10' }}
+                >
                   <MarketingImage
                     imageKey={imageKey}
                     alt={`${section.title} module`}
                     fill
                     className="object-contain p-3"
-                    sizes="(max-width: 768px) 100vw, 50vw"
+                    sizes="(max-width: 1024px) 100vw, 640px"
+                    width={960}
+                    height={600}
                   />
                 </div>
               </div>

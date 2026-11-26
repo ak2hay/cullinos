@@ -15,16 +15,25 @@ import './globals.css';
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
+  display: 'swap',
+  adjustFontFallback: true,
+  preload: true,
 });
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
   variable: '--font-playfair',
+  display: 'swap',
+  adjustFontFallback: true,
+  preload: true,
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
-  variable: '--font-mono',
+  variable: '--font-jetbrains',
+  display: 'swap',
+  adjustFontFallback: true,
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -53,11 +62,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <WebSiteJsonLd />
         <MarketingThemeStyles theme={cms.theme} />
       </head>
-      <body className="bg-bg-primary text-text-primary antialiased pb-20 md:pb-0">
+      <body className={`${inter.className} bg-bg-primary text-text-primary antialiased pb-36 md:pb-0`}>
         <MarketingCmsProvider initialData={cms}>
           <MarketingProviders>
             <MarketingNav />
-            <main>{children}</main>
+            <main className="pb-8">{children}</main>
             <MarketingFooter />
             <MarketingChromeExtras />
           </MarketingProviders>

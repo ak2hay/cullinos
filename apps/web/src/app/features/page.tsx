@@ -18,9 +18,9 @@ export default function FeaturesPage() {
     <>
       <Hero
         eyebrow="Features"
-        title="Every tool to run your restaurant"
-        subtitle="Cullinos includes POS, kitchen display, waiter app, online ordering, inventory, CRM, and enterprise management — all connected on one platform."
-        primaryCta={{ label: 'Start free trial', href: 'https://admin.cullinos.com/register' }}
+        title="Restaurant POS and GST billing software"
+        subtitle="POS, kitchen display, KOT, waiter app, and online ordering on one menu. Inventory and CRM are on higher plans. Prices exclude GST."
+        primaryCta={{ label: 'Start 30-day free trial', href: 'https://admin.cullinos.com/register' }}
         secondaryCta={{ label: 'View pricing', href: '/pricing' }}
       />
       <Section title="All features at a glance">

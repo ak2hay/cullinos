@@ -3,7 +3,8 @@ import { CTABanner } from '@/components/marketing/CTABanner';
 import { AllAppsShowcase } from '@/components/marketing/home/AllAppsShowcase';
 import { ElevatorPitch } from '@/components/marketing/home/ElevatorPitch';
 import { FeatureMatrix } from '@/components/marketing/home/FeatureMatrix';
-import { HomeHeroCarousel } from '@/components/marketing/home/HomeHeroCarousel';
+import { FounderBand } from '@/components/marketing/FounderBand';
+import { HomeHero } from '@/components/marketing/home/HomeHero';
 import { HomePricingSection } from '@/components/marketing/home/HomePricingSection';
 import { HowItWorks } from '@/components/marketing/home/HowItWorks';
 import { IndiaDifferentiators } from '@/components/marketing/home/IndiaDifferentiators';
@@ -16,7 +17,7 @@ export default function HomePage() {
   return (
     <>
       <SoftwareApplicationJsonLd />
-      <HomeHeroCarousel />
+      <HomeHero />
       <ElevatorPitch />
       <HowItWorks />
       <AllAppsShowcase />
@@ -24,6 +25,7 @@ export default function HomePage() {
       <IndiaDifferentiators />
       <HomePricingSection />
       <ReviewsSection />
+      <FounderBand />
       <CTABanner />
     </>
   );
