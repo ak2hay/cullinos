@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ComingSoonCard } from '@/components/marketing/ComingSoonCard';
+import { FounderBand } from '@/components/marketing/FounderBand';
 import { Hero } from '@/components/marketing/Hero';
 import { Section } from '@/components/marketing/Section';
 import { CTABanner } from '@/components/marketing/CTABanner';
@@ -36,8 +36,17 @@ export default function RestaurantsSolutionPage() {
             {CULLINOS_ELEVATOR_PITCH.subline} Run your cashier, kitchen, waiter app, and online orders from one
             platform — designed for Indian restaurants.
           </p>
-          <div className="relative aspect-video overflow-hidden rounded-2xl border border-border-light bg-bg-dark shadow-card">
-            <MarketingImage imageKey="mockupPos" alt="Cullinos POS for restaurants" fill className="object-cover object-top" sizes="50vw" />
+          <div
+            className="relative overflow-hidden rounded-2xl border border-border-light bg-bg-dark shadow-card"
+            style={{ aspectRatio: '16 / 9' }}
+          >
+            <MarketingImage
+              imageKey="mockupPos"
+              alt="Cullinos POS for restaurants"
+              fill
+              className="object-contain p-2"
+              sizes="(max-width: 1024px) 100vw, 640px"
+            />
           </div>
         </div>
       </Section>
@@ -52,8 +61,8 @@ export default function RestaurantsSolutionPage() {
             description="Set up tax groups such as CGST + SGST for your menu items, and every bill shows the tax breakdown. Your accountant still confirms rates and handles filings."
           />
           <PainPoint
-            title="Internet outages stop service"
-            description="Local Gateway keeps POS and KDS running offline and syncs when you're back online."
+            title="The ticket and the bill drift apart"
+            description="The kitchen ticket and the GST bill are the same order, so the items on the KOT match the receipt."
           />
           <PainPoint
             title="Too many tools, no single view"
@@ -77,9 +86,7 @@ export default function RestaurantsSolutionPage() {
           </Link>
         </p>
       </Section>
-      <Section title="Customer stories">
-        <ComingSoonCard message="Case studies coming soon. Be among our first restaurant partners and share your story with us." />
-      </Section>
+      <FounderBand />
       <CTABanner />
     </>
   );

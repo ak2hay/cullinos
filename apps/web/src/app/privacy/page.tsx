@@ -32,8 +32,8 @@ export default function PrivacyPage() {
         <div className="prose-marketing mx-auto max-w-3xl">
           <h2>1. Who we are (Data Fiduciary / Processor)</h2>
           <p>
-            {BUSINESS_NAP.legalName} (&quot;we&quot;, &quot;us&quot;) operates {BUSINESS_NAP.brand}, a Restaurant
-            Operating System delivered as software-as-a-service. For platform account and billing data, we act as a{' '}
+            {BUSINESS_NAP.legalName} (&quot;we&quot;, &quot;us&quot;) operates {BUSINESS_NAP.brand}, restaurant POS
+            and GST billing software delivered as software-as-a-service. For platform account and billing data, we act as a{' '}
             <strong>Data Fiduciary</strong>. For customer, guest, and order personal data entered by a restaurant
             (tenant), the restaurant is typically the Data Fiduciary and we act as a <strong>Data Processor</strong>{' '}
             on their behalf.

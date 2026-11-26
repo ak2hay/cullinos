@@ -22,8 +22,8 @@
   --color-status-warning: #b8860b;
   --color-status-error: #b54a4a;
   --font-sans: var(--font-inter), system-ui, sans-serif;
-  --font-serif: var(--font-playfair), Georgia, serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: var(--font-playfair), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
   --shadow-soft: 0 8px 32px rgba(44, 36, 22, 0.08);
   --shadow-shelf: 0 12px 40px rgba(44, 36, 22, 0.12);
   --shadow-card: 0 4px 24px rgba(44, 36, 22, 0.06);

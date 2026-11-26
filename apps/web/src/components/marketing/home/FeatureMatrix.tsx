@@ -14,9 +14,10 @@ export function FeatureMatrix() {
       <div className="mx-auto max-w-7xl px-6 lg:px-10">
         <Reveal className="mb-10 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <h2 className="font-serif text-3xl font-medium md:text-4xl">Everything included</h2>
+            <h2 className="font-serif text-3xl font-medium md:text-4xl">What you can run</h2>
             <p className="mt-3 max-w-xl text-text-secondary">
-              A complete feature set for running your restaurant — from billing to enterprise analytics.
+              Starter includes POS, GST billing, KOT, tables, kitchen display, and QR or online ordering.
+              Inventory, recipes, and purchasing start on higher plans.
             </p>
           </div>
           <Link href="/features" className="btn-pill shrink-0">

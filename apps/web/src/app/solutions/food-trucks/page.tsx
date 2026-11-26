@@ -7,7 +7,7 @@ import { createMetadata } from '@/lib/metadata';
 
 export const metadata = createMetadata({
   title: 'Food Trucks & Pop-ups',
-  description: 'Cullinos for food trucks — mobile POS, offline sync, event scheduling, and pre-orders.',
+  description: 'Cullinos for food trucks — counter POS, event scheduling, and pre-orders. The POS needs a connection to the Cullinos API.',
   path: '/solutions/food-trucks',
 });
 
@@ -26,7 +26,7 @@ export default function FoodTrucksSolutionPage() {
       <Hero
         eyebrow="Solutions"
         title="Built for food trucks and pop-ups"
-        subtitle="Take orders anywhere — festivals, markets, corporate parks — with offline-first POS and event scheduling."
+        subtitle="Take orders at festivals, markets, and corporate parks with counter POS and event scheduling. The app talks to the Cullinos API while you are online."
       />
       <Section title="Mobile by design">
         <div className="grid items-center gap-8 lg:grid-cols-2">

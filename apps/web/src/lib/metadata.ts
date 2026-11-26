@@ -13,11 +13,12 @@ export function createMetadata({
   const siteUrl = getSiteUrl();
   const fullTitle = title ? `${title} | ${SITE_NAME} — ${SITE_TAGLINE}` : `${SITE_NAME} — ${SITE_TAGLINE}`;
   const url = `${siteUrl}${path}`;
+  const imagePath = path ? `${path}/opengraph-image` : '/opengraph-image';
   const ogImage = {
-    url: '/opengraph-image',
+    url: imagePath,
     width: 1200,
     height: 630,
-    alt: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    alt: `${fullTitle}`,
   };
 
   return {

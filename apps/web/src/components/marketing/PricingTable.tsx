@@ -9,9 +9,11 @@ import {
   formatInr,
   isContactPricing,
   MARKETING_PLANS,
+  TRIAL_CTA_LABEL,
   yearlySavings,
   type MarketingPlan,
 } from '@cullinos/shared';
+import { TrialTerms } from '@/components/marketing/TrialTerms';
 import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
 import { getRegisterUrl } from '@/lib/urls';
 
@@ -71,13 +73,38 @@ export function PricingTable() {
         </button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-6">
+        {plans.map((plan, index) => {
+          const sharesLastRow = plans.length === 5 && index >= plans.length - 2;
+          return (
+            <div key={plan.id} className={sharesLastRow ? 'md:col-span-3' : 'md:col-span-2'}>
+              <PricingCard plan={plan} yearly={yearly} registerUrl={registerUrl} />
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-12 space-y-4 md:hidden">
         {plans.map((plan) => (
-          <PricingCard key={plan.id} plan={plan} yearly={yearly} registerUrl={registerUrl} />
+          <article key={plan.id} className="rounded-2xl border border-border-light bg-bg-card p-5 shadow-card">
+            <h3 className="font-serif text-lg">{plan.name}</h3>
+            <ul className="mt-3 space-y-2">
+              {ALL_COMPARISON_FEATURES.map((feature) => (
+                <li key={feature} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-text-secondary">{FEATURE_LABELS[feature]}</span>
+                  {plan.features.includes(feature) ? (
+                    <span className="text-status-success">✓</span>
+                  ) : (
+                    <span className="text-text-muted">—</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </article>
         ))}
       </div>
 
-      <div className="mt-12 overflow-x-auto rounded-2xl border border-border-light bg-bg-card shadow-card">
+      <div className="mt-12 hidden overflow-x-auto rounded-2xl border border-border-light bg-bg-card shadow-card md:block">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead>
             <tr className="border-b border-border-light bg-bg-elevated">
@@ -128,7 +155,7 @@ function PricingCard({
   const ctaLabel = contactPricing
     ? 'Contact us for pricing'
     : plan.cta === 'register'
-      ? 'Start free trial'
+      ? TRIAL_CTA_LABEL
       : 'Contact sales';
 
   return (
@@ -152,13 +179,13 @@ function PricingCard({
         ) : (
           <>
             {formatInr(price)}
-            <span className="text-sm font-normal text-text-muted">{period}</span>
+            <span className="text-sm font-normal text-text-muted">{period} + GST</span>
           </>
         )}
       </p>
       {savings > 0 ? (
         <p className="mt-1 text-xs font-medium text-status-success">
-          Save {formatInr(savings)} a year
+          Save {formatInr(savings)} a year + GST
         </p>
       ) : null}
       <ul className="mt-4 space-y-2 text-sm text-text-secondary">
@@ -174,6 +201,7 @@ function PricingCard({
       >
         {ctaLabel}
       </Link>
+      {plan.cta === 'register' ? <TrialTerms className="mt-2 text-center" /> : null}
     </article>
   );
 }
@@ -194,9 +222,14 @@ export function PricingTeaser() {
   }, [cms.pricingCards]);
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {plans.map((plan) => (
-        <div key={plan.id} className="rounded-2xl border border-border-light bg-bg-card p-5 shadow-card">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-6">
+      {plans.map((plan, index) => (
+        <div
+          key={plan.id}
+          className={`rounded-2xl border border-border-light bg-bg-card p-5 shadow-card ${
+            plans.length === 5 && index >= plans.length - 2 ? 'md:col-span-3' : 'md:col-span-2'
+          }`}
+        >
           <h3 className="font-serif font-medium">{plan.name}</h3>
           <p className="mt-2 font-serif text-2xl font-medium text-brand-gold">
             {isContactPricing(plan) ? (
@@ -204,7 +237,7 @@ export function PricingTeaser() {
             ) : (
               <>
                 {formatInr(plan.priceMonthly)}
-                <span className="text-sm font-normal text-text-muted">/mo</span>
+                <span className="text-sm font-normal text-text-muted">/mo + GST</span>
               </>
             )}
           </p>

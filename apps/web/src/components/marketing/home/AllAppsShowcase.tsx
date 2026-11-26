@@ -40,7 +40,7 @@ export function AllAppsShowcase() {
                       imageKey={app.imageKey}
                       alt={app.title}
                       fill
-                      className="object-cover object-top transition duration-500 group-hover:scale-[1.03]"
+                      className="object-contain p-2"
                       sizes="(max-width: 768px) 100vw, 33vw"
                     />
                   </div>

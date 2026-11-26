@@ -17,3 +17,11 @@ export const BUSINESS_ADDRESS_LINE = `${BUSINESS_NAP.addressLocality}, ${BUSINES
 export const MAPS_EMBED_QUERY = encodeURIComponent(
   `${BUSINESS_NAP.addressLocality}, ${BUSINESS_NAP.addressCountryName}`,
 );
+
+export const WHATSAPP_E164 = '917666071619';
+export const WHATSAPP_PREFILL =
+  "Hi Cullinos, I'd like to know about restaurant POS and GST billing.";
+
+export function whatsappHref(message: string = WHATSAPP_PREFILL): string {
+  return `https://wa.me/${WHATSAPP_E164}?text=${encodeURIComponent(message)}`;
+}

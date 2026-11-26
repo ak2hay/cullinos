@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
+import { TRIAL_CTA_LABEL } from '@cullinos/shared';
+import { TrialTerms } from '@/components/marketing/TrialTerms';
 import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
 import { getRegisterUrl } from '@/lib/urls';
 import { Logo } from './Logo';
@@ -69,10 +71,11 @@ export function MarketingNav() {
           })}
         </nav>
 
-        <div className="hidden lg:block">
+        <div className="hidden text-right lg:block">
           <Link href={registerUrl} className="btn-pill">
-            Start free trial
+            {TRIAL_CTA_LABEL}
           </Link>
+          <TrialTerms className="mt-1" />
         </div>
 
         <button
@@ -127,8 +130,9 @@ export function MarketingNav() {
                   className="btn-pill mt-2 text-center"
                   onClick={() => setMobileOpen(false)}
                 >
-                  Start free trial
+                  {TRIAL_CTA_LABEL}
                 </Link>
+                <TrialTerms />
               </nav>
             </motion.div>
           </>

@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
-import { formatInr, MARKETING_PLANS } from '@cullinos/shared';
+import { formatInr, MARKETING_PLANS, TRIAL_CTA_LABEL } from '@cullinos/shared';
+import { TrialTerms } from '@/components/marketing/TrialTerms';
 import { getRegisterUrl } from '@/lib/urls';
 import { MarketingImage } from '@/components/marketing/MarketingImage';
 import { PricingTeaser } from '@/components/marketing/PricingTable';
@@ -19,7 +20,7 @@ export function HomePricingSection() {
         <Reveal className="mb-10 text-center">
           <h2 className="font-serif text-3xl font-medium md:text-4xl">Plans that grow with you</h2>
           <p className="mt-3 text-text-secondary">
-            From ₹{formatInr(starterPlan.priceMonthly).replace('₹', '')}/month. Every plan includes cloud hosting, updates, and support.
+            From {formatInr(starterPlan.priceMonthly)}/month + GST. Every plan includes cloud hosting, updates, and support. Inventory is not on Starter.
           </p>
         </Reveal>
         <Reveal delay={0.1}>
@@ -99,8 +100,9 @@ export function HomePricingSection() {
               </div>
               <div className="p-6 pt-4">
                 <Link href={getRegisterUrl()} className="btn-pill-filled btn-pill w-full text-center">
-                  Start free trial
+                  {TRIAL_CTA_LABEL}
                 </Link>
+                <TrialTerms className="mt-2 text-center" />
               </div>
             </motion.article>
           </StaggerItem>

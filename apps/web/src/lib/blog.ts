@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
+import { normalizeBlogDate } from '@/lib/blog-date';
 import { MARKETING_API_BASE } from '@/lib/marketing-content';
 
 const contentDirectory = path.join(process.cwd(), 'content/blog');
@@ -42,7 +43,7 @@ function getLocalBlogPosts(): BlogPost[] {
       return {
         slug,
         title: String(data.title ?? slug),
-        date: String(data.date ?? ''),
+        date: normalizeBlogDate(data.date),
         excerpt: String(data.excerpt ?? ''),
         content,
       };
@@ -64,7 +65,7 @@ async function fetchCmsBlogPosts(): Promise<BlogPost[]> {
     return rows.map((row) => ({
       slug: row.slug,
       title: row.title,
-      date: row.publishedAt ? String(row.publishedAt).slice(0, 10) : '',
+      date: normalizeBlogDate(row.publishedAt),
       excerpt: row.excerpt,
       content: '',
       coverUrl: row.coverAsset?.url,
@@ -91,7 +92,7 @@ async function fetchCmsBlogPost(slug: string): Promise<BlogPost | undefined> {
     return {
       slug: row.slug,
       title: row.title,
-      date: row.publishedAt ? String(row.publishedAt).slice(0, 10) : '',
+      date: normalizeBlogDate(row.publishedAt),
       excerpt: row.excerpt,
       content: row.body,
       coverUrl: row.coverAsset?.url,

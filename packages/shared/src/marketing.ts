@@ -386,8 +386,8 @@ export const INTEGRATION_CATEGORIES = [
   },
   {
     title: 'Delivery aggregators',
-    description: 'Connect marketplace delivery channels alongside your own orders.',
-    status: 'available' as const,
+    description: 'Marketplace order intake is not offered in the restaurant admin yet.',
+    status: 'coming_soon' as const,
     items: [
       'Swiggy connect & webhooks',
       'Zomato connect & webhooks',
@@ -448,7 +448,7 @@ export const MARKETING_IMAGES = {
 export type MarketingImageKey = keyof typeof MARKETING_IMAGES;
 
 export const CULLINOS_ELEVATOR_PITCH = {
-  headline: "Cullinos is your food business operating system.",
+  headline: 'Restaurant POS and GST billing, with KOT and online orders on the same menu.',
   subline:
     'One login runs your cashier, kitchen, QR & online orders, Guest marketplace, production, and reports — for restaurants, cafes, food trucks, and bakeries. GST billing built in.',
   bullets: [

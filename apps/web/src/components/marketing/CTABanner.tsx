@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { TRIAL_CTA_LABEL } from '@cullinos/shared';
+import { TrialTerms } from '@/components/marketing/TrialTerms';
 import { Reveal } from '@/components/marketing/motion/Reveal';
 import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
 import { getRegisterUrl } from '@/lib/urls';
@@ -16,8 +18,8 @@ interface CTABannerProps {
 
 export function CTABanner({
   title = 'Ready to run your restaurant from one place?',
-  description = 'Start your free trial or talk to our team about Enterprise and Hospitality plans.',
-  primaryLabel = 'Start free trial',
+  description = 'Start your 30-day free trial or talk to our team about Enterprise and Hospitality plans.',
+  primaryLabel = TRIAL_CTA_LABEL,
   primaryHref,
   secondaryLabel = 'Contact sales',
   secondaryHref = '/contact',
@@ -38,6 +40,9 @@ export function CTABanner({
             {secondaryLabel}
           </Link>
         </div>
+        {/trial/i.test(primaryLabel) || /trial/i.test(secondaryLabel) ? (
+          <TrialTerms className="mt-3" />
+        ) : null}
       </Reveal>
     </section>
   );

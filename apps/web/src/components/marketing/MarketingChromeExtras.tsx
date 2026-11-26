@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import { CookieBanner } from '@/components/marketing/CookieBanner';
 import { StickyMobileCta } from '@/components/marketing/StickyMobileCta';
+import { WhatsAppFloat } from '@/components/marketing/WhatsAppFloat';
 
 export function MarketingChromeExtras() {
   /** null = consent not read yet (avoid sticky CTA flash over cookie banner) */
@@ -11,6 +12,7 @@ export function MarketingChromeExtras() {
 
   return (
     <>
+      <WhatsAppFloat />
       <StickyMobileCta cookieBannerOpen={cookieBannerOpen !== false} />
       <CookieBanner onOpenChange={onOpenChange} />
     </>

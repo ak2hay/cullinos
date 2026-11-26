@@ -1,6 +1,6 @@
 export const CULLINOS_BRAND = {
   name: 'Cullinos',
-  tagline: 'Restaurant Operating System',
+  tagline: 'Restaurant POS & GST Billing Software',
   parent: 'Rkyves',
   poweredBy: 'Powered by Rkyves',
 } as const;

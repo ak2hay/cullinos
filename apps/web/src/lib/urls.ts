@@ -13,6 +13,6 @@ export function getAdminUrl(): string {
 }
 
 export const SITE_NAME = 'Cullinos';
-export const SITE_TAGLINE = 'Restaurant Operating System';
+export const SITE_TAGLINE = 'Restaurant POS & GST Billing Software';
 export const SITE_DESCRIPTION =
-  'Run your restaurant from one place. Menu, orders, inventory, staff, and analytics — unified for modern restaurant operations.';
+  'Billing, KOT and online orders in one app. GST-ready restaurant POS for India. 30-day free trial, no card needed. Prices exclude GST.';

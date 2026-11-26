@@ -29,7 +29,7 @@ export default function TermsPage() {
 
           <h2>2. Service description</h2>
           <p>
-            Cullinos is a subscription-based Restaurant Operating System provided by {BUSINESS_NAP.legalName}.
+            Cullinos is subscription restaurant POS and GST billing software provided by {BUSINESS_NAP.legalName}.
             Features available to your organization depend on your subscription plan and may change as we improve
             the product.
           </p>
