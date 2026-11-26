@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { hashPassword } from "@cullinos/auth";
+import { resolveTrialDays, trialEndDate } from "@cullinos/shared";
 import { ensureBarStations } from "../../common/kitchen-stations.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import { OrgRolesService } from "./org-roles.service";
@@ -18,7 +19,10 @@ export type ProvisionTenantInput = {
   mustChangePassword?: boolean;
   businessType?: string;
   restaurantSize?: string | null;
-  /** Override default trial length (days). Default 15. */
+  /**
+   * Override default trial length (days) for this new tenant only.
+   * Default is 30. Existing subscriptions are never updated from this default.
+   */
   trialDays?: number;
 };
 
@@ -44,9 +48,8 @@ export class TenantProvisioningService {
       throw new BadRequestException("Admin password must be 8–128 characters");
     }
     const passwordHash = await hashPassword(password);
-    const trialDays =
-      input.trialDays && input.trialDays > 0 ? Math.round(input.trialDays) : 15;
-    const trialEnd = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000);
+    const trialDays = resolveTrialDays(input.trialDays);
+    const trialEnd = trialEndDate(new Date(), trialDays);
     const orgStatus = input.status ?? "trial";
 
     const org = await this.prisma.organization.create({

@@ -1,3 +1,4 @@
+import { DEFAULT_TRIAL_DAYS } from "@cullinos/shared";
 import { EMAIL_BRAND } from "./brand";
 import { escapeHtml, plainTextToHtmlParagraphs } from "./escape";
 import {
@@ -123,6 +124,8 @@ export function buildOwnerCredentialsEmail(input: {
     "",
     "You must change this password on first login.",
     "",
+    `Your ${DEFAULT_TRIAL_DAYS}-day Enterprise trial is active. No payment card is required until you choose a paid plan.`,
+    "",
     "— Cullinos / Rkyves",
   ].join("\n");
 
@@ -141,6 +144,9 @@ export function buildOwnerCredentialsEmail(input: {
     </table>`,
     ctaButton(input.adminUrl, "Open admin login"),
     mutedParagraph("You must change this password on first login."),
+    mutedParagraph(
+      `Your ${DEFAULT_TRIAL_DAYS}-day Enterprise trial is active. No payment card is required until you choose a paid plan.`,
+    ),
   ].join("\n");
 
   return {

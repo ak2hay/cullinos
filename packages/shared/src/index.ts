@@ -1,4 +1,5 @@
 export * from './constants';
+export * from './trial';
 export * from './auth-client';
 export * from './session-refresh';
 export * from './types';

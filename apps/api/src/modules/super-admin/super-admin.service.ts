@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { createHash, randomBytes } from "crypto";
 import { hashPassword, verifyPassword } from "@cullinos/auth";
+import { DEFAULT_TRIAL_DAYS } from "@cullinos/shared";
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { generateTemporaryPassword } from "../../common/generate-password";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -903,7 +904,7 @@ export class SuperAdminService implements OnModuleDestroy {
       businessType: input.businessType,
       restaurantSize:
         input.businessType === "restaurant" ? (input.restaurantSize ?? null) : null,
-      trialDays: 15,
+      trialDays: DEFAULT_TRIAL_DAYS,
     });
 
     const emailSent = await this.mail.sendOwnerCredentials({

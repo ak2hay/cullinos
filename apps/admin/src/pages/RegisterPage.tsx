@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Button, Input, PhoneField, Turnstile, isTurnstileEnabled } from '@cullinos/ui';
+import { DEFAULT_TRIAL_DAYS } from '@cullinos/shared';
 import { authApi } from '@/lib/api';
 import { isValidMobile } from '@/lib/format';
 import { TURNSTILE_SITE_KEY } from '@/lib/turnstile';
@@ -64,7 +65,7 @@ export function RegisterPage() {
   return (
     <AuthLayout
       title="Start your free trial"
-      subtitle="15 days of Enterprise features. Login credentials are sent to your email and mobile."
+      subtitle={`${DEFAULT_TRIAL_DAYS} days of Enterprise features. No card needed. Login credentials are sent to your email and mobile.`}
     >
       {success ? (
         <div className="space-y-4">
@@ -95,7 +96,7 @@ export function RegisterPage() {
             onChange={(e) => setOwnerName(e.target.value)}
           />
           <Input
-            label="Work email"
+            label="Email"
             type="email"
             required
             autoComplete="email"
