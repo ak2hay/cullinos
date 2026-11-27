@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { csvRow } from '@cullinos/shared';
 import { Button, Card, PageShell } from '@cullinos/ui';
 import { outletsApi, reportsApi } from '@/lib/api';
@@ -176,7 +177,11 @@ function ExportFormatSelect({
 
 export function ReportsPage() {
   const selectedOutletId = useAuthStore((s) => s.selectedOutletId);
-  const [tab, setTab] = useState<ReportTab>('summary');
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const [tab, setTab] = useState<ReportTab>(
+    requestedTab === 'tax' || requestedTab === 'gst' ? 'tax' : 'summary',
+  );
   const today = new Date().toISOString().slice(0, 10);
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
@@ -296,13 +301,13 @@ export function ReportsPage() {
     { id: 'discounts', label: 'Discounts' },
     { id: 'cancellations', label: 'Cancellations' },
     { id: 'food-cost', label: 'Food cost' },
-    { id: 'tax', label: 'Tax' },
+    { id: 'tax', label: 'GST' },
   ];
 
   return (
     <PageShell
       title="Reports"
-      description="Sales summaries, item performance, payments, discounts, and cancellations."
+      description="Today's sales, GST, and what sold. Pick GST for the tax report."
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <ExportFormatSelect value={exportType} onChange={setExportType} />
@@ -380,7 +385,7 @@ export function ReportsPage() {
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
-            className={`rounded-lg px-3 py-2 text-sm transition ${
+            className={`min-h-11 rounded-lg px-3 py-2 text-sm transition ${
               tab === t.id
                 ? 'bg-brand-primary/15 font-medium text-brand-primary'
                 : 'text-text-secondary hover:bg-hover'

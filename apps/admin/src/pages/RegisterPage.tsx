@@ -14,6 +14,7 @@ export function RegisterPage() {
   const [ownerPhone, setOwnerPhone] = useState('');
   const [captchaToken, setCaptchaToken] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const turnstileOn = isTurnstileEnabled(TURNSTILE_SITE_KEY);
@@ -25,10 +26,15 @@ export function RegisterPage() {
     e.preventDefault();
     setError('');
     setSuccess('');
-    if (!isValidMobile(ownerPhone)) {
-      setError('Enter a valid mobile number');
-      return;
+    const nextErrors: Record<string, string> = {};
+    if (companyName.trim().length < 2) nextErrors.companyName = 'Enter the restaurant name.';
+    if (ownerName.trim().length < 2) nextErrors.ownerName = 'Enter your name.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail.trim())) {
+      nextErrors.ownerEmail = 'Enter a valid email. We send the login there.';
     }
+    if (!isValidMobile(ownerPhone)) nextErrors.ownerPhone = 'Enter a 10-digit mobile number.';
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
     if (turnstileOn && !captchaToken) {
       setError('Please complete the security check');
       return;
@@ -87,12 +93,14 @@ export function RegisterPage() {
             label="Restaurant name"
             required
             value={companyName}
+            error={fieldErrors.companyName}
             onChange={(e) => setCompanyName(e.target.value)}
           />
           <Input
             label="Your name"
             required
             value={ownerName}
+            error={fieldErrors.ownerName}
             onChange={(e) => setOwnerName(e.target.value)}
           />
           <Input
@@ -101,12 +109,14 @@ export function RegisterPage() {
             required
             autoComplete="email"
             value={ownerEmail}
+            error={fieldErrors.ownerEmail}
             onChange={(e) => setOwnerEmail(e.target.value)}
           />
           <PhoneField
             label="Mobile number"
             required
             value={ownerPhone}
+            error={fieldErrors.ownerPhone}
             onChange={setOwnerPhone}
           />
           {turnstileOn ? (

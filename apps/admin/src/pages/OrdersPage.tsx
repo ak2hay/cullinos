@@ -59,6 +59,7 @@ export function OrdersPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [scheduledOnly, setScheduledOnly] = useState(false);
+  const [orderQuery, setOrderQuery] = useState('');
 
   const filters = useMemo(
     () =>
@@ -104,6 +105,14 @@ export function OrdersPage() {
   const orders = scheduledOnly
     ? allOrders.filter((o) => Boolean(o.scheduledPickupAt))
     : allOrders;
+  const orderNeedle = orderQuery.trim().toLowerCase();
+  const visibleOrders = orderNeedle
+    ? orders.filter((order) =>
+        [order.orderNumber, order.tableName, order.customerName, order.pickupCode]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(orderNeedle)),
+      )
+    : orders;
   const detail = detailQuery.data;
 
   const emptyMessage = scheduledOnly
@@ -141,6 +150,14 @@ export function OrdersPage() {
             setTab(id);
             setSelectedId(null);
           }}
+        />
+        <input
+          type="search"
+          value={orderQuery}
+          onChange={(e) => setOrderQuery(e.target.value)}
+          placeholder={t('orders.searchPlaceholder')}
+          aria-label={t('orders.search')}
+          className="h-11 min-w-[14rem] flex-1 rounded-lg border border-line bg-bg-elevated px-3 text-sm outline-none focus:border-brand-primary sm:flex-none"
         />
         {tab === 'recent' ? (
           <input
@@ -191,14 +208,14 @@ export function OrdersPage() {
                         {t('orders.loadingOrders')}
                       </td>
                     </tr>
-                  ) : orders.length === 0 ? (
+                  ) : visibleOrders.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-text-muted">
-                        {emptyMessage}
+                        {orderNeedle ? t('orders.emptySearch') : emptyMessage}
                       </td>
                     </tr>
                   ) : (
-                    orders.map((order) => (
+                    visibleOrders.map((order) => (
                       <tr
                         key={order.id}
                         onClick={() => setSelectedId(order.id)}

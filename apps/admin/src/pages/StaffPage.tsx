@@ -32,6 +32,7 @@ export function StaffPage() {
     PERMISSIONS.ORG_MANAGE_USERS,
   ]);
   const [showForm, setShowForm] = useState(false);
+  const [staffQuery, setStaffQuery] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -155,7 +156,7 @@ export function StaffPage() {
   function handleDelete(user: StaffUser) {
     if (
       !window.confirm(
-        `Permanently delete ${user.name}? This cannot be undone and frees their email for re-invite.`,
+        `Remove ${user.name} from the team? They will not be able to sign in. You can add them again with the same email.`,
       )
     ) {
       return;
@@ -165,6 +166,15 @@ export function StaffPage() {
 
   const statusBusy =
     deactivateMutation.isPending || activateMutation.isPending || deleteMutation.isPending;
+
+  const staffNeedle = staffQuery.trim().toLowerCase();
+  const shownStaff = staff.filter((user) => {
+    if (!staffNeedle) return true;
+    const roleNames = user.roles.map((role) => role.name).join(' ');
+    return [user.name, user.phone, user.email, roleNames]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(staffNeedle));
+  });
 
   return (
     <PageShell
@@ -378,6 +388,17 @@ export function StaffPage() {
         ) : null}
       </Drawer>
 
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <input
+          type="search"
+          value={staffQuery}
+          onChange={(e) => setStaffQuery(e.target.value)}
+          placeholder="Search name, phone, or role"
+          aria-label="Search staff"
+          className="h-11 w-full max-w-md rounded-lg border border-line bg-bg-card px-3 text-sm outline-none focus:border-brand-primary"
+        />
+      </div>
+
       <Card padding="none" className="overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full min-w-[56rem] text-left text-sm">
@@ -401,7 +422,7 @@ export function StaffPage() {
                 </td>
               </tr>
             ) : (
-              staff.map((user) => {
+              shownStaff.map((user) => {
                 const owner = isOwner(user);
                 const statusValue =
                   user.status === 'inactive' ? 'inactive' : 'active';
@@ -464,10 +485,12 @@ export function StaffPage() {
                 );
               })
             )}
-            {!isLoading && staff.length === 0 ? (
+            {!isLoading && shownStaff.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-text-muted">
-                  No staff accounts yet. Add your first team member above.
+                  {staffNeedle
+                    ? 'No one matches that search.'
+                    : 'No staff yet. Add a waiter, cashier, or kitchen person above.'}
                 </td>
               </tr>
             ) : null}

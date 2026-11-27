@@ -11,6 +11,7 @@ import {
   getProductTypePreset,
   presetOptions,
 } from '@/features/menu/productTypes';
+import { applyBulkPrice, type BulkPriceMode } from '@/features/menu/bulkPrice';
 import {
   menuApi,
   taxApi,
@@ -90,6 +91,9 @@ export function MenuPage() {
   const [itemDrawerOpen, setItemDrawerOpen] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [bulkTaxGroupId, setBulkTaxGroupId] = useState('');
+  const [itemQuery, setItemQuery] = useState('');
+  const [bulkPriceMode, setBulkPriceMode] = useState<BulkPriceMode>('percent');
+  const [bulkPriceValue, setBulkPriceValue] = useState('');
   const [catalogOpen, setCatalogOpen] = useState(false);
   const selectedPreset = getProductTypePreset(itemForm.productType);
 
@@ -215,6 +219,69 @@ export function MenuPage() {
     onError: (err: Error) => showNotice('error', err.message ?? 'Failed to update tax.'),
   });
 
+  const bulkPrice = useMutation({
+    mutationFn: async () => {
+      const amount = Number(bulkPriceValue);
+      if (!Number.isFinite(amount)) throw new Error('Enter a number.');
+      const selected = items.filter((item) => selectedItemIds.has(item.id));
+      if (selected.length === 0) throw new Error('Select at least one dish.');
+      const previous = selected.map((item) => ({ id: item.id, basePrice: Number(item.basePrice) }));
+      await Promise.all(
+        selected.map((item) =>
+          menuApi.updateItem(item.id, {
+            basePrice: applyBulkPrice(Number(item.basePrice), bulkPriceMode, amount),
+          }),
+        ),
+      );
+      return previous;
+    },
+    onSuccess: (previous) => {
+      invalidateItems();
+      toast.show(t('menu.pricesUpdated', { count: previous.length }), {
+        variant: 'success',
+        action: {
+          label: t('menu.undo'),
+          onClick: () => {
+            void Promise.all(
+              previous.map((item) => menuApi.updateItem(item.id, { basePrice: item.basePrice })),
+            ).then(() => invalidateItems());
+          },
+        },
+      });
+    },
+    onError: (err: Error) => showNotice('error', err.message ?? 'Failed to update prices.'),
+  });
+
+  const bulkAvailability = useMutation({
+    mutationFn: async (onlineAvailable: boolean) => {
+      const selected = items.filter((item) => selectedItemIds.has(item.id));
+      if (selected.length === 0) throw new Error('Select at least one dish.');
+      const previous = selected.map((item) => ({
+        id: item.id,
+        onlineAvailable: item.onlineAvailable !== false,
+      }));
+      await Promise.all(selected.map((item) => menuApi.updateItem(item.id, { onlineAvailable })));
+      return { previous, onlineAvailable };
+    },
+    onSuccess: ({ previous }) => {
+      invalidateItems();
+      toast.show(t('menu.availabilityUpdated', { count: previous.length }), {
+        variant: 'success',
+        action: {
+          label: t('menu.undo'),
+          onClick: () => {
+            void Promise.all(
+              previous.map((item) =>
+                menuApi.updateItem(item.id, { onlineAvailable: item.onlineAvailable }),
+              ),
+            ).then(() => invalidateItems());
+          },
+        },
+      });
+    },
+    onError: (err: Error) => showNotice('error', err.message ?? 'Failed to update availability.'),
+  });
+
   function toggleItemSelected(id: string, checked: boolean) {
     setSelectedItemIds((current) => {
       const next = new Set(current);
@@ -288,9 +355,17 @@ export function MenuPage() {
   const toggleItemOnline = useMutation({
     mutationFn: ({ id, onlineAvailable }: { id: string; onlineAvailable: boolean }) =>
       menuApi.updateItem(id, { onlineAvailable }),
-    onSuccess: () => {
+    onSuccess: (_saved, vars) => {
       invalidateItems();
-      showNotice('success', 'Availability updated.');
+      toast.show(vars.onlineAvailable ? 'Shown to guests.' : 'Hidden from guests.', {
+        variant: 'success',
+        action: {
+          label: t('menu.undo'),
+          onClick: () => {
+            toggleItemOnline.mutate({ id: vars.id, onlineAvailable: !vars.onlineAvailable });
+          },
+        },
+      });
     },
     onError: (err: Error) => showNotice('error', err.message ?? 'Failed to update availability.'),
   });
@@ -398,7 +473,13 @@ export function MenuPage() {
   const categories = categoriesQuery.data ?? [];
   const items = itemsQuery.data ?? [];
   const missingPhotoCount = items.filter((item) => !hasOwnPhoto(item.imageUrl)).length;
-  const visibleItems = missingPhotosOnly ? items.filter((item) => !hasOwnPhoto(item.imageUrl)) : items;
+  const query = itemQuery.trim().toLowerCase();
+  const searchedItems = query
+    ? items.filter((item) => item.name.toLowerCase().includes(query))
+    : items;
+  const visibleItems = missingPhotosOnly
+    ? searchedItems.filter((item) => !hasOwnPhoto(item.imageUrl))
+    : searchedItems;
   const combos = combosQuery.data ?? [];
   const schedules = schedulesQuery.data ?? [];
   const outletPrices = outletPricesQuery.data ?? [];
@@ -571,7 +652,7 @@ export function MenuPage() {
             {categoriesQuery.isLoading ? (
               <p className="mt-4 text-sm text-text-muted">Loading…</p>
             ) : categories.length === 0 ? (
-              <p className="mt-4 text-sm text-text-muted">No categories yet.</p>
+              <p className="mt-4 text-sm text-text-muted">{t('menu.emptyCategories')}</p>
             ) : (
               <ul className="mt-4 divide-y divide-line-subtle">
                 {categories.map((category) => (
@@ -606,6 +687,14 @@ export function MenuPage() {
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-display font-semibold tracking-tight">{t('menu.menuItems')}</h2>
             <div className="flex flex-wrap items-center gap-3">
+              <input
+                type="search"
+                value={itemQuery}
+                onChange={(e) => setItemQuery(e.target.value)}
+                placeholder={t('menu.searchPlaceholder')}
+                aria-label={t('menu.searchPlaceholder')}
+                className="h-11 min-w-[12rem] rounded-lg border border-line bg-bg-card px-3 text-sm outline-none focus:border-brand-primary"
+              />
               {missingPhotoCount > 0 || missingPhotosOnly ? (
                 <label className="flex cursor-pointer items-center gap-2 text-sm text-text-secondary">
                   <input
@@ -680,6 +769,51 @@ export function MenuPage() {
                   >
                     Apply tax group
                   </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    loading={bulkAvailability.isPending}
+                    onClick={() => bulkAvailability.mutate(true)}
+                  >
+                    {t('menu.bulkShowGuests')}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    loading={bulkAvailability.isPending}
+                    onClick={() => bulkAvailability.mutate(false)}
+                  >
+                    {t('menu.bulkHideGuests')}
+                  </Button>
+                  <select
+                    value={bulkPriceMode}
+                    onChange={(e) => setBulkPriceMode(e.target.value as BulkPriceMode)}
+                    className="h-11 rounded-lg border border-line bg-bg-card px-2 text-sm"
+                    aria-label="How to change the price"
+                  >
+                    <option value="percent">Change by %</option>
+                    <option value="add">Add ₹</option>
+                    <option value="set">Set price ₹</option>
+                  </select>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={bulkPriceValue}
+                    onChange={(e) => setBulkPriceValue(e.target.value)}
+                    placeholder={bulkPriceMode === 'percent' ? '10' : '20'}
+                    aria-label="Price change"
+                    className="h-11 w-24 rounded-lg border border-line bg-bg-card px-2 text-sm"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    loading={bulkPrice.isPending}
+                    onClick={() => bulkPrice.mutate()}
+                  >
+                    {t('menu.bulkPrice')}
+                  </Button>
                 </>
               ) : null}
             </div>
@@ -687,7 +821,14 @@ export function MenuPage() {
           {itemsQuery.isLoading ? (
             <p className="text-sm text-text-muted">{t('common.loading')}</p>
           ) : visibleItems.length === 0 ? (
-            <p className="text-sm text-text-muted">No items yet.</p>
+            <div className="rounded-xl border border-dashed border-line px-4 py-10 text-center">
+              <p className="font-medium text-text-primary">
+                {query ? t('menu.emptySearch') : t('menu.emptyItems')}
+              </p>
+              <p className="mt-1 text-sm text-text-muted">
+                {query ? t('menu.emptySearchHint') : t('menu.emptyItemsHint')}
+              </p>
+            </div>
           ) : (
             <ul className="divide-y divide-line-subtle">
               {visibleItems.map((item) => (
@@ -762,7 +903,7 @@ export function MenuPage() {
                         disabled={toggleItemOnline.isPending}
                         onChange={(e) => toggleItemOnline.mutate({ id: item.id, onlineAvailable: e.target.checked })}
                       />
-                      Online
+                      {t('menu.guestToggle')}
                     </label>
                     <div className="flex gap-2">
                       <Button type="button" variant="ghost" onClick={() => loadItemForEdit(item)}>Edit</Button>

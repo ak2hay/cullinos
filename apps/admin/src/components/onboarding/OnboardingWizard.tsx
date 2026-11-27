@@ -21,7 +21,7 @@ import {
   type RestaurantSize,
 } from '@cullinos/shared';
 import { CatalogPickerDrawer } from '@/features/menu/CatalogPickerDrawer';
-import { organizationsApi, outletsApi, settingsApi } from '@/lib/api';
+import { organizationsApi, outletsApi, settingsApi, taxApi } from '@/lib/api';
 import { isValidMobile } from '@/lib/format';
 
 const TIMEZONES = [
@@ -145,6 +145,14 @@ export function OnboardingWizard() {
   }
 
   async function handleComplete() {
+    if (!businessName.trim()) {
+      setSaveError('Business name is required.');
+      return;
+    }
+    if (!isValidMobile(phone)) {
+      setSaveError('A valid business mobile number is required.');
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -169,7 +177,13 @@ export function OnboardingWizard() {
           outletsApi.update(outlet.id, { operatingMode: profile.operatingMode }),
         ),
       );
+      try {
+        await taxApi.ensurePresets();
+      } catch {
+        // GST presets can be added later from Settings → Tax. Setup still finishes.
+      }
       await queryClient.invalidateQueries({ queryKey: ['organizations', 'current'] });
+      await queryClient.invalidateQueries({ queryKey: ['tax'] });
       navigate('/');
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save setup. Please try again.');
@@ -393,8 +407,9 @@ export function OnboardingWizard() {
 
         {currentStep === 'tax_gst' ? (
           <p className="text-sm text-text-secondary">
-            GSTIN is saved with your business. Configure tax groups later in Settings if needed.
-            {gstin ? ` Current GSTIN: ${gstin}` : ' You can add a GSTIN on the previous step.'}
+            Most restaurant food is 5% GST (2.5% CGST + 2.5% SGST). We add that rate when you finish,
+            so you can skip this. Add a GSTIN if you have one
+            {gstin ? ` (saved: ${gstin})` : ''}. Change rates later in Settings → Tax.
             {businessType === 'bar'
               ? ' For liquor, use "Seed India presets" in Settings → Tax to add the "State Excise (alcohol)" group, set your state rate, and assign it to liquor items instead of a GST group.'
               : null}
@@ -425,23 +440,33 @@ export function OnboardingWizard() {
           <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{saveError}</p>
         ) : null}
 
-        <div className="flex items-center justify-between gap-3 pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <button
             type="button"
             onClick={goBack}
             disabled={stepIndex === 0 || saving}
-            className="rounded-lg border border-line px-4 py-2.5 text-sm disabled:opacity-40"
+            className="min-h-11 rounded-lg border border-line px-4 py-2.5 text-sm disabled:opacity-40"
           >
             Back
           </button>
-          <button
-            type="button"
-            onClick={goNext}
-            disabled={saving}
-            className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-on-brand disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : isLast ? 'Complete setup' : 'Continue'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void handleComplete()}
+              disabled={saving}
+              className="min-h-11 rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-text-secondary disabled:opacity-50"
+            >
+              Skip for now
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={saving}
+              className="min-h-11 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-on-brand disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : isLast ? 'Finish setup' : 'Continue'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

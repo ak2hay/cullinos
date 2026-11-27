@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ClipboardCheck, Clock, IndianRupee, ReceiptText, TriangleAlert } from 'lucide-react';
 import {
@@ -16,6 +17,7 @@ import { analyticsApi, organizationsApi, outletsApi, reportsApi } from '@/lib/ap
 import { formatMoney } from '@/lib/format';
 import { useLowStock, useOpenOrders } from '@/lib/useShellAlerts';
 import { useAuthStore } from '@/stores/auth';
+import { SetupChecklist } from '@/features/dashboard/SetupChecklist';
 import { KpiCard } from '@/features/dashboard/KpiCard';
 import { LiveOrders } from '@/features/dashboard/LiveOrders';
 import { QUICK_ACTIONS, QuickActions } from '@/features/dashboard/QuickActions';
@@ -147,6 +149,7 @@ function Segmented<T extends string | number>({
 const stagger = (i: number): CSSProperties => ({ animationDelay: `${i * 50}ms` });
 
 export function DashboardPage() {
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const outletId = useAuthStore((s) => s.selectedOutletId);
   const permissions = useAuthStore((s) => s.permissions);
@@ -164,7 +167,7 @@ export function DashboardPage() {
   const outletsQuery = useQuery({ queryKey: ['outlets'], queryFn: outletsApi.list });
   const orgQuery = useQuery({ queryKey: ['organizations', 'current'], queryFn: organizationsApi.current });
   const selectedOutlet = outletsQuery.data?.find((o) => o.id === outletId);
-  const scopeLabel = selectedOutlet ? selectedOutlet.name : 'all outlets';
+  const scopeLabel = selectedOutlet ? selectedOutlet.name : t('dashboard.allOutlets');
 
   const dailyQuery = useQuery({
     queryKey: ['analytics', 'daily', dayDate, outletId],
@@ -280,6 +283,7 @@ export function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6">
+      <SetupChecklist />
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="animate-fade-in">
@@ -287,8 +291,7 @@ export function DashboardPage() {
             Good {getGreeting()}, {user?.firstName ?? 'there'}
           </h1>
           <p className="mt-1 text-sm text-text-secondary">
-            Here&apos;s what&apos;s happening at <span className="font-medium text-text-primary">{scopeLabel}</span>{' '}
-            {range === 'today' ? 'today' : range === 'custom' ? `on ${dayLabel}` : range === 'week' ? 'this week' : 'this month'}.
+            {t('dashboard.glance')} · <span className="font-medium text-text-primary">{scopeLabel}</span>
           </p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
@@ -313,8 +316,7 @@ export function DashboardPage() {
 
       {!outletId ? (
         <div className="rounded-xl border border-brand-primary/20 bg-brand-primary/5 px-4 py-2 text-xs text-text-secondary">
-          Showing <span className="font-semibold text-brand-primary">organisation-wide</span> rollup. Select an
-          outlet from the top bar to scope to a single location.
+          Showing every outlet together. Pick one outlet in the top bar to see just that place.
         </div>
       ) : null}
 
@@ -322,7 +324,7 @@ export function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           style={stagger(0)}
-          label="Revenue"
+          label={t('dashboard.sales')}
           value={kpis.revenue}
           format={formatMoney}
           icon={<IndianRupee size={22} />}
@@ -334,7 +336,7 @@ export function DashboardPage() {
         />
         <KpiCard
           style={stagger(1)}
-          label="Orders completed"
+          label={t('dashboard.ordersDone')}
           value={kpis.orders}
           format={(n) => Math.round(n).toLocaleString('en-IN')}
           icon={<ClipboardCheck size={22} />}
@@ -346,18 +348,18 @@ export function DashboardPage() {
         />
         <KpiCard
           style={stagger(2)}
-          label="Open orders"
+          label={t('dashboard.stillOpen')}
           value={summary?.openOrders ?? 0}
           format={(n) => Math.round(n).toLocaleString('en-IN')}
           icon={<Clock size={22} />}
           tone="warning"
           live={dayDate === today}
-          hint="In progress or held"
+          hint={t('dashboard.pendingHint')}
           loading={dailyQuery.isLoading}
         />
         <KpiCard
           style={stagger(3)}
-          label="Avg order value"
+          label={t('dashboard.averageBill')}
           value={kpis.aov}
           format={formatMoney}
           icon={<ReceiptText size={22} />}
@@ -369,12 +371,34 @@ export function DashboardPage() {
         />
       </div>
 
+      {/* Still open, top dishes, shortcuts — before the chart so owners see them first */}
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        {openOrders.allowed ? (
+          <Panel
+            style={stagger(4)}
+            title={t('dashboard.pending')}
+            subtitle="Refreshes automatically"
+            action={<ViewAll to="/orders" />}
+          >
+            <LiveOrders orders={openOrders.orders} loading={openOrders.isLoading} />
+          </Panel>
+        ) : null}
+
+        <Panel style={stagger(5)} title={t('dashboard.topItems')} subtitle={dayLabel} action={<ViewAll to="/reports" />}>
+          <TopItems items={topItems} loading={summaryQuery.isLoading} />
+        </Panel>
+
+        <Panel style={stagger(6)} title="Quick actions">
+          <QuickActions actions={quickActions} />
+        </Panel>
+      </div>
+
       {/* Trend + status */}
       <div className="grid gap-4 xl:grid-cols-3">
         <Panel
           style={stagger(4)}
           className="xl:col-span-2"
-          title="Revenue trend"
+          title="Sales trend"
           subtitle={trendMode === 'revenue' ? 'Daily revenue from completed orders' : 'Completed orders per day'}
           action={
             <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-start">
@@ -410,28 +434,6 @@ export function DashboardPage() {
 
         <Panel style={stagger(5)} title="Order status" subtitle={dayLabel} action={<ViewAll to="/orders" />}>
           <StatusDonut counts={statusCounts} loading={dailyQuery.isLoading} />
-        </Panel>
-      </div>
-
-      {/* Live orders, top items, quick actions */}
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        {openOrders.allowed ? (
-          <Panel
-            style={stagger(6)}
-            title="Live orders"
-            subtitle="Refreshes automatically"
-            action={<ViewAll to="/orders" />}
-          >
-            <LiveOrders orders={openOrders.orders} loading={openOrders.isLoading} />
-          </Panel>
-        ) : null}
-
-        <Panel style={stagger(7)} title="Top items" subtitle={dayLabel} action={<ViewAll to="/reports" />}>
-          <TopItems items={topItems} loading={summaryQuery.isLoading} />
-        </Panel>
-
-        <Panel style={stagger(8)} title="Quick actions">
-          <QuickActions actions={quickActions} />
         </Panel>
       </div>
 
