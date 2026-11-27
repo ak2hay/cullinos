@@ -38,6 +38,23 @@ class _StageLine {
   String? notes;
 }
 
+String _tableStatusLabel(AppLocalizations l10n, String status) {
+  switch (status.toUpperCase()) {
+    case 'OCCUPIED':
+      return l10n.statusOccupied;
+    case 'BILLING':
+      return l10n.statusBilling;
+    case 'CLEANING':
+      return l10n.statusCleaning;
+    case 'AVAILABLE':
+      return l10n.statusAvailable;
+    case 'RESERVED':
+      return l10n.statusReserved;
+    default:
+      return status;
+  }
+}
+
 class TableDetailPage extends ConsumerStatefulWidget {
   const TableDetailPage({
     super.key,
@@ -624,7 +641,7 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
                   'AVAILABLE',
                 ])
                   ChoiceChip(
-                    label: Text(s),
+                    label: Text(_tableStatusLabel(l10n, s)),
                     selected: status.toUpperCase() == s,
                     onSelected: (_) => _setStatus(s),
                   ),
@@ -826,15 +843,17 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
                   }),
                   if (orderStatus == 'DRAFT')
                     FilledButton(
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
                       onPressed: _confirm,
                       child: Text(l10n.confirmOrder),
                     ),
                   if (orderStatus == 'READY') ...[
                     const SizedBox(height: 8),
                     FilledButton.icon(
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
                       onPressed: _markServed,
                       icon: const Icon(Icons.check_circle_outline),
-                      label: const Text('Mark served'),
+                      label: Text(l10n.done),
                     ),
                   ],
                 ],
@@ -953,6 +972,7 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
                   ),
                   const SizedBox(height: 8),
                   FilledButton(
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
                     onPressed: _sendStaged,
                     child: Text(
                         '${l10n.placeItems} · ${formatInr(stagedTotal)}'),

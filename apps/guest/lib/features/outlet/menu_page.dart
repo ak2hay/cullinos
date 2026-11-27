@@ -305,7 +305,7 @@ class _MenuPageState extends ConsumerState<MenuPage> {
         Expanded(
           child: display.isEmpty
               ? const GuestEmptyState(
-                  message: 'No items match your filters.',
+                  message: 'Nothing matches. Try another word, or pick a different category.',
                   icon: Icons.search_off_rounded,
                 )
               : RefreshIndicator(
