@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
-import { BUSINESS_NAP } from '@/lib/business';
+import { resolvePublicEmail } from '@/lib/business';
 import { verifyTurnstileToken } from '@/lib/turnstile';
 
 interface ContactPayload {
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     }
 
     const apiKey = process.env.RESEND_API_KEY;
-    const toEmail = process.env.CONTACT_TO_EMAIL ?? BUSINESS_NAP.email;
+    const toEmail = resolvePublicEmail(process.env.CONTACT_TO_EMAIL);
     const fromEmail = process.env.CONTACT_FROM_EMAIL ?? 'onboarding@resend.dev';
 
     const text = [

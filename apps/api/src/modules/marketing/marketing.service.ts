@@ -558,7 +558,7 @@ export class MarketingService {
       siteDescription:
         "Run your restaurant from one place. Menu, orders, inventory, staff, and analytics — unified for modern restaurant operations.",
       registerUrl: "/contact?intent=trial",
-      contactEmail: "hello@rkyves.com",
+      contactEmail: "cullinos@rkyves.com",
     });
 
     await this.upsertThemeDraft(DEFAULT_MARKETING_THEME_TOKENS, "Warm Heritage");

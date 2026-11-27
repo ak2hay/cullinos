@@ -10,6 +10,15 @@ export function OrganizationJsonLd() {
     legalName: BUSINESS_NAP.legalName,
     url: getSiteUrl(),
     email: BUSINESS_NAP.email,
+    contactPoint: {
+      '@type': 'ContactPoint',
+      contactType: 'customer support',
+      email: BUSINESS_NAP.email,
+      ...(BUSINESS_NAP.telephone
+        ? { telephone: BUSINESS_NAP.telephone.replace(/\s/g, '') }
+        : {}),
+      areaServed: BUSINESS_NAP.addressCountry,
+    },
     ...(BUSINESS_NAP.telephone
       ? { telephone: BUSINESS_NAP.telephone.replace(/\s/g, '') }
       : {}),

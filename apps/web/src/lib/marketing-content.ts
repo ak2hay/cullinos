@@ -42,7 +42,7 @@ export function buildFallbackMarketingBundle(): MarketingCmsBundle {
       siteName: 'Cullinos',
       tagline: 'Restaurant POS & GST Billing Software',
       registerUrl: 'https://admin.cullinos.com/register',
-      contactEmail: 'hello@rkyves.com',
+      contactEmail: 'cullinos@rkyves.com',
     },
     theme: {},
     heroSlides: [

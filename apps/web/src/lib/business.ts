@@ -2,7 +2,7 @@
 export const BUSINESS_NAP = {
   legalName: 'Rkyves',
   brand: 'Cullinos',
-  email: 'hello@rkyves.com',
+  email: 'cullinos@rkyves.com',
   addressLocality: 'Mumbai',
   addressRegion: 'Maharashtra',
   addressCountry: 'IN',
@@ -24,4 +24,13 @@ export const WHATSAPP_PREFILL =
 
 export function whatsappHref(message: string = WHATSAPP_PREFILL): string {
   return `https://wa.me/${WHATSAPP_E164}?text=${encodeURIComponent(message)}`;
+}
+
+const RETIRED_PUBLIC_EMAILS = new Set(['hello@rkyves.com', 'hello@cullinos.com']);
+
+/** Public inbox. A stored hello@ address is treated as retired. */
+export function resolvePublicEmail(candidate?: string | null): string {
+  const value = candidate?.trim();
+  if (!value || RETIRED_PUBLIC_EMAILS.has(value.toLowerCase())) return BUSINESS_NAP.email;
+  return value;
 }

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { CULLINOS_BRAND } from '@cullinos/shared';
 import { useMemo, useState } from 'react';
 import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
-import { BUSINESS_ADDRESS_LINE, BUSINESS_NAP, MAPS_EMBED_QUERY } from '@/lib/business';
+import { BUSINESS_ADDRESS_LINE, BUSINESS_NAP, MAPS_EMBED_QUERY, resolvePublicEmail } from '@/lib/business';
 
 const fallbackColumns = [
   {
@@ -51,7 +51,7 @@ const socialLinks = [{ label: 'Instagram', href: 'https://www.instagram.com/cull
 
 export function MarketingFooter() {
   const cms = useMarketingCms();
-  const contactEmail = cms.site?.contactEmail ?? BUSINESS_NAP.email;
+  const contactEmail = resolvePublicEmail(cms.site?.contactEmail);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   const columns = useMemo(() => {
