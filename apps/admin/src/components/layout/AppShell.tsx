@@ -24,6 +24,7 @@ import {
 } from '@cullinos/ui';
 import { CalendarDays, LogOut, Menu, Search } from 'lucide-react';
 import { organizationsApi } from '@/lib/api';
+import { isJobNavVisible } from '@/lib/navAccess';
 import { useOpenOrders } from '@/lib/useShellAlerts';
 import { useAuthStore } from '@/stores/auth';
 import { ImpersonationBanner } from '@/components/auth/ImpersonationBanner';
@@ -53,87 +54,74 @@ function TodayChip() {
 
 const navSections: NavSectionDef[] = [
   {
-    id: 'overview',
-    label: 'Overview',
+    id: 'today',
+    label: 'Today',
     items: [{ to: '/', label: 'Dashboard', end: true }],
   },
   {
-    id: 'operations',
-    label: 'Operations',
+    id: 'service',
+    label: 'Service',
     items: [
       { to: '/orders', label: 'Orders' },
       { to: '/tables', label: 'Tables' },
       { to: '/reservations', label: 'Reservations' },
-      { to: '/displays', label: 'Displays' },
-      { to: '/stations', label: 'Kitchen stations' },
-      { to: '/kiosk', label: 'Digital Ordering' },
-      { to: '/delivery', label: 'Delivery' },
-      { to: '/aggregators', label: 'Aggregators (Coming soon)' },
     ],
   },
   {
-    id: 'catalog',
-    label: 'Menu & catalog',
+    id: 'menu',
+    label: 'Menu',
+    items: [{ to: '/menu', label: 'Menu' }],
+  },
+  {
+    id: 'team',
+    label: 'Team',
+    items: [{ to: '/staff', label: 'Staff' }],
+  },
+  {
+    id: 'money',
+    label: 'Money',
+    items: [{ to: '/reports', label: 'Reports' }],
+  },
+  {
+    id: 'more',
+    label: 'More',
     items: [
-      { to: '/menu', label: 'Menu' },
+      { to: '/displays', label: 'Kitchen screen' },
+      { to: '/stations', label: 'Kitchen stations' },
+      { to: '/kiosk', label: 'Self-order screen' },
+      { to: '/delivery', label: 'Delivery' },
+      { to: '/customers', label: 'Customers' },
       { to: '/inventory', label: 'Inventory' },
+      { to: '/settings', label: 'Settings' },
+      { to: '/billing', label: 'Billing' },
+      { to: '/onboarding', label: 'Setup' },
+      { to: '/loyalty', label: 'Loyalty' },
       { to: '/recipes', label: 'Recipes' },
       { to: '/purchasing', label: 'Purchasing' },
       { to: '/suppliers', label: 'Suppliers' },
       { to: '/production', label: 'Production' },
       { to: '/central-kitchen', label: 'Central kitchen' },
       { to: '/brands', label: 'Brands' },
-    ],
-  },
-  {
-    id: 'guests',
-    label: 'Guests & CRM',
-    items: [
-      { to: '/customers', label: 'Customers' },
-      { to: '/loyalty', label: 'Loyalty' },
       { to: '/hospitality/guests', label: 'Guests' },
       { to: '/hospitality/rooms', label: 'Rooms' },
-    ],
-  },
-  {
-    id: 'events',
-    label: 'Events',
-    items: [
       { to: '/events', label: 'Events' },
       { to: '/banquets', label: 'Banquets' },
-    ],
-  },
-  {
-    id: 'cullinos-app',
-    label: 'Cullinos App',
-    items: [
       { to: '/marketplace', label: 'App listing' },
       { to: '/coupons', label: 'Coupons & offers' },
       { to: '/guest-banners', label: 'Banners' },
       { to: '/sms-campaigns', label: 'SMS campaigns (paid)' },
-    ],
-  },
-  {
-    id: 'admin',
-    label: 'Admin',
-    items: [
-      { to: '/staff', label: 'Staff' },
-      { to: '/reports', label: 'Reports' },
-      { to: '/onboarding', label: 'Setup' },
-      { to: '/settings', label: 'Settings' },
-      { to: '/billing', label: 'Billing' },
+      { to: '/aggregators', label: 'Swiggy & Zomato (soon)' },
     ],
   },
 ];
 
 const SECTION_LABEL_KEYS: Record<string, string> = {
-  overview: 'nav.sections.overview',
-  operations: 'nav.sections.operations',
-  catalog: 'nav.sections.catalog',
-  guests: 'nav.sections.guests',
-  events: 'nav.sections.events',
-  'cullinos-app': 'nav.sections.cullinosApp',
-  admin: 'nav.sections.admin',
+  today: 'nav.sections.today',
+  service: 'nav.sections.service',
+  menu: 'nav.sections.menu',
+  team: 'nav.sections.team',
+  money: 'nav.sections.money',
+  more: 'nav.sections.more',
 };
 
 const NAV_LABEL_KEYS: Record<string, string> = {
@@ -142,6 +130,7 @@ const NAV_LABEL_KEYS: Record<string, string> = {
   '/tables': 'nav.items.tables',
   '/reservations': 'nav.items.reservations',
   '/displays': 'nav.items.displays',
+  '/stations': 'nav.items.stations',
   '/kiosk': 'nav.items.kiosk',
   '/delivery': 'nav.items.delivery',
   '/aggregators': 'nav.items.aggregators',
@@ -235,6 +224,7 @@ function SidebarNav({
             isAdminNavPathVisible(businessType, item.to, restaurantSize, org?.enabledModules),
           )
           .filter((item) => isErpNavPathAllowed(permissions, item.to))
+          .filter((item) => isJobNavVisible(permissions, item.to))
           .filter((item) => item.to !== '/onboarding' || org?.setupCompleted !== true),
       }))
       .filter((section) => section.items.length > 0);
@@ -276,7 +266,7 @@ function SidebarNav({
                   end={item.end}
                   onClick={onNavigate}
                   className={({ isActive }) =>
-                    `group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors duration-150 ${
+                    `group relative flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 ${
                       isActive
                         ? 'bg-brand-primary/12 font-semibold text-brand-primary'
                         : 'text-text-secondary hover:bg-hover hover:text-text-primary'
@@ -355,7 +345,7 @@ export function AppShell({ compact, children }: AppShellProps) {
   const { t } = useTranslation();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({ more: true });
   const navigate = useNavigate();
   const location = useLocation();
   const permissions = useAuthStore((s) => s.permissions);
@@ -382,6 +372,7 @@ export function AppShell({ compact, children }: AppShellProps) {
           isAdminNavPathVisible(businessType, item.to, restaurantSize, org?.enabledModules),
         )
         .filter((item) => isErpNavPathAllowed(permissions, item.to))
+        .filter((item) => isJobNavVisible(permissions, item.to))
         .filter((item) => item.to !== '/onboarding' || org?.setupCompleted !== true)
         .map((item) => ({ ...item, group: section.label })),
     );
@@ -423,6 +414,15 @@ export function AppShell({ compact, children }: AppShellProps) {
     setPortalMode,
     navigate,
   ]);
+
+  useEffect(() => {
+    const inMore = navSections
+      .find((section) => section.id === 'more')
+      ?.items.some(
+        (item) => location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to)),
+      );
+    if (inMore) setCollapsedSections((prev) => ({ ...prev, more: false }));
+  }, [location.pathname]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

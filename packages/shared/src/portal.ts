@@ -32,7 +32,11 @@ export function defaultPortalMode(permissions: string[]): PortalMode {
   return 'erp';
 }
 
-/** Optional permission gate for ERP deep links / nav. */
+/**
+ * Optional permission gate for ERP deep links / nav.
+ * Keys match the single permission already required by the admin route.
+ * Owners (org:manage_users) still pass every path.
+ */
 export const ERP_NAV_PERMISSION_MAP: Record<string, string> = {
   '/staff': PERMISSIONS.STAFF_READ,
   '/settings': PERMISSIONS.SETTINGS_READ,
@@ -42,6 +46,15 @@ export const ERP_NAV_PERMISSION_MAP: Record<string, string> = {
   '/onboarding': PERMISSIONS.ORG_UPDATE,
   '/customers': PERMISSIONS.CUSTOMER_READ,
   '/loyalty': PERMISSIONS.CUSTOMER_READ,
+  '/menu': PERMISSIONS.MENU_READ,
+  '/orders': PERMISSIONS.ORDER_READ,
+  '/inventory': PERMISSIONS.INVENTORY_READ,
+  '/purchasing': PERMISSIONS.PURCHASE_READ,
+  '/suppliers': PERMISSIONS.PURCHASE_READ,
+  '/central-kitchen': PERMISSIONS.INVENTORY_TRANSFER,
+  '/sms-campaigns': PERMISSIONS.SETTINGS_UPDATE,
+  '/coupons': PERMISSIONS.SETTINGS_UPDATE,
+  '/guest-banners': PERMISSIONS.SETTINGS_UPDATE,
 };
 
 export function isErpNavPathAllowed(permissions: string[], path: string): boolean {

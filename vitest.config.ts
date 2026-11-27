@@ -18,6 +18,7 @@ export default defineConfig({
       'packages/tax-engine/src/**/*.test.ts',
       'packages/shared/src/**/*.test.ts',
       'packages/menu-catalog/src/**/*.test.ts',
+      'apps/admin/src/**/*.test.ts',
       'apps/web/src/**/*.test.ts',
     ],
   },
