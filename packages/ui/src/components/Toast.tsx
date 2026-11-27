@@ -10,11 +10,24 @@ import { cn } from '../utils';
 
 export type ToastVariant = 'success' | 'error' | 'warning' | 'info';
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
+export interface ToastShowOptions {
+  variant?: ToastVariant;
+  action?: ToastAction;
+  /** How long the toast stays. Undo toasts stay longer so the button can be pressed. */
+  durationMs?: number;
+}
+
 export interface ToastItem {
   id: string;
   variant: ToastVariant;
   message: string;
   leaving?: boolean;
+  action?: ToastAction;
 }
 
 const TOAST_EXIT_MS = 200;
@@ -23,6 +36,8 @@ interface ToastContextValue {
   toast: (message: string, variant?: ToastVariant) => void;
   success: (message: string) => void;
   error: (message: string) => void;
+  /** Toast with an optional action, such as Undo. */
+  show: (message: string, options?: ToastShowOptions) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -52,22 +67,33 @@ export function ToastProvider({
     }, TOAST_EXIT_MS);
   }, []);
 
-  const toast = useCallback(
-    (message: string, variant: ToastVariant = 'info') => {
+  const show = useCallback(
+    (message: string, options?: ToastShowOptions) => {
       const id = `toast-${++toastSeq}`;
-      setItems((prev) => [...prev, { id, variant, message }]);
-      window.setTimeout(() => dismiss(id), durationMs);
+      const variant = options?.variant ?? 'info';
+      const action = options?.action;
+      setItems((prev) => [...prev, { id, variant, message, action }]);
+      const stay = options?.durationMs ?? (action ? 8000 : durationMs);
+      if (stay > 0) window.setTimeout(() => dismiss(id), stay);
     },
     [dismiss, durationMs],
+  );
+
+  const toast = useCallback(
+    (message: string, variant: ToastVariant = 'info') => {
+      show(message, { variant });
+    },
+    [show],
   );
 
   const value = useMemo<ToastContextValue>(
     () => ({
       toast,
-      success: (message: string) => toast(message, 'success'),
-      error: (message: string) => toast(message, 'error'),
+      success: (message: string) => show(message, { variant: 'success' }),
+      error: (message: string) => show(message, { variant: 'error' }),
+      show,
     }),
-    [toast],
+    [toast, show],
   );
 
   return (
@@ -83,14 +109,27 @@ export function ToastProvider({
             role="status"
             onClick={() => dismiss(item.id)}
             className={cn(
-              'pointer-events-auto cursor-pointer rounded-lg border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-md',
+              'pointer-events-auto flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-md',
               toastStyles[item.variant],
               item.leaving
                 ? 'animate-[ui-toast-out_200ms_ease-in_both]'
                 : 'animate-[ui-toast-in_260ms_var(--ease-out)_both]',
             )}
           >
-            {item.message}
+            <span>{item.message}</span>
+            {item.action ? (
+              <button
+                type="button"
+                className="min-h-11 shrink-0 rounded-md px-2 font-semibold underline underline-offset-2"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  item.action?.onClick();
+                  dismiss(item.id);
+                }}
+              >
+                {item.action.label}
+              </button>
+            ) : null}
           </div>
         ))}
       </div>
