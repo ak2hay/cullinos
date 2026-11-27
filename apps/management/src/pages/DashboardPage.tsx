@@ -24,18 +24,18 @@ export function DashboardPage() {
   const outlets = outletsQuery.data ?? [];
 
   const kpis = [
-    { label: 'Consolidated revenue', value: summary ? formatMoney(summary.totalRevenue) : '—' },
-    { label: 'Total orders', value: summary ? String(summary.totalOrders) : '—' },
-    { label: 'Open orders', value: summary ? String(summary.openOrders) : '—' },
-    { label: 'Avg order value', value: summary ? formatMoney(summary.averageOrderValue) : '—' },
+    { label: 'Sales today', value: summary ? formatMoney(summary.totalRevenue) : '—' },
+    { label: 'Orders', value: summary ? String(summary.totalOrders) : '—' },
+    { label: 'Still open', value: summary ? String(summary.openOrders) : '—' },
+    { label: 'Average bill', value: summary ? formatMoney(summary.averageOrderValue) : '—' },
   ];
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold">Enterprise overview</h1>
+        <h1 className="text-2xl font-semibold">Today across outlets</h1>
         <p className="mt-1 text-text-secondary">
-          Welcome back, {user?.firstName}. Consolidated performance across your network.
+          Welcome back, {user?.firstName}. Sales and open orders for the outlets you selected.
         </p>
       </div>
 

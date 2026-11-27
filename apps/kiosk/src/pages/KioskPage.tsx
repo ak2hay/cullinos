@@ -29,6 +29,7 @@ export function KioskPage() {
   const { orgSlug = '', outletSlug = '' } = useParams();
   const [step, setStep] = useState<Step>('welcome');
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [dishQuery, setDishQuery] = useState('');
   const [lines, setLines] = useState<KioskLine[]>([]);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [guestName, setGuestName] = useState('');
@@ -56,10 +57,14 @@ export function KioskPage() {
     () => categories.filter((c) => availableItems.some((i) => i.categoryId === c.id)),
     [categories, availableItems],
   );
-  const items = useMemo(
-    () => (categoryId ? availableItems.filter((i) => i.categoryId === categoryId) : availableItems),
-    [availableItems, categoryId],
-  );
+  const items = useMemo(() => {
+    const inCategory = categoryId
+      ? availableItems.filter((i) => i.categoryId === categoryId)
+      : availableItems;
+    const needle = dishQuery.trim().toLowerCase();
+    if (!needle) return inCategory;
+    return inCategory.filter((item) => item.name.toLowerCase().includes(needle));
+  }, [availableItems, categoryId, dishQuery]);
 
   const itemCount = lines.reduce((s, l) => s + l.quantity, 0);
   const total = lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
@@ -71,6 +76,7 @@ export function KioskPage() {
     setGuestName('');
     setOrderType('takeaway');
     setCategoryId(null);
+    setDishQuery('');
     setSelectedItem(null);
     setError('');
     setStep('welcome');
@@ -422,11 +428,22 @@ export function KioskPage() {
         <button
           type="button"
           onClick={resetAll}
-          className="h-12 shrink-0 rounded-2xl border border-line px-4 text-sm font-semibold text-text-secondary"
+          className="h-14 shrink-0 rounded-2xl border border-line px-4 text-base font-semibold text-text-secondary"
         >
           Start over
         </button>
       </header>
+
+      <div className="px-6 pt-4">
+        <input
+          type="search"
+          value={dishQuery}
+          onChange={(e) => setDishQuery(e.target.value)}
+          placeholder="Search dishes"
+          aria-label="Search dishes"
+          className="h-14 w-full rounded-2xl border border-line bg-bg-card px-5 text-lg outline-none focus:border-brand-primary"
+        />
+      </div>
 
       <nav className="flex shrink-0 gap-3 overflow-x-auto px-6 py-4">
         <CategoryChip label="All" active={!categoryId} onClick={() => setCategoryId(null)} />
@@ -442,7 +459,9 @@ export function KioskPage() {
 
       <main className="min-h-0 flex-1 overflow-y-auto px-6 pb-32">
         {items.length === 0 ? (
-          <p className="py-20 text-center text-lg text-text-muted">No items available right now.</p>
+          <p className="py-20 text-center text-lg text-text-muted">
+            {dishQuery.trim() ? 'No dishes match that search.' : 'Nothing to order right now.'}
+          </p>
         ) : (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
             {items.map((item) => {

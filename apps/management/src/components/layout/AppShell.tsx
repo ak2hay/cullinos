@@ -7,9 +7,9 @@ import { BrandSelector } from './BrandSelector';
 import { OutletSelector } from './OutletSelector';
 
 const navItems = [
-  { to: '/', label: 'Overview', end: true },
+  { to: '/', label: 'Today', end: true },
   { to: '/reports', label: 'Reports' },
-  { to: '/comparison', label: 'Outlet comparison' },
+  { to: '/comparison', label: 'Compare outlets' },
   { to: '/stock-transfer', label: 'Stock transfer' },
   { to: '/franchise', label: 'Franchise' },
 ];
@@ -47,7 +47,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             end={item.end}
             onClick={onNavigate}
             className={({ isActive }) =>
-              `block rounded-lg px-3 py-2.5 text-sm transition ${
+              `block min-h-11 rounded-lg px-3 py-3 text-base transition ${
                 isActive
                   ? 'bg-brand-primary/15 font-medium text-brand-primary'
                   : 'text-text-secondary hover:bg-hover hover:text-text-primary'
@@ -130,7 +130,7 @@ export function AppShell() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <p className="hidden text-xs text-text-muted sm:block">Enterprise console</p>
+            <p className="hidden text-xs text-text-muted sm:block">All outlets</p>
             <ThemeToggle />
           </div>
         </header>

@@ -28,7 +28,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
             <span className="text-brand-primary">order flow.</span>
           </h2>
           <p className="max-w-md text-text-secondary">
-            Track KOTs, update prep status, and keep service moving across every station.
+            See new tickets, tap Ready when a dish is done, and keep the kitchen moving.
           </p>
         </div>
 

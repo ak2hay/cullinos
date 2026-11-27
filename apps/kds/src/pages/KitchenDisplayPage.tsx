@@ -91,6 +91,8 @@ export function KitchenDisplayPage() {
 
   const socketStatus = useKitchenSocket(outletId);
   useDisplayHeartbeat(outletId);
+  const [soundOn, setSoundOn] = useState(() => localStorage.getItem('cullinos.kds.sound') === 'on');
+  const seenKotIds = useRef<Set<string> | null>(null);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
 
   const outletOptions = useMemo(() => {
@@ -131,6 +133,45 @@ export function KitchenDisplayPage() {
     [kots],
   );
 
+  function playNewTicketSound() {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    [880, 1174].forEach((freq, index) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const start = now + index * 0.16;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.08, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.14);
+      osc.start(start);
+      osc.stop(start + 0.15);
+    });
+    window.setTimeout(() => void ctx.close(), 800);
+  }
+
+  useEffect(() => {
+    const ids = new Set(sortedKots.map((kot) => kot.id));
+    if (soundOn && seenKotIds.current) {
+      const hasNew = [...ids].some((id) => !seenKotIds.current?.has(id));
+      if (hasNew) playNewTicketSound();
+    }
+    seenKotIds.current = ids;
+  }, [sortedKots, soundOn]);
+
+  function toggleSound() {
+    setSoundOn((current) => {
+      const next = !current;
+      localStorage.setItem('cullinos.kds.sound', next ? 'on' : 'off');
+      if (next) playNewTicketSound();
+      return next;
+    });
+  }
+
   function onOutletChange(nextId: string | null) {
     setSelectedOutlet(nextId);
     const next = new URLSearchParams(searchParams);
@@ -164,8 +205,16 @@ export function KitchenDisplayPage() {
             className="min-w-[180px]"
           />
           {displayData ? <StationFilter displayData={displayData} /> : null}
-          <Button variant="ghost" onClick={() => void refetch()}>
+          <Button variant="ghost" className="min-h-11" onClick={() => void refetch()}>
             Refresh
+          </Button>
+          <Button
+            type="button"
+            variant={soundOn ? 'primary' : 'secondary'}
+            className="min-h-11"
+            onClick={toggleSound}
+          >
+            {soundOn ? 'Sound on' : 'Turn sound on'}
           </Button>
           <Button
             type="button"
@@ -232,7 +281,7 @@ export function KitchenDisplayPage() {
             No active tickets — waiting for orders.
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {sortedKots.map((kot) => (
               <KotCard key={kot.id} kot={kot} outletId={outletId} />
             ))}

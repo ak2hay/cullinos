@@ -76,20 +76,20 @@ export function KotCard({ kot, outletId }: KotCardProps) {
 
   return (
     <article
-      className={`flex flex-col rounded-xl border-2 bg-bg-card p-4 shadow-lg ${style.border}`}
+      className={`flex min-h-[280px] flex-col rounded-2xl border-4 bg-bg-card p-5 shadow-lg ${style.border}`}
       style={{ borderLeftColor: kot.status === 'NEW' ? colors.status.new : undefined }}
     >
-      <header className="mb-3 flex items-start justify-between gap-2">
+      <header className="mb-4 flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-lg font-bold text-brand-primary">#{kot.kotNumber}</span>
+            <span className="font-mono text-3xl font-bold text-brand-primary">#{kot.kotNumber}</span>
             {kot.priority > 0 ? (
               <span className="rounded-full bg-status-error/20 px-2 py-0.5 text-xs font-semibold text-status-error">
                 PRIORITY
               </span>
             ) : null}
           </div>
-          <p className="text-sm text-text-secondary">
+          <p className="text-lg text-text-secondary">
             {tableLabel} · Order {kot.order.orderNumber}
           </p>
         </div>
@@ -105,7 +105,7 @@ export function KotCard({ kot, outletId }: KotCardProps) {
         {kot.items.map((item) => (
           <li
             key={item.id}
-            className="flex items-center justify-between rounded-lg bg-bg-elevated/60 px-3 py-2 text-sm"
+            className="flex items-center justify-between rounded-lg bg-bg-elevated/60 px-3 py-3 text-lg"
           >
             <span>
               <span className="font-semibold text-brand-primary">{item.quantity}×</span>{' '}
@@ -132,11 +132,12 @@ export function KotCard({ kot, outletId }: KotCardProps) {
       {next ? (
         <Button
           variant={next === 'READY' ? 'success' : next === 'PREPARING' ? 'warning' : 'primary'}
-          className="w-full"
+          size="lg"
+          className="min-h-16 w-full text-lg font-bold"
           loading={updateMutation.isPending}
           onClick={() => void bumpAllItems()}
         >
-          Mark {next === 'PREPARING' ? 'Preparing' : next === 'READY' ? 'Ready' : 'Served'}
+          {next === 'PREPARING' ? 'Start cooking' : next === 'READY' ? 'Ready' : 'Served'}
         </Button>
       ) : null}
     </article>
