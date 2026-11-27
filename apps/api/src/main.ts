@@ -65,6 +65,20 @@ async function bootstrap() {
     });
   }
 
+  const demoMenuDir = [
+    resolve(__dirname, "../assets/demo-menu"),
+    resolve(__dirname, "../../assets/demo-menu"),
+    resolve(process.cwd(), "assets/demo-menu"),
+  ].find((dir) => existsSync(dir));
+  if (demoMenuDir) {
+    app.useStaticAssets(demoMenuDir, {
+      prefix: "/demo-menu",
+      setHeaders: (res) => {
+        res.setHeader("Cache-Control", "public, max-age=86400");
+      },
+    });
+  }
+
   const allowedOrigins = new Set(parseCorsOrigins(process.env.CORS_ORIGINS));
   // Local/dev default when unset: reflect nothing; require explicit list or empty (no browser CORS).
   if (process.env.NODE_ENV !== "production" && allowedOrigins.size === 0) {

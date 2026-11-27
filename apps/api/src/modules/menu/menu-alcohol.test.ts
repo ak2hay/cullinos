@@ -37,6 +37,7 @@ function serviceFor(businessType: string, settings: Record<string, unknown> = {}
       }),
     },
     menuSchedule: { findMany: vi.fn(async () => []) },
+    taxGroup: { findMany: vi.fn(async () => []) },
     menuCategory: {
       findMany: vi.fn(async () => [{ id: "c1", name: "Drinks", description: null }]),
     },

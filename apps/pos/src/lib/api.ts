@@ -172,12 +172,17 @@ export interface OutletMenuItem {
   /** Present when happy hour discounts `price` */
   regularPrice?: number;
   isAvailable: boolean;
-  variants?: Array<{ id: string; name: string; price: number }>;
+  imageUrl?: string | null;
+  isVeg?: boolean | null;
+  taxInclusive?: boolean;
+  taxRates?: Array<{ name: string; rate: number; type: string }>;
+  variants?: Array<{ id: string; name: string; price: number; isDefault?: boolean }>;
   modifierGroups?: Array<{
     id: string;
     name: string;
     minSelect?: number | null;
     maxSelect?: number | null;
+    isRequired?: boolean;
     modifiers: Array<{ id: string; name: string; price: number }>;
   }>;
 }
@@ -291,7 +296,23 @@ export const menuApi = {
       outletId: string;
       categories: MenuCategory[];
       items: OutletMenuItem[];
-    }>(`/menu/outlets/${outletId}`),
+    }>(`/menu/outlets/${outletId}?includeUnavailable=1`),
+};
+
+export interface PosTable {
+  id: string;
+  name: string;
+}
+
+export const tablesApi = {
+  list: async (outletId: string) => {
+    try {
+      return await apiRequest<PosTable[]>(`/tables/outlets/${encodeURIComponent(outletId)}`);
+    } catch (err) {
+      if (err instanceof ApiRequestError && (err.status === 403 || err.status === 404)) return [];
+      throw err;
+    }
+  },
 };
 
 export const posApi = {
@@ -301,16 +322,23 @@ export const posApi = {
       items: QuickOrderItem[];
       autoConfirm?: boolean;
       type?: string;
+      tableId?: string;
       customerId?: string;
       customerName?: string;
       tipAmount?: number;
       notes?: string;
       deliveryAddress?: string;
       deliveryPincode?: string;
+      couponCode?: string;
+      discountAmount?: number;
+      /** Create the order, send the KOT, and record cash in this request. */
+      settleCash?: boolean;
+      /** Rupees. Omit to settle the full remaining balance. */
+      cashAmount?: number;
     },
     idempotencyKey?: string,
   ) =>
-    apiRequest<Order>(
+    apiRequest<Order & { payment?: CashPaymentResult }>(
       '/pos/quick-order',
       {
         method: 'POST',

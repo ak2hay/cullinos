@@ -115,7 +115,7 @@ export class TablesController {
 
   @Get("outlets/:outletId")
   @RequireModule("tables")
-  @RequirePermissions("table:read")
+  @RequirePermissions("table:read", "pos:access")
   listByOutlet(@OrgId() orgId: string, @Param("outletId") outletId: string) {
     return this.service.listByOutlet(orgId, outletId);
   }

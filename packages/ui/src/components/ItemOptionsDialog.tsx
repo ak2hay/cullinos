@@ -7,6 +7,7 @@ export interface ItemOptionsVariant {
   name: string;
   /** Paise */
   price: number;
+  isDefault?: boolean;
 }
 
 export interface ItemOptionsModifier {
@@ -47,6 +48,8 @@ export interface ItemOptionsDialogProps {
   onClose: () => void;
   onConfirm: (selection: ItemOptionsSelection) => void;
   formatMoney: (paise: number) => string;
+  /** Last size and modifiers, so a repeat visit does not start blank. */
+  initial?: { variantId?: string; modifierIds?: string[] } | null;
 }
 
 export function itemNeedsOptions(item: ItemOptionsItem): boolean {
@@ -55,14 +58,30 @@ export function itemNeedsOptions(item: ItemOptionsItem): boolean {
   );
 }
 
-export function ItemOptionsDialog({ item, onClose, onConfirm, formatMoney }: ItemOptionsDialogProps) {
+export function ItemOptionsDialog({
+  item,
+  onClose,
+  onConfirm,
+  formatMoney,
+  initial = null,
+}: ItemOptionsDialogProps) {
   const [variantId, setVariantId] = useState<string | undefined>();
   const [picked, setPicked] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
-    setVariantId(item?.variants?.[0]?.id);
-    setPicked({});
-  }, [item]);
+    const variant =
+      item?.variants?.find((v) => v.id === initial?.variantId) ??
+      item?.variants?.find((v) => v.isDefault) ??
+      item?.variants?.[0];
+    setVariantId(variant?.id);
+    const ids = new Set(initial?.modifierIds ?? []);
+    const next: Record<string, string[]> = {};
+    for (const group of item?.modifierGroups ?? []) {
+      const selected = group.modifiers.filter((modifier) => ids.has(modifier.id)).map((modifier) => modifier.id);
+      if (selected.length) next[group.id] = selected;
+    }
+    setPicked(next);
+  }, [item, initial]);
 
   const groups = useMemo(
     () => (item?.modifierGroups ?? []).filter((g) => g.modifiers.length > 0),

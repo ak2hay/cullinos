@@ -367,7 +367,8 @@ describe("MarketingUploadService.saveUploadedFile hierarchical keys", () => {
     });
     expect(storage.putObject).toHaveBeenCalledWith(
       expect.objectContaining({
-        key: "marketing/orgs/org9/menu/item9.png",
+        key: "marketing/orgs/org9/menu/item9.webp",
+        contentType: "image/webp",
       }),
     );
   });
@@ -429,5 +430,24 @@ describe("MarketingUploadService.saveUploadedFile hierarchical keys", () => {
     ).rejects.toBeInstanceOf(PayloadTooLargeException);
     expect(storage.putObject).not.toHaveBeenCalled();
     expect(prisma.storedObject.upsert).not.toHaveBeenCalled();
+  });
+
+  it("stores menu photos as a WebP thumbnail that fits the tile", async () => {
+    const { service, storage } = makeUploadService({ cloud: true });
+    const file = await realPngFile(1600, 1200);
+    const saved = await service.saveUploadedFile(file, {
+      scope: "org",
+      orgId: "org1",
+      leafName: "paneer",
+      imageSlot: "menuItem",
+    });
+    expect(saved.mimeType).toBe("image/webp");
+    expect(saved.filename).toMatch(/\.webp$/);
+    const stored = storage.putObject.mock.calls[0][0] as { body: Buffer; contentType: string };
+    expect(stored.contentType).toBe("image/webp");
+    const meta = await sharp(stored.body).metadata();
+    expect(meta.format).toBe("webp");
+    expect(meta.width).toBeLessThanOrEqual(800);
+    expect(meta.height).toBeLessThanOrEqual(800);
   });
 });

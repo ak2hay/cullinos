@@ -380,6 +380,24 @@ export async function reencodeImage(buffer: Buffer, mime: string): Promise<Buffe
   return image.jpeg({ quality: 85, mozjpeg: true }).toBuffer();
 }
 
+/** POS tiles load this file on modest tablets. Fit inside the menu slot and store WebP. */
+export async function encodeMenuThumbnail(buffer: Buffer): Promise<Buffer> {
+  const spec = IMAGE_SLOT_SPECS.menuItem;
+  return sharp(buffer, {
+    limitInputPixels: MARKETING_UPLOAD_MAX_PIXELS * MARKETING_UPLOAD_MAX_PIXELS,
+    failOn: "error",
+  })
+    .rotate()
+    .resize({
+      width: spec.targetWidth,
+      height: spec.targetHeight,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: 80 })
+    .toBuffer();
+}
+
 @Injectable()
 export class MarketingUploadService {
   private uploadDir: string;
@@ -483,10 +501,13 @@ export class MarketingUploadService {
     }
 
     const sniffed = sniffImageMime(file.buffer) ?? "image/jpeg";
-    const ext =
-      extFromMime(sniffed) ||
-      path.extname(file.originalname).toLowerCase() ||
-      ".bin";
+    const menuThumb = pathCtx.imageSlot === "menuItem";
+    const ext = menuThumb
+      ? ".webp"
+      : extFromMime(sniffed) ||
+        path.extname(file.originalname).toLowerCase() ||
+        ".bin";
+    const storedMime = menuThumb ? "image/webp" : sniffed;
     const key = buildStorageKey(pathCtx, ext);
     // Relative path under marketing/ for DB filename field (keeps nested structure).
     const relativePath = key.startsWith(`${MARKETING_PREFIX}/`)
@@ -495,7 +516,9 @@ export class MarketingUploadService {
 
     let body: Buffer;
     try {
-      body = await reencodeImage(file.buffer, sniffed);
+      body = menuThumb
+        ? await encodeMenuThumbnail(file.buffer)
+        : await reencodeImage(file.buffer, sniffed);
     } catch {
       throw new BadRequestException("Could not process image. Use a valid PNG, JPG, or WebP.");
     }
@@ -504,7 +527,7 @@ export class MarketingUploadService {
 
     let url: string;
     if (this.storage.isCloudEnabled()) {
-      const saved = await this.storage.putObject({ key, body, contentType: sniffed });
+      const saved = await this.storage.putObject({ key, body, contentType: storedMime });
       url = saved.url;
     } else {
       const base = this.publicBaseUrl.replace(/\/$/, "");
@@ -533,7 +556,7 @@ export class MarketingUploadService {
     return {
       filename: relativePath,
       url,
-      mimeType: sniffed,
+      mimeType: storedMime,
       sizeBytes: body.length,
     };
   }

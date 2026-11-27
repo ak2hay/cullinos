@@ -103,6 +103,7 @@ export class StorageService implements OnModuleInit, OnModuleDestroy {
         Key: input.key,
         Body: input.body,
         ContentType: input.contentType,
+        CacheControl: "public, max-age=86400",
       }),
     );
     return { key: input.key, url: this.publicUrlForKey(input.key) };

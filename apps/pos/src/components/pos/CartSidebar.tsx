@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { PhoneField } from '@cullinos/ui';
+import { changeDue, formatRupeeChip, tenderChips } from '@/lib/cashTender';
 import { formatMoney } from '@/lib/format';
 import { useCartStore } from '@/stores/cart';
 import { CartLineNote } from './CartLineNote';
@@ -25,7 +26,9 @@ export interface PosCustomer {
 }
 
 interface CartSidebarProps {
-  onCash: () => void;
+  /** Tender in rupees. The button settles the full bill; the amount is what the guest handed over. */
+  onCash: (tenderRupees: number) => void;
+  onPartialCash?: () => void;
   onOnline: () => void;
   cashDisabled?: boolean;
   /** When set, UPI/card tender is unavailable (e.g. no gateway configured). */
@@ -73,11 +76,18 @@ interface CartSidebarProps {
   onManualDiscountChange?: (amount: number) => void;
   partialCashAmount?: number;
   onPartialCashAmountChange?: (amount: number | undefined) => void;
+  /** Payable paise, including GST and tip and after discounts. */
+  duePaise?: number;
+  taxPaise?: number;
+  tables?: Array<{ id: string; name: string }>;
+  tableId?: string | null;
+  onTableIdChange?: (id: string | null) => void;
   onBack?: () => void;
 }
 
 export function CartSidebar({
   onCash,
+  onPartialCash,
   onOnline,
   cashDisabled = false,
   onlineDisabledReason = null,
@@ -124,6 +134,11 @@ export function CartSidebar({
   onManualDiscountChange,
   partialCashAmount,
   onPartialCashAmountChange,
+  duePaise: duePaiseProp,
+  taxPaise = 0,
+  tables = [],
+  tableId = null,
+  onTableIdChange,
   onBack,
 }: CartSidebarProps) {
   const lines = useCartStore((s) => s.lines);
@@ -132,14 +147,23 @@ export function CartSidebar({
   const setLineNote = useCartStore((s) => s.setLineNote);
   const subtotal = useCartStore((s) => s.subtotal());
   const itemCount = useCartStore((s) => s.itemCount());
-  const [tenderOpen, setTenderOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [pickedTender, setPickedTender] = useState<number | null>(null);
   const canCharge = lines.length > 0 && !checkoutLoading;
   const tipPaise = tipAmount ? tipAmount * 100 : 0;
   const discountPaise =
     redeemPoints > 0 && loyaltySettings
       ? Math.round(redeemPoints * loyaltySettings.redemptionValue * 100)
       : 0;
-  const duePaise = Math.max(0, subtotal + tipPaise - discountPaise);
+  const duePaise = duePaiseProp ?? Math.max(0, subtotal + tipPaise - discountPaise);
+  const dueRupees = duePaise / 100;
+  const chips = useMemo(() => tenderChips(dueRupees), [dueRupees]);
+  const tender =
+    pickedTender != null && chips.some((chip) => Math.abs(chip - pickedTender) < 0.001)
+      ? pickedTender
+      : (chips[0] ?? 0);
+  const change = changeDue(tender, dueRupees);
+  const canSettle = (canCharge || Boolean(unpaidOrder)) && !cashDisabled;
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden border-t border-line-subtle bg-bg-secondary lg:w-[26rem] lg:flex-none lg:border-l lg:border-t-0">
@@ -346,6 +370,23 @@ export function CartSidebar({
                 ))}
               </div>
             ) : null}
+            {tables.length > 0 ? (
+              <label className="block">
+                <span className="mb-1 block text-xs text-text-muted">Table</span>
+                <select
+                  value={tableId ?? ''}
+                  onChange={(e) => onTableIdChange?.(e.target.value || null)}
+                  className="h-11 w-full rounded-xl border border-line bg-bg-primary px-3 text-sm outline-none focus:border-brand-primary"
+                >
+                  <option value="">No table</option>
+                  {tables.map((table) => (
+                    <option key={table.id} value={table.id}>
+                      {table.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             {orderType === 'delivery' ? (
               <div className="space-y-2">
                 <textarea
@@ -391,20 +432,6 @@ export function CartSidebar({
                 min={0}
                 value={manualDiscount || ''}
                 onChange={(e) => onManualDiscountChange?.(Number(e.target.value) || 0)}
-                className="w-full rounded-xl border border-line bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="shrink-0 text-xs text-text-muted">Pay amount (₹)</label>
-              <input
-                type="number"
-                min={0}
-                value={partialCashAmount ?? ''}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  onPartialCashAmountChange?.(v === '' ? undefined : Number(v) || 0);
-                }}
-                placeholder="Full"
                 className="w-full rounded-xl border border-line bg-bg-primary px-3 py-2 text-sm outline-none focus:border-brand-primary"
               />
             </div>
@@ -470,16 +497,22 @@ export function CartSidebar({
         ) : null}
       </div>
 
-      <div className="shrink-0 space-y-3 border-t border-line-subtle bg-bg-secondary p-4">
+      <div className="shrink-0 space-y-2 border-t border-line-subtle bg-bg-secondary p-3">
         {discountPaise > 0 ? (
           <div className="flex items-center justify-between text-sm text-text-muted">
             <span>Loyalty discount</span>
             <span className="font-mono">−{formatMoney(discountPaise)}</span>
           </div>
         ) : null}
+        {taxPaise > 0 && !unpaidBalance ? (
+          <div className="flex items-center justify-between text-sm text-text-muted">
+            <span>GST</span>
+            <span className="font-mono">{formatMoney(taxPaise)}</span>
+          </div>
+        ) : null}
         <div className="flex items-center justify-between text-lg">
           <span className="text-text-secondary">
-            {unpaidBalance ? 'Remaining' : 'Subtotal'}
+            {unpaidBalance ? 'Remaining' : 'Due'}
           </span>
           <span className="font-mono font-semibold text-brand-primary">
             {unpaidBalance
@@ -488,49 +521,87 @@ export function CartSidebar({
           </span>
         </div>
 
+        {!unpaidBalance && dueRupees > 0 ? (
+          <div className="flex gap-1.5">
+            {chips.map((chip, index) => {
+              const selected = Math.abs(chip - tender) < 0.001;
+              return (
+                <button
+                  key={`${chip}-${index}`}
+                  type="button"
+                  onClick={() => setPickedTender(chip)}
+                  className={`h-11 min-w-0 flex-1 rounded-xl border text-sm font-semibold active:scale-[0.98] ${
+                    selected
+                      ? 'border-brand-primary bg-brand-primary/15 text-brand-primary'
+                      : 'border-line bg-bg-elevated text-text-secondary'
+                  }`}
+                >
+                  {index === 0 ? 'Exact' : `₹${formatRupeeChip(chip)}`}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+        <p className="min-h-5 text-center font-mono text-sm text-text-secondary">
+          {change > 0 ? `Change ₹${formatRupeeChip(change)}` : 'Change ₹0'}
+        </p>
+
         <button
           type="button"
-          disabled={!canCharge && !unpaidOrder}
-          onClick={() => setTenderOpen(true)}
-          className="h-14 w-full rounded-2xl bg-brand-primary text-lg font-bold text-on-brand shadow-lg shadow-brand-primary/20 transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+          disabled={!canSettle}
+          onClick={() => onCash(tender)}
+          className="h-16 w-full rounded-2xl bg-brand-primary text-lg font-bold text-on-brand shadow-lg shadow-brand-primary/20 transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
         >
-          {checkoutLoading
-            ? 'Processing…'
-            : unpaidOrder
-              ? 'Pay remainder'
-              : partialCashAmount
-                ? 'Pay amount'
-                : 'Pay full'}
+          {cashDisabled
+            ? 'Open shift for cash'
+            : change > 0
+              ? `Cash ₹${formatRupeeChip(tender)}`
+              : `Cash ₹${formatRupeeChip(unpaidBalance ? unpaidBalance.remaining : dueRupees)}`}
         </button>
 
-        {tenderOpen && (canCharge || unpaidOrder) ? (
-          <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={checkoutLoading || Boolean(onlineDisabledReason) || (!canCharge && !unpaidOrder)}
+            title={onlineDisabledReason ?? undefined}
+            onClick={onOnline}
+            className="h-11 rounded-xl border border-line text-sm font-medium disabled:opacity-40"
+          >
+            {checkoutLoading ? 'UPI…' : 'UPI / card'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMoreOpen((open) => !open)}
+            className="h-11 rounded-xl border border-line text-sm font-medium text-text-secondary"
+          >
+            {moreOpen ? 'Hide other' : 'Split / other'}
+          </button>
+        </div>
+        {onlineDisabledReason ? (
+          <p className="text-xs text-text-muted">{onlineDisabledReason}</p>
+        ) : null}
+        {moreOpen ? (
+          <div className="flex items-center gap-2">
+            <label className="shrink-0 text-xs text-text-muted">Partial ₹</label>
+            <input
+              type="number"
+              min={0}
+              value={partialCashAmount ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                onPartialCashAmountChange?.(v === '' ? undefined : Number(v) || 0);
+              }}
+              placeholder="Amount"
+              className="h-11 w-full rounded-xl border border-line bg-bg-primary px-3 text-sm outline-none focus:border-brand-primary"
+            />
             <button
               type="button"
-              disabled={checkoutLoading || cashDisabled}
-              onClick={() => {
-                setTenderOpen(false);
-                onCash();
-              }}
-              className="h-12 rounded-xl bg-brand-primary/20 font-medium text-brand-primary disabled:opacity-40"
+              disabled={cashDisabled || checkoutLoading || !partialCashAmount || (!canCharge && !unpaidOrder)}
+              onClick={onPartialCash}
+              className="h-11 shrink-0 rounded-xl border border-line px-3 text-sm font-semibold disabled:opacity-40"
             >
-              {cashDisabled ? 'Cash (open shift)' : 'Cash (Enter)'}
+              Record
             </button>
-            <button
-              type="button"
-              disabled={checkoutLoading || Boolean(onlineDisabledReason)}
-              title={onlineDisabledReason ?? undefined}
-              onClick={() => {
-                setTenderOpen(false);
-                onOnline();
-              }}
-              className="h-12 rounded-xl border border-line font-medium disabled:opacity-40"
-            >
-              UPI / card
-            </button>
-            {onlineDisabledReason ? (
-              <p className="col-span-2 text-xs text-text-muted">{onlineDisabledReason}</p>
-            ) : null}
           </div>
         ) : null}
 

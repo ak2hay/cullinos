@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { calculateMixedGst } from '@cullinos/tax-engine';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getPosOrderTypes, isBusinessType } from '@cullinos/shared';
 import {
   ItemOptionsDialog,
-  itemNeedsOptions,
   type ItemOptionsItem,
   type ItemOptionsSelection,
   ThemeToggle,
@@ -12,7 +12,7 @@ import {
 import { CartSidebar, type PosCustomer, type PosOrderType } from '@/components/pos/CartSidebar';
 import { CategoryTabs } from '@/components/pos/CategoryTabs';
 import { HeldOrdersPanel } from '@/components/pos/HeldOrdersPanel';
-import { ItemGrid } from '@/components/pos/ItemGrid';
+import { ItemGrid, type GridItem } from '@/components/pos/ItemGrid';
 import { KeyboardHints } from '@/components/pos/KeyboardHints';
 import { SearchBar } from '@/components/pos/SearchBar';
 import {
@@ -27,11 +27,26 @@ import {
   outletsApi,
   paymentsApi,
   posApi,
+  tablesApi,
+  type OutletMenuItem,
 } from '@/lib/api';
 import { printReceipt, type PrintableOrder } from '@/lib/printHelper';
 import { openRazorpayCheckout } from '@/lib/razorpay-checkout';
 import { openCashfreeCheckout } from '@/lib/cashfree-checkout';
+import { changeDue, formatRupeeChip } from '@/lib/cashTender';
+import { syncWithRetry } from '@/lib/cashSync';
 import { formatMoney, generateIdempotencyKey } from '@/lib/format';
+import { choiceFromSelection, itemHasChoices, resolveItemTap } from '@/lib/itemChoices';
+import {
+  loadItemChoice,
+  loadOrderType,
+  loadShowPhotos,
+  loadTableId,
+  saveItemChoice,
+  saveOrderType,
+  saveShowPhotos,
+  saveTableId,
+} from '@/lib/posPrefs';
 import { useAuthStore } from '@/stores/auth';
 import { toOrderItems, useCartStore } from '@/stores/cart';
 import { useHeldOrdersStore, type HeldOrder } from '@/stores/heldOrders';
@@ -87,7 +102,7 @@ export function PosPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [linkedCustomer, setLinkedCustomer] = useState<PosCustomer | null>(null);
-  const [orderType, setOrderType] = useState<PosOrderType>('takeaway');
+  const [orderType, setOrderType] = useState<PosOrderType>(() => loadOrderType() ?? 'takeaway');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryPincode, setDeliveryPincode] = useState('');
   const [tipAmount, setTipAmount] = useState(0);
@@ -101,23 +116,21 @@ export function PosPage() {
   const [splitSelectIds, setSplitSelectIds] = useState<string[]>([]);
   const [ebillOrderId, setEbillOrderId] = useState<string | null>(null);
   const [recentIds, setRecentIds] = useState<string[]>(() => loadRecentIds());
-  const [mobileView, setMobileView] = useState<'menu' | 'cart'>('menu');
+  const [showPhotos, setShowPhotos] = useState(() => loadShowPhotos());
+  const [tableId, setTableId] = useState<string | null>(null);
+  const [optionsInitial, setOptionsInitial] = useState<{
+    variantId?: string;
+    modifierIds?: string[];
+  } | null>(null);
+  const [syncNote, setSyncNote] = useState('');
   const redeemAppliedOrderId = useRef<string | null>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
   const [optionsItem, setOptionsItem] = useState<ItemOptionsItem | null>(null);
-  const prevLineCount = useRef(lines.length);
-  const cartItemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
+  const failedCash = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     idempotencyKeyRef.current = null;
   }, [lines]);
-
-  useEffect(() => {
-    if (prevLineCount.current > 0 && lines.length === 0 && !unpaidOrder) {
-      setMobileView('menu');
-    }
-    prevLineCount.current = lines.length;
-  }, [lines.length, unpaidOrder]);
 
   const outletsQuery = useQuery({
     queryKey: ['outlets'],
@@ -146,16 +159,42 @@ export function PosPage() {
     [orgBusinessType, orgSettingsQuery.data?.settings],
   );
   useEffect(() => {
-    if (orderTypeOptions.length && !orderTypeOptions.includes(orderType)) {
+    if (!orderTypeOptions.length) return;
+    if (!orderTypeOptions.includes(orderType)) {
       setOrderType(orderTypeOptions[0]);
+      return;
     }
+    saveOrderType(orderType);
   }, [orderTypeOptions, orderType]);
+
+  useEffect(() => {
+    if (!outletId) return;
+    setTableId(loadTableId(outletId));
+  }, [outletId]);
 
   const menuQuery = useQuery({
     queryKey: ['menu', outletId],
     queryFn: () => menuApi.getOutletMenu(outletId!),
     enabled: Boolean(outletId),
+    staleTime: 60_000,
   });
+
+  const tablesQuery = useQuery({
+    queryKey: ['tables', outletId],
+    queryFn: () => tablesApi.list(outletId!),
+    enabled: Boolean(outletId),
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    if (!outletId || !tableId) return;
+    const tables = tablesQuery.data;
+    if (!tables) return;
+    if (!tables.some((table) => table.id === tableId)) {
+      setTableId(null);
+      saveTableId(outletId, null);
+    }
+  }, [outletId, tableId, tablesQuery.data]);
 
   const shiftQuery = useQuery({
     queryKey: ['pos', 'shift', outletId],
@@ -270,7 +309,7 @@ export function PosPage() {
     return items.filter((item) => {
       const matchesCategory = !selectedCategoryId || item.categoryId === selectedCategoryId;
       const matchesSearch = !query || item.name.toLowerCase().includes(query);
-      return matchesCategory && matchesSearch && item.isAvailable;
+      return matchesCategory && matchesSearch;
     });
   }, [menuQuery.data?.items, selectedCategoryId, search]);
 
@@ -292,26 +331,27 @@ export function PosPage() {
       outletId,
       items,
       autoConfirm: true,
-      type: counterMode ? orderType : undefined,
+      type: orderType,
+      tableId: tableId || undefined,
       customerId: linkedCustomer?.id,
       customerName: customerName || linkedCustomer?.name || undefined,
       tipAmount: tipAmount || undefined,
       notes: counterMode ? `Counter order · ${COUNTER_ORDER_LABELS[orderType]}` : undefined,
-      ...(counterMode && orderType === 'delivery'
+      ...(orderType === 'delivery'
         ? {
             deliveryAddress: deliveryAddress.trim() || undefined,
             deliveryPincode: deliveryPincode.trim() || undefined,
           }
         : {}),
     };
-    if (counterMode && orderType === 'delivery' && !deliveryAddress.trim()) {
+    if (orderType === 'delivery' && !deliveryAddress.trim()) {
       throw new Error('Enter a delivery address');
     }
     try {
       return await posApi.quickOrder(payload, key);
     } catch (err) {
       // A delivery order must not silently fall back to a plain takeaway ticket.
-      if (counterMode && orderType === 'delivery') throw err;
+      if (orderType === 'delivery') throw err;
       if (!isRouteMissing(err)) throw err;
       return ordersApi.create(
         { outletId, source: 'POS', items, customerId: linkedCustomer?.id },
@@ -323,6 +363,7 @@ export function PosPage() {
     lines,
     counterMode,
     orderType,
+    tableId,
     customerName,
     tipAmount,
     linkedCustomer,
@@ -358,7 +399,7 @@ export function PosPage() {
         }>;
       },
       method: string,
-      opts: { fromCart: boolean },
+      opts: { fromCart: boolean; printKot?: boolean },
     ) => {
       if (opts.fromCart) {
         clearCart();
@@ -406,7 +447,7 @@ export function PosPage() {
             /* optional */
           }
         }
-        if (opts.fromCart) {
+        if (opts.fromCart || opts.printKot) {
           await printReceipt('kot', printable, { outletId: outletId ?? undefined }).catch(
             () => undefined,
           );
@@ -425,11 +466,40 @@ export function PosPage() {
     enabled: Boolean(linkedCustomer),
   });
 
+  const payable = useMemo(() => {
+    const byId = new Map((menuQuery.data?.items ?? []).map((item) => [item.id, item]));
+    const result = calculateMixedGst(
+      lines.map((line) => {
+        const menu = byId.get(line.menuItemId);
+        return {
+          amountPaise: line.unitPrice * line.quantity,
+          rates: menu?.taxRates ?? [],
+          isInclusive: menu?.taxInclusive ?? false,
+        };
+      }),
+      false,
+    );
+    const subtotalPaise = Math.round(result.subtotal * 100);
+    const taxPaise = Math.round(result.taxTotal * 100);
+    const tipPaise = tipAmount ? Math.round(tipAmount * 100) : 0;
+    const loyaltyPaise =
+      redeemPoints > 0 && loyaltySettingsQuery.data
+        ? Math.round(redeemPoints * loyaltySettingsQuery.data.redemptionValue * 100)
+        : 0;
+    const manualPaise = Math.round((manualDiscount || 0) * 100);
+    return {
+      subtotalPaise,
+      taxPaise,
+      duePaise: Math.max(0, subtotalPaise + taxPaise + tipPaise - loyaltyPaise - manualPaise),
+    };
+  }, [lines, menuQuery.data?.items, tipAmount, redeemPoints, loyaltySettingsQuery.data, manualDiscount]);
+
   const checkoutMutation = useMutation({
     mutationFn: async (input: {
       tender: 'cash' | 'online';
       orderId?: string;
       orderNumber?: string;
+      partial?: boolean;
     }) => {
       const settings = loyaltySettingsQuery.data;
       if (redeemPoints > 0) {
@@ -491,7 +561,10 @@ export function PosPage() {
         if (!hasOpenShift) {
           throw new Error('Open a cashier shift before taking cash');
         }
-        const cashResult = await paymentsApi.payCash(order.id, partialCashAmount);
+        const cashResult = await paymentsApi.payCash(
+          order.id,
+          input.partial ? partialCashAmount : undefined,
+        );
         if (cashResult.remaining != null && cashResult.remaining > 0) {
           setUnpaidOrder({ id: order.id, orderNumber: order.orderNumber });
           setPartialCashAmount(undefined);
@@ -506,7 +579,7 @@ export function PosPage() {
 
       const bal = await paymentsApi.getBalance(order.id);
       const payAmount =
-        partialCashAmount != null && partialCashAmount > 0
+        input.partial && partialCashAmount != null && partialCashAmount > 0
           ? Math.min(partialCashAmount, bal.remaining)
           : undefined;
       const intent = await paymentsApi.createIntent(order.id, payAmount);
@@ -579,7 +652,16 @@ export function PosPage() {
       const key = generateIdempotencyKey();
       let order;
       try {
-        order = await posApi.quickOrder({ outletId, items, autoConfirm: false }, key);
+        order = await posApi.quickOrder(
+          {
+            outletId,
+            items,
+            autoConfirm: false,
+            type: orderType,
+            tableId: tableId || undefined,
+          },
+          key,
+        );
         order = await posApi.holdOrder(order.id);
       } catch (err) {
         if (!isRouteMissing(err)) throw err;
@@ -685,7 +767,6 @@ export function PosPage() {
         removeHeld(held.id);
         setUnpaidOrder({ id: held.id, orderNumber: held.orderNumber });
         setHeldPanelOpen(false);
-        setMobileView('cart');
         setStatusMessage(`Resumed ${held.orderNumber} — take payment`);
       } catch (err) {
         setStatusMessage(err instanceof Error ? err.message : 'Resume failed');
@@ -694,7 +775,122 @@ export function PosPage() {
     [lines.length, removeHeld, unpaidOrder],
   );
 
-  const handleCash = useCallback(() => {
+  const handleCash = useCallback((tenderRupees?: number) => {
+    if (!hasOpenShift) {
+      setStatusMessage('Open a cashier shift before taking cash');
+      return;
+    }
+    const snapshot = useCartStore.getState().lines;
+    if (snapshot.length === 0) {
+      if (unpaidOrder && !checkoutMutation.isPending) {
+        checkoutMutation.mutate({
+          tender: 'cash',
+          orderId: unpaidOrder.id,
+          orderNumber: unpaidOrder.orderNumber,
+        });
+      }
+      return;
+    }
+    if (!outletId) return;
+    if (orderType === 'delivery' && !deliveryAddress.trim()) {
+      setStatusMessage('Add a delivery address, or switch the order type');
+      return;
+    }
+
+    const dueRupees = payable.duePaise / 100;
+    const tender =
+      tenderRupees != null && tenderRupees + 0.001 >= dueRupees ? tenderRupees : dueRupees;
+    const change = changeDue(tender, dueRupees);
+    const idempotencyKey = generateIdempotencyKey();
+    const coupon = couponCode.trim();
+    const discount = manualDiscount;
+    const points = redeemPoints;
+    const customer = linkedCustomer;
+    const address = deliveryAddress.trim();
+    const pincode = deliveryPincode.trim();
+    const payload = {
+      outletId,
+      items: toOrderItems(snapshot),
+      autoConfirm: true,
+      type: orderType,
+      tableId: tableId || undefined,
+      customerId: customer?.id,
+      customerName: customerName || customer?.name || undefined,
+      tipAmount: tipAmount || undefined,
+      notes: counterMode ? `Counter order · ${COUNTER_ORDER_LABELS[orderType]}` : undefined,
+      ...(orderType === 'delivery'
+        ? { deliveryAddress: address || undefined, deliveryPincode: pincode || undefined }
+        : {}),
+      couponCode: coupon || undefined,
+      discountAmount: discount > 0 ? discount : undefined,
+    };
+
+    useCartStore.getState().clear();
+    resetCustomer();
+    setCouponCode('');
+    setManualDiscount(0);
+    setPartialCashAmount(undefined);
+    idempotencyKeyRef.current = null;
+    const changeLabel = change > 0 ? ` · change ₹${formatRupeeChip(change)}` : '';
+    setStatusMessage(`Placed · cash ₹${formatRupeeChip(tender)}${changeLabel}`);
+    setSyncNote('');
+
+    const job = async () => {
+      const order = await syncWithRetry(async () => {
+        if (points > 0 && customer) {
+          const created = await posApi.quickOrder(
+            { ...payload, couponCode: undefined, discountAmount: undefined },
+            idempotencyKey,
+          );
+          await loyaltyApi.redeem(customer.id, points, created.id);
+          if (discount > 0 || coupon) {
+            await ordersApi.applyDiscount(created.id, {
+              couponCode: coupon || undefined,
+              discountAmount: discount > 0 ? discount : undefined,
+              reason: discount > 0 ? 'POS manual discount' : undefined,
+            });
+          }
+          await paymentsApi.payCash(created.id);
+          return created;
+        }
+        return posApi.quickOrder({ ...payload, settleCash: true }, idempotencyKey);
+      });
+      failedCash.current = null;
+      setSyncNote('');
+      finishPaid(order, change > 0 ? `Cash · change ₹${formatRupeeChip(change)}` : 'Cash', {
+        fromCart: false,
+        printKot: true,
+      });
+    };
+
+    failedCash.current = job;
+    void job().catch((err) => {
+      const message = err instanceof Error ? err.message : 'Order not synced';
+      setSyncNote(message);
+      setStatusMessage(`Not synced · ${message}`);
+    });
+  }, [
+    hasOpenShift,
+    unpaidOrder,
+    checkoutMutation,
+    outletId,
+    orderType,
+    deliveryAddress,
+    payable.duePaise,
+    couponCode,
+    manualDiscount,
+    redeemPoints,
+    linkedCustomer,
+    deliveryPincode,
+    customerName,
+    tipAmount,
+    tableId,
+    counterMode,
+    resetCustomer,
+    finishPaid,
+  ]);
+
+  const handlePartialCash = useCallback(() => {
     if (!hasOpenShift) {
       setStatusMessage('Open a cashier shift before taking cash');
       return;
@@ -702,7 +898,8 @@ export function PosPage() {
     if (!checkoutMutation.isPending && (lines.length > 0 || unpaidOrder)) {
       checkoutMutation.mutate({
         tender: 'cash',
-        ...(unpaidOrder
+        partial: true,
+        ...(unpaidOrder && lines.length === 0
           ? { orderId: unpaidOrder.id, orderNumber: unpaidOrder.orderNumber }
           : {}),
       });
@@ -739,7 +936,7 @@ export function PosPage() {
 
       if (isInput && e.key !== 'Escape') return;
 
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.repeat) {
         e.preventDefault();
         handleCash();
       } else if (e.key.toLowerCase() === 'h') {
@@ -767,28 +964,58 @@ export function PosPage() {
     navigate('/login');
   }
 
-  function handleAddItem(item: { id: string; name: string; price: number }) {
-    const full = menuQuery.data?.items.find((i) => i.id === item.id);
-    if (full && itemNeedsOptions(full)) {
-      setOptionsItem(full);
-      return;
-    }
-    addItem(item);
-    setRecentIds(pushRecentId(item.id));
-    setStatusMessage(`Added ${item.name}`);
-  }
-
-  function handleOptionsConfirm(selection: ItemOptionsSelection) {
+  function rememberAndAdd(item: OutletMenuItem, selection: {
+    menuItemId: string;
+    name: string;
+    unitPrice: number;
+    variantId?: string;
+    modifiers: Array<{ modifierId: string; name: string; price: number }>;
+  }) {
+    saveItemChoice(item.id, choiceFromSelection({ ...selection, menuItemId: item.id }));
     addItem({
-      id: selection.menuItemId,
+      id: item.id,
       name: selection.name,
       price: selection.unitPrice,
       variantId: selection.variantId,
       modifiers: selection.modifiers,
     });
-    setOptionsItem(null);
-    setRecentIds(pushRecentId(selection.menuItemId));
+    setRecentIds(pushRecentId(item.id));
     setStatusMessage(`Added ${selection.name}`);
+  }
+
+  function handleAddItem(item: { id: string; name: string; price: number }) {
+    const full = menuQuery.data?.items.find((i) => i.id === item.id);
+    if (!full || !full.isAvailable) return;
+    const tap = resolveItemTap(full, loadItemChoice(full.id));
+    if (tap.needsModal) {
+      const remembered = loadItemChoice(full.id);
+      setOptionsInitial(remembered);
+      setOptionsItem(full);
+      return;
+    }
+    rememberAndAdd(full, tap.selection);
+  }
+
+  function handleCustomize(item: GridItem) {
+    const full = menuQuery.data?.items.find((i) => i.id === item.id);
+    if (!full?.isAvailable) return;
+    setOptionsInitial(loadItemChoice(full.id));
+    setOptionsItem(full);
+  }
+
+  function handleOptionsConfirm(selection: ItemOptionsSelection) {
+    const full = menuQuery.data?.items.find((i) => i.id === selection.menuItemId);
+    if (full) {
+      rememberAndAdd(full, {
+        menuItemId: selection.menuItemId,
+        name: selection.name,
+        unitPrice: selection.unitPrice,
+        variantId: selection.variantId,
+        modifiers: selection.modifiers,
+      });
+    }
+    setOptionsItem(null);
+    setOptionsInitial(null);
   }
 
   const emptyMenu = !menuQuery.isLoading && (menuQuery.data?.items?.length ?? 0) === 0;
@@ -817,6 +1044,22 @@ export function PosPage() {
           <div className="hidden lg:block">
             <KeyboardHints />
           </div>
+          <button
+            type="button"
+            aria-pressed={showPhotos}
+            onClick={() => {
+              const next = !showPhotos;
+              setShowPhotos(next);
+              saveShowPhotos(next);
+            }}
+            className={`h-9 shrink-0 rounded-xl border px-2.5 text-xs font-semibold sm:h-10 sm:px-3 sm:text-sm ${
+              showPhotos
+                ? 'border-brand-primary bg-brand-primary/15 text-brand-primary'
+                : 'border-line text-text-secondary'
+            }`}
+          >
+            {showPhotos ? 'Photos' : 'Compact'}
+          </button>
           <select
             value={outletId ?? ''}
             onChange={(e) => setSelectedOutlet(e.target.value || null)}
@@ -888,9 +1131,28 @@ export function PosPage() {
         </div>
       ) : null}
 
-      {statusMessage ? (
-        <div className="animate-[fadeIn_0.2s_ease] bg-brand-primary/15 px-4 py-2 text-center text-sm font-medium text-brand-primary">
-          {statusMessage}
+      {statusMessage || syncNote ? (
+        <div className="flex items-center justify-center gap-3 bg-brand-primary/15 px-4 py-2 text-center text-sm font-medium text-brand-primary">
+          <span>{statusMessage || syncNote}</span>
+          {syncNote ? (
+            <button
+              type="button"
+              onClick={() => {
+                const retry = failedCash.current;
+                if (!retry) return;
+                setSyncNote('');
+                setStatusMessage('Syncing order…');
+                void retry().catch((err) => {
+                  const message = err instanceof Error ? err.message : 'Order not synced';
+                  setSyncNote(message);
+                  setStatusMessage(`Not synced · ${message}`);
+                });
+              }}
+              className="rounded-lg border border-brand-primary px-3 py-1 text-xs font-semibold"
+            >
+              Retry
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -923,12 +1185,8 @@ export function PosPage() {
         </div>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <main
-          className={`${
-            mobileView === 'cart' ? 'hidden lg:flex' : 'flex'
-          } min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4`}
-        >
+      <div className="flex min-h-0 flex-1 flex-row">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4">
           {menuQuery.isLoading ? (
             <div className="flex flex-1 items-center justify-center text-text-muted">
               Loading menu…
@@ -967,45 +1225,31 @@ export function PosPage() {
               ) : null}
               <div className="min-h-0 flex-1 overflow-y-auto">
                 <ItemGrid
-                  items={filteredItems}
+                  items={filteredItems.map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    price: item.price,
+                    regularPrice: item.regularPrice,
+                    isAvailable: item.isAvailable,
+                    imageUrl: item.imageUrl,
+                    isVeg: item.isVeg,
+                    categoryId: item.categoryId,
+                    customizable: itemHasChoices(item),
+                  }))}
                   quantities={quantities}
+                  showPhotos={showPhotos}
                   onAdd={handleAddItem}
+                  onCustomize={handleCustomize}
                 />
               </div>
             </>
           )}
         </main>
 
-        {mobileView === 'menu' && (cartItemCount > 0 || unpaidOrder) ? (
-          <div className="shrink-0 border-t border-line-subtle bg-bg-secondary px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">
-            <button
-              type="button"
-              onClick={() => setMobileView('cart')}
-              className="flex h-12 w-full items-center justify-between gap-3 rounded-xl bg-brand-primary px-4 text-on-brand shadow-lg active:scale-[0.99]"
-            >
-              <span className="flex items-center gap-2 text-sm font-semibold">
-                <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-bg-primary/20 px-2 font-mono">
-                  {cartItemCount}
-                </span>
-                {cartItemCount === 1 ? 'item' : 'items'}
-              </span>
-              <span className="flex items-center gap-2 text-sm font-bold">
-                {unpaidOrder && cartItemCount === 0 ? 'Pending payment' : formatMoney(subtotal())}
-                <span aria-hidden="true">→</span>
-                <span>View cart</span>
-              </span>
-            </button>
-          </div>
-        ) : null}
-
-        <div
-          className={`${
-            mobileView === 'menu' ? 'hidden lg:flex' : 'flex'
-          } min-h-0 w-full flex-1 flex-col lg:h-full lg:w-[26rem] lg:flex-none`}
-        >
+        <div className="flex min-h-0 w-[min(46vw,26rem)] min-w-[15.5rem] shrink-0 flex-col">
           <CartSidebar
-            onBack={() => setMobileView('menu')}
             onCash={handleCash}
+            onPartialCash={handlePartialCash}
             onOnline={handleOnline}
             cashDisabled={!hasOpenShift}
             onlineDisabledReason={onlineDisabledReason}
@@ -1076,6 +1320,14 @@ export function PosPage() {
             onManualDiscountChange={setManualDiscount}
             partialCashAmount={partialCashAmount}
             onPartialCashAmountChange={setPartialCashAmount}
+            duePaise={payable.duePaise}
+            taxPaise={payable.taxPaise}
+            tables={(tablesQuery.data ?? []).map((table) => ({ id: table.id, name: table.name }))}
+            tableId={tableId}
+            onTableIdChange={(id) => {
+              setTableId(id);
+              if (outletId) saveTableId(outletId, id);
+            }}
             rewards={affordableRewards}
             onRedeemReward={(id) => redeemRewardMutation.mutate(id)}
             redeemRewardLoading={redeemRewardMutation.isPending}
@@ -1094,7 +1346,11 @@ export function PosPage() {
       </div>
       <ItemOptionsDialog
         item={optionsItem}
-        onClose={() => setOptionsItem(null)}
+        initial={optionsInitial}
+        onClose={() => {
+          setOptionsItem(null);
+          setOptionsInitial(null);
+        }}
         onConfirm={handleOptionsConfirm}
         formatMoney={formatMoney}
       />

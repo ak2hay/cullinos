@@ -13,10 +13,24 @@ import {
   bestHappyHourPrice,
   loadActiveHappyHourRules,
 } from "../../common/happy-hour.util";
+import { pickDefaultTaxGroup } from "../orders/order-tax.util";
 import { MarketingUploadService } from "../marketing/marketing-upload.service";
 import { normalizeProductType } from "./product-types";
 
 const MAX_SPECIALS_PER_ORG = 5;
+
+/** Cache-bust replaced photos without changing the stored object key. */
+function versionedAssetUrl(url: string | null, updatedAt: unknown): string | null {
+  if (!url) return null;
+  const time =
+    updatedAt instanceof Date
+      ? updatedAt.getTime()
+      : typeof updatedAt === "string"
+        ? Date.parse(updatedAt)
+        : NaN;
+  if (!Number.isFinite(time)) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}v=${time}`;
+}
 
 type VariantInput = {
   name: string;
@@ -941,21 +955,36 @@ export class MenuService {
     return true;
   }
 
-  async getOutletMenu(orgId: string, outletId: string) {
+  async getOutletMenu(
+    orgId: string,
+    outletId: string,
+    options?: { includeUnavailable?: boolean },
+  ) {
     const outlet = await this.prisma.outlet.findFirst({
       where: { id: outletId, organizationId: orgId },
     });
     if (!outlet) throw new NotFoundException("Outlet not found");
 
-    const org = await this.prisma.organization.findUnique({
-      where: { id: orgId },
-      select: { businessType: true, settings: { select: { settings: true } } },
-    });
+    const [org, activeSchedules, taxGroups] = await Promise.all([
+      this.prisma.organization.findUnique({
+        where: { id: orgId },
+        select: { businessType: true, settings: { select: { settings: true } } },
+      }),
+      this.prisma.menuSchedule.findMany({
+        where: { organizationId: orgId, isActive: true },
+      }),
+      this.prisma.taxGroup.findMany({
+        where: { organizationId: orgId },
+        include: { rates: true },
+      }),
+    ]);
     const servesAlcohol = orgServesAlcohol(org?.businessType, org?.settings?.settings);
-
-    const activeSchedules = await this.prisma.menuSchedule.findMany({
-      where: { organizationId: orgId, isActive: true },
-    });
+    const settingsJson = (org?.settings?.settings ?? {}) as Record<string, unknown>;
+    const defaultTaxGroup = pickDefaultTaxGroup(
+      taxGroups,
+      typeof settingsJson.defaultTaxGroupId === "string" ? settingsJson.defaultTaxGroupId : null,
+    );
+    const taxGroupById = new Map(taxGroups.map((group) => [group.id, group]));
 
     const now = new Date();
     const dayOfWeek = now.getDay();
@@ -968,42 +997,44 @@ export class MenuService {
         s.endTime >= timeStr,
     );
 
-    const categories = await this.prisma.menuCategory.findMany({
-      where: {
-        organizationId: orgId,
-        isActive: true,
-        ...(activeSchedule?.categoryIds.length
-          ? { id: { in: activeSchedule.categoryIds } }
-          : {}),
-      },
-      orderBy: { sortOrder: "asc" },
-    });
-
-    const items = await this.prisma.menuItem.findMany({
-      where: {
-        organizationId: orgId,
-        isActive: true,
-        onlineAvailable: true,
-        ...(activeSchedule?.categoryIds.length
-          ? { categoryId: { in: activeSchedule.categoryIds } }
-          : {}),
-      },
-      include: {
-        variants: { orderBy: { sortOrder: "asc" } },
-        modifierGroups: {
-          include: {
-            modifierGroup: {
-              include: { modifiers: { orderBy: { sortOrder: "asc" } } },
+    const categoryWhere = {
+      organizationId: orgId,
+      isActive: true,
+      ...(activeSchedule?.categoryIds.length
+        ? { id: { in: activeSchedule.categoryIds } }
+        : {}),
+    };
+    const itemWhere = {
+      organizationId: orgId,
+      isActive: true,
+      onlineAvailable: true,
+      ...(activeSchedule?.categoryIds.length
+        ? { categoryId: { in: activeSchedule.categoryIds } }
+        : {}),
+    };
+    const [categories, items, happyHourRules] = await Promise.all([
+      this.prisma.menuCategory.findMany({
+        where: categoryWhere,
+        orderBy: { sortOrder: "asc" },
+      }),
+      this.prisma.menuItem.findMany({
+        where: itemWhere,
+        include: {
+          variants: { orderBy: { sortOrder: "asc" } },
+          modifierGroups: {
+            include: {
+              modifierGroup: {
+                include: { modifiers: { orderBy: { sortOrder: "asc" } } },
+              },
             },
           },
+          outletPrices: { where: { outletId, priceType: "retail" } },
+          recipe: true,
         },
-        outletPrices: { where: { outletId, priceType: "retail" } },
-        recipe: true,
-      },
-      orderBy: { sortOrder: "asc" },
-    });
-
-    const happyHourRules = await loadActiveHappyHourRules(this.prisma, orgId, outletId);
+        orderBy: { sortOrder: "asc" },
+      }),
+      loadActiveHappyHourRules(this.prisma, orgId, outletId),
+    ]);
 
     const mappedItems = [];
     for (const item of items) {
@@ -1011,16 +1042,19 @@ export class MenuService {
       if (isAlcohol && !servesAlcohol) continue;
 
       const outletPrice = item.outletPrices[0];
-      if (outletPrice && !outletPrice.isAvailable) continue;
-
-      if (item.stockBasedAvailability) {
-        const inStock = await this.isItemInStock(item.id);
-        if (!inStock) continue;
+      let isAvailable = !(outletPrice && !outletPrice.isAvailable);
+      if (isAvailable && item.stockBasedAvailability) {
+        isAvailable = await this.isItemInStock(item.id);
       }
+      if (!isAvailable && !options?.includeUnavailable) continue;
 
       const priceRupees = outletPrice
         ? Number(outletPrice.price)
         : Number(item.basePrice);
+      const taxGroup = item.isTaxExempt
+        ? null
+        : ((item.taxGroupId ? taxGroupById.get(item.taxGroupId) : undefined) ??
+          defaultTaxGroup);
       const ruleTarget = { menuItemId: item.id, categoryId: item.categoryId };
       const happy = bestHappyHourPrice(priceRupees, ruleTarget, happyHourRules);
       mappedItems.push({
@@ -1031,10 +1065,19 @@ export class MenuService {
         regularPrice: toPaise(priceRupees),
         happyHour: happy ? { name: happy.rule.name, endTime: happy.rule.endTime } : null,
         packagingCharge: toPaise(item.packagingCharge ?? 0),
-        isAvailable: true,
+        isAvailable,
         categoryId: item.categoryId,
-        imageUrl: normalizePublicAssetUrl(item.imageUrl),
+        imageUrl: versionedAssetUrl(
+          normalizePublicAssetUrl(item.imageUrl),
+          item.updatedAt,
+        ),
         isVeg: item.isVeg,
+        taxInclusive: Boolean(taxGroup?.isInclusive),
+        taxRates: (taxGroup?.rates ?? []).map((rate) => ({
+          name: rate.name,
+          rate: Number(rate.rate),
+          type: rate.type,
+        })),
         isSpecial: item.isSpecial,
         isAlcohol,
         allergens: item.allergens,
@@ -1046,6 +1089,7 @@ export class MenuService {
             name: v.name,
             price: toPaise(variantHappy?.price ?? variantPrice),
             regularPrice: toPaise(variantPrice),
+            isDefault: v.isDefault,
           };
         }),
         modifierGroups: item.modifierGroups.map((mg) => ({
@@ -1053,6 +1097,7 @@ export class MenuService {
           name: mg.modifierGroup.name,
           minSelect: mg.modifierGroup.minSelect,
           maxSelect: mg.modifierGroup.maxSelect,
+          isRequired: mg.modifierGroup.isRequired,
           modifiers: mg.modifierGroup.modifiers.map((m) => ({
             id: m.id,
             name: m.name,

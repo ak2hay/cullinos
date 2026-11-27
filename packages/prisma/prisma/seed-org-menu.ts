@@ -7,6 +7,7 @@
  * On the VM (via docker compose api container), DATABASE_URL is already set.
  */
 import { PrismaClient } from "@prisma/client";
+import { demoMenuImageUrl } from "./demo-menu-images";
 
 const prisma = new PrismaClient();
 
@@ -184,6 +185,7 @@ async function main() {
           taxGroupId: taxGroup.id,
           isActive: true,
           sortOrder: idx + 1,
+          ...(demoMenuImageUrl(item.slug) ? { imageUrl: demoMenuImageUrl(item.slug) } : {}),
         },
         create: {
           organizationId: org.id,
@@ -196,6 +198,7 @@ async function main() {
           allergens: item.allergens ?? [],
           taxGroupId: taxGroup.id,
           sortOrder: idx + 1,
+          ...(demoMenuImageUrl(item.slug) ? { imageUrl: demoMenuImageUrl(item.slug) } : {}),
         },
       });
 

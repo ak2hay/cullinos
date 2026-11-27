@@ -7,6 +7,7 @@ import {
 } from "@cullinos/shared";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
+import { demoMenuImageUrl } from "./demo-menu-images";
 
 const prisma = new PrismaClient();
 
@@ -803,6 +804,7 @@ async function seedMenuCatalog(
           taxGroupId,
           isActive: true,
           sortOrder: idx + 1,
+          ...(demoMenuImageUrl(item.slug) ? { imageUrl: demoMenuImageUrl(item.slug) } : {}),
         },
         create: {
           organizationId: orgId,
@@ -815,6 +817,7 @@ async function seedMenuCatalog(
           allergens: item.allergens ?? [],
           taxGroupId,
           sortOrder: idx + 1,
+          ...(demoMenuImageUrl(item.slug) ? { imageUrl: demoMenuImageUrl(item.slug) } : {}),
         },
       });
 
@@ -1588,6 +1591,7 @@ async function seedSmbMenu(
           categoryId: category.id,
           isActive: true,
           sortOrder: itemIdx + 1,
+          ...(demoMenuImageUrl(item.slug) ? { imageUrl: demoMenuImageUrl(item.slug) } : {}),
         },
         create: {
           organizationId: orgId,
@@ -1597,6 +1601,7 @@ async function seedSmbMenu(
           basePrice: item.price,
           isVeg: item.isVeg ?? true,
           sortOrder: itemIdx + 1,
+          ...(demoMenuImageUrl(item.slug) ? { imageUrl: demoMenuImageUrl(item.slug) } : {}),
         },
       });
 

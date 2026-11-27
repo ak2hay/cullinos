@@ -3,19 +3,21 @@ import { CurrentUser, OrgId, RequireModule } from "../../common/decorators";
 import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import type { JwtPayload } from "@cullinos/auth";
 import { OrdersService } from "../orders/orders.service";
+import { PaymentsService } from "../payments/payments.service";
 import { PosShiftsService } from "./pos-shifts.service";
 
 @Controller("pos")
 export class PosController {
   constructor(
     private ordersService: OrdersService,
+    private payments: PaymentsService,
     private shifts: PosShiftsService,
   ) {}
 
   @Post("quick-order")
   @RequireModule("pos")
   @RequirePermissions("pos:access")
-  quickOrder(
+  async quickOrder(
     @OrgId() orgId: string,
     @CurrentUser() user: JwtPayload,
     @Body() body: Record<string, unknown>,
@@ -25,7 +27,17 @@ export class PosController {
       (typeof body.idempotencyKey === "string" && body.idempotencyKey.trim()) ||
       idempotencyHeader?.trim() ||
       undefined;
-    return this.ordersService.create(orgId, user.sub, {
+    const discountAmount =
+      typeof body.discountAmount === "number" && Number.isFinite(body.discountAmount)
+        ? body.discountAmount
+        : undefined;
+    const cashAmount =
+      typeof body.cashAmount === "number" &&
+      Number.isFinite(body.cashAmount) &&
+      body.cashAmount > 0
+        ? body.cashAmount
+        : undefined;
+    let order = await this.ordersService.create(orgId, user.sub, {
       idempotencyKey,
       outletId: body.outletId as string,
       source: (body.source as string) ?? "POS",
@@ -37,9 +49,26 @@ export class PosController {
       notes: body.notes as string | undefined,
       deliveryAddress: typeof body.deliveryAddress === "string" ? body.deliveryAddress : undefined,
       deliveryPincode: typeof body.deliveryPincode === "string" ? body.deliveryPincode : undefined,
+      couponCode: typeof body.couponCode === "string" ? body.couponCode : undefined,
       items: body.items as never,
       autoConfirm: body.autoConfirm !== false,
     });
+    // Replay of the same idempotency key returns the existing order. The discount note
+    // marks a manual discount that already landed, so a retry does not stack it.
+    const manualAlreadyApplied =
+      typeof order.notes === "string" && order.notes.includes("POS manual discount");
+    if (discountAmount && discountAmount > 0 && !manualAlreadyApplied) {
+      order = await this.ordersService.applyDiscount(orgId, order.id, {
+        discountAmount,
+        reason:
+          typeof body.discountReason === "string" && body.discountReason.trim()
+            ? body.discountReason.trim()
+            : "POS manual discount",
+      });
+    }
+    if (body.settleCash !== true) return order;
+    const payment = await this.payments.recordCash(orgId, order.id, cashAmount, user.sub);
+    return { ...order, payment };
   }
 
   @Post("orders/:id/hold")

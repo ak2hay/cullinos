@@ -20,6 +20,7 @@ export default defineConfig({
       'packages/menu-catalog/src/**/*.test.ts',
       'apps/admin/src/**/*.test.ts',
       'apps/web/src/**/*.test.ts',
+      'apps/pos/src/**/*.test.ts',
     ],
   },
 });

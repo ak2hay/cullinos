@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from "@nestjs/common";
@@ -261,8 +262,14 @@ export class MenuController {
 
   @Get("outlets/:outletId")
   @RequireModule("menu")
-  getOutletMenu(@OrgId() orgId: string, @Param("outletId") outletId: string) {
-    return this.service.getOutletMenu(orgId, outletId);
+  getOutletMenu(
+    @OrgId() orgId: string,
+    @Param("outletId") outletId: string,
+    @Query("includeUnavailable") includeUnavailable?: string,
+  ) {
+    return this.service.getOutletMenu(orgId, outletId, {
+      includeUnavailable: includeUnavailable === "1" || includeUnavailable === "true",
+    });
   }
 
   @Get("outlets/:outletId/prices")
