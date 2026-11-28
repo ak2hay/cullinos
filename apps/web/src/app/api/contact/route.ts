@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
 import { resolvePublicEmail } from '@/lib/business';
+import { formatInquiryMessage, isTelegramConfigured, sendTelegramMessage } from '@/lib/telegram';
 import { verifyTurnstileToken } from '@/lib/turnstile';
 
 interface ContactPayload {
@@ -12,6 +13,8 @@ interface ContactPayload {
   outlets?: string;
   plan?: string;
   message?: string;
+  /** Optional origin of the submission, e.g. 'account-deletion'. */
+  source?: string;
   website?: string;
   'cf-turnstile-response'?: string;
 }
@@ -102,22 +105,58 @@ export async function POST(request: Request) {
       console.error('[contact] Failed to persist inquiry:', err);
     }
 
-    if (!apiKey) {
+    const telegramConfigured = isTelegramConfigured();
+
+    if (!apiKey && !telegramConfigured) {
       console.log('[contact] RESEND_API_KEY not set. Submission logged:\n', text);
       return NextResponse.json({ ok: true, mode: 'logged' });
     }
 
-    const resend = new Resend(apiKey);
-    const result = await resend.emails.send({
-      from: `Cullinos Website <${fromEmail}>`,
-      to: [toEmail],
-      replyTo: email,
-      subject: `Cullinos inquiry from ${business}`,
-      text,
-    });
+    const sendEmail = async (): Promise<boolean> => {
+      if (!apiKey) return false;
+      const resend = new Resend(apiKey);
+      const result = await resend.emails.send({
+        from: `Cullinos Website <${fromEmail}>`,
+        to: [toEmail],
+        replyTo: email,
+        subject: `Cullinos inquiry from ${business}`,
+        text,
+      });
+      if (result.error) {
+        console.error('[contact] Resend error:', result.error);
+        return false;
+      }
+      return true;
+    };
 
-    if (result.error) {
-      console.error('[contact] Resend error:', result.error);
+    const sendTelegram = async (): Promise<boolean> => {
+      if (!telegramConfigured) return false;
+      return sendTelegramMessage(
+        formatInquiryMessage({
+          source: body.source,
+          name,
+          business,
+          email,
+          phone: body.phone,
+          city: body.city,
+          outlets: body.outlets,
+          plan: body.plan,
+          message,
+        }),
+      );
+    };
+
+    // Email and Telegram are independent: one failing must not block the other.
+    const [emailResult, telegramResult] = await Promise.allSettled([sendEmail(), sendTelegram()]);
+    const emailDelivered = emailResult.status === 'fulfilled' && emailResult.value;
+    const telegramDelivered = telegramResult.status === 'fulfilled' && telegramResult.value;
+    if (emailResult.status === 'rejected') {
+      console.error('[contact] Email send threw:', emailResult.reason);
+    }
+
+    // Fail only when email is configured and failed and Telegram did not deliver either.
+    // (Telegram alone failing is non-fatal: the inquiry is still saved via the API above.)
+    if (apiKey && !emailDelivered && !telegramDelivered) {
       return NextResponse.json({ error: 'Failed to send message.' }, { status: 500 });
     }
 

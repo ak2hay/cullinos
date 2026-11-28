@@ -1,17 +1,34 @@
-import { whatsappHref } from '@/lib/business';
+'use client';
 
-export function WhatsAppFloat() {
+import { usePathname } from 'next/navigation';
+import { WhatsAppIcon } from '@/components/marketing/ContactIcons';
+import { BUSINESS_NAP, BUSINESS_WHATSAPP_HREF } from '@/lib/business';
+
+/** Paths where the mobile sticky CTA bar is hidden, so the floating button covers mobile there. */
+const NO_STICKY_BAR_PATHS = new Set(['/contact', '/thank-you']);
+
+export function WhatsAppFloat({ cookieBannerOpen }: { cookieBannerOpen?: boolean }) {
+  const pathname = usePathname();
+
+  if (cookieBannerOpen) return null;
+
+  const showOnMobile = NO_STICKY_BAR_PATHS.has(pathname);
+
   return (
     <a
-      href={whatsappHref()}
+      href={BUSINESS_WHATSAPP_HREF}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label="Chat with Cullinos on WhatsApp"
-      className="fixed right-4 bottom-36 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#128C7E] text-white shadow-soft md:bottom-6"
+      aria-label={`Chat with ${BUSINESS_NAP.brand} on WhatsApp`}
+      title="Chat on WhatsApp"
+      className={`group fixed bottom-6 right-4 z-50 items-center gap-2 rounded-full bg-[#25D366] p-3.5 text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-[#1ebe5b] hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#25D366] sm:right-6 ${
+        showOnMobile ? 'flex' : 'hidden md:flex'
+      }`}
     >
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-7 w-7 fill-current">
-        <path d="M20.5 3.5A11 11 0 0 0 2.1 17.2L1 23l6-1.6A11 11 0 0 0 20.5 3.5zm-8.5 17a9.1 9.1 0 0 1-4.6-1.3l-.3-.2-3.6.9.9-3.5-.2-.3A9.1 9.1 0 1 1 12 20.5zm5-6.8c-.3-.1-1.6-.8-1.8-.9s-.4-.1-.6.1-.7.9-.8 1-.3.2-.6.1a7.4 7.4 0 0 1-2.2-1.4 8.2 8.2 0 0 1-1.5-1.9c-.2-.3 0-.4.1-.6l.4-.5.2-.3a.5.5 0 0 0 0-.5c-.1-.1-.6-1.4-.8-1.9s-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 11.8 11.8 0 0 0 4.5 4 15 15 0 0 0 1.5.6 3.6 3.6 0 0 0 1.7.1 2.7 2.7 0 0 0 1.8-1.2 2.2 2.2 0 0 0 .2-1.2c-.1-.1-.3-.2-.6-.3z" />
-      </svg>
+      <WhatsAppIcon className="h-7 w-7" />
+      <span className="max-w-0 overflow-hidden whitespace-nowrap text-sm font-medium opacity-0 transition-all duration-300 group-hover:max-w-[8rem] group-hover:pr-1.5 group-hover:opacity-100 group-focus-visible:max-w-[8rem] group-focus-visible:pr-1.5 group-focus-visible:opacity-100">
+        Chat with us
+      </span>
     </a>
   );
 }

@@ -87,6 +87,7 @@ export function AccountDeletionForm() {
           email,
           phone,
           plan: 'Account deletion',
+          source: 'account-deletion',
           message,
           website: String(data.get('website') ?? ''),
           'cf-turnstile-response': turnstileToken,

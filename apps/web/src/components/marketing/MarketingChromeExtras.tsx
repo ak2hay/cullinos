@@ -12,8 +12,8 @@ export function MarketingChromeExtras() {
 
   return (
     <>
-      <WhatsAppFloat />
       <StickyMobileCta cookieBannerOpen={cookieBannerOpen !== false} />
+      <WhatsAppFloat cookieBannerOpen={cookieBannerOpen !== false} />
       <CookieBanner onOpenChange={onOpenChange} />
     </>
   );

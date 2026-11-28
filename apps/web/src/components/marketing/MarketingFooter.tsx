@@ -3,8 +3,16 @@
 import Link from 'next/link';
 import { CULLINOS_BRAND } from '@cullinos/shared';
 import { useMemo, useState } from 'react';
+import { MailIcon, PhoneIcon, WhatsAppIcon } from '@/components/marketing/ContactIcons';
 import { useMarketingCms } from '@/components/marketing/MarketingCmsProvider';
-import { BUSINESS_ADDRESS_LINE, BUSINESS_NAP, MAPS_EMBED_QUERY, resolvePublicEmail } from '@/lib/business';
+import {
+  BUSINESS_ADDRESS_LINE,
+  BUSINESS_NAP,
+  BUSINESS_TEL_HREF,
+  BUSINESS_WHATSAPP_HREF,
+  MAPS_EMBED_QUERY,
+  resolvePublicEmail,
+} from '@/lib/business';
 
 const fallbackColumns = [
   {
@@ -36,6 +44,8 @@ const fallbackColumns = [
       { href: '/contact', label: 'Get in touch' },
       { href: '/faq', label: 'FAQ' },
       { href: '/about', label: 'About us' },
+      { href: BUSINESS_TEL_HREF, label: `Call ${BUSINESS_NAP.telephone}` },
+      { href: BUSINESS_WHATSAPP_HREF, label: `WhatsApp ${BUSINESS_NAP.whatsapp}` },
       { href: `mailto:${BUSINESS_NAP.email}`, label: BUSINESS_NAP.email },
     ],
   },
@@ -48,6 +58,9 @@ const guideLinks = [
 ];
 
 const socialLinks = [{ label: 'Instagram', href: 'https://www.instagram.com/cullinos/', icon: 'ig' }];
+
+const socialIconClass =
+  'flex h-10 w-10 items-center justify-center rounded-full border border-border-light bg-bg-card text-[10px] font-semibold uppercase text-text-secondary transition hover:border-brand-gold hover:bg-brand-gold hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-gold';
 
 export function MarketingFooter() {
   const cms = useMarketingCms();
@@ -85,7 +98,7 @@ export function MarketingFooter() {
 
   return (
     <footer className="border-t border-border-light bg-bg-secondary">
-      <div className="mx-auto max-w-7xl px-6 py-14 lg:px-10">
+      <div className="mx-auto max-w-7xl px-6 pb-28 pt-14 lg:px-10">
         <div className="grid gap-10 lg:grid-cols-[1fr_1fr_1fr_1.2fr]">
           {columns.map((col) => (
             <div key={col.title}>
@@ -95,7 +108,10 @@ export function MarketingFooter() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="group relative inline-block text-sm text-text-secondary transition hover:text-text-primary"
+                      className="group relative inline-block rounded-sm text-sm text-text-secondary transition hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-gold"
+                      {...(link.href.startsWith('https://wa.me')
+                        ? { target: '_blank', rel: 'noopener noreferrer' }
+                        : {})}
                     >
                       {link.label}
                       <span className="absolute -bottom-0.5 left-0 h-px w-0 bg-brand-gold transition-all duration-300 group-hover:w-full" />
@@ -125,29 +141,53 @@ export function MarketingFooter() {
                 <span>{BUSINESS_ADDRESS_LINE}</span>
               </button>
             )}
-            <p className="border-t border-border-light px-4 py-3 text-xs text-text-muted">
-              {BUSINESS_NAP.legalName} · {BUSINESS_ADDRESS_LINE}
-              {BUSINESS_NAP.telephone ? (
-                <>
-                  {' · '}
-                  <a
-                    href={`tel:${BUSINESS_NAP.telephone.replace(/\s/g, '')}`}
-                    className="text-brand-gold hover:underline"
-                  >
+            <div className="space-y-2 border-t border-border-light px-4 py-3 text-xs text-text-muted">
+              <p className="font-medium text-text-secondary">
+                {BUSINESS_NAP.legalName} · {BUSINESS_ADDRESS_LINE}
+              </p>
+              <ul className="space-y-1.5">
+                <li>
+                  <a href={BUSINESS_TEL_HREF} className="inline-flex items-center gap-2 text-brand-gold hover:underline">
+                    <PhoneIcon className="h-3.5 w-3.5" />
                     {BUSINESS_NAP.telephone}
                   </a>
-                </>
-              ) : null}
-              {' · '}
-              <a href={`mailto:${contactEmail}`} className="text-brand-gold hover:underline">
-                {contactEmail}
-              </a>
-            </p>
+                </li>
+                <li>
+                  <a
+                    href={BUSINESS_WHATSAPP_HREF}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-brand-gold hover:underline"
+                  >
+                    <WhatsAppIcon className="h-3.5 w-3.5" />
+                    {BUSINESS_NAP.whatsapp}
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`mailto:${contactEmail}`}
+                    className="inline-flex items-center gap-2 text-brand-gold hover:underline"
+                  >
+                    <MailIcon className="h-3.5 w-3.5" />
+                    {contactEmail}
+                  </a>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
 
         <div className="mt-12 flex flex-col items-start justify-between gap-6 border-t border-border-light pt-8 sm:flex-row sm:items-center">
           <div className="flex items-center gap-3">
+            <a
+              href={BUSINESS_WHATSAPP_HREF}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Chat with us on WhatsApp"
+              className={`${socialIconClass} hover:!border-[#25D366] hover:!bg-[#25D366]`}
+            >
+              <WhatsAppIcon className="h-5 w-5" />
+            </a>
             {socialLinks.map((social) => (
               <a
                 key={social.label}
@@ -155,7 +195,7 @@ export function MarketingFooter() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={social.label}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-border-light bg-bg-card text-[10px] font-semibold uppercase text-text-secondary transition hover:border-brand-gold hover:bg-brand-gold hover:text-white"
+                className={socialIconClass}
               >
                 {social.icon}
               </a>

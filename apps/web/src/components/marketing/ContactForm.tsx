@@ -90,11 +90,24 @@ export function ContactForm() {
       <input type="text" name="website" className="hidden" tabIndex={-1} autoComplete="off" aria-hidden />
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Name" name="name" required error={fieldErrors.name} />
-        <Field label="Restaurant / Business" name="business" required error={fieldErrors.business} />
-        <Field label="Email" name="email" type="email" required error={fieldErrors.email} />
+        <Field label="Name" name="name" required autoComplete="name" error={fieldErrors.name} />
+        <Field
+          label="Restaurant / Business"
+          name="business"
+          required
+          autoComplete="organization"
+          error={fieldErrors.business}
+        />
+        <Field
+          label="Email"
+          name="email"
+          type="email"
+          required
+          autoComplete="email"
+          error={fieldErrors.email}
+        />
         <PhoneField label="Phone" value={phone} onChange={setPhone} />
-        <Field label="City" name="city" />
+        <Field label="City" name="city" autoComplete="address-level2" />
         <Field label="Number of outlets" name="outlets" type="number" min={1} />
       </div>
 
@@ -146,7 +159,24 @@ export function ContactForm() {
 
       {status === 'error' && error && <p className="text-sm text-status-error">{error}</p>}
 
-      <button type="submit" disabled={status === 'loading'} className="btn-pill-filled btn-pill disabled:opacity-60">
+      {status === 'error' && !error && Object.keys(fieldErrors).length > 0 && (
+        <p role="alert" className="text-sm text-status-error">
+          Please fix the highlighted fields and try again.
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={status === 'loading'}
+        aria-busy={status === 'loading'}
+        className="btn-pill-filled btn-pill gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {status === 'loading' && (
+          <span
+            aria-hidden="true"
+            className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+          />
+        )}
         {status === 'loading' ? 'Sending…' : 'Send message'}
       </button>
     </form>
@@ -159,6 +189,7 @@ function Field({
   type = 'text',
   required,
   min,
+  autoComplete,
   error,
 }: {
   label: string;
@@ -166,6 +197,7 @@ function Field({
   type?: string;
   required?: boolean;
   min?: number;
+  autoComplete?: string;
   error?: string;
 }) {
   return (
@@ -179,6 +211,7 @@ function Field({
         type={type}
         required={required}
         min={min}
+        autoComplete={autoComplete}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${name}-error` : undefined}
         className={error ? inputErrorClass : inputClass}
